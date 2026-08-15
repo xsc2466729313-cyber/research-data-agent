@@ -79,6 +79,10 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "API · 开发者入口" in response.text
     assert "发送 API 请求" in response.text
     assert "复制 cURL" in response.text
+    assert "连接千问 API" in response.text
+    assert "从百炼凭据 CSV 导入" in response.text
+    assert "测试连接并启用" in response.text
+    assert "最长 2 小时" in response.text
     assert "本次实际清洗动作" in response.text
     assert "系统评测指标" in response.text
     assert "下载 CSV" in response.text
@@ -103,6 +107,9 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "sendApiConsoleRequest" in script
     assert "buildCurlCommand" in script
     assert "validateApiPath" in script
+    assert "connectQwenSession" in script
+    assert "importQwenCredentialCsv" in script
+    assert "qwen_session_id" in script
     assert "data-source-db" in script
     assert "TYPE_TRANSLATIONS" in script
 
@@ -120,7 +127,7 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
 
     qwen_bootstrap = (ROOT / "scripts" / "docker_up_qwen.ps1").read_text(encoding="utf-8")
     assert "$valueColumns" in qwen_bootstrap
-    assert "6298992" not in qwen_bootstrap
+    assert "默认业务空间-apiKey-" not in qwen_bootstrap
     assert "DASHSCOPE_API_KEY" in qwen_bootstrap
 
 

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="千问驱动的乳腺癌科研数据智能体：从科研问题、真实数据库工具调用到可阅读、可追溯的科研数据集。" />
     <title>千问乳腺癌科研数据智能体</title>
-    <link rel="stylesheet" href="/styles.css?v=20260815-5" />
+    <link rel="stylesheet" href="/styles.css?v=20260815-6" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">跳到主要内容</a>
@@ -55,9 +55,15 @@
           <strong id="configuration-title">正在检查千问配置</strong>
           <p id="configuration-message">正在读取模型名称、业务空间地址和函数调用状态。</p>
         </div>
-        <div class="configuration-facts">
-          <span>模型 <strong id="configuration-model">—</strong></span>
-          <span>凭据落盘 <strong>否</strong></span>
+        <div class="configuration-side">
+          <div class="configuration-facts">
+            <span>模型 <strong id="configuration-model">—</strong></span>
+            <span>凭据落盘 <strong>否</strong></span>
+          </div>
+          <div class="button-group configuration-actions">
+            <button id="qwen-open-config" class="button button-primary" type="button">连接千问 API</button>
+            <button id="qwen-disconnect" class="button button-secondary" type="button" hidden>断开临时连接</button>
+          </div>
         </div>
       </section>
 
@@ -112,7 +118,7 @@
           <div><p class="section-kicker">API · 开发者入口</p><h2>直接调用并检查科研智能体接口</h2></div>
           <span class="step-tag">真实后端</span>
         </div>
-        <p class="section-note">选择预置接口、编辑请求 JSON 并发送；创建成功的科研任务会同步到下方可视化结果。千问 API Key 仅由服务器环境变量读取，不进入浏览器请求。</p>
+        <p class="section-note">选择预置接口、编辑请求 JSON 并发送；创建成功的科研任务会同步到下方可视化结果。科研任务只传递临时会话编号，不重复传输千问 API Key。</p>
         <div class="api-console-grid">
           <div class="api-request-panel">
             <label for="api-preset">接口预置</label>
@@ -255,6 +261,37 @@
       </div>
     </main>
 
+    <dialog id="qwen-connection-dialog" class="qwen-dialog" aria-labelledby="qwen-dialog-title">
+      <div class="raw-dialog-heading">
+        <div><p class="section-kicker">千问 API 连接</p><h2 id="qwen-dialog-title">启用你自己的千问大模型</h2></div>
+        <button id="qwen-dialog-close" type="button" aria-label="关闭千问 API 配置">×</button>
+      </div>
+      <p class="section-note">可手动填写，也可在本机读取百炼下载的凭据 CSV。CSV 文件不会上传，只有连接所需字段会通过 HTTPS 发送到当前后端。</p>
+      <form id="qwen-connection-form">
+        <label class="qwen-file-import" for="qwen-credential-file"><strong>从百炼凭据 CSV 导入</strong><span>支持包含 apiKey、openAiCompatible、workspaceId 的 id/value 表</span><input id="qwen-credential-file" type="file" accept=".csv,text/csv" /></label>
+        <div class="qwen-form-grid">
+          <label class="qwen-field qwen-field-wide">API Key
+            <input id="qwen-api-key" type="password" autocomplete="new-password" required placeholder="sk-…" />
+          </label>
+          <label class="qwen-field qwen-field-wide">OpenAI 兼容接口地址
+            <input id="qwen-base-url" type="url" required value="https://dashscope.aliyuncs.com/compatible-mode/v1" spellcheck="false" />
+          </label>
+          <label class="qwen-field">模型
+            <input id="qwen-model" type="text" required value="qwen-plus" spellcheck="false" />
+          </label>
+          <label class="qwen-field">业务空间 ID（可选）
+            <input id="qwen-workspace-id" type="text" autocomplete="off" spellcheck="false" />
+          </label>
+        </div>
+        <div class="qwen-security-note"><strong>安全方式</strong><span>后端先验证连接，再把凭据放入最长 2 小时的进程内存会话；不写入数据库、日志、缓存、任务结果或下载文件。服务重启后会话自动失效。</span></div>
+        <p id="qwen-connect-status" class="download-status" aria-live="polite">尚未发送凭据。</p>
+        <div class="api-actions">
+          <button id="qwen-cancel-config" class="button button-secondary" type="button">取消</button>
+          <button id="qwen-connect" class="button button-primary" type="submit">测试连接并启用</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="raw-characteristics-dialog" class="raw-dialog" aria-labelledby="raw-dialog-title">
       <div class="raw-dialog-heading">
         <div><p class="section-kicker">样本审计信息</p><h2 id="raw-dialog-title">原始样本特征</h2></div>
@@ -266,6 +303,6 @@
     </dialog>
     <div id="toast" class="toast" hidden role="status" aria-live="polite"></div>
     <footer><span>千问科研数据智能体</span><span>模型负责规划 · 规则负责安全 · 数据必须真实可追溯</span></footer>
-    <script src="/app.js?v=20260815-5" defer></script>
+    <script src="/app.js?v=20260815-6" defer></script>
   </body>
 </html>

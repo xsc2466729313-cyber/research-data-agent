@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 
 from backend.app.models import ApiModel, CandidateSource, ResearchSpec, SourceItem
 
@@ -22,6 +22,31 @@ class AgentTaskRequest(ApiModel):
     preferred_sources: list[str] = Field(default_factory=list, max_length=5)
     max_sources: int = Field(default=5, ge=1, le=5)
     max_records: int = Field(default=10_000, ge=10, le=10_000)
+    qwen_session_id: str | None = Field(default=None, min_length=20, max_length=100)
+
+
+class QwenSessionRequest(ApiModel):
+    api_key: SecretStr = Field(min_length=10, max_length=500)
+    base_url: str = Field(
+        default="https://dashscope.aliyuncs.com/compatible-mode/v1",
+        min_length=12,
+        max_length=500,
+    )
+    model: str = Field(default="qwen-plus", min_length=2, max_length=100)
+    workspace_id: str | None = Field(default=None, max_length=200)
+    timeout_seconds: float = Field(default=120, ge=5, le=300)
+
+
+class QwenSessionStatus(ApiModel):
+    session_id: str
+    connected: bool = True
+    provider: str = "阿里云百炼 / 千问"
+    model: str
+    base_url: str
+    workspace_configured: bool
+    expires_at: datetime
+    secret_persisted_by_application: bool = False
+    message: str
 
 
 class AgentConfigurationStatus(ApiModel):

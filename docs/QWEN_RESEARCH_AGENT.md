@@ -98,10 +98,16 @@ GDC / GEO / cBioPortal / ClinicalTrials.gov / CIViC
 
 ## 凭据安全
 
-- 后端只从环境变量读取千问 Key；
-- Key 不写入缓存、API 响应、任务结果和工具调用日志；
-- `scripts/docker_up_qwen.ps1` 可以从百炼凭据 CSV 临时注入环境变量；
-- 前端配置接口只返回“是否已配置”、模型名和业务空间状态；
+- 系统支持“服务器环境变量预配置”和“前端临时连接”两种方式；
+- 前端可手动填写凭据，也可在浏览器本地解析百炼凭据 CSV，原始 CSV 文件不会上传；
+- `POST /api/agent/qwen-sessions` 会先发送最小千问请求验证连接，成功后才建立随机会话编号；
+- 临时凭据只保存在当前后端进程内存，最长 2 小时；后端重启或主动断开后立即失效；
+- 后续科研任务只传 `qwen_session_id`，不重复传输 Key；
+- Key 不写入 `.env`、数据库、磁盘缓存、API 响应、任务结果或工具调用日志；
+- 会话状态只返回“是否已连接”、模型、业务空间、创建与过期时间，不回显 Key；
+- 默认只接受阿里云百炼官方 OpenAI 兼容地址，避免把 Key 发送到未知主机；
+- `scripts/docker_up_qwen.ps1` 仍可从百炼凭据 CSV 临时注入服务器进程环境变量；
+- 公网部署必须使用 HTTPS，不能用明文 HTTP 传输凭据；
 - 若凭据曾出现在聊天、终端截图或版本库中，应在百炼控制台轮换。
 
 ## 官方接口依据
@@ -121,9 +127,11 @@ GDC / GEO / cBioPortal / ClinicalTrials.gov / CIViC
 
 页面提供中文开发者 API 交互台，可直接选择并调用以下真实后端接口：
 
+- `POST /api/agent/qwen-sessions`：测试凭据并创建内存临时会话；
+- `DELETE /api/agent/qwen-sessions/{session_id}`：断开并删除临时会话；
 - `POST /api/agent/tasks`：编辑 JSON 并创建科研数据任务；成功响应自动同步到可视化结果区；
 - `GET /api/agent/configuration`：检查千问模型与服务器配置状态；
 - `GET /api/agent/tasks/{task_id}`：读取当前任务的完整结果；
 - `GET /health`：检查服务健康状态。
 
-交互台支持载入当前科研问题、显示 HTTP 状态与耗时、格式化 JSON 响应以及复制 cURL 命令。为避免凭据泄露，前端不接收、不保存也不回显千问 API Key；Key 仍只从后端环境变量读取。
+交互台支持载入当前科研问题、显示 HTTP 状态与耗时、格式化 JSON 响应以及复制 cURL 命令。普通使用者在页面的“连接千问 API”窗口中完成临时连接；连接成功后，前端只保留会话编号和过期时间，API Key 输入框会立即清空。任务请求自动附带 `qwen_session_id`，开发者 JSON 和响应中均不回显 Key。服务器环境变量预配置仍保留，未提供会话编号时任务会使用服务器配置。

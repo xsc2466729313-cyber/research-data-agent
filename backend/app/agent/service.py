@@ -102,7 +102,13 @@ class ResearchAgentService:
         with self._lock:
             return self._results.get(task_id)
 
-    def run(self, request: AgentTaskRequest) -> AgentTaskResult:
+    def run(
+        self,
+        request: AgentTaskRequest,
+        *,
+        qwen_client: QwenClient | None = None,
+    ) -> AgentTaskResult:
+        active_qwen = qwen_client or self.qwen
         task_id = f"agent-{uuid4().hex[:12]}"
         created_at = datetime.now(timezone.utc)
         plan_steps = [
@@ -118,13 +124,13 @@ class ResearchAgentService:
         tool_message: dict[str, Any] | None = None
         qwen_warning: str | None = None
         if request.use_qwen:
-            if not self.qwen.available and not request.allow_deterministic_fallback:
+            if not active_qwen.available and not request.allow_deterministic_fallback:
                 raise AgentConfigurationError(
                     "千问模式需要 DASHSCOPE_API_KEY 与 QWEN_BASE_URL。"
                 )
-            if self.qwen.available:
+            if active_qwen.available:
                 try:
-                    spec = self.qwen.extract_research_spec(request.question, task_id)
+                    spec = active_qwen.extract_research_spec(request.question, task_id)
                     qwen_used = True
                     agent_mode = "千问科研数据智能体"
                 except QwenClientError as exc:
@@ -143,7 +149,7 @@ class ResearchAgentService:
         calls: list[dict[str, Any]] = []
         if qwen_used:
             try:
-                tool_message, calls = self.qwen.choose_tools(
+                tool_message, calls = active_qwen.choose_tools(
                     spec,
                     max_sources=request.max_sources,
                     preferred_sources=request.preferred_sources,
@@ -221,7 +227,7 @@ class ResearchAgentService:
                 for item in executed
             ]
             try:
-                summary = self.qwen.summarize(
+                summary = active_qwen.summarize(
                     request.question,
                     spec,
                     tool_message,
@@ -253,7 +259,7 @@ class ResearchAgentService:
             status="完成" if any(item.status == "完成" for item in executed) or request.data_mode == AgentDataMode.PLAN_ONLY else "部分失败",
             agent_mode=agent_mode,
             model_provider="阿里云百炼 / 千问",
-            model_name=self.qwen.settings.model,
+            model_name=active_qwen.settings.model,
             used_qwen=qwen_used,
             notice=" ".join(notice_parts),
             research_spec=spec,

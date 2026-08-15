@@ -3,8 +3,11 @@ from backend.app.agent.models import (
     AgentConfigurationStatus,
     AgentTaskRequest,
     AgentTaskResult,
+    QwenSessionRequest,
+    QwenSessionStatus,
 )
-from backend.app.agent.qwen_client import QwenClient, QwenSettings
+from backend.app.agent.qwen_client import QwenClient, QwenClientError, QwenSettings
+from backend.app.agent.session_registry import QwenSessionRegistry
 from backend.app.agent.service import (
     AgentConfigurationError,
     AgentExecutionError,
@@ -19,7 +22,11 @@ __all__ = [
     "AgentExportFormat",
     "AgentTaskRequest",
     "AgentTaskResult",
+    "QwenSessionRequest",
+    "QwenSessionRegistry",
+    "QwenSessionStatus",
     "QwenClient",
+    "QwenClientError",
     "QwenSettings",
     "ResearchAgentService",
 ]

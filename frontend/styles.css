@@ -61,8 +61,10 @@ h1 em { color: var(--green); font-weight: inherit; }
 .configuration { display: flex; justify-content: space-between; align-items: center; gap: 2rem; border-left: 5px solid var(--green); }
 .configuration > div:first-child { display: grid; grid-template-columns: auto 1fr; column-gap: .8rem; align-items: center; }
 .configuration p { grid-column: 2; margin: .3rem 0 0; color: var(--muted); }
+.configuration-side { display: flex; align-items: flex-end; flex-direction: column; gap: .8rem; }
 .configuration-facts { display: flex; gap: 1.4rem; color: var(--muted); font-size: .82rem; white-space: nowrap; }
 .configuration-facts strong { color: var(--ink); }
+.configuration-actions .button { min-height: 36px; padding: .52rem .78rem; font-size: .76rem; }
 .section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.3rem; }
 .section-heading h2 { margin: 0; font-size: clamp(1.35rem, 2vw, 2rem); letter-spacing: -.025em; }
 .step-tag, .count-tag, .mono-tag { display: inline-flex; align-items: center; min-height: 30px; padding: .35rem .7rem; border-radius: 999px; background: var(--green-soft); color: var(--green-dark); font-size: .76rem; font-weight: 800; }
@@ -173,6 +175,18 @@ code { padding: .15rem .3rem; border-radius: 5px; background: #edf1ee; font-fami
 .raw-dialog td:nth-child(2) { color: var(--green-dark); font-weight: 800; }
 .raw-dialog td:nth-child(3) { color: var(--muted); font-family: ui-monospace, monospace; font-size: .72rem; }
 .raw-dialog-note { margin: .8rem 0 0; color: var(--muted); font-size: .7rem; }
+.qwen-dialog { width: min(760px, 94vw); max-height: 90vh; padding: 1.25rem; overflow: auto; border: 1px solid var(--line); border-radius: 20px; color: var(--ink); background: #fff; box-shadow: 0 30px 90px rgba(13,40,35,.3); }
+.qwen-dialog::backdrop { background: rgba(23,35,38,.54); backdrop-filter: blur(4px); }
+.qwen-file-import { display: grid; gap: .2rem; margin: 1rem 0; padding: .9rem; border: 1px dashed #9db8ad; border-radius: 13px; color: var(--green-dark); background: #f3f9f6; cursor: pointer; }
+.qwen-file-import span { color: var(--muted); font-size: .7rem; }
+.qwen-file-import input { margin-top: .55rem; font-size: .74rem; }
+.qwen-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
+.qwen-field { display: grid; gap: .38rem; color: #465459; font-size: .76rem; font-weight: 800; }
+.qwen-field-wide { grid-column: 1 / -1; }
+.qwen-field input { width: 100%; min-height: 43px; padding: 0 .75rem; border: 1px solid #cbd5d0; border-radius: 10px; color: var(--ink); background: #fbfcfa; outline: none; }
+.qwen-field input:focus { border-color: var(--green); box-shadow: 0 0 0 4px rgba(15,118,110,.1); }
+.qwen-security-note { display: grid; grid-template-columns: auto 1fr; gap: .6rem; margin-top: 1rem; padding: .8rem; border-left: 4px solid var(--green); border-radius: 10px; color: #536064; background: #f3f8f5; font-size: .72rem; line-height: 1.55; }
+.qwen-security-note strong { color: var(--green-dark); }
 .audit-value { color: var(--muted); font-family: ui-monospace, monospace; font-size: .72rem; }
 
 .quality-grid { display: grid; grid-template-columns: minmax(360px, .75fr) minmax(0, 1.25fr); gap: 1.25rem; }
@@ -274,6 +288,7 @@ footer { display: flex; justify-content: space-between; gap: 1rem; padding: 1.4r
   .hero { padding: 2.4rem .3rem; gap: 2rem; }
   h1 { font-size: clamp(2.5rem, 13vw, 4.5rem); }
   .configuration, .form-actions { align-items: flex-start; flex-direction: column; }
+  .configuration-side { align-items: flex-start; }
   .configuration > div:first-child { grid-template-columns: 1fr; }
   .configuration p { grid-column: 1; }
   .configuration-facts { flex-wrap: wrap; white-space: normal; }
@@ -285,6 +300,8 @@ footer { display: flex; justify-content: space-between; gap: 1rem; padding: 1.4r
   .lineage-detail { grid-template-columns: repeat(2, 1fr); }
   .dataset-toolbar { align-items: flex-start; flex-direction: column; }
   .api-actions .button { flex: 1 1 150px; }
+  .qwen-form-grid { grid-template-columns: 1fr; }
+  .qwen-field-wide { grid-column: auto; }
   .button-group { width: 100%; }
   .button-group .button { flex: 1; }
   footer { flex-direction: column; }

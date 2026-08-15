@@ -12,6 +12,8 @@ const state = {
   result: null,
   progressTimer: null,
   datasetView: "research",
+  qwenSessionId: null,
+  qwenSessionExpiresAt: null,
   lineage: { sources: [], candidates: [], primary: "", selected: null, hover: null, view: "all", paused: false },
 };
 
@@ -293,7 +295,7 @@ function stopProgress(success = true) {
 }
 
 function buildAgentTaskPayload() {
-  return {
+  const payload = {
     question: document.querySelector("#question").value,
     use_qwen: document.querySelector("#use-qwen").checked,
     allow_deterministic_fallback: document.querySelector("#allow-fallback").checked,
@@ -302,7 +304,139 @@ function buildAgentTaskPayload() {
     max_sources: Number(document.querySelector("#max-sources").value),
     max_records: Number(document.querySelector("#max-records").value),
   };
+  if (state.qwenSessionId) payload.qwen_session_id = state.qwenSessionId;
+  return payload;
 }
+
+function parseCsvRows(text) {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let quoted = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (character === '"') {
+      if (quoted && text[index + 1] === '"') {
+        cell += '"';
+        index += 1;
+      } else {
+        quoted = !quoted;
+      }
+    } else if (character === "," && !quoted) {
+      row.push(cell.trim());
+      cell = "";
+    } else if ((character === "\n" || character === "\r") && !quoted) {
+      if (character === "\r" && text[index + 1] === "\n") index += 1;
+      row.push(cell.trim());
+      if (row.some(Boolean)) rows.push(row);
+      row = [];
+      cell = "";
+    } else {
+      cell += character;
+    }
+  }
+  row.push(cell.trim());
+  if (row.some(Boolean)) rows.push(row);
+  return rows;
+}
+
+function importQwenCredentialCsv(text) {
+  const rows = parseCsvRows(text);
+  if (rows.length < 2) throw new Error("凭据 CSV 为空或格式不正确。");
+  const headers = rows[0].map((item) => item.replace(/^\uFEFF/, ""));
+  const idIndex = headers.findIndex((item) => item === "id");
+  const valueIndexes = headers.map((_, index) => index).filter((index) => index !== idIndex);
+  if (idIndex < 0 || !valueIndexes.length) throw new Error("凭据 CSV 需要包含 id 列和一个值列。");
+  const mapping = {};
+  rows.slice(1).forEach((values) => {
+    const key = values[idIndex];
+    const value = valueIndexes.map((index) => values[index]).find(Boolean);
+    if (key && value) mapping[key] = value;
+  });
+  if (!mapping.apiKey || !mapping.openAiCompatible) throw new Error("CSV 中缺少 apiKey 或 openAiCompatible。");
+  document.querySelector("#qwen-api-key").value = mapping.apiKey;
+  document.querySelector("#qwen-base-url").value = mapping.openAiCompatible;
+  document.querySelector("#qwen-workspace-id").value = mapping.workspaceId || "";
+  document.querySelector("#qwen-connect-status").textContent = "已从本机 CSV 读取连接字段，尚未发送。";
+}
+
+function renderTemporaryQwenConnection(session) {
+  state.qwenSessionId = session.session_id;
+  state.qwenSessionExpiresAt = session.expires_at;
+  const badge = document.querySelector("#configuration-badge");
+  badge.textContent = "临时千问已连接";
+  badge.className = "status-badge is-success";
+  document.querySelector("#configuration-title").textContent = "千问 API 内存会话已启用";
+  document.querySelector("#configuration-message").textContent = `连接已验证，将于 ${new Date(session.expires_at).toLocaleString("zh-CN")} 前有效；服务重启会立即清除。`;
+  document.querySelector("#configuration-model").textContent = session.model;
+  document.querySelector("#qwen-open-config").textContent = "更换千问 API";
+  document.querySelector("#qwen-disconnect").hidden = false;
+  document.querySelector("#use-qwen").checked = true;
+  applyApiPreset(document.querySelector("#api-preset").value);
+}
+
+async function connectQwenSession(event) {
+  event.preventDefault();
+  const button = document.querySelector("#qwen-connect");
+  const status = document.querySelector("#qwen-connect-status");
+  button.disabled = true;
+  status.textContent = "正在验证千问 API，请稍候…";
+  try {
+    const previousSessionId = state.qwenSessionId;
+    const response = await fetch("/api/agent/qwen-sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: document.querySelector("#qwen-api-key").value,
+        base_url: document.querySelector("#qwen-base-url").value,
+        model: document.querySelector("#qwen-model").value,
+        workspace_id: document.querySelector("#qwen-workspace-id").value || null,
+        timeout_seconds: 120,
+      }),
+    });
+    const session = await readJson(response);
+    document.querySelector("#qwen-api-key").value = "";
+    document.querySelector("#qwen-credential-file").value = "";
+    renderTemporaryQwenConnection(session);
+    if (previousSessionId && previousSessionId !== session.session_id) {
+      fetch(`/api/agent/qwen-sessions/${encodeURIComponent(previousSessionId)}`, { method: "DELETE" }).catch(() => null);
+    }
+    status.textContent = session.message;
+    document.querySelector("#qwen-connection-dialog").close();
+    showToast("千问 API 已连接，本次任务将使用临时会话");
+  } catch (error) {
+    status.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function disconnectQwenSession() {
+  const sessionId = state.qwenSessionId;
+  state.qwenSessionId = null;
+  state.qwenSessionExpiresAt = null;
+  if (sessionId) await fetch(`/api/agent/qwen-sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE" }).catch(() => null);
+  document.querySelector("#qwen-disconnect").hidden = true;
+  document.querySelector("#qwen-open-config").textContent = "连接千问 API";
+  await checkConfiguration();
+  applyApiPreset(document.querySelector("#api-preset").value);
+  showToast("临时千问连接已清除");
+}
+
+document.querySelector("#qwen-open-config").addEventListener("click", () => document.querySelector("#qwen-connection-dialog").showModal());
+document.querySelector("#qwen-dialog-close").addEventListener("click", () => document.querySelector("#qwen-connection-dialog").close());
+document.querySelector("#qwen-cancel-config").addEventListener("click", () => document.querySelector("#qwen-connection-dialog").close());
+document.querySelector("#qwen-connection-form").addEventListener("submit", connectQwenSession);
+document.querySelector("#qwen-disconnect").addEventListener("click", disconnectQwenSession);
+document.querySelector("#qwen-credential-file").addEventListener("change", async (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  try {
+    importQwenCredentialCsv(await file.text());
+  } catch (error) {
+    document.querySelector("#qwen-connect-status").textContent = error.message;
+  }
+});
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();

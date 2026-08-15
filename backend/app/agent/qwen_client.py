@@ -157,6 +157,19 @@ class QwenClient:
     def available(self) -> bool:
         return self.settings.configured
 
+    def test_connection(self) -> None:
+        message = self._chat(
+            messages=[
+                {
+                    "role": "system",
+                    "content": "你是连接测试助手，只回复 CONNECTION_OK。",
+                },
+                {"role": "user", "content": "测试千问 API 连接。"},
+            ],
+        )
+        if not str(message.get("content") or "").strip():
+            raise QwenClientError("千问连接成功，但未返回可识别内容。")
+
     def extract_research_spec(self, question: str, task_id: str) -> ResearchSpec:
         prompt = {
             "任务": "把乳腺癌科研问题解析为严格 JSON",

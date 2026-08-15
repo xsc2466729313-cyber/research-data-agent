@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Annotated
 from urllib.parse import quote
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Response as FastAPIResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -17,6 +17,11 @@ from backend.app.agent import (
     AgentExportFormat,
     AgentTaskRequest,
     AgentTaskResult,
+    QwenClient,
+    QwenClientError,
+    QwenSessionRegistry,
+    QwenSessionRequest,
+    QwenSessionStatus,
     ResearchAgentService,
 )
 from backend.app.export_service import DatasetExportFormat, MockDatasetExportService
@@ -91,7 +96,7 @@ app.add_middleware(
         "http://127.0.0.1:8888",
     ],
     allow_credentials=False,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -108,6 +113,7 @@ goldset_curation_service = GoldSetCurationService()
 repair_loop_service = RepairLoopService()
 mock_export_service = MockDatasetExportService()
 research_agent_service = ResearchAgentService()
+qwen_session_registry = QwenSessionRegistry()
 agent_export_service = AgentDatasetExportService()
 GOLDSET_TEMPLATE_DIR = Path(__file__).resolve().parents[2] / "goldset" / "templates"
 
@@ -152,6 +158,10 @@ def get_research_agent_service() -> ResearchAgentService:
     return research_agent_service
 
 
+def get_qwen_session_registry() -> QwenSessionRegistry:
+    return qwen_session_registry
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {
@@ -174,13 +184,42 @@ def get_agent_configuration(
     return service.configuration()
 
 
+@app.post("/api/agent/qwen-sessions", response_model=QwenSessionStatus)
+def create_qwen_session(
+    payload: QwenSessionRequest,
+    registry: Annotated[QwenSessionRegistry, Depends(get_qwen_session_registry)],
+) -> QwenSessionStatus:
+    try:
+        return registry.create(payload)
+    except QwenClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.delete("/api/agent/qwen-sessions/{session_id}", status_code=204)
+def delete_qwen_session(
+    session_id: str,
+    registry: Annotated[QwenSessionRegistry, Depends(get_qwen_session_registry)],
+) -> FastAPIResponse:
+    registry.delete(session_id)
+    return FastAPIResponse(status_code=204)
+
+
 @app.post("/api/agent/tasks", response_model=AgentTaskResult)
 def run_agent_task(
     payload: AgentTaskRequest,
     service: Annotated[ResearchAgentService, Depends(get_research_agent_service)],
+    registry: Annotated[QwenSessionRegistry, Depends(get_qwen_session_registry)],
 ) -> AgentTaskResult:
     try:
-        return service.run(payload)
+        session_client: QwenClient | None = None
+        if payload.qwen_session_id:
+            session_client = registry.get(payload.qwen_session_id)
+            if session_client is None:
+                raise HTTPException(
+                    status_code=401,
+                    detail="千问临时会话不存在或已过期，请重新连接 API。",
+                )
+        return service.run(payload, qwen_client=session_client)
     except AgentConfigurationError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except AgentExecutionError as exc:
