@@ -1,0 +1,1 @@
+{"source_id": "src_mock_001", "task_id": "task_mock_001", "source_name": "GEO", "source_type": "database", "accession": "GSE25066", "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE25066", "file_type": "series_matrix", "local_path": "data/cache/GSE25066/", "checksum": null, "status": "mock"}

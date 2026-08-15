@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ResearchSpec",
+  "type": "object",
+  "required": [
+    "task_id",
+    "research_goal",
+    "disease",
+    "required_data_types"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string"
+    },
+    "research_goal": {
+      "type": "string"
+    },
+    "disease": {
+      "type": "string"
+    },
+    "subtype": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "genes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "variants": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "drugs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "outcomes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "required_data_types": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "target_fields": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

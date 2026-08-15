@@ -1,0 +1,9 @@
+﻿priority,dataset,database,role,accession_or_key,include_in_mvp,notes
+S,TCGA-BRCA,GDC,临床+突变+表达+拷贝数,TCGA-BRCA,yes,核心患者队列
+S,METABRIC,cBioPortal,独立临床+基因组队列,METABRIC,yes,Schema纵向对齐
+S,SCAN-B,GEO,临床+ER/PR/HER2+表达,GSE96058,yes,大规模表达队列
+S,Neoadjuvant chemotherapy response,GEO,治疗响应,GSE25066,yes,主治疗响应 Gold
+S,HER2+ trastuzumab response,GEO,HER2靶向治疗响应,GSE76360,yes,Demo增强
+S,Breast Cancer Trials,AACT,临床试验多关系表,Breast Cancer,yes,复杂多表测试
+S,Breast Cancer Evidence,CIViC,变异-药物-证据,Breast Cancer,yes,Evidence层
+A,DepMap Breast,DepMap,细胞系药敏,BRCA,no,增强版，不与患者response混淆

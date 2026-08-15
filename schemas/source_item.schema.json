@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SourceItem",
+  "type": "object",
+  "required": [
+    "source_id",
+    "task_id",
+    "source_name",
+    "source_type",
+    "url",
+    "status"
+  ],
+  "properties": {
+    "source_id": {
+      "type": "string"
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "source_name": {
+      "type": "string"
+    },
+    "source_type": {
+      "type": "string"
+    },
+    "accession": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "url": {
+      "type": "string"
+    },
+    "file_type": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "local_path": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "checksum": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "type": "string"
+    }
+  }
+}

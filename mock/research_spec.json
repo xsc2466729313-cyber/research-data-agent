@@ -1,0 +1,31 @@
+{
+  "task_id": "task_mock_001",
+  "research_goal": "研究HER2阳性乳腺癌中PIK3CA突变与治疗响应的关系",
+  "disease": "Breast Cancer",
+  "subtype": "HER2-positive",
+  "genes": [
+    "ERBB2",
+    "PIK3CA"
+  ],
+  "variants": [],
+  "drugs": [],
+  "outcomes": [
+    "treatment_response"
+  ],
+  "required_data_types": [
+    "clinical",
+    "mutation",
+    "expression",
+    "treatment_response",
+    "clinical_trial",
+    "evidence"
+  ],
+  "target_fields": [
+    "patient_id",
+    "her2_status",
+    "gene",
+    "variant",
+    "treatment",
+    "response"
+  ]
+}

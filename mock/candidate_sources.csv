@@ -1,0 +1,5 @@
+dataset_id,dataset_name,source_database,data_type,sample_count,has_treatment,has_response,public_access,relevance_score,url,accession
+TCGA-BRCA,TCGA Breast Invasive Carcinoma,GDC,clinical+mutation+expression,,false,false,true,0.98,https://portal.gdc.cancer.gov/projects/TCGA-BRCA,TCGA-BRCA
+GSE25066,Breast cancer neoadjuvant chemotherapy response,GEO,expression+treatment_response,,true,true,true,0.96,https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE25066,GSE25066
+GSE76360,HER2-positive neoadjuvant trastuzumab cohort,GEO,expression+treatment_response,,true,true,true,0.94,https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE76360,GSE76360
+METABRIC,Molecular Taxonomy of Breast Cancer International Consortium,cBioPortal,clinical+genomic,,false,false,true,0.92,https://www.cbioportal.org/study/summary?id=brca_metabric,METABRIC

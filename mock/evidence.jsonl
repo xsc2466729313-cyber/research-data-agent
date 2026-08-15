@@ -1,0 +1,2 @@
+{"evidence_id": "ev_mock_001", "patient_id": "P001", "sample_id": "S001", "field": "her2_status", "canonical_value": "Positive", "raw_field": "HER2_FISH", "raw_value": "amplified", "source_id": "src_mock_001", "normalization_method": "HER2_FISH_RULE", "confidence": 0.97, "status": "verified"}
+{"evidence_id": "ev_mock_002", "patient_id": "P002", "sample_id": "S002", "field": "her2_status", "canonical_value": "Equivocal", "raw_field": "HER2_IHC", "raw_value": "2+", "source_id": "src_mock_001", "normalization_method": "HER2_IHC_RULE", "confidence": 0.94, "status": "verified"}

@@ -1,0 +1,56 @@
+name: breast-research-agent
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      GDC_AUTH_TOKEN: ${GDC_AUTH_TOKEN:-}
+      CIVIC_API_KEY: ${CIVIC_API_KEY:-}
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+      QWEN_BASE_URL: ${QWEN_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+      QWEN_MODEL: ${QWEN_MODEL:-qwen-plus}
+      QWEN_WORKSPACE_ID: ${QWEN_WORKSPACE_ID:-}
+      QWEN_TIMEOUT_SECONDS: ${QWEN_TIMEOUT_SECONDS:-120}
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    volumes:
+      - gdc_cache:/workspace/data/cache/gdc
+      - geo_cache:/workspace/data/cache/geo
+      - cbioportal_cache:/workspace/data/cache/cbioportal
+      - aact_cache:/workspace/data/cache/aact
+      - civic_cache:/workspace/data/cache/civic
+      - evaluation_output:/workspace/data/output/evaluation
+      - agent_output:/workspace/data/output/agent
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-8888}:80"
+
+volumes:
+  gdc_cache:
+  geo_cache:
+  cbioportal_cache:
+  aact_cache:
+  civic_cache:
+  evaluation_output:
+  agent_output:

@@ -1,0 +1,7 @@
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["backend/tests"]
+pythonpath = ["."]
+markers = [
+  "integration: tests that call a real external service",
+]

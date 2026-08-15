@@ -1,0 +1,27 @@
+version: "0.1"
+
+sources:
+  gdc:
+    enabled: true
+    priority: 1
+    examples: [TCGA-BRCA]
+  geo:
+    enabled: true
+    priority: 1
+    examples: [GSE96058, GSE25066, GSE76360]
+  cbioportal:
+    enabled: true
+    priority: 1
+    examples: [METABRIC]
+  aact:
+    enabled: true
+    priority: 1
+    examples: [Breast Cancer Trials]
+  civic:
+    enabled: true
+    priority: 1
+    examples: [Breast Cancer Evidence]
+  depmap:
+    enabled: false
+    priority: 2
+    phase: enhancement

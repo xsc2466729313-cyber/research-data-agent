@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EvidenceCell",
+  "type": "object",
+  "required": [
+    "evidence_id",
+    "field",
+    "canonical_value",
+    "raw_value",
+    "source_id",
+    "confidence"
+  ],
+  "properties": {
+    "evidence_id": {
+      "type": "string"
+    },
+    "patient_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "sample_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "field": {
+      "type": "string"
+    },
+    "canonical_value": {},
+    "raw_field": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "raw_value": {},
+    "source_id": {
+      "type": "string"
+    },
+    "normalization_method": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "status": {
+      "type": "string"
+    }
+  }
+}

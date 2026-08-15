@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "QualityReport",
+  "type": "object",
+  "required": [
+    "task_id",
+    "metrics",
+    "safety_gate"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string"
+    },
+    "metrics": {
+      "type": "object"
+    },
+    "safety_gate": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "FAIL",
+        "REVIEW"
+      ]
+    },
+    "errors": {
+      "type": "array"
+    },
+    "repairs": {
+      "type": "array"
+    }
+  }
+}

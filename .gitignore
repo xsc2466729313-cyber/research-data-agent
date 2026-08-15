@@ -1,0 +1,10 @@
+.env
+.pytest_cache/
+.venv/
+__pycache__/
+*.py[cod]
+data/cache/
+data/output/
+.codex_spreadsheet_tmp/
+node_modules/
+*.log

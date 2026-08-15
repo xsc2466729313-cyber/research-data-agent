@@ -1,0 +1,42 @@
+version: "0.1"
+
+model_review:
+  initial_confidence_min: 0.90
+  independent_review_confidence_min: 0.90
+
+source_verification:
+  timeout_seconds: 10.0
+  max_response_bytes: 1000000
+  sources:
+    gdc:
+      accession_pattern: '^[A-Za-z0-9]+-[A-Za-z0-9-]+$'
+      allowed_hosts: ["gdc.cancer.gov"]
+    geo:
+      accession_pattern: '^GS[EM]\d+$'
+      allowed_hosts: ["ncbi.nlm.nih.gov"]
+    cbioportal:
+      accession_pattern: '^[A-Za-z0-9_.-]+$'
+      allowed_hosts: ["cbioportal.org"]
+    aact:
+      accession_pattern: '^NCT\d{8}$'
+      allowed_hosts: ["clinicaltrials.gov"]
+    civic:
+      accession_pattern: '^(?:EID[:_-]?)?\d+$'
+      allowed_hosts: ["civicdb.org"]
+
+curation:
+  high_risk_canonical_fields:
+    - patient_id
+    - sample_id
+    - her2_status
+    - her2_assay
+    - response
+    - response_domain
+  high_risk_error_types:
+    - her2_assay_error
+    - provenance_missing
+    - patient_sample_conflict
+  auto_repair_error_types:
+    - duplicate
+    - gene_alias
+    - drug_alias
