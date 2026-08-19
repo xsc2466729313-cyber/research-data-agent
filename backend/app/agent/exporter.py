@@ -176,6 +176,40 @@ class AgentDatasetExportService:
         self._style_table(sources, 6)
         sources.freeze_panes = "A2"
 
+
+        competition = workbook.create_sheet("比赛报告")
+        competition.append(["项目", "内容"])
+        report = result.competition_report
+        if report is not None:
+            competition_rows = [
+                ("赛道", report.track),
+                ("方向", report.direction),
+                ("聚焦问题", report.problem_focus),
+                ("总体摘要", report.summary),
+            ]
+            for label, value in competition_rows:
+                competition.append([label, value])
+            for metric in report.metrics:
+                competition.append(["指标", f"{metric.name}｜{metric.display_value}｜{metric.target}｜{metric.detail}"])
+            for row in report.ablation_rows:
+                competition.append(["消融", f"{row.variant}｜{row.removed_component}｜{row.expected_effect}｜{row.observed_effect}｜{row.note}"])
+            for layer in report.rag_layers:
+                competition.append(["混合RAG", f"{layer.layer}｜{layer.implementation}｜{layer.why_it_matters}｜{layer.observable_effect}"])
+            competition.append(["知识图谱", f"节点 {report.knowledge_graph.node_count}｜边 {report.knowledge_graph.edge_count}｜关系 {', '.join(report.knowledge_graph.relation_types)}"])
+            competition.append(["知识图谱", report.knowledge_graph.note])
+            for item in report.improvement_highlights:
+                competition.append(["改进", item])
+            for item in report.limitations:
+                competition.append(["局限", item])
+            for item in report.submission_checklist:
+                competition.append(["提交核验", f"{item.label}｜{item.status}｜{item.detail}"])
+            for item in report.deliverables:
+                competition.append(["交付物", item])
+        self._style_table(competition, 2)
+        competition.column_dimensions["A"].width = 18
+        competition.column_dimensions["B"].width = 110
+        competition.column_dimensions["B"].alignment = Alignment(wrap_text=True, vertical="top")
+
         output = io.BytesIO()
         workbook.save(output)
         return output.getvalue()

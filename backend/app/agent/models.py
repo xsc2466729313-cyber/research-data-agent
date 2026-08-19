@@ -136,5 +136,64 @@ class AgentTaskResult(ApiModel):
     source_items: list[SourceItem]
     modeling_dataset: ModelingDataset
     readiness: AnalysisReadinessReport
+    competition_report: "CompetitionAlignmentReport | None" = None
     summary_zh: str
     created_at: datetime
+
+
+class CompetitionMetric(ApiModel):
+    name: str
+    value: float | None = Field(default=None, ge=0, le=1)
+    display_value: str
+    target: str | None = None
+    status: str
+    detail: str
+
+
+class CompetitionAblationRow(ApiModel):
+    variant: str
+    removed_component: str
+    expected_effect: str
+    observed_effect: str
+    note: str
+
+
+class CompetitionRagLayer(ApiModel):
+    layer: str
+    implementation: str
+    why_it_matters: str
+    observable_effect: str
+
+
+class CompetitionGraphSummary(ApiModel):
+    enabled: bool
+    node_count: int = Field(ge=0)
+    edge_count: int = Field(ge=0)
+    relation_types: list[str] = Field(default_factory=list)
+    entity_types: list[str] = Field(default_factory=list)
+    note: str
+
+
+class CompetitionChecklistItem(ApiModel):
+    label: str
+    status: str
+    detail: str
+
+
+class CompetitionAlignmentReport(ApiModel):
+    competition_name: str
+    track: str
+    direction: str
+    problem_focus: str
+    metrics: list[CompetitionMetric] = Field(default_factory=list)
+    ablation_rows: list[CompetitionAblationRow] = Field(default_factory=list)
+    rag_layers: list[CompetitionRagLayer] = Field(default_factory=list)
+    knowledge_graph: CompetitionGraphSummary
+    improvement_highlights: list[str] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+    submission_checklist: list[CompetitionChecklistItem] = Field(default_factory=list)
+    deliverables: list[str] = Field(default_factory=list)
+    summary: str
+
+
+AgentTaskResult.model_rebuild()

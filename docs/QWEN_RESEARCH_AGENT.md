@@ -135,3 +135,9 @@ GDC / GEO / cBioPortal / ClinicalTrials.gov / CIViC
 - `GET /health`：检查服务健康状态。
 
 交互台支持载入当前科研问题、显示 HTTP 状态与耗时、格式化 JSON 响应以及复制 cURL 命令。普通使用者在页面的“连接千问 API”窗口中完成临时连接；连接成功后，前端只保留会话编号和过期时间，API Key 输入框会立即清空。任务请求自动附带 `qwen_session_id`，开发者 JSON 和响应中均不回显 Key。服务器环境变量预配置仍保留，未提供会话编号时任务会使用服务器配置。
+
+## 比赛对齐
+
+当前任务结果会附带 `competition_report`，前端展示为“比赛对齐与消融”，Excel 导出展示为 `比赛报告` sheet。该报告围绕赛道二方向1A补充任务级诊断指标、混合 RAG 层、知识图谱摘要、消融设计、改善亮点和提交核验清单。
+
+这些指标用于说明本次数据结果的科研适用性，不是冻结 Gold Set 指标，也不是官方 SDTI 成绩。正式 Precision、Recall、Faithfulness、Traceability、Repair Accuracy 和 SDTI 仍必须按 `docs/EVALUATION_SDTI.md` 执行。详细映射见 `docs/COMPETITION_ALIGNMENT.md`。

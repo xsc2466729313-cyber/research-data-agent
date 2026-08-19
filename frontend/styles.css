@@ -230,6 +230,34 @@ code { padding: .15rem .3rem; border-radius: 5px; background: #edf1ee; font-fami
 .evaluation-note span { font-size: .75rem; }
 .evaluation-note small { color: var(--muted); font-size: .68rem; line-height: 1.5; }
 
+.competition-panel { scroll-margin-top: 95px; }
+.competition-metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .75rem; margin: 1rem 0 1.2rem; }
+.competition-metric { min-width: 0; padding: .9rem; border: 1px solid var(--line); border-radius: 14px; background: #f8faf8; }
+.competition-metric span, .competition-metric strong, .competition-metric p { display: block; }
+.competition-metric span { color: var(--muted); font-size: .7rem; }
+.competition-metric strong { margin-top: .35rem; color: var(--green-dark); font-size: 1.35rem; line-height: 1.1; overflow-wrap: anywhere; }
+.competition-metric em { display: inline-flex; margin-top: .55rem; padding: .18rem .42rem; border-radius: 6px; font-size: .66rem; font-style: normal; font-weight: 800; }
+.competition-metric p { margin: .55rem 0 0; color: var(--muted); font-size: .7rem; line-height: 1.5; }
+.competition-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr); gap: 1rem; margin: 1rem 0; }
+.competition-grid > article { min-width: 0; padding: 1rem; border: 1px solid var(--line); border-radius: 16px; background: #f8faf8; }
+.competition-grid h3 { margin: 0 0 .8rem; font-size: .92rem; }
+.rag-layer-list { display: grid; gap: .65rem; }
+.rag-layer { padding: .75rem .8rem; border-left: 4px solid var(--green); border-radius: 10px; background: #fff; }
+.rag-layer span, .rag-layer strong, .rag-layer p, .rag-layer small { display: block; }
+.rag-layer span { color: var(--green-dark); font-size: .72rem; font-weight: 900; }
+.rag-layer strong { margin-top: .25rem; font-size: .82rem; line-height: 1.45; }
+.rag-layer p { margin: .35rem 0 0; color: #475569; font-size: .74rem; line-height: 1.5; }
+.rag-layer small { margin-top: .25rem; color: var(--muted); font-size: .68rem; line-height: 1.45; }
+.kg-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
+.kg-summary div { padding: .75rem; border-radius: 12px; background: #fff; }
+.kg-summary span, .kg-summary strong { display: block; }
+.kg-summary span { color: var(--muted); font-size: .7rem; }
+.kg-summary strong { margin-top: .35rem; color: var(--green-dark); font-size: .88rem; line-height: 1.45; overflow-wrap: anywhere; }
+.kg-summary p { grid-column: 1 / -1; margin: .15rem 0 0; color: var(--muted); font-size: .74rem; line-height: 1.55; }
+.ablation-wrap { margin-top: 1rem; }
+.competition-lists { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.competition-lists strong { color: var(--ink); }
+
 .lineage-panel { margin-bottom: .65rem; padding: 1rem; overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: linear-gradient(135deg, #f7fbf9, #f6f8fc); }
 .lineage-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .35rem; }
 .lineage-heading strong, .lineage-heading span { display: block; }
@@ -276,8 +304,9 @@ footer { display: flex; justify-content: space-between; gap: 1rem; padding: 1.4r
   nav { display: none; }
   .hero { grid-template-columns: 1fr; min-height: auto; }
   .agent-route { max-width: 700px; }
-  .spec-grid, .plan-list { grid-template-columns: repeat(2, 1fr); }
+  .spec-grid, .plan-list, .competition-metrics { grid-template-columns: repeat(2, 1fr); }
   .quality-grid { grid-template-columns: 1fr; }
+  .competition-grid { grid-template-columns: 1fr; }
   .api-console-grid { grid-template-columns: 1fr; }
 }
 
@@ -292,7 +321,7 @@ footer { display: flex; justify-content: space-between; gap: 1rem; padding: 1.4r
   .configuration > div:first-child { grid-template-columns: 1fr; }
   .configuration p { grid-column: 1; }
   .configuration-facts { flex-wrap: wrap; white-space: normal; }
-  .form-grid, .switch-row, .result-overview, .spec-grid, .plan-list, .readiness-facts, .research-metrics { grid-template-columns: 1fr; }
+  .form-grid, .switch-row, .result-overview, .spec-grid, .plan-list, .readiness-facts, .research-metrics, .competition-metrics, .competition-lists, .kg-summary { grid-template-columns: 1fr; }
   .outcome-row { grid-template-columns: 1fr auto; }
   .outcome-track { grid-column: 1 / -1; grid-row: 2; }
   .action-heading { flex-direction: column; }

@@ -88,6 +88,11 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "下载 CSV" in response.text
     assert "下载 Parquet" in response.text
     assert "下载 Excel" in response.text
+    assert "比赛对齐与消融" in response.text
+    assert "混合 RAG 设计" in response.text
+    assert "知识图谱摘要" in response.text
+    assert "消融设置" in response.text
+    assert "提交核验" in response.text
 
     script = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
     assert 'fetch("/api/agent/tasks"' in script
@@ -112,12 +117,15 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "qwen_session_id" in script
     assert "data-source-db" in script
     assert "TYPE_TRANSLATIONS" in script
+    assert "renderCompetitionReport" in script
+    assert "competition_report" in script
 
     styles = (ROOT / "frontend" / "styles.css").read_text(encoding="utf-8")
     assert "@media (max-width: 760px)" in styles
     assert "prefers-reduced-motion" in styles
     assert "@keyframes lineage-flow" in styles
     assert ".raw-characteristics" in styles
+    assert ".competition-panel" in styles
 
     nginx_config = (ROOT / "frontend" / "nginx.conf").read_text(encoding="utf-8")
     assert "location = /health" in nginx_config
@@ -185,3 +193,26 @@ def test_gdc_adapter_api_exposes_structured_failure_code(tmp_path: Path) -> None
     detail = response.json()["detail"]
     assert detail["code"] == "invalid_plan"
     assert detail["retryable"] is False
+
+
+def test_agent_task_api_exposes_competition_alignment_report(tmp_path: Path) -> None:
+    from backend.app.agent.models import AgentTaskRequest
+    from backend.tests.test_research_agent import build_agent
+
+    result = build_agent(tmp_path).run(
+        AgentTaskRequest(
+            question="研究 HER2 阳性乳腺癌中 PIK3CA 突变与新辅助治疗响应的关系",
+            use_qwen=True,
+            allow_deterministic_fallback=False,
+            data_mode="live",
+            max_sources=1,
+            max_records=100,
+        )
+    )
+
+    assert result.competition_report is not None
+    assert result.competition_report.direction == "方向1A · 科学数据查找解析与整合"
+    assert any(metric.name == "来源可追溯率" for metric in result.competition_report.metrics)
+    assert any(row.variant == "去掉千问结构化解析" for row in result.competition_report.ablation_rows)
+    assert result.competition_report.knowledge_graph.enabled is True
+    assert "消融" in result.competition_report.summary or result.competition_report.summary

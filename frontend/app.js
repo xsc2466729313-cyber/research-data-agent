@@ -129,7 +129,7 @@ const ARGUMENT_LABELS = {
 
 const translateTerm = (value) => TERM_TRANSLATIONS[String(value)] || String(value ?? "—");
 const listText = (values) => values?.length ? values.map(translateTerm).join("、") : "未指定";
-const statusClass = (status) => status === "完成" || status === "可支持科研分析" ? "is-success" : status === "失败" || status === "部分失败" ? "is-error" : "is-review";
+const statusClass = (status) => ["完成", "可支持科研分析", "达标", "已覆盖", "已记录", "已计算"].includes(status) ? "is-success" : status === "失败" || status === "部分失败" ? "is-error" : "is-review";
 const canonicalDatabaseName = (value) => {
   const text = String(value || "");
   const lower = text.toLowerCase();
@@ -483,6 +483,7 @@ function renderResult(result) {
   renderReadiness(result.readiness, result.modeling_dataset, result.source_items, result.candidate_sources);
   renderDictionary(result.modeling_dataset.columns);
   renderSources(result.source_items, result.candidate_sources, result.modeling_dataset);
+  renderCompetitionReport(result.competition_report);
   if (document.querySelector("#api-preset").value === "task-result") applyApiPreset("task-result");
 }
 
@@ -756,6 +757,27 @@ function renderReadiness(readiness, dataset, sources, candidates) {
   document.querySelector("#cleaning-action-list").innerHTML = (readiness.cleaning_actions?.length ? readiness.cleaning_actions : ["本次没有可执行的患者级清洗动作。"]).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
   document.querySelector("#warning-list").innerHTML = (readiness.warnings.length ? readiness.warnings : ["未发现阻断性风险。 "]).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
   document.querySelector("#recommendation-list").innerHTML = readiness.recommendations.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+}
+
+function renderCompetitionReport(report) {
+  const section = document.querySelector("#competition-report");
+  if (!report) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+  document.querySelector("#competition-direction").textContent = report.direction || "方向1A";
+  document.querySelector("#competition-summary").textContent = localizeNarrative(report.summary);
+  document.querySelector("#competition-metrics").innerHTML = (report.metrics || []).map((metric) => {
+    const detail = metric.target ? `${metric.detail} 目标：${metric.target}` : metric.detail;
+    return `<article class="competition-metric"><span>${escapeHtml(metric.name)}</span><strong>${escapeHtml(metric.display_value)}</strong><em class="${statusClass(metric.status)}">${escapeHtml(metric.status)}</em><p>${escapeHtml(localizeNarrative(detail))}</p></article>`;
+  }).join("");
+  document.querySelector("#rag-layer-list").innerHTML = (report.rag_layers || []).map((layer) => `<div class="rag-layer"><span>${escapeHtml(layer.layer)}</span><strong>${escapeHtml(layer.implementation)}</strong><p>${escapeHtml(layer.why_it_matters)}</p><small>${escapeHtml(layer.observable_effect)}</small></div>`).join("");
+  const graph = report.knowledge_graph || {};
+  document.querySelector("#knowledge-graph-summary").innerHTML = `<div><span>节点</span><strong>${escapeHtml(graph.node_count ?? 0)}</strong></div><div><span>边</span><strong>${escapeHtml(graph.edge_count ?? 0)}</strong></div><div><span>实体类型</span><strong>${escapeHtml((graph.entity_types || []).join("、") || "暂无")}</strong></div><div><span>关系类型</span><strong>${escapeHtml((graph.relation_types || []).join("、") || "暂无")}</strong></div><p>${escapeHtml(graph.note || "尚未形成知识图谱摘要。")}</p>`;
+  document.querySelector("#ablation-table tbody").innerHTML = (report.ablation_rows || []).map((row) => `<tr><td>${escapeHtml(row.variant)}</td><td>${escapeHtml(row.removed_component)}</td><td>${escapeHtml(row.expected_effect)}</td><td>${escapeHtml(row.observed_effect)}</td><td>${escapeHtml(row.note)}</td></tr>`).join("");
+  document.querySelector("#improvement-list").innerHTML = (report.improvement_highlights || []).map((item) => `<li>${escapeHtml(localizeNarrative(item))}</li>`).join("");
+  document.querySelector("#submission-checklist").innerHTML = (report.submission_checklist || []).map((item) => `<li><strong>${escapeHtml(item.label)} · ${escapeHtml(item.status)}</strong><br><span>${escapeHtml(item.detail)}</span></li>`).join("");
 }
 
 function renderDictionary(columns) {

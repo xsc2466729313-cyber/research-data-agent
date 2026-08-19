@@ -150,7 +150,7 @@ def test_agent_excel_export_contains_chinese_dictionary_and_readiness(tmp_path: 
     exported = AgentDatasetExportService().export(result, AgentExportFormat.XLSX)
     workbook = load_workbook(BytesIO(exported.content), read_only=True)
 
-    assert workbook.sheetnames == ["科研数据集", "字段字典", "可科研性报告", "数据来源"]
+    assert workbook.sheetnames == ["科研数据集", "字段字典", "可科研性报告", "数据来源", "比赛报告"]
     assert workbook["科研数据集"]["A1"].value == "study_id"
     assert workbook["字段字典"]["B1"].value == "中文标注"
     assert workbook["字段字典"]["D1"].value == "科研用途"

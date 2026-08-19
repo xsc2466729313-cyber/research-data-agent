@@ -19,6 +19,7 @@
         <a href="#agent-process">智能体过程</a>
         <a href="#research-data">科研数据</a>
         <a href="#readiness">可科研性检查</a>
+        <a href="#competition-report">比赛对齐</a>
         <a href="#api-console">API 交互</a>
       </nav>
       <div id="system-status" class="system-status"><span class="status-dot"></span><span>正在连接</span></div>
@@ -257,6 +258,32 @@
             <button id="lineage-clear-filter" type="button" hidden>清除筛选</button>
           </div>
           <div class="table-wrap"><table id="source-table"><thead><tr><th>数据库</th><th>数据编号（Accession）</th><th>状态</th><th>校验值</th><th>官方地址</th></tr></thead><tbody></tbody></table></div>
+        </section>
+
+        <section id="competition-report" class="panel competition-panel">
+          <div class="section-heading"><div><p class="section-kicker">09 · 比赛对齐与消融</p><h2>按赛道二方向1A展示可核验改进</h2></div><span id="competition-direction" class="count-tag"></span></div>
+          <p id="competition-summary" class="section-note"></p>
+          <div id="competition-metrics" class="competition-metrics" aria-label="比赛对齐指标"></div>
+          <div class="competition-grid">
+            <article>
+              <h3>混合 RAG 设计</h3>
+              <div id="rag-layer-list" class="rag-layer-list"></div>
+            </article>
+            <article>
+              <h3>知识图谱摘要</h3>
+              <div id="knowledge-graph-summary" class="kg-summary"></div>
+            </article>
+          </div>
+          <div class="table-wrap ablation-wrap">
+            <table id="ablation-table">
+              <thead><tr><th>消融设置</th><th>移除模块</th><th>预期影响</th><th>当前观测</th><th>说明</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="competition-grid competition-lists">
+            <article><h3>改善亮点</h3><ul id="improvement-list" class="message-list recommendation-list"></ul></article>
+            <article><h3>提交核验</h3><ul id="submission-checklist" class="message-list cleaning-list"></ul></article>
+          </div>
         </section>
       </div>
     </main>

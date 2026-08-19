@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
+from backend.app.agent.competition_report import CompetitionReportBuilder
 from backend.app.agent.dataset_builder import ResearchDatasetBuilder
 from backend.app.agent.models import (
     AgentConfigurationStatus,
@@ -80,6 +81,7 @@ class ResearchAgentService:
         self.aact = aact_adapter or AACTClinicalTrialsAdapter()
         self.civic = civic_adapter or CIViCAdapter()
         self.dataset_builder = dataset_builder or ResearchDatasetBuilder()
+        self.competition_report_builder = CompetitionReportBuilder()
         self._results: dict[str, AgentTaskResult] = {}
         self._lock = threading.Lock()
 
@@ -272,6 +274,7 @@ class ResearchAgentService:
             summary_zh=summary,
             created_at=created_at,
         )
+        result = result.model_copy(update={"competition_report": self.competition_report_builder.build(result)})
         with self._lock:
             self._results[task_id] = result
         return result
