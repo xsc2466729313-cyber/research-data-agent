@@ -761,6 +761,7 @@ function renderReadiness(readiness, dataset, sources, candidates) {
 
 function renderCompetitionReport(report) {
   const section = document.querySelector("#competition-report");
+  if (!section) return;
   if (!report) {
     section.hidden = true;
     return;
