@@ -117,7 +117,10 @@ textarea:focus, select:focus { border-color: var(--green); box-shadow: 0 0 0 4px
 .error-panel { border-color: #f2b8b5; color: var(--red); background: var(--red-soft); }
 
 .results { scroll-margin-top: 95px; }
-.result-overview { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin: 2rem 0 1.25rem; }
+.result-overview { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; margin: 2rem 0 1.25rem; }
+.result-overview-highlight { border: 2px solid rgba(15,118,110,.22); background: linear-gradient(135deg, #eaf7f2, #f7fbf9); }
+.result-overview-highlight strong { color: var(--green-dark); font-size: 1rem; line-height: 1.35; }
+.result-overview-highlight small { display: block; margin-top: .35rem; color: var(--muted); font-size: .68rem; line-height: 1.45; }
 .result-overview article { padding: 1.2rem; border: 1px solid var(--line); border-radius: 18px; background: #fff; box-shadow: var(--shadow); }
 .result-overview span, .result-overview strong { display: block; }
 .result-overview span { color: var(--muted); font-size: .76rem; }
@@ -231,6 +234,17 @@ code { padding: .15rem .3rem; border-radius: 5px; background: #edf1ee; font-fami
 .evaluation-note small { color: var(--muted); font-size: .68rem; line-height: 1.5; }
 
 .competition-panel { scroll-margin-top: 95px; }
+.competition-spotlight { margin: .4rem 0 1rem; padding: .9rem 1rem; border: 1px solid rgba(15,118,110,.18); border-radius: 16px; background: linear-gradient(135deg, #f0faf7, #ffffff); }
+.competition-spotlight[hidden] { display: none; }
+.spotlight-head { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .65rem; }
+.spotlight-head strong { font-size: .88rem; }
+.competition-spotlight-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; }
+.competition-spotlight-metrics .spot-metric { min-width: 0; padding: .7rem .75rem; border-radius: 12px; background: #fff; border: 1px solid #dbe7e1; }
+.competition-spotlight-metrics .spot-metric span, .competition-spotlight-metrics .spot-metric strong, .competition-spotlight-metrics .spot-metric small { display: block; }
+.competition-spotlight-metrics .spot-metric span { color: var(--muted); font-size: .68rem; }
+.competition-spotlight-metrics .spot-metric strong { margin-top: .25rem; color: var(--green-dark); font-size: .95rem; line-height: 1.35; }
+ .competition-spotlight-metrics .spot-metric em { display: inline-flex; margin-top: .36rem; padding: .14rem .38rem; border-radius: 6px; font-size: .62rem; font-style: normal; font-weight: 800; }
+.competition-spotlight-metrics .spot-metric small { margin-top: .25rem; color: var(--muted); font-size: .66rem; line-height: 1.4; }
 .competition-metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .75rem; margin: 1rem 0 1.2rem; }
 .competition-metric { min-width: 0; padding: .9rem; border: 1px solid var(--line); border-radius: 14px; background: #f8faf8; }
 .competition-metric span, .competition-metric strong, .competition-metric p { display: block; }
@@ -304,7 +318,8 @@ footer { display: flex; justify-content: space-between; gap: 1rem; padding: 1.4r
   nav { display: none; }
   .hero { grid-template-columns: 1fr; min-height: auto; }
   .agent-route { max-width: 700px; }
-  .spec-grid, .plan-list, .competition-metrics { grid-template-columns: repeat(2, 1fr); }
+  .result-overview, .spec-grid, .plan-list, .competition-metrics { grid-template-columns: repeat(2, 1fr); }
+  .competition-spotlight-metrics { grid-template-columns: repeat(2, 1fr); }
   .quality-grid { grid-template-columns: 1fr; }
   .competition-grid { grid-template-columns: 1fr; }
   .api-console-grid { grid-template-columns: 1fr; }
@@ -321,7 +336,7 @@ footer { display: flex; justify-content: space-between; gap: 1rem; padding: 1.4r
   .configuration > div:first-child { grid-template-columns: 1fr; }
   .configuration p { grid-column: 1; }
   .configuration-facts { flex-wrap: wrap; white-space: normal; }
-  .form-grid, .switch-row, .result-overview, .spec-grid, .plan-list, .readiness-facts, .research-metrics, .competition-metrics, .competition-lists, .kg-summary { grid-template-columns: 1fr; }
+  .form-grid, .switch-row, .result-overview, .spec-grid, .plan-list, .readiness-facts, .research-metrics, .competition-metrics, .competition-lists, .kg-summary, .competition-spotlight-metrics { grid-template-columns: 1fr; }
   .outcome-row { grid-template-columns: 1fr auto; }
   .outcome-track { grid-column: 1 / -1; grid-row: 2; }
   .action-heading { flex-direction: column; }

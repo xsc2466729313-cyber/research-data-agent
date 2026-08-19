@@ -764,11 +764,35 @@ function renderCompetitionReport(report) {
   if (!section) return;
   if (!report) {
     section.hidden = true;
+    const spotlight = document.querySelector("#competition-spotlight");
+    if (spotlight) spotlight.hidden = true;
     return;
   }
   section.hidden = false;
+  const spotlight = document.querySelector("#competition-spotlight");
+  if (spotlight) spotlight.hidden = false;
   document.querySelector("#competition-direction").textContent = report.direction || "方向1A";
+  const inlineDirection = document.querySelector("#competition-direction-inline");
+  if (inlineDirection) inlineDirection.textContent = report.direction || "方向1A";
+  const quickSummary = document.querySelector("#competition-quick-summary");
+  if (quickSummary) quickSummary.textContent = `${report.metrics?.length || 0} 个指标` ;
+  const quickStats = document.querySelector("#competition-quick-stats");
+  if (quickStats) quickStats.textContent = `${report.rag_layers?.length || 0} 层混合 RAG · ${report.ablation_rows?.length || 0} 个消融`;
   document.querySelector("#competition-summary").textContent = localizeNarrative(report.summary);
+  const spotlightMetrics = document.querySelector("#competition-spotlight-metrics");
+  if (spotlightMetrics) {
+    const byName = new Map((report.metrics || []).map((metric) => [metric.name, metric]));
+    const graph = report.knowledge_graph || {};
+    const cards = [
+      byName.get("内部综合诊断分") || { name: "内部综合诊断分", display_value: "未计算", status: "待补充", detail: "仅作任务诊断" },
+      byName.get("来源可追溯率") || { name: "来源可追溯率", display_value: "未计算", status: "待补充", detail: "来源审计" },
+      byName.get("请求变量覆盖率") || { name: "请求变量覆盖率", display_value: "未计算", status: "待补充", detail: "变量匹配" },
+      { name: "混合 RAG", display_value: `${report.rag_layers?.length || 0} 层`, status: "已覆盖", detail: "词法、语义、结构化规则与图谱证据" },
+      { name: "知识图谱", display_value: `${graph.node_count ?? 0} 节点 / ${graph.edge_count ?? 0} 边`, status: graph.enabled ? "已覆盖" : "待补充", detail: "来源-数据集-字段-质量反馈关系" },
+      { name: "消融实验", display_value: `${report.ablation_rows?.length || 0} 组`, status: "已覆盖", detail: "千问、多源融合、来源图谱对比" },
+    ];
+    spotlightMetrics.innerHTML = cards.map((metric) => `<article class="spot-metric"><span>${escapeHtml(metric.name)}</span><strong>${escapeHtml(metric.display_value)}</strong><em class="${statusClass(metric.status)}">${escapeHtml(metric.status)}</em><small>${escapeHtml(localizeNarrative(metric.detail))}</small></article>`).join("");
+  }
   document.querySelector("#competition-metrics").innerHTML = (report.metrics || []).map((metric) => {
     const detail = metric.target ? `${metric.detail} 目标：${metric.target}` : metric.detail;
     return `<article class="competition-metric"><span>${escapeHtml(metric.name)}</span><strong>${escapeHtml(metric.display_value)}</strong><em class="${statusClass(metric.status)}">${escapeHtml(metric.status)}</em><p>${escapeHtml(localizeNarrative(detail))}</p></article>`;

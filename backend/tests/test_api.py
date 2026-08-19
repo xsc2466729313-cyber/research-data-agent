@@ -93,6 +93,8 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "知识图谱摘要" in response.text
     assert "消融设置" in response.text
     assert "提交核验" in response.text
+    assert "比赛对齐结果" in response.text
+    assert "competition-spotlight" in response.text
 
     script = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
     assert 'fetch("/api/agent/tasks"' in script
@@ -119,6 +121,10 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "TYPE_TRANSLATIONS" in script
     assert "renderCompetitionReport" in script
     assert "competition_report" in script
+    assert "competition-spotlight" in script
+    assert "内部综合诊断分" in script
+    assert "知识图谱" in script
+    assert "消融实验" in script
 
     styles = (ROOT / "frontend" / "styles.css").read_text(encoding="utf-8")
     assert "@media (max-width: 760px)" in styles
