@@ -89,8 +89,9 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "下载 Parquet" in response.text
     assert "下载 Excel" in response.text
     assert "比赛对齐与消融" in response.text
-    assert "混合 RAG 设计" in response.text
-    assert "知识图谱摘要" in response.text
+    assert "RAG 流程可视化" in response.text
+    assert "知识图谱可视化" in response.text
+    assert "科研适用性初步分析" in response.text
     assert "消融设置" in response.text
     assert "提交核验" in response.text
     assert "比赛对齐结果" in response.text
@@ -121,10 +122,15 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "TYPE_TRANSLATIONS" in script
     assert "renderCompetitionReport" in script
     assert "competition_report" in script
+    assert "renderRagFlow" in script
+    assert "renderKnowledgeGraph" in script
+    assert "renderScientificUsability" in script
     assert "competition-spotlight" in script
     assert "内部综合诊断分" in script
     assert "知识图谱" in script
     assert "消融实验" in script
+    assert "association-meter" in script
+    assert "scientific-usability-findings" in script
 
     styles = (ROOT / "frontend" / "styles.css").read_text(encoding="utf-8")
     assert "@media (max-width: 760px)" in styles
@@ -132,6 +138,9 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "@keyframes lineage-flow" in styles
     assert ".raw-characteristics" in styles
     assert ".competition-panel" in styles
+    assert ".rag-flow-visual" in styles
+    assert ".kg-visual" in styles
+    assert ".scientific-usability" in styles
 
     nginx_config = (ROOT / "frontend" / "nginx.conf").read_text(encoding="utf-8")
     assert "location = /health" in nginx_config
@@ -221,4 +230,10 @@ def test_agent_task_api_exposes_competition_alignment_report(tmp_path: Path) -> 
     assert any(metric.name == "来源可追溯率" for metric in result.competition_report.metrics)
     assert any(row.variant == "去掉千问结构化解析" for row in result.competition_report.ablation_rows)
     assert result.competition_report.knowledge_graph.enabled is True
+    assert result.competition_report.rag_flow_nodes
+    assert result.competition_report.rag_flow_edges
+    assert result.competition_report.graph_nodes
+    assert result.competition_report.graph_edges
+    assert result.competition_report.scientific_usability is not None
+    assert result.competition_report.scientific_usability.title == "科研适用性初步分析"
     assert "消融" in result.competition_report.summary or result.competition_report.summary

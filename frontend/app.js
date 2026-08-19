@@ -797,12 +797,118 @@ function renderCompetitionReport(report) {
     const detail = metric.target ? `${metric.detail} 目标：${metric.target}` : metric.detail;
     return `<article class="competition-metric"><span>${escapeHtml(metric.name)}</span><strong>${escapeHtml(metric.display_value)}</strong><em class="${statusClass(metric.status)}">${escapeHtml(metric.status)}</em><p>${escapeHtml(localizeNarrative(detail))}</p></article>`;
   }).join("");
+  renderRagFlow(report.rag_flow_nodes || [], report.rag_flow_edges || []);
   document.querySelector("#rag-layer-list").innerHTML = (report.rag_layers || []).map((layer) => `<div class="rag-layer"><span>${escapeHtml(layer.layer)}</span><strong>${escapeHtml(layer.implementation)}</strong><p>${escapeHtml(layer.why_it_matters)}</p><small>${escapeHtml(layer.observable_effect)}</small></div>`).join("");
   const graph = report.knowledge_graph || {};
+  renderKnowledgeGraph(report.graph_nodes || [], report.graph_edges || [], graph);
   document.querySelector("#knowledge-graph-summary").innerHTML = `<div><span>节点</span><strong>${escapeHtml(graph.node_count ?? 0)}</strong></div><div><span>边</span><strong>${escapeHtml(graph.edge_count ?? 0)}</strong></div><div><span>实体类型</span><strong>${escapeHtml((graph.entity_types || []).join("、") || "暂无")}</strong></div><div><span>关系类型</span><strong>${escapeHtml((graph.relation_types || []).join("、") || "暂无")}</strong></div><p>${escapeHtml(graph.note || "尚未形成知识图谱摘要。")}</p>`;
+  renderScientificUsability(report.scientific_usability);
   document.querySelector("#ablation-table tbody").innerHTML = (report.ablation_rows || []).map((row) => `<tr><td>${escapeHtml(row.variant)}</td><td>${escapeHtml(row.removed_component)}</td><td>${escapeHtml(row.expected_effect)}</td><td>${escapeHtml(row.observed_effect)}</td><td>${escapeHtml(row.note)}</td></tr>`).join("");
   document.querySelector("#improvement-list").innerHTML = (report.improvement_highlights || []).map((item) => `<li>${escapeHtml(localizeNarrative(item))}</li>`).join("");
   document.querySelector("#submission-checklist").innerHTML = (report.submission_checklist || []).map((item) => `<li><strong>${escapeHtml(item.label)} · ${escapeHtml(item.status)}</strong><br><span>${escapeHtml(item.detail)}</span></li>`).join("");
+}
+
+function renderRagFlow(nodes, edges) {
+  const container = document.querySelector("#rag-flow-visual");
+  if (!container) return;
+  if (!nodes.length) {
+    container.innerHTML = '<p class="muted-visual">运行任务后会显示混合 RAG 从问题到数据集的完整路径。</p>';
+    return;
+  }
+  const ordered = [...nodes].sort((a, b) => (a.order || 0) - (b.order || 0));
+  const width = Math.max(920, ordered.length * 150);
+  const height = 190;
+  const gap = width / (ordered.length + 1);
+  const positions = new Map(ordered.map((node, index) => [node.node_id, { x: gap * (index + 1), y: 84 }]));
+  const edgeMarkup = (edges || []).map((edge) => {
+    const source = positions.get(edge.source);
+    const target = positions.get(edge.target);
+    if (!source || !target) return "";
+    const mid = (source.x + target.x) / 2;
+    return `<path class="rag-flow-edge" d="M ${source.x + 44} ${source.y} C ${mid} ${source.y - 34}, ${mid} ${target.y - 34}, ${target.x - 44} ${target.y}"/><text class="rag-flow-edge-label" x="${mid}" y="${source.y - 46}">${escapeHtml(edge.label)}</text>`;
+  }).join("");
+  const nodeMarkup = ordered.map((node, index) => {
+    const position = positions.get(node.node_id);
+    const palette = ["teal", "blue", "amber", "indigo", "rose", "slate"][index % 6];
+    return `<g class="rag-flow-node rag-${palette}" transform="translate(${position.x},${position.y})" tabindex="0" role="img" aria-label="${escapeHtml(node.layer)} ${escapeHtml(node.label)} ${escapeHtml(node.status)}"><circle r="35"></circle><text class="rag-flow-order" y="-42">${escapeHtml(node.layer)}</text><text class="rag-flow-label" y="2">${escapeHtml(node.label)}</text><text class="rag-flow-status" y="22">${escapeHtml(node.status)}</text><title>${escapeHtml(localizeNarrative(node.detail))}</title></g>`;
+  }).join("");
+  container.innerHTML = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="混合 RAG 流程图"><defs><marker id="rag-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 8 4 L 0 8 z"></path></marker></defs><g>${edgeMarkup}</g><g>${nodeMarkup}</g></svg>`;
+}
+
+function renderKnowledgeGraph(nodes, edges, summary) {
+  const container = document.querySelector("#knowledge-graph-visual");
+  if (!container) return;
+  if (!nodes.length) {
+    container.innerHTML = '<p class="muted-visual">运行真实数据任务后会显示科研问题、来源和主数据集的图谱关系。</p>';
+    return;
+  }
+  const width = 760;
+  const height = 390;
+  const center = { x: 470, y: 195 };
+  const question = { x: 130, y: 195 };
+  const databaseNodes = nodes.filter((node) => node.node_type === "database");
+  const top = 70;
+  const step = databaseNodes.length > 1 ? (height - 140) / (databaseNodes.length - 1) : 0;
+  const positions = new Map();
+  positions.set("dataset", center);
+  positions.set("question", question);
+  databaseNodes.forEach((node, index) => {
+    positions.set(node.node_id, { x: 300, y: databaseNodes.length === 1 ? 195 : top + step * index });
+  });
+  nodes.filter((node) => !positions.has(node.node_id)).forEach((node, index) => {
+    positions.set(node.node_id, { x: 610, y: 95 + index * 80 });
+  });
+  const edgeMarkup = (edges || []).map((edge) => {
+    const source = positions.get(edge.source);
+    const target = positions.get(edge.target);
+    if (!source || !target) return "";
+    const curve = edge.relation_type === "retrieval" ? -34 : 34;
+    const midX = (source.x + target.x) / 2;
+    const strength = Math.max(1.4, 1.2 + Number(edge.strength || 0.4) * 3);
+    return `<path class="kg-edge kg-${escapeHtml(edge.relation_type)}" stroke-width="${strength.toFixed(1)}" d="M ${source.x} ${source.y} C ${midX} ${source.y + curve}, ${midX} ${target.y - curve}, ${target.x} ${target.y}"><title>${escapeHtml(edge.label)}：${escapeHtml(edge.detail || "")}</title></path>`;
+  }).join("");
+  const nodeMarkup = nodes.map((node) => {
+    const position = positions.get(node.node_id);
+    if (!position) return "";
+    const radius = node.node_type === "dataset" ? 50 : node.node_type === "question" ? 42 : 32 + Math.min(Number(node.weight || 1), 5);
+    const detail = [node.group, node.status, localizeNarrative(node.detail)].filter(Boolean).join("｜");
+    return `<g class="kg-node kg-node-${escapeHtml(node.node_type)}" transform="translate(${position.x},${position.y})" tabindex="0" role="img" aria-label="${escapeHtml(node.label)} ${escapeHtml(detail)}"><circle r="${radius}"></circle><text class="kg-label" y="-3">${escapeHtml(node.label)}</text><text class="kg-status" y="17">${escapeHtml(node.status || node.group)}</text><title>${escapeHtml(detail)}</title></g>`;
+  }).join("");
+  const stats = `${summary?.node_count ?? nodes.length} 节点 · ${summary?.edge_count ?? edges.length} 边`;
+  container.innerHTML = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="知识图谱可视化"><defs><marker id="kg-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 8 4 L 0 8 z"></path></marker></defs><text class="kg-caption" x="24" y="32">来源-问题-主科研数据集图谱</text><text class="kg-caption kg-caption-stat" x="24" y="54">${escapeHtml(stats)}</text><g>${edgeMarkup}</g><g>${nodeMarkup}</g></svg>`;
+}
+
+function renderScientificUsability(analysis) {
+  const status = document.querySelector("#scientific-usability-status");
+  const summary = document.querySelector("#scientific-usability-summary");
+  const findings = document.querySelector("#scientific-usability-findings");
+  const caveats = document.querySelector("#scientific-usability-caveats");
+  if (!status || !summary || !findings || !caveats) return;
+  if (!analysis) {
+    status.textContent = "待运行";
+    summary.innerHTML = '<p class="muted-visual">运行任务后会基于主科研数据集展示探索性科研适用性分析。</p>';
+    findings.innerHTML = "";
+    caveats.innerHTML = "";
+    return;
+  }
+  status.textContent = analysis.status || "已分析";
+  summary.innerHTML = [
+    ["样本量", analysis.sample_size],
+    ["结局字段", analysis.target_column || "未识别"],
+    ["可用特征", `${analysis.feature_count || 0} 个`],
+    ["方法", (analysis.methods || []).join("、") || "结构检查"],
+  ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(localizeNarrative(value))}</strong></div>`).join("") + `<p>${escapeHtml(localizeNarrative(analysis.interpretation))}</p>`;
+  findings.innerHTML = (analysis.findings || []).length ? analysis.findings.map((finding) => {
+    const score = Math.max(0, Math.min(1, Number(finding.score || 0)));
+    const counts = Object.entries(finding.group_counts || {});
+    const total = counts.reduce((sum, [, count]) => sum + Number(count || 0), 0);
+    const countMarkup = counts.length ? `<div class="scientific-counts">${counts.map(([label, count]) => {
+      const percent = total ? Number(count) / total * 100 : 0;
+      return `<span><i style="width:${percent.toFixed(1)}%"></i><b>${escapeHtml(translateValue(label))}</b><em>${escapeHtml(count)}</em></span>`;
+    }).join("")}</div>` : "";
+    return `<article class="scientific-finding"><div class="scientific-finding-head"><strong>${escapeHtml(localizeNarrative(finding.variable))}</strong><span>${escapeHtml(finding.method)} · n=${escapeHtml(finding.n)}</span></div><div class="association-meter" role="img" aria-label="${escapeHtml(finding.variable)} 关联强度 ${Math.round(score * 100)}%"><i style="width:${(score * 100).toFixed(1)}%"></i></div><div class="scientific-score"><b>${escapeHtml(finding.display_score)}</b><em class="${statusClass(finding.status)}">${escapeHtml(finding.status)}</em></div><p>${escapeHtml(localizeNarrative(finding.interpretation))}</p>${countMarkup}</article>`;
+  }).join("") : '<p class="muted-visual">当前数据尚未形成足够稳定的相关性/类别关联条目，页面仍保留样本量、结局和字段结构检查。</p>';
+  caveats.innerHTML = (analysis.caveats || ["探索性分析不等于因果推断或正式显著性检验。"]).map((item) => `<li>${escapeHtml(localizeNarrative(item))}</li>`).join("");
 }
 
 function renderDictionary(columns) {

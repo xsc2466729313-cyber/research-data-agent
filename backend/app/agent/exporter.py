@@ -195,8 +195,24 @@ class AgentDatasetExportService:
                 competition.append(["消融", f"{row.variant}｜{row.removed_component}｜{row.expected_effect}｜{row.observed_effect}｜{row.note}"])
             for layer in report.rag_layers:
                 competition.append(["混合RAG", f"{layer.layer}｜{layer.implementation}｜{layer.why_it_matters}｜{layer.observable_effect}"])
+            for node in report.rag_flow_nodes:
+                competition.append(["RAG流程节点", f"{node.order}｜{node.layer}｜{node.label}｜{node.status}｜{node.detail}"])
+            for edge in report.rag_flow_edges:
+                competition.append(["RAG流程边", f"{edge.source} -> {edge.target}｜{edge.label}｜{edge.detail or ''}"])
             competition.append(["知识图谱", f"节点 {report.knowledge_graph.node_count}｜边 {report.knowledge_graph.edge_count}｜关系 {', '.join(report.knowledge_graph.relation_types)}"])
             competition.append(["知识图谱", report.knowledge_graph.note])
+            for node in report.graph_nodes:
+                competition.append(["知识图谱节点", f"{node.node_id}｜{node.label}｜{node.node_type}｜{node.group}｜{node.status or ''}｜{node.detail or ''}"])
+            for edge in report.graph_edges:
+                competition.append(["知识图谱边", f"{edge.source} -> {edge.target}｜{edge.label}｜{edge.relation_type}｜strength={edge.strength:.2f}｜{edge.detail or ''}"])
+            if report.scientific_usability is not None:
+                analysis = report.scientific_usability
+                competition.append(["科研适用性", f"{analysis.status}｜样本 {analysis.sample_size}｜结局 {analysis.target_column or '未识别'}｜特征 {analysis.feature_count}｜方法 {', '.join(analysis.methods)}"])
+                competition.append(["科研适用性", analysis.interpretation])
+                for finding in analysis.findings:
+                    competition.append(["科研适用性发现", f"{finding.variable} -> {finding.outcome}｜{finding.method}｜n={finding.n}｜{finding.display_score}｜{finding.status}｜{finding.interpretation}"])
+                for caveat in analysis.caveats:
+                    competition.append(["科研适用性注意", caveat])
             for item in report.improvement_highlights:
                 competition.append(["改进", item])
             for item in report.limitations:

@@ -155,6 +155,10 @@ def test_agent_excel_export_contains_chinese_dictionary_and_readiness(tmp_path: 
     assert workbook["字段字典"]["B1"].value == "中文标注"
     assert workbook["字段字典"]["D1"].value == "科研用途"
     assert workbook["可科研性报告"]["A2"].value == "任务编号"
+    competition_values = [cell.value for row in workbook["比赛报告"].iter_rows(values_only=False) for cell in row if cell.value]
+    assert "科研适用性" in competition_values
+    assert "RAG流程节点" in competition_values
+    assert "知识图谱节点" in competition_values
 
 
 def test_agent_parquet_export_normalizes_mixed_upstream_types(tmp_path: Path) -> None:

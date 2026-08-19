@@ -165,6 +165,64 @@ class CompetitionRagLayer(ApiModel):
     observable_effect: str
 
 
+class CompetitionVisualNode(ApiModel):
+    node_id: str
+    label: str
+    node_type: str
+    group: str
+    weight: int = Field(default=1, ge=0)
+    status: str | None = None
+    detail: str | None = None
+
+
+class CompetitionVisualEdge(ApiModel):
+    source: str
+    target: str
+    label: str
+    relation_type: str
+    strength: float = Field(default=1.0, ge=0, le=1)
+    detail: str | None = None
+
+
+class CompetitionRagFlowNode(ApiModel):
+    node_id: str
+    label: str
+    layer: str
+    order: int = Field(ge=1)
+    status: str
+    detail: str
+
+
+class CompetitionRagFlowEdge(ApiModel):
+    source: str
+    target: str
+    label: str
+    detail: str | None = None
+
+
+class ScientificUsabilityFinding(ApiModel):
+    variable: str
+    outcome: str
+    method: str
+    n: int = Field(ge=0)
+    display_score: str
+    score: float | None = Field(default=None, ge=0, le=1)
+    status: str
+    interpretation: str
+    group_counts: dict[str, int] = Field(default_factory=dict)
+
+
+class ScientificUsabilityAnalysis(ApiModel):
+    title: str
+    status: str
+    sample_size: int = Field(ge=0)
+    target_column: str | None = None
+    feature_count: int = Field(ge=0)
+    methods: list[str] = Field(default_factory=list)
+    findings: list[ScientificUsabilityFinding] = Field(default_factory=list)
+    interpretation: str
+    caveats: list[str] = Field(default_factory=list)
+
 class CompetitionGraphSummary(ApiModel):
     enabled: bool
     node_count: int = Field(ge=0)
@@ -189,6 +247,11 @@ class CompetitionAlignmentReport(ApiModel):
     ablation_rows: list[CompetitionAblationRow] = Field(default_factory=list)
     rag_layers: list[CompetitionRagLayer] = Field(default_factory=list)
     knowledge_graph: CompetitionGraphSummary
+    rag_flow_nodes: list[CompetitionRagFlowNode] = Field(default_factory=list)
+    rag_flow_edges: list[CompetitionRagFlowEdge] = Field(default_factory=list)
+    graph_nodes: list[CompetitionVisualNode] = Field(default_factory=list)
+    graph_edges: list[CompetitionVisualEdge] = Field(default_factory=list)
+    scientific_usability: ScientificUsabilityAnalysis | None = None
     improvement_highlights: list[str] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
     submission_checklist: list[CompetitionChecklistItem] = Field(default_factory=list)
