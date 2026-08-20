@@ -199,6 +199,15 @@ class AgentDatasetExportService:
                 competition.append(["RAG流程节点", f"{node.order}｜{node.layer}｜{node.label}｜{node.status}｜{node.detail}"])
             for edge in report.rag_flow_edges:
                 competition.append(["RAG流程边", f"{edge.source} -> {edge.target}｜{edge.label}｜{edge.detail or ''}"])
+            for match in report.rag_matches:
+                signal_text = "；".join(f"{name}={value:.0%}" for name, value in match.signals.items())
+                competition.append(
+                    [
+                        "RAG库匹配",
+                        f"{match.database}｜{match.dataset_name}｜{match.display_score}｜{match.status}｜"
+                        f"{'已选用' if match.selected else '候选'}｜{signal_text}｜{match.rationale}",
+                    ]
+                )
             competition.append(["知识图谱", f"节点 {report.knowledge_graph.node_count}｜边 {report.knowledge_graph.edge_count}｜关系 {', '.join(report.knowledge_graph.relation_types)}"])
             competition.append(["知识图谱", report.knowledge_graph.note])
             for node in report.graph_nodes:

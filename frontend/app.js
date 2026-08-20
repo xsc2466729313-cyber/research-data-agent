@@ -799,6 +799,7 @@ function renderCompetitionReport(report) {
   }).join("");
   renderRagFlow(report.rag_flow_nodes || [], report.rag_flow_edges || []);
   document.querySelector("#rag-layer-list").innerHTML = (report.rag_layers || []).map((layer) => `<div class="rag-layer"><span>${escapeHtml(layer.layer)}</span><strong>${escapeHtml(layer.implementation)}</strong><p>${escapeHtml(layer.why_it_matters)}</p><small>${escapeHtml(layer.observable_effect)}</small></div>`).join("");
+  renderRagMatching(report.rag_matches || []);
   const graph = report.knowledge_graph || {};
   renderKnowledgeGraph(report.graph_nodes || [], report.graph_edges || [], graph);
   document.querySelector("#knowledge-graph-summary").innerHTML = `<div><span>节点</span><strong>${escapeHtml(graph.node_count ?? 0)}</strong></div><div><span>边</span><strong>${escapeHtml(graph.edge_count ?? 0)}</strong></div><div><span>实体类型</span><strong>${escapeHtml((graph.entity_types || []).join("、") || "暂无")}</strong></div><div><span>关系类型</span><strong>${escapeHtml((graph.relation_types || []).join("、") || "暂无")}</strong></div><p>${escapeHtml(graph.note || "尚未形成知识图谱摘要。")}</p>`;
@@ -833,6 +834,39 @@ function renderRagFlow(nodes, edges) {
     return `<g class="rag-flow-node rag-${palette}" transform="translate(${position.x},${position.y})" tabindex="0" role="img" aria-label="${escapeHtml(node.layer)} ${escapeHtml(node.label)} ${escapeHtml(node.status)}"><circle r="35"></circle><text class="rag-flow-order" y="-42">${escapeHtml(node.layer)}</text><text class="rag-flow-label" y="2">${escapeHtml(node.label)}</text><text class="rag-flow-status" y="22">${escapeHtml(node.status)}</text><title>${escapeHtml(localizeNarrative(node.detail))}</title></g>`;
   }).join("");
   container.innerHTML = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="混合 RAG 流程图"><defs><marker id="rag-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 8 4 L 0 8 z"></path></marker></defs><g>${edgeMarkup}</g><g>${nodeMarkup}</g></svg>`;
+}
+
+function renderRagMatching(matches) {
+  const status = document.querySelector("#rag-matching-status");
+  const summary = document.querySelector("#rag-matching-summary");
+  const visual = document.querySelector("#rag-matching-visual");
+  if (!status || !summary || !visual) return;
+  if (!matches.length) {
+    status.textContent = "待运行";
+    summary.innerHTML = '<p class="muted-visual">运行任务后会显示候选数据库与科研问题的匹配热力图。</p>';
+    visual.innerHTML = "";
+    return;
+  }
+  const selectedCount = matches.filter((item) => item.selected).length;
+  const avgScore = matches.reduce((sum, item) => sum + Number(item.match_score || 0), 0) / matches.length;
+  status.textContent = `${selectedCount}/${matches.length} 已选用`;
+  summary.innerHTML = [
+    ["候选库/数据集", `${matches.length} 个`],
+    ["已进入结果", `${selectedCount} 个`],
+    ["平均匹配分", `${(avgScore * 100).toFixed(1)}%`],
+    ["最高匹配库", matches[0]?.database || "—"],
+  ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("");
+  const facets = ["检索相关度", "疾病语义", "分子数据", "治疗字段", "结局字段", "数据类型", "公开访问"];
+  const cell = (value) => {
+    const score = Math.max(0, Math.min(1, Number(value || 0)));
+    const level = score >= .85 ? "high" : score >= .5 ? "mid" : score > 0 ? "low" : "none";
+    return `<td><span class="rag-match-cell is-${level}" style="--match:${(score * 100).toFixed(1)}%"><b>${Math.round(score * 100)}</b></span></td>`;
+  };
+  visual.innerHTML = `<div class="rag-match-table-wrap"><table class="rag-match-table"><thead><tr><th>候选库</th><th>匹配分</th>${facets.map((facet) => `<th>${escapeHtml(facet)}</th>`).join("")}<th>解释</th></tr></thead><tbody>${matches.map((item) => {
+    const score = Math.max(0, Math.min(1, Number(item.match_score || 0)));
+    const selected = item.selected ? " is-selected" : "";
+    return `<tr class="${selected}"><td><strong>${escapeHtml(item.database)}</strong><span>${escapeHtml(item.dataset_name)}</span><small>${escapeHtml(item.accession || item.dataset_id)} · ${escapeHtml(item.data_type)}</small></td><td><div class="rag-match-score"><i style="width:${(score * 100).toFixed(1)}%"></i><b>${escapeHtml(item.display_score)}</b><em class="${statusClass(item.status)}">${escapeHtml(item.status)}</em></div></td>${facets.map((facet) => cell(item.signals?.[facet])).join("")}<td><p>${escapeHtml(localizeNarrative(item.rationale))}</p><small>${escapeHtml((item.matched_facets || []).join("、") || "待复核")}</small></td></tr>`;
+  }).join("")}</tbody></table></div>`;
 }
 
 function renderKnowledgeGraph(nodes, edges, summary) {

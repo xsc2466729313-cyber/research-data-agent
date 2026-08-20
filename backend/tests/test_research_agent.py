@@ -158,6 +158,7 @@ def test_agent_excel_export_contains_chinese_dictionary_and_readiness(tmp_path: 
     competition_values = [cell.value for row in workbook["比赛报告"].iter_rows(values_only=False) for cell in row if cell.value]
     assert "科研适用性" in competition_values
     assert "RAG流程节点" in competition_values
+    assert "RAG库匹配" in competition_values
     assert "知识图谱节点" in competition_values
 
 

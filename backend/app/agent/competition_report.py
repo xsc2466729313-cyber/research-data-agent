@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from statistics import fmean
 from typing import TYPE_CHECKING, Any
 
@@ -10,6 +11,7 @@ from backend.app.agent.models import (
     CompetitionGraphSummary,
     CompetitionMetric,
     CompetitionRagFlowEdge,
+    CompetitionRagMatch,
     CompetitionRagFlowNode,
     CompetitionRagLayer,
     CompetitionVisualEdge,
@@ -108,6 +110,7 @@ class CompetitionReportBuilder:
             ),
         )
         rag_flow_nodes, rag_flow_edges = self._rag_flow(result, databases)
+        rag_matches = self._rag_matches(result, candidates, sources)
         graph_nodes, graph_edges = self._visual_graph(result, databases, sources, candidates)
         scientific_usability = self._scientific_usability(result)
         summary = (
@@ -126,6 +129,7 @@ class CompetitionReportBuilder:
             knowledge_graph=graph_summary,
             rag_flow_nodes=rag_flow_nodes,
             rag_flow_edges=rag_flow_edges,
+            rag_matches=rag_matches,
             graph_nodes=graph_nodes,
             graph_edges=graph_edges,
             scientific_usability=scientific_usability,
@@ -318,6 +322,117 @@ class CompetitionReportBuilder:
             CompetitionRagFlowEdge(source="rag-graph", target="rag-output", label="整合输出"),
         ]
         return nodes, edges
+
+    @staticmethod
+    def _rag_matches(
+        result: AgentTaskResult,
+        candidates: list[Any],
+        sources: list[Any],
+    ) -> list[CompetitionRagMatch]:
+        """Expose deterministic, auditable library-match signals, not benchmark scores."""
+        selected_keys = {
+            str(value)
+            for source in sources
+            for value in (source.accession, source.source_id)
+            if value
+        }
+        seen: set[str] = set()
+        matches: list[CompetitionRagMatch] = []
+        required_text = " ".join(result.research_spec.required_data_types).casefold()
+        disease_text = result.research_spec.disease.casefold()
+        query_text = result.research_spec.research_goal.casefold()
+        for candidate in candidates:
+            match_key = f"{candidate.source_database}:{candidate.dataset_id}"
+            if match_key in seen:
+                continue
+            seen.add(match_key)
+            candidate_text = f"{candidate.dataset_name} {candidate.data_type} {candidate.source_database}".casefold()
+            disease_terms = [
+                token
+                for token in re.split(r"[\s,，;；/()（）]+", disease_text)
+                if len(token) >= 2
+            ]
+            disease_signal = 1.0 if any(token in candidate_text for token in disease_terms) else 0.0
+            molecular_signal = 1.0 if any(
+                token in candidate.data_type.casefold()
+                for token in ("突变", "分子", "表达", "拷贝", "mutation", "expression", "genomic", "variant")
+            ) and bool(result.research_spec.genes or "分子" in required_text or "mutation" in required_text) else 0.0
+            treatment_signal = 1.0 if candidate.has_treatment else 0.0
+            outcome_signal = 1.0 if candidate.has_response else 0.0
+            data_type_signal = 1.0 if any(
+                token and token in candidate_text
+                for token in re.split(r"[\s,，;；/()（）]+", required_text)
+                if len(token) >= 2
+            ) else 0.0
+            public_signal = 1.0 if candidate.public_access else 0.0
+            signals = {
+                "检索相关度": round(candidate.relevance_score, 4),
+                "疾病语义": disease_signal,
+                "分子数据": molecular_signal,
+                "治疗字段": treatment_signal,
+                "结局字段": outcome_signal,
+                "数据类型": data_type_signal,
+                "公开访问": public_signal,
+            }
+            weights = {
+                "检索相关度": 0.25,
+                "疾病语义": 0.15,
+                "分子数据": 0.15,
+                "治疗字段": 0.10,
+                "结局字段": 0.15,
+                "数据类型": 0.10,
+                "公开访问": 0.10,
+            }
+            match_score = round(sum(signals[name] * weight for name, weight in weights.items()), 4)
+            selected = bool(
+                candidate.dataset_id in selected_keys
+                or candidate.accession in selected_keys
+            )
+            matched_facets = [name for name, value in signals.items() if value >= 0.5]
+            if selected:
+                status = "已选用"
+            elif match_score >= 0.8:
+                status = "高匹配"
+            elif match_score >= 0.6:
+                status = "中匹配"
+            else:
+                status = "待复核"
+            evidence = [
+                f"候选库检索相关度 {candidate.relevance_score:.0%}",
+                f"数据类型：{candidate.data_type}",
+            ]
+            if candidate.sample_count is not None:
+                evidence.append(f"样本/记录规模：{candidate.sample_count}")
+            if candidate.has_treatment:
+                evidence.append("存在治疗字段")
+            if candidate.has_response:
+                evidence.append("存在结局/响应字段")
+            if candidate.accession:
+                evidence.append(f"数据编号：{candidate.accession}")
+            rationale = "；".join(evidence)
+            if selected:
+                rationale += "；已在本次任务来源中登记。"
+            elif query_text:
+                rationale += "；保留为候选，需结合原始字段和人工复核继续确认。"
+            matches.append(
+                CompetitionRagMatch(
+                    match_id=match_key,
+                    database=CompetitionReportBuilder._canonical_database(candidate.source_database),
+                    dataset_id=candidate.dataset_id,
+                    dataset_name=candidate.dataset_name,
+                    data_type=candidate.data_type,
+                    accession=candidate.accession,
+                    sample_count=candidate.sample_count,
+                    match_score=match_score,
+                    display_score=f"诊断匹配 {match_score:.1%}",
+                    status=status,
+                    selected=selected,
+                    signals=signals,
+                    matched_facets=matched_facets,
+                    rationale=rationale,
+                )
+            )
+        return sorted(matches, key=lambda item: (-item.match_score, not item.selected, item.dataset_name))
 
     @staticmethod
     def _visual_graph(

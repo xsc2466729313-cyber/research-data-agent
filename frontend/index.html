@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="千问驱动的乳腺癌科研数据智能体：从科研问题、真实数据库工具调用到可阅读、可追溯的科研数据集。" />
     <title>千问乳腺癌科研数据智能体</title>
-    <link rel="stylesheet" href="/styles.css?v=20260819-3" />
+    <link rel="stylesheet" href="/styles.css?v=20260820-1" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">跳到主要内容</a>
@@ -281,6 +281,12 @@
               <div id="knowledge-graph-summary" class="kg-summary"></div>
             </article>
           </div>
+          <article class="rag-matching">
+            <div class="rag-matching-heading"><div><h3>RAG 库匹配可视化</h3><span>展示候选数据库为什么匹配当前科研问题，以及哪些库已经进入本次结果</span></div><strong id="rag-matching-status">—</strong></div>
+            <div id="rag-matching-summary" class="rag-matching-summary"></div>
+            <div id="rag-matching-visual" class="rag-matching-visual" aria-label="RAG 候选数据库匹配热力图"></div>
+            <p class="rag-matching-note">匹配分是基于候选检索相关度、疾病语义、分子数据、治疗字段、结局字段、数据类型和公开访问的任务级诊断分，不是官方 Gold Set 或 SDTI 成绩。</p>
+          </article>
           <article class="scientific-usability">
             <div class="scientific-heading"><div><h3>科研适用性初步分析</h3><span>用缺失率、类别平衡、相关性/关联分析说明数据是否值得继续做科研建模</span></div><strong id="scientific-usability-status">—</strong></div>
             <div id="scientific-usability-summary" class="scientific-summary"></div>
@@ -343,6 +349,6 @@
     </dialog>
     <div id="toast" class="toast" hidden role="status" aria-live="polite"></div>
     <footer><span>千问科研数据智能体</span><span>模型负责规划 · 规则负责安全 · 数据必须真实可追溯</span></footer>
-    <script src="/app.js?v=20260819-3" defer></script>
+    <script src="/app.js?v=20260820-1" defer></script>
   </body>
 </html>

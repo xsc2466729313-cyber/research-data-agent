@@ -90,6 +90,7 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "下载 Excel" in response.text
     assert "比赛对齐与消融" in response.text
     assert "RAG 流程可视化" in response.text
+    assert "RAG 库匹配可视化" in response.text
     assert "知识图谱可视化" in response.text
     assert "科研适用性初步分析" in response.text
     assert "消融设置" in response.text
@@ -123,6 +124,7 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "renderCompetitionReport" in script
     assert "competition_report" in script
     assert "renderRagFlow" in script
+    assert "renderRagMatching" in script
     assert "renderKnowledgeGraph" in script
     assert "renderScientificUsability" in script
     assert "competition-spotlight" in script
@@ -139,6 +141,7 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert ".raw-characteristics" in styles
     assert ".competition-panel" in styles
     assert ".rag-flow-visual" in styles
+    assert ".rag-matching" in styles
     assert ".kg-visual" in styles
     assert ".scientific-usability" in styles
 
@@ -232,6 +235,8 @@ def test_agent_task_api_exposes_competition_alignment_report(tmp_path: Path) -> 
     assert result.competition_report.knowledge_graph.enabled is True
     assert result.competition_report.rag_flow_nodes
     assert result.competition_report.rag_flow_edges
+    assert result.competition_report.rag_matches
+    assert any(item.signals for item in result.competition_report.rag_matches)
     assert result.competition_report.graph_nodes
     assert result.competition_report.graph_edges
     assert result.competition_report.scientific_usability is not None

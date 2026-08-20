@@ -200,6 +200,23 @@ class CompetitionRagFlowEdge(ApiModel):
     detail: str | None = None
 
 
+class CompetitionRagMatch(ApiModel):
+    match_id: str
+    database: str
+    dataset_id: str
+    dataset_name: str
+    data_type: str
+    accession: str | None = None
+    sample_count: int | None = Field(default=None, ge=0)
+    match_score: float = Field(ge=0, le=1)
+    display_score: str
+    status: str
+    selected: bool = False
+    signals: dict[str, float] = Field(default_factory=dict)
+    matched_facets: list[str] = Field(default_factory=list)
+    rationale: str
+
+
 class ScientificUsabilityFinding(ApiModel):
     variable: str
     outcome: str
@@ -249,6 +266,7 @@ class CompetitionAlignmentReport(ApiModel):
     knowledge_graph: CompetitionGraphSummary
     rag_flow_nodes: list[CompetitionRagFlowNode] = Field(default_factory=list)
     rag_flow_edges: list[CompetitionRagFlowEdge] = Field(default_factory=list)
+    rag_matches: list[CompetitionRagMatch] = Field(default_factory=list)
     graph_nodes: list[CompetitionVisualNode] = Field(default_factory=list)
     graph_edges: list[CompetitionVisualEdge] = Field(default_factory=list)
     scientific_usability: ScientificUsabilityAnalysis | None = None
