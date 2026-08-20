@@ -130,6 +130,21 @@ const ARGUMENT_LABELS = {
 const translateTerm = (value) => TERM_TRANSLATIONS[String(value)] || String(value ?? "—");
 const listText = (values) => values?.length ? values.map(translateTerm).join("、") : "未指定";
 const statusClass = (status) => ["完成", "可支持科研分析", "达标", "已覆盖", "已记录", "已计算"].includes(status) ? "is-success" : status === "失败" || status === "部分失败" ? "is-error" : "is-review";
+const metricPercentValue = (metric) => {
+  if (!metric) return null;
+  const value = Number(metric.value);
+  if (Number.isFinite(value)) return value * 100;
+  const parsed = Number(String(metric.display_value || "").replace("%", ""));
+  return Number.isFinite(parsed) ? parsed : null;
+};
+const clampPercent = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, Math.min(100, number)) : null;
+};
+const precisePercent = (value) => {
+  const percent = clampPercent(value);
+  return percent == null ? "待评测" : `${percent.toFixed(1)}%`;
+};
 const canonicalDatabaseName = (value) => {
   const text = String(value || "");
   const lower = text.toLowerCase();
@@ -702,6 +717,83 @@ document.querySelector("#raw-dialog-close").addEventListener("click", () => {
   document.querySelector("#raw-characteristics-dialog").close();
 });
 
+function renderModelMetricComparison(report) {
+  const container = document.querySelector("#metric-compare-bars");
+  const values = document.querySelector("#metric-compare-values");
+  const topline = document.querySelector("#metric-compare-topline");
+  if (!container || !values || !topline) return;
+  const metricMap = new Map((report?.metrics || []).map((metric) => [metric.name, metric]));
+  const metricValue = (name) => {
+    const metric = metricMap.get(name);
+    const value = metricPercentValue(metric);
+    return value == null ? null : clampPercent(value);
+  };
+  const actualRows = [
+    { name: "来源审计完整度", value: metricValue("来源审计完整度") ?? metricValue("来源可追溯率") },
+    { name: "结局完整率", value: metricValue("结局完整率") },
+    { name: "字段完整率", value: metricValue("字段完整率") },
+    { name: "请求要素覆盖率", value: metricValue("请求要素覆盖率") ?? metricValue("请求变量覆盖率") },
+    { name: "科研探索可用性", value: metricValue("科研探索可用性") ?? metricValue("分析可用性") },
+  ];
+  const actualValues = actualRows.map((item) => item.value).filter((value) => value != null);
+  const average = actualValues.length ? actualValues.reduce((sum, value) => sum + value, 0) / actualValues.length : null;
+  topline.textContent = average == null ? "正式模型 · 待评测" : `正式模型当前诊断均值 · ${precisePercent(average)}`;
+
+  const comparisonRows = [
+    {
+      model: "正式模型 Ours",
+      label: "当前任务真实结果",
+      note: "已接入本次任务的真实可观测指标",
+      color: "#0f766e",
+      value: average,
+      filled: true,
+    },
+    {
+      model: "普通 LLM",
+      label: "待实测",
+      note: "需要同一 Gold Set 的真实运行",
+      color: "#64748b",
+      value: null,
+      filled: false,
+    },
+    {
+      model: "单源检索模型",
+      label: "待实测",
+      note: "需要同一 Gold Set 的真实运行",
+      color: "#2563eb",
+      value: null,
+      filled: false,
+    },
+    {
+      model: "多源无规则 / 无 Repair",
+      label: "待实测",
+      note: "需要同一 Gold Set 的真实消融",
+      color: "#d97706",
+      value: null,
+      filled: false,
+    },
+  ];
+  container.innerHTML = comparisonRows.map((row) => {
+    const width = clampPercent(row.value) ?? 0;
+    const emphasis = row.filled ? " is-primary" : "";
+    return `<div class="metric-compare-row${emphasis}">
+      <div class="metric-compare-label"><strong>${escapeHtml(row.model)}</strong><span>${escapeHtml(row.label)}</span></div>
+      <div class="metric-compare-track" role="img" aria-label="${escapeHtml(row.model)} ${precisePercent(row.value)}">
+        <span style="width:${width.toFixed(1)}%; background:${escapeHtml(row.color)}"></span>
+      </div>
+      <strong class="metric-compare-score">${precisePercent(row.value)}</strong>
+    </div>`;
+  }).join("");
+  values.innerHTML = `<table><thead><tr><th>指标</th><th>数值</th><th>说明</th></tr></thead><tbody>${actualRows.map((item) => `<tr>
+    <td><strong>${escapeHtml(item.name)}</strong></td>
+    <td>${precisePercent(item.value)}</td>
+    <td>${escapeHtml(item.value == null ? "待评测" : "当前任务真实值")}</td>
+  </tr>`).join("")}
+  <tr class="is-primary"><td><strong>综合诊断均值</strong></td><td>${precisePercent(average)}</td><td>正式模型当前可观测效果</td></tr>
+  <tr><td><strong>普通 LLM / 单源 / 消融</strong></td><td>待实测</td><td>同一 Gold Set 上填入真实结果后再对比</td></tr></tbody></table>
+  <p>说明：正式模型行来自本次任务的真实可观测结果；其他配置必须在同一 Gold Set 上实际运行后填入，不自动生成比较分数。以上不是 Gold Set 官方 Precision/Recall/SDTI 成绩。</p>`;
+}
+
 function renderReadiness(readiness, dataset, sources, candidates) {
   const badge = document.querySelector("#readiness-status");
   badge.textContent = readiness.status;
@@ -713,6 +805,13 @@ function renderReadiness(readiness, dataset, sources, candidates) {
     ...sources.map((source) => canonicalDatabaseName(source.source_name)),
     ...(candidates || []).map((candidate) => canonicalDatabaseName(candidate.source_database)),
   ].filter(Boolean));
+  const reportMetrics = new Map((state.result?.competition_report?.metrics || []).map((metric) => [metric.name, metric]));
+  const sourceAuditMetric = reportMetrics.get("来源审计完整度") || reportMetrics.get("来源可追溯率");
+  const questionFitMetric = reportMetrics.get("请求要素覆盖率") || reportMetrics.get("请求变量覆盖率");
+  const explorationMetric = reportMetrics.get("科研探索可用性") || reportMetrics.get("分析可用性");
+  const sourceAuditPercent = metricPercentValue(sourceAuditMetric);
+  const questionFitPercent = metricPercentValue(questionFitMetric);
+  const explorationPercent = metricPercentValue(explorationMetric);
   const fieldCompleteness = readiness.field_completeness_rate == null ? null : readiness.field_completeness_rate * 100;
   const variableCoverage = readiness.requested_variable_coverage_rate == null ? null : readiness.requested_variable_coverage_rate * 100;
   const metricCards = [
@@ -720,9 +819,29 @@ function renderReadiness(readiness, dataset, sources, candidates) {
     { label: "结局匹配", value: readiness.target_match ? "匹配" : "不匹配", suffix: "", detail: readiness.target_match ? fieldLabel(dataset, readiness.target_column) : "没有用其他结局替代" },
     { label: "结局完整率", percent: outcomeCompleteness, detail: readiness.target_column ? fieldLabel(dataset, readiness.target_column) : "尚未识别结局字段" },
     { label: "全表字段完整率", percent: fieldCompleteness, detail: "基于主科研数据集的非审计字段计算" },
-    { label: "请求变量覆盖率", percent: variableCoverage, detail: variableCoverage == null ? "科研问题未指定基因" : "请求基因在主数据集中的覆盖" },
+    {
+      label: "主表基因变量覆盖",
+      percent: variableCoverage,
+      detail: variableCoverage == null
+        ? "科研问题未指定基因"
+        : "只看同一患者级主表是否含请求基因；不把外部候选库硬拼成患者变量",
+    },
+    {
+      label: "请求要素覆盖率",
+      percent: questionFitPercent ?? variableCoverage,
+      detail: questionFitMetric?.detail || "综合疾病、结局、基因/分子证据、治疗和数据类型匹配",
+    },
     { label: "数据源多样性", value: sourceDatabases.size, suffix: "类", detail: [...sourceDatabases].join("、") || "尚无来源" },
-    { label: "来源可追溯率", percent: traceabilityRate, detail: sources.length ? `${traceableCount}/${sources.length} 个来源具备官方地址` : "尚无来源记录" },
+    {
+      label: "来源审计完整度",
+      percent: sourceAuditPercent ?? traceabilityRate,
+      detail: sourceAuditMetric?.detail || (sources.length ? `${traceableCount}/${sources.length} 个来源具备 source_id 与官方地址` : "尚无来源记录"),
+    },
+    {
+      label: "科研探索可用性",
+      percent: explorationPercent,
+      detail: explorationMetric?.detail || "综合样本量、结局完整性、字段完整性、问题匹配和类别分布",
+    },
     { label: "自动清洗", value: readiness.cleaned_value_count, suffix: "处", detail: `另排除 ${readiness.excluded_orphan_record_count} 条孤立分子记录` },
   ];
   document.querySelector("#research-metrics").innerHTML = metricCards.map((metric) => {
@@ -733,6 +852,7 @@ function renderReadiness(readiness, dataset, sources, candidates) {
     const percent = Math.max(0, Math.min(100, metric.percent));
     return `<article class="research-metric research-metric-rate"><div class="metric-ring" style="--metric-value:${percent.toFixed(1)}" role="img" aria-label="${escapeHtml(metric.label)} ${percent.toFixed(1)}%"><span>${percent.toFixed(1)}%</span></div><div><span>${escapeHtml(metric.label)}</span><p>${escapeHtml(metric.detail)}</p></div></article>`;
   }).join("");
+  renderModelMetricComparison(state.result?.competition_report);
 
   const distribution = Object.entries(dataset.class_distribution || {});
   const distributionTotal = distribution.reduce((sum, [, count]) => sum + Number(count || 0), 0);
@@ -748,7 +868,9 @@ function renderReadiness(readiness, dataset, sources, candidates) {
     ["研究结局字段", fieldLabel(dataset, readiness.target_column)],
     ["结局缺失率", readiness.target_missing_rate == null ? "—" : `${(readiness.target_missing_rate * 100).toFixed(1)}%`],
     ["全表字段完整率", readiness.field_completeness_rate == null ? "—" : `${(readiness.field_completeness_rate * 100).toFixed(1)}%`],
-    ["请求变量覆盖率", readiness.requested_variable_coverage_rate == null ? "未指定基因变量" : `${(readiness.requested_variable_coverage_rate * 100).toFixed(1)}%`],
+    ["主表基因变量覆盖", readiness.requested_variable_coverage_rate == null ? "未指定基因变量" : `${(readiness.requested_variable_coverage_rate * 100).toFixed(1)}%`],
+    ["请求要素覆盖率", questionFitPercent == null ? "未计算" : `${questionFitPercent.toFixed(1)}%`],
+    ["来源审计完整度", sourceAuditPercent == null ? "未计算" : `${sourceAuditPercent.toFixed(1)}%`],
     ["重复患者", readiness.repeated_patient_count],
     ["重复样本行", readiness.duplicate_row_count],
     ["分析分组建议", readiness.split_strategy],
@@ -785,8 +907,8 @@ function renderCompetitionReport(report) {
     const graph = report.knowledge_graph || {};
     const cards = [
       byName.get("内部综合诊断分") || { name: "内部综合诊断分", display_value: "未计算", status: "待补充", detail: "仅作任务诊断" },
-      byName.get("来源可追溯率") || { name: "来源可追溯率", display_value: "未计算", status: "待补充", detail: "来源审计" },
-      byName.get("请求变量覆盖率") || { name: "请求变量覆盖率", display_value: "未计算", status: "待补充", detail: "变量匹配" },
+      byName.get("来源审计完整度") || byName.get("来源可追溯率") || { name: "来源审计完整度", display_value: "未计算", status: "待补充", detail: "来源审计" },
+      byName.get("请求要素覆盖率") || byName.get("请求变量覆盖率") || { name: "请求要素覆盖率", display_value: "未计算", status: "待补充", detail: "变量匹配" },
       { name: "混合 RAG", display_value: `${report.rag_layers?.length || 0} 层`, status: "已覆盖", detail: "词法、语义、结构化规则与图谱证据" },
       { name: "知识图谱", display_value: `${graph.node_count ?? 0} 节点 / ${graph.edge_count ?? 0} 边`, status: graph.enabled ? "已覆盖" : "待补充", detail: "来源-数据集-字段-质量反馈关系" },
       { name: "消融实验", display_value: `${report.ablation_rows?.length || 0} 组`, status: "已覆盖", detail: "千问、多源融合、来源图谱对比" },

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="千问驱动的乳腺癌科研数据智能体：从科研问题、真实数据库工具调用到可阅读、可追溯的科研数据集。" />
     <title>千问乳腺癌科研数据智能体</title>
-    <link rel="stylesheet" href="/styles.css?v=20260820-1" />
+    <link rel="stylesheet" href="/styles.css?v=20260821-1" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">跳到主要内容</a>
@@ -226,17 +226,28 @@
               <div id="outcome-bars" class="outcome-bars"></div>
             </div>
             <div id="readiness-facts" class="readiness-facts"></div>
-            <div class="quality-detail">
-              <h3>本次实际清洗动作</h3>
-              <ul id="cleaning-action-list" class="message-list cleaning-list"></ul>
+          <div class="quality-detail">
+            <h3>本次实际清洗动作</h3>
+            <ul id="cleaning-action-list" class="message-list cleaning-list"></ul>
+          </div>
+          <div class="metric-compare-panel">
+            <div class="metric-compare-heading">
+              <div>
+                <h3>模型指标对比</h3>
+                <span>同口径内部诊断分，展示各模型配置在关键指标上的差异。</span>
+              </div>
+              <strong id="metric-compare-topline">—</strong>
             </div>
-            <h3>风险提示</h3><ul id="warning-list" class="message-list warning-list"></ul>
-            <h3>下一步建议</h3><ul id="recommendation-list" class="message-list recommendation-list"></ul>
-            <div class="evaluation-note">
-              <strong>系统评测指标</strong>
-              <span>检索精确率 / 召回率 / 忠实度 / 修复成功率 / SDTI：未评测</span>
-              <small>尚未加载 Gold Set，因此不展示虚假的系统分数；上方数据质量指标均由本次真实结果计算。</small>
-            </div>
+            <div id="metric-compare-bars" class="metric-compare-bars" aria-label="模型指标柱状图"></div>
+            <div id="metric-compare-values" class="metric-compare-values" aria-label="模型指标精确数值"></div>
+          </div>
+          <h3>风险提示</h3><ul id="warning-list" class="message-list warning-list"></ul>
+          <h3>下一步建议</h3><ul id="recommendation-list" class="message-list recommendation-list"></ul>
+          <div class="evaluation-note">
+            <strong>系统评测指标</strong>
+            <span>检索精确率 / 召回率 / 忠实度 / 可追溯性 / 修复成功率 / SDTI：未评测</span>
+            <small>尚未加载 Gold Set，因此不展示虚假的系统分数；上方数据质量指标均由本次真实结果计算。</small>
+          </div>
           </article>
           <article class="panel dictionary-panel">
             <div class="section-heading"><div><p class="section-kicker">07 · 中文字段字典</p><h2>变量是什么意思</h2></div><span id="dictionary-count" class="count-tag"></span></div>
@@ -349,6 +360,6 @@
     </dialog>
     <div id="toast" class="toast" hidden role="status" aria-live="polite"></div>
     <footer><span>千问科研数据智能体</span><span>模型负责规划 · 规则负责安全 · 数据必须真实可追溯</span></footer>
-    <script src="/app.js?v=20260820-1" defer></script>
+    <script src="/app.js?v=20260821-1" defer></script>
   </body>
 </html>
