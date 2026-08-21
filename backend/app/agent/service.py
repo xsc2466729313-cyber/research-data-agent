@@ -145,6 +145,7 @@ class ResearchAgentService:
                 qwen_warning = "未配置千问凭据，已使用确定性规划兜底。"
         else:
             spec = self._deterministic_spec(request.question, task_id)
+        spec = self._enrich_research_spec(spec, request.question)
         plan_steps[0].status = "完成"
         plan_steps[0].detail = f"识别疾病 {spec.disease}；基因 {', '.join(spec.genes) or '未指定'}；结局 {', '.join(spec.outcomes) or '未指定'}。"
 
@@ -405,7 +406,9 @@ class ResearchAgentService:
         upper = question.upper()
         known_genes = ["ERBB2", "PIK3CA", "TP53", "BRCA1", "BRCA2", "ESR1", "AKT1", "PTEN"]
         genes = [gene for gene in known_genes if gene in upper]
-        if "HER2" in upper and "ERBB2" not in genes:
+        her2_negative = ResearchAgentService._mentions_her2_negative(question)
+        her2_positive = ResearchAgentService._mentions_her2_positive(question)
+        if her2_positive and "ERBB2" not in genes:
             genes.insert(0, "ERBB2")
         drugs = []
         for alias, standard in {
@@ -413,10 +416,23 @@ class ResearchAgentService:
             "HERCEPTIN": "Trastuzumab",
             "TRASTUZUMAB": "Trastuzumab",
             "帕妥珠单抗": "Pertuzumab",
+            "ALPELISIB": "Alpelisib",
+            "阿培利司": "Alpelisib",
+            "CAPIVASERTIB": "Capivasertib",
+            "卡匹伐塞替": "Capivasertib",
         }.items():
             if alias in upper or alias in question:
                 drugs.append(standard)
-        subtype = "HER2-positive" if "HER2" in upper and any(term in question for term in ("阳性", "+")) else None
+        if "PI3K" in upper and any(term in question for term in ("抑制剂", "抑制", "inhibitor", "Inhibitor")):
+            drugs.append("Alpelisib")
+        if "HR+" in upper or "HR阳性" in question or "HR 阳性" in question:
+            subtype = "HR-positive/HER2-negative" if her2_negative else "HR-positive"
+        elif her2_negative:
+            subtype = "HER2-negative"
+        elif her2_positive:
+            subtype = "HER2-positive"
+        else:
+            subtype = None
         outcomes: list[str] = []
         if any(term in upper for term in ("PCR", "RESPONSE")) or any(term in question for term in ("响应", "疗效", "缓解")):
             outcomes.append("treatment_response")
@@ -463,7 +479,7 @@ class ResearchAgentService:
         candidates: list[tuple[str, dict[str, Any]]] = []
         genes = spec.genes or ["ERBB2", "PIK3CA"]
         candidates.append(("search_cbioportal", {"study_id": "brca_metabric", "gene_symbols": genes, "max_records": request.max_records}))
-        if "expression" in spec.required_data_types or "treatment_response" in spec.required_data_types:
+        if self._should_search_geo(spec):
             candidates.append(("search_geo", {"accession": self._default_geo_accession(spec), "max_files": 5}))
         candidates.append(("search_gdc", {"project_id": "TCGA-BRCA", "data_types": ["Clinical Supplement"], "max_files": 5}))
         if spec.drugs or "evidence" in spec.required_data_types:
@@ -509,11 +525,14 @@ class ResearchAgentService:
             normalized = {**call, "arguments": dict(call.get("arguments") or {})}
             arguments = normalized["arguments"]
             if call.get("name") == "search_geo":
+                if not self._should_search_geo(spec):
+                    continue
                 # The curated accession resolver prevents a generic expression
-                # cohort from replacing an outcome-matched HER2 response cohort.
+                # cohort from replacing a task-matched response cohort.
                 arguments["accession"] = self._default_geo_accession(spec)
                 arguments["max_files"] = 1
             elif call.get("name") == "search_cbioportal":
+                arguments["gene_symbols"] = spec.genes or arguments.get("gene_symbols") or ["PIK3CA"]
                 arguments["max_records"] = request.max_records
             elif call.get("name") == "search_gdc":
                 data_types = ["Clinical Supplement"]
@@ -525,9 +544,22 @@ class ResearchAgentService:
             elif call.get("name") == "search_civic":
                 arguments["disease_name"] = "Breast Cancer"
                 arguments["molecular_profile_name"] = spec.genes[0] if spec.genes else None
-                arguments["therapy_name"] = None
+                arguments["therapy_name"] = spec.drugs[0] if spec.drugs else self._optional_text(arguments.get("therapy_name"))
                 arguments["max_items"] = 5
             guarded.append(normalized)
+        if not guarded:
+            genes = spec.genes or ["PIK3CA"]
+            guarded.append(
+                {
+                    "id": "guard-fallback-cbio",
+                    "name": "search_cbioportal",
+                    "arguments": {
+                        "study_id": "brca_metabric",
+                        "gene_symbols": genes,
+                        "max_records": request.max_records,
+                    },
+                }
+            )
         return guarded
 
     @staticmethod
@@ -560,11 +592,98 @@ class ResearchAgentService:
     @staticmethod
     def _default_geo_accession(spec: ResearchSpec) -> str:
         text = spec.research_goal.upper()
-        if "HER2" in text or "TRASTUZUMAB" in text or "曲妥珠" in spec.research_goal:
+        subtype = (spec.subtype or "").casefold()
+        if (
+            ("her2-positive" in subtype or "TRASTUZUMAB" in text or "曲妥珠" in spec.research_goal)
+            and "her2-negative" not in subtype
+            and not ResearchAgentService._is_pi3k_inhibitor_question(spec)
+        ):
             return "GSE76360"
         if "RESPONSE" in text or any(term in spec.research_goal for term in ("响应", "疗效", "新辅助")):
             return "GSE25066"
         return "GSE96058"
+
+    @staticmethod
+    def _enrich_research_spec(spec: ResearchSpec, question: str) -> ResearchSpec:
+        upper = question.upper()
+        genes = list(dict.fromkeys(spec.genes))
+        if "PIK3CA" in upper and "PIK3CA" not in genes:
+            genes.append("PIK3CA")
+        if ResearchAgentService._mentions_her2_negative(question) and "ERBB2" not in upper:
+            genes = [gene for gene in genes if gene != "ERBB2"]
+        if "PI3K" in upper:
+            genes = [gene for gene in genes if gene == "PIK3CA" or gene in upper]
+        subtype = spec.subtype
+        if ("HR+" in upper or "HR阳性" in question or "HR 阳性" in question) and ResearchAgentService._mentions_her2_negative(question):
+            subtype = "HR-positive/HER2-negative"
+        elif ResearchAgentService._mentions_her2_negative(question):
+            subtype = "HER2-negative"
+        elif ResearchAgentService._mentions_her2_positive(question):
+            subtype = "HER2-positive"
+
+        drugs = list(dict.fromkeys(spec.drugs))
+        if "PI3K" in upper and any(term in question for term in ("抑制剂", "抑制", "inhibitor", "Inhibitor")):
+            drugs.append("Alpelisib")
+        if "ALPELISIB" in upper or "阿培利司" in question:
+            drugs.append("Alpelisib")
+        if "CAPIVASERTIB" in upper or "卡匹伐塞替" in question:
+            drugs.append("Capivasertib")
+        outcomes = list(dict.fromkeys(spec.outcomes or ["treatment_response"]))
+        if any(term in upper for term in ("RESPONSE", "PCR")) or any(term in question for term in ("响应", "疗效", "缓解")):
+            if "treatment_response" not in outcomes:
+                outcomes.append("treatment_response")
+        required = list(dict.fromkeys(spec.required_data_types))
+        for item in ("clinical", "mutation", "evidence"):
+            if item not in required:
+                required.append(item)
+        if "treatment_response" in outcomes and "treatment_response" not in required:
+            required.append("treatment_response")
+        return spec.model_copy(
+            update={
+                "research_goal": question,
+                "subtype": subtype,
+                "genes": list(dict.fromkeys(genes)),
+                "drugs": list(dict.fromkeys(drugs)),
+                "outcomes": outcomes,
+                "required_data_types": required,
+            }
+        )
+
+    @staticmethod
+    def _mentions_her2_positive(question: str) -> bool:
+        upper = question.upper()
+        if "HER2" not in upper and "HER-2" not in upper:
+            return False
+        negative_patterns = ("HER2-", "HER-2-", "HER2 阴性", "HER2阴性", "HER-2 阴性", "HER-2阴性")
+        if any(pattern in upper or pattern in question for pattern in negative_patterns):
+            return False
+        return any(term in upper or term in question for term in ("HER2+", "HER-2+", "HER2 阳性", "HER2阳性", "HER-2 阳性", "HER-2阳性"))
+
+    @staticmethod
+    def _mentions_her2_negative(question: str) -> bool:
+        upper = question.upper()
+        return any(
+            pattern in upper or pattern in question
+            for pattern in ("HER2-", "HER-2-", "HER2 阴性", "HER2阴性", "HER-2 阴性", "HER-2阴性")
+        )
+
+    @staticmethod
+    def _is_pi3k_inhibitor_question(spec: ResearchSpec) -> bool:
+        text = f"{spec.research_goal} {' '.join(spec.drugs)}".upper()
+        return "PI3K" in text or "ALPELISIB" in text or "CAPIVASERTIB" in text or "阿培利司" in spec.research_goal
+
+    @staticmethod
+    def _should_search_geo(spec: ResearchSpec) -> bool:
+        if ResearchAgentService._is_pi3k_inhibitor_question(spec):
+            return False
+        if "expression" in spec.required_data_types:
+            return True
+        if "treatment_response" not in spec.required_data_types:
+            return False
+        subtype = (spec.subtype or "").casefold()
+        if "hr-positive" in subtype and ("her2-negative" in subtype or "her2-" in subtype):
+            return False
+        return True
 
     @staticmethod
     def _record_count(result: Any) -> int:

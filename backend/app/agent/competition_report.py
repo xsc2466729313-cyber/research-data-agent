@@ -33,29 +33,37 @@ class CompetitionReportBuilder:
         dataset = result.modeling_dataset
         readiness = result.readiness
         databases = self._unique_databases(sources, candidates)
-        traceable_sources = [source for source in sources if source.source_id and source.url]
-        traceability_rate = self._ratio(len(traceable_sources), len(sources))
+        source_audit_score = self._source_audit_score(sources, dataset)
         outcome_complete = (
             None if readiness.target_missing_rate is None else 1 - readiness.target_missing_rate
         )
         field_complete = readiness.field_completeness_rate
-        variable_coverage = readiness.requested_variable_coverage_rate
+        question_fit_score, question_fit_detail = self._question_fit_score(result, candidates)
         source_diversity = self._ratio(len(databases), 5)
-        analysis_ready = 1.0 if readiness.analysis_ready else 0.0
+        exploratory_analysis_score = self._exploratory_analysis_score(
+            result,
+            outcome_complete=outcome_complete,
+            field_complete=field_complete,
+            question_fit_score=question_fit_score,
+            source_audit_score=source_audit_score,
+        )
         diagnostic_score = self._diagnostic_score(
             outcome_complete,
             field_complete,
-            traceability_rate,
-            variable_coverage,
+            source_audit_score,
+            question_fit_score,
             source_diversity,
-            analysis_ready,
+            exploratory_analysis_score,
         )
         metrics = [
             self._metric(
-                "来源可追溯率",
-                traceability_rate,
-                "100%",
-                "真实来源均保留 official URL 和 source_id。",
+                "来源审计完整度",
+                source_audit_score,
+                ">=85% 更适合提交复核；100% 需人工原文复核",
+                (
+                    "按 source_id、official URL、accession、状态、checksum/local_path、"
+                    "行级 source_id 和 raw_characteristics 加权；自动审计不直接宣称 100%。"
+                ),
             ),
             self._metric(
                 "结局完整率",
@@ -70,10 +78,10 @@ class CompetitionReportBuilder:
                 "基于主科研数据集的非审计字段计算。",
             ),
             self._metric(
-                "请求变量覆盖率",
-                variable_coverage,
-                "1.0 最佳",
-                "评估科研问题中的关键基因/变量是否在主数据集中出现。",
+                "请求要素覆盖率",
+                question_fit_score,
+                "患者级字段与候选证据共同解释",
+                question_fit_detail,
             ),
             self._metric(
                 "数据源多样性",
@@ -81,14 +89,14 @@ class CompetitionReportBuilder:
                 "多源更利于交叉验证",
                 f"当前联通 {len(databases)} 类数据库：{self._join(databases)}。",
             ),
-            self._metric("分析可用性", analysis_ready, "1.0 表示可直接开展分析", readiness.status),
+            self._metric("科研探索可用性", exploratory_analysis_score, "探索性分析，不等于正式发表结论", readiness.status),
             CompetitionMetric(
                 name="内部综合诊断分",
                 value=None,
                 display_value=f"{diagnostic_score:.1f}",
                 target="仅作任务诊断，不是官方成绩",
                 status="已计算",
-                detail="综合来源、完整性、结局匹配、覆盖和可用性。",
+                detail="综合来源审计、完整性、结局匹配、请求要素覆盖和探索可用性。",
             ),
             self._count_metric("自动清洗值数", readiness.cleaned_value_count, "清洗与标准化次数。"),
             self._count_metric(
@@ -134,7 +142,7 @@ class CompetitionReportBuilder:
             graph_edges=graph_edges,
             scientific_usability=scientific_usability,
             improvement_highlights=self._improvement_highlights(
-                result, databases, outcome_complete, field_complete, traceability_rate
+                result, databases, outcome_complete, field_complete, source_audit_score
             ),
             limitations=self._limitations(result, readiness),
             submission_checklist=self._submission_checklist(result, readiness),
@@ -161,7 +169,12 @@ class CompetitionReportBuilder:
                 detail=detail,
             )
         display_value = f"{value * 100:.1f}%"
-        status = "已记录" if name == "数据源多样性" else "达标" if value >= 0.95 else "待提升"
+        if name == "数据源多样性":
+            status = "已记录"
+        elif name in {"来源审计完整度", "科研探索可用性"}:
+            status = "达标" if value >= 0.85 else "观察" if value >= 0.6 else "待提升"
+        else:
+            status = "达标" if value >= 0.95 else "待提升"
         return CompetitionMetric(
             name=name,
             value=value,
@@ -226,6 +239,133 @@ class CompetitionReportBuilder:
         if not present:
             return 0.0
         return round(fmean(present) * 100, 1)
+
+    @staticmethod
+    def _source_audit_score(sources: list[Any], dataset: Any) -> float | None:
+        if not sources:
+            return None
+        scores: list[float] = []
+        for source in sources:
+            score = 0.0
+            score += 0.18 if getattr(source, "source_id", None) else 0.0
+            score += 0.18 if getattr(source, "url", None) else 0.0
+            score += 0.14 if getattr(source, "accession", None) else 0.0
+            score += 0.12 if getattr(source, "status", None) else 0.0
+            score += 0.18 if (getattr(source, "checksum", None) or getattr(source, "local_path", None)) else 0.0
+            score += 0.10 if CompetitionReportBuilder._is_official_source_url(getattr(source, "url", None)) else 0.0
+            score += 0.10 if getattr(source, "file_type", None) else 0.0
+            scores.append(score)
+        source_item_score = fmean(scores)
+
+        row_lineage_score = 0.0
+        raw_value_score = 0.0
+        rows = list(getattr(dataset, "rows", []) or [])
+        if rows:
+            row_lineage_score = sum(1 for row in rows if row.get("source_id")) / len(rows)
+            raw_value_score = sum(
+                1
+                for row in rows
+                if row.get("raw_characteristics")
+                or any(str(key).startswith("raw_") and value not in {None, ""} for key, value in row.items())
+            ) / len(rows)
+        weighted_score = source_item_score * 0.72 + row_lineage_score * 0.18 + raw_value_score * 0.10
+        if weighted_score >= 0.995:
+            weighted_score = 0.98
+        return round(weighted_score, 4)
+
+    @staticmethod
+    def _is_official_source_url(url: str | None) -> bool:
+        if not url:
+            return False
+        lower = url.lower()
+        official_hosts = (
+            "ncbi.nlm.nih.gov",
+            "clinicaltrials.gov",
+            "api.gdc.cancer.gov",
+            "portal.gdc.cancer.gov",
+            "cbioportal.org",
+            "civicdb.org",
+        )
+        return any(host in lower for host in official_hosts)
+
+    @staticmethod
+    def _question_fit_score(result: AgentTaskResult, candidates: list[Any]) -> tuple[float | None, str]:
+        spec = result.research_spec
+        dataset = result.modeling_dataset
+        facets: list[tuple[str, float]] = []
+        if spec.disease:
+            disease_text = spec.disease.casefold()
+            dataset_text = " ".join(
+                f"{row.get('disease', '')} {row.get('subtype', '')} {row.get('raw_characteristics', '')}"
+                for row in dataset.rows
+            ).casefold()
+            candidate_text = " ".join(
+                f"{getattr(candidate, 'dataset_name', '')} {getattr(candidate, 'data_type', '')}"
+                for candidate in candidates
+            ).casefold()
+            disease_terms = [disease_text]
+            if "breast" in disease_text:
+                disease_terms.extend(["breast cancer", "breast carcinoma", "乳腺癌"])
+            if spec.subtype:
+                disease_terms.append(spec.subtype.casefold())
+            disease_hit = any(term and term in dataset_text for term in disease_terms)
+            candidate_hit = any(term and term in candidate_text for term in disease_terms)
+            facets.append(("疾病人群", 1.0 if disease_hit else 0.8 if candidate_hit else 0.5 if dataset.rows else 0.0))
+        if spec.outcomes:
+            outcome_hit = 1.0 if result.readiness.target_match else 0.7 if any(getattr(candidate, "has_response", False) for candidate in candidates) else 0.0
+            facets.append(("研究结局", outcome_hit))
+        if spec.genes:
+            column_names = {column.name.casefold() for column in dataset.columns}
+            patient_gene_hits = sum(any(name.startswith(gene.casefold() + "_") for name in column_names) for gene in spec.genes)
+            molecular_candidates = any(
+                any(token in str(getattr(candidate, "data_type", "")).casefold() for token in ("突变", "分子", "拷贝", "mutation", "variant", "genomic"))
+                for candidate in candidates
+            )
+            gene_score = patient_gene_hits / len(spec.genes)
+            if patient_gene_hits < len(spec.genes) and molecular_candidates:
+                gene_score = max(gene_score, 0.5)
+            facets.append(("分子/基因证据", gene_score))
+        if spec.drugs or any(term in spec.research_goal for term in ("治疗", "新辅助", "响应", "疗效")):
+            treatment_hit = 1.0 if any(getattr(candidate, "has_treatment", False) for candidate in candidates) else 0.0
+            facets.append(("治疗信息", treatment_hit))
+        if spec.required_data_types:
+            required = " ".join(spec.required_data_types).casefold()
+            candidate_text = " ".join(f"{getattr(candidate, 'data_type', '')} {getattr(candidate, 'dataset_name', '')}" for candidate in candidates).casefold()
+            data_type_hit = 1.0 if any(token and token in candidate_text for token in re.split(r"[\s,，;；/()（）]+", required) if len(token) >= 2) else 0.0
+            facets.append(("数据类型", data_type_hit))
+        if not facets:
+            return None, "科研问题未指定可计算的基因、治疗或结局要素。"
+        score = round(fmean(value for _, value in facets), 4)
+        detail = "；".join(f"{name} {value:.0%}" for name, value in facets)
+        detail += "。患者级缺失的基因变量不会被候选证据冒充为已入主表。"
+        return score, detail
+
+    @staticmethod
+    def _exploratory_analysis_score(
+        result: AgentTaskResult,
+        *,
+        outcome_complete: float | None,
+        field_complete: float | None,
+        question_fit_score: float | None,
+        source_audit_score: float | None,
+    ) -> float | None:
+        dataset = result.modeling_dataset
+        if not dataset.rows:
+            return None
+        row_score = min(dataset.row_count / 50, 1.0)
+        class_score = 0.0
+        if dataset.class_distribution:
+            nonmissing = [count for label, count in dataset.class_distribution.items() if label != "<缺失>" and count > 0]
+            class_score = 1.0 if len(nonmissing) > 1 else 0.45 if nonmissing else 0.0
+        values = [
+            row_score,
+            outcome_complete if outcome_complete is not None else 0.0,
+            field_complete if field_complete is not None else 0.0,
+            question_fit_score if question_fit_score is not None else 0.0,
+            source_audit_score if source_audit_score is not None else 0.0,
+            class_score,
+        ]
+        return round(fmean(values), 4)
 
     @staticmethod
     def _ablation_rows(result: AgentTaskResult, databases: list[str]) -> list[CompetitionAblationRow]:
@@ -723,7 +863,7 @@ class CompetitionReportBuilder:
         if field_complete is not None:
             items.append(f"字段完整率当前为 {field_complete:.1%}，能直接指出缺失风险。")
         if traceability_rate is not None:
-            items.append(f"来源可追溯率当前为 {traceability_rate:.1%}，比普通检索更适合提交要求。")
+            items.append(f"来源审计完整度当前为 {traceability_rate:.1%}，覆盖来源字段、行级 source_id 和原始值保留。")
         if result.used_qwen:
             items.append("千问被用于问题理解、工具选择与总结，能体现基座模型要求。")
         return items

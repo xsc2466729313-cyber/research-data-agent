@@ -136,6 +136,37 @@ def test_qwen_agent_executes_function_call_and_builds_research_table(tmp_path: P
     assert result.source_items
 
 
+def test_hr_positive_her2_negative_pi3k_question_skips_her2_geo_response_cohort() -> None:
+    question = "PIK3CA 突变的 HR+/HER2- 乳腺癌患者，使用 PI3K 抑制剂后的响应是否优于野生型？"
+    request = AgentTaskRequest(
+        question=question,
+        use_qwen=False,
+        data_mode="live",
+        max_sources=5,
+        max_records=500,
+    )
+    service = ResearchAgentService()
+    spec = service._enrich_research_spec(
+        service._deterministic_spec(question, "task-hr-her2-pi3k"),
+        question,
+    )
+    calls = service._deterministic_tool_calls(spec, request)
+    guarded = service._guard_tool_arguments(
+        [{"id": "qwen-wrong-geo", "name": "search_geo", "arguments": {"accession": "GSE76360"}}, *calls],
+        spec,
+        request,
+    )
+
+    assert spec.subtype == "HR-positive/HER2-negative"
+    assert spec.genes == ["PIK3CA"]
+    assert spec.drugs == ["Alpelisib"]
+    assert "search_geo" not in {call["name"] for call in guarded}
+    cbio_call = next(call for call in guarded if call["name"] == "search_cbioportal")
+    assert cbio_call["arguments"]["gene_symbols"] == ["PIK3CA"]
+    civic_call = next(call for call in guarded if call["name"] == "search_civic")
+    assert civic_call["arguments"]["therapy_name"] == "Alpelisib"
+
+
 def test_agent_excel_export_contains_chinese_dictionary_and_readiness(tmp_path: Path) -> None:
     result = build_agent(tmp_path).run(
         AgentTaskRequest(

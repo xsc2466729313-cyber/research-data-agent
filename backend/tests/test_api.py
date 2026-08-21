@@ -106,9 +106,11 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "renderReadiness" in script
     assert "renderDictionary" in script
     assert "结局完整率" in script
-    assert "来源可追溯率" in script
+    assert "来源审计完整度" in script
     assert "全表字段完整率" in script
-    assert "请求变量覆盖率" in script
+    assert "主表基因变量覆盖" in script
+    assert "请求要素覆盖率" in script
+    assert "科研探索可用性" in script
     assert "renderLineage" in script
     assert "updateLineageInteraction" in script
     assert "renderRawCharacteristics" in script
@@ -230,7 +232,11 @@ def test_agent_task_api_exposes_competition_alignment_report(tmp_path: Path) -> 
 
     assert result.competition_report is not None
     assert result.competition_report.direction == "方向1A · 科学数据查找解析与整合"
-    assert any(metric.name == "来源可追溯率" for metric in result.competition_report.metrics)
+    source_audit = next(metric for metric in result.competition_report.metrics if metric.name == "来源审计完整度")
+    assert source_audit.value is not None
+    assert source_audit.value < 1
+    assert any(metric.name == "请求要素覆盖率" for metric in result.competition_report.metrics)
+    assert any(metric.name == "科研探索可用性" for metric in result.competition_report.metrics)
     assert any(row.variant == "去掉千问结构化解析" for row in result.competition_report.ablation_rows)
     assert result.competition_report.knowledge_graph.enabled is True
     assert result.competition_report.rag_flow_nodes

@@ -307,12 +307,15 @@ class ResearchDatasetBuilder:
                 variants = row.get(f"{gene.lower()}_variants")
                 if isinstance(variants, list):
                     row[f"{gene.lower()}_variants"] = ";".join(variants)
+        rows, subtype_action = self._filter_rows_for_research_spec(rows, spec)
 
         cleaning_actions = [
             "以临床样本表作为队列锚点，未把无临床信息的分子记录扩成新患者。",
             "将缺失哨兵统一为空值，并统一常见中英文分类值。",
             "同一患者的临床属性传播到其样本，但不跨患者补值。",
         ]
+        if subtype_action:
+            cleaning_actions.append(subtype_action)
         if orphan_records:
             cleaning_actions.append(f"排除 {orphan_records} 条无法连接到临床队列的分子记录。")
         dataset = self._dataset_from_rows(
@@ -599,6 +602,45 @@ class ResearchDatasetBuilder:
             except ValueError:
                 pass
         return text, False
+
+    @staticmethod
+    def _filter_rows_for_research_spec(
+        rows: list[dict[str, Any]],
+        spec: ResearchSpec,
+    ) -> tuple[list[dict[str, Any]], str | None]:
+        subtype = (spec.subtype or "").casefold()
+        if not rows or not ("hr-positive" in subtype and ("her2-negative" in subtype or "her2-" in subtype)):
+            return rows, None
+        receptor_columns = {"er_status", "pr_status", "her2_status"} & {
+            key for row in rows for key in row
+        }
+        if not receptor_columns:
+            return rows, "当前问题要求 HR+/HER2-，但主队列缺少 ER/PR/HER2 受体字段；未强行过滤患者。"
+
+        def positive(value: Any) -> bool:
+            text = str(value or "").strip().casefold()
+            return text in {"阳性", "positive", "pos", "是", "yes", "1", "true"}
+
+        def negative(value: Any) -> bool:
+            text = str(value or "").strip().casefold()
+            return text in {"阴性", "negative", "neg", "否", "no", "0", "false"}
+
+        filtered: list[dict[str, Any]] = []
+        for row in rows:
+            her2_value = row.get("her2_status")
+            er_value = row.get("er_status")
+            pr_value = row.get("pr_status")
+            her2_ok = her2_value in {None, ""} or negative(her2_value)
+            hr_fields_present = er_value not in {None, ""} or pr_value not in {None, ""}
+            hr_ok = not hr_fields_present or positive(er_value) or positive(pr_value)
+            if her2_ok and hr_ok:
+                filtered.append(row)
+        if not filtered:
+            return rows, "当前问题要求 HR+/HER2-，但自动过滤后无可用记录；保留原队列并提示人工复核受体定义。"
+        removed = len(rows) - len(filtered)
+        if removed:
+            return filtered, f"按 HR+/HER2- 约束过滤 cBioPortal 队列，保留 {len(filtered)} 行，排除 {removed} 行非匹配或受体冲突记录。"
+        return filtered, "当前 cBioPortal 队列记录满足 HR+/HER2- 自动过滤条件。"
 
     @staticmethod
     def _typed_value(value: Any) -> Any:

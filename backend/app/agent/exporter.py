@@ -138,7 +138,7 @@ class AgentDatasetExportService:
                 "未计算" if result.readiness.field_completeness_rate is None else f"{result.readiness.field_completeness_rate:.1%}",
             ),
             (
-                "请求变量覆盖率",
+                "主表基因变量覆盖率",
                 "未指定" if result.readiness.requested_variable_coverage_rate is None else f"{result.readiness.requested_variable_coverage_rate:.1%}",
             ),
             ("自动清洗值数", result.readiness.cleaned_value_count),
