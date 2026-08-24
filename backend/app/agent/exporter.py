@@ -189,6 +189,67 @@ class AgentDatasetExportService:
             ]
             for label, value in competition_rows:
                 competition.append([label, value])
+            if report.unified_evaluation is not None:
+                unified = report.unified_evaluation
+                competition.append(["统一评价体系", f"{unified.version}｜{unified.status}"])
+                competition.append(["统一评价体系声明", unified.no_fake_scores_notice])
+                for layer in unified.layers:
+                    competition.append(
+                        [
+                            "评价层级",
+                            f"{layer.layer_id}｜{layer.label}｜{layer.status}｜"
+                            f"{layer.purpose}｜输出：{', '.join(layer.primary_outputs)}｜"
+                            f"证据要求：{layer.evidence_requirement}",
+                        ]
+                    )
+                fitness = unified.task_adaptive_fitness
+                competition.append(
+                    [
+                        "Task-Adaptive Fitness",
+                        f"{fitness.evaluation_contract_id}｜冻结={fitness.frozen_before_run}｜"
+                        f"状态={fitness.status}｜Fitness={fitness.fitness_score if fitness.fitness_score is not None else '未计算'}｜"
+                        f"Gate={fitness.quality_gate}｜发布={fitness.publish_allowed}｜{fitness.note}",
+                    ]
+                )
+                for dimension in fitness.dimensions:
+                    competition.append(
+                        [
+                            "Fitness维度",
+                            f"{dimension.name}｜{dimension.display_value}｜{dimension.status}｜{dimension.detail}",
+                        ]
+                    )
+                for gap in fitness.gap_feedback:
+                    competition.append(["Fitness缺口", gap])
+                for row in unified.model_comparison:
+                    competition.append(
+                        [
+                            "模型对比",
+                            f"{row.method_id}｜{row.method_label}｜model={row.base_model_id or 'N/A'}｜"
+                            f"status={row.status}｜fitness={row.fitness_score if row.fitness_score is not None else '待实测'}｜"
+                            f"sdti={row.sdti_status}｜gate={row.quality_gate}｜publish={row.publish_allowed}｜{row.note}",
+                        ]
+                    )
+                for table in unified.horizontal_comparisons:
+                    competition.append(["横向对比", f"{table.table_id}｜{table.title}｜{table.status}｜{table.note}"])
+                    for table_row in table.rows:
+                        competition.append(
+                            [
+                                "横向对比行",
+                                f"{table.table_id}｜"
+                                + "｜".join(f"{key}={value}" for key, value in table_row.items()),
+                            ]
+                        )
+                for row in unified.stratified_comparisons:
+                    metrics_text = "；".join(f"{key}={value}" for key, value in row.metrics.items())
+                    competition.append(
+                        [
+                            "分层对比",
+                            f"{row.stratum_name}={row.stratum_value}｜n={row.n}｜"
+                            f"gate={row.quality_gate}｜publish={row.publish_allowed}｜{metrics_text}｜{row.note}",
+                        ]
+                    )
+                for next_run in unified.required_next_runs:
+                    competition.append(["待补实验", next_run])
             for metric in report.metrics:
                 competition.append(["指标", f"{metric.name}｜{metric.display_value}｜{metric.target}｜{metric.detail}"])
             for row in report.ablation_rows:

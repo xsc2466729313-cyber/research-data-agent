@@ -10,14 +10,20 @@ from backend.app.agent.models import (
     CompetitionChecklistItem,
     CompetitionGraphSummary,
     CompetitionMetric,
+    HorizontalComparisonTable,
     CompetitionRagFlowEdge,
     CompetitionRagMatch,
     CompetitionRagFlowNode,
     CompetitionRagLayer,
     CompetitionVisualEdge,
     CompetitionVisualNode,
+    ModelComparisonRow,
     ScientificUsabilityAnalysis,
     ScientificUsabilityFinding,
+    StratifiedEvaluationRow,
+    TaskAdaptiveFitnessReport,
+    UnifiedEvaluationLayer,
+    UnifiedEvaluationReport,
 )
 
 if TYPE_CHECKING:
@@ -121,16 +127,28 @@ class CompetitionReportBuilder:
         rag_matches = self._rag_matches(result, candidates, sources)
         graph_nodes, graph_edges = self._visual_graph(result, databases, sources, candidates)
         scientific_usability = self._scientific_usability(result)
+        unified_evaluation = self._unified_evaluation(
+            result,
+            databases=databases,
+            source_audit_score=source_audit_score,
+            outcome_complete=outcome_complete,
+            field_complete=field_complete,
+            question_fit_score=question_fit_score,
+            exploratory_analysis_score=exploratory_analysis_score,
+            diagnostic_score=diagnostic_score,
+        )
         summary = (
             f"当前任务围绕 {result.research_spec.research_goal} 形成了可追溯的科研数据集，"
             f"联通 {len(databases)} 类来源，输出 {dataset.row_count} 行数据与 {len(dataset.columns)} 个字段；"
-            f"内部综合诊断分为 {diagnostic_score:.1f}。"
+            f"内部综合诊断分为 {diagnostic_score:.1f}；统一评价体系 v2 已生成模型对比、"
+            "横向对比和分层对比矩阵，未实测 baseline 保持待评测。"
         )
         return CompetitionAlignmentReport(
             competition_name="2026年度中国青年科技创新揭榜挂帅擂台赛",
             track="赛道二·数据场景",
             direction="方向1A · 科学数据查找解析与整合",
             problem_focus=result.research_spec.research_goal,
+            unified_evaluation=unified_evaluation,
             metrics=metrics,
             ablation_rows=self._ablation_rows(result, databases),
             rag_layers=self._rag_layers(result, databases),
@@ -194,6 +212,540 @@ class CompetitionReportBuilder:
             status="已记录",
             detail=detail,
         )
+
+    @staticmethod
+    def _unified_evaluation(
+        result: AgentTaskResult,
+        *,
+        databases: list[str],
+        source_audit_score: float | None,
+        outcome_complete: float | None,
+        field_complete: float | None,
+        question_fit_score: float | None,
+        exploratory_analysis_score: float | None,
+        diagnostic_score: float,
+    ) -> UnifiedEvaluationReport:
+        quality_gate, publish_allowed, gate_note = CompetitionReportBuilder._domain_quality_gate(
+            result,
+            source_audit_score=source_audit_score,
+            question_fit_score=question_fit_score,
+        )
+        fitness = CompetitionReportBuilder._task_adaptive_fitness(
+            result,
+            source_audit_score=source_audit_score,
+            outcome_complete=outcome_complete,
+            field_complete=field_complete,
+            question_fit_score=question_fit_score,
+            exploratory_analysis_score=exploratory_analysis_score,
+            quality_gate=quality_gate,
+            publish_allowed=publish_allowed,
+            gate_note=gate_note,
+        )
+        current_method = CompetitionReportBuilder._current_method_id(result, databases)
+        observed = {
+            "internal_diagnostic_score": round(diagnostic_score, 4),
+            "fitness_score": fitness.fitness_score,
+            "source_audit": source_audit_score,
+            "outcome_completeness": outcome_complete,
+            "field_completeness": field_complete,
+            "question_fit": question_fit_score,
+            "exploratory_usability": exploratory_analysis_score,
+        }
+        model_comparison = CompetitionReportBuilder._model_comparison_rows(
+            result,
+            current_method=current_method,
+            fitness=fitness,
+            quality_gate=quality_gate,
+            publish_allowed=publish_allowed,
+            observed=observed,
+        )
+        horizontal = CompetitionReportBuilder._horizontal_tables(
+            result,
+            model_comparison=model_comparison,
+            fitness=fitness,
+            quality_gate=quality_gate,
+            source_audit_score=source_audit_score,
+            field_complete=field_complete,
+            question_fit_score=question_fit_score,
+        )
+        stratified = CompetitionReportBuilder._stratified_rows(
+            result,
+            databases=databases,
+            source_audit_score=source_audit_score,
+            fitness=fitness,
+            quality_gate=quality_gate,
+            publish_allowed=publish_allowed,
+        )
+        return UnifiedEvaluationReport(
+            version="v2",
+            status="已接入当前科研任务；外部 benchmark 与未运行模型保持待实测",
+            no_fake_scores_notice=(
+                "仅 Full Agent 当前任务行使用本次真实可观测结果；未运行的 baseline、"
+                "其他模型和 Gold Set SDTI 一律不填推测分数。"
+            ),
+            layers=[
+                UnifiedEvaluationLayer(
+                    layer_id="external_benchmarks",
+                    label="外部 Benchmark",
+                    purpose="证明数据清洗、科学检索、Schema Matching 和 Entity Matching 的通用能力。",
+                    status="待接入真实 benchmark run artifact",
+                    primary_outputs=["Cleaning F1", "nDCG@10", "Schema F1", "Entity F1"],
+                    evidence_requirement="必须记录 benchmark 版本、baseline 代码/论文来源和运行产物。",
+                ),
+                UnifiedEvaluationLayer(
+                    layer_id="frozen_goldset_sdti",
+                    label="冻结 Gold Set + SDTI",
+                    purpose="评价本项目核心可信整合能力。",
+                    status="Gold Set 未提供时保持 NOT_EVALUATED",
+                    primary_outputs=["retrieval_f1", "faithfulness", "traceability", "error_f1", "repair_accuracy", "sdti"],
+                    evidence_requirement="必须通过 goldset/templates 与 docs/EVALUATION_SDTI.md 的冻结门槛。",
+                ),
+                UnifiedEvaluationLayer(
+                    layer_id="task_adaptive_fitness",
+                    label="Task-Adaptive Fitness",
+                    purpose="判断本次输出是否适合当前科研问题。",
+                    status=fitness.status,
+                    primary_outputs=["Research Relevance", "Analytical Adequacy", "Traceability & Reliability", "Reusability"],
+                    evidence_requirement="Evaluation Contract 必须先于结果冻结；当前任务生成的是可审计 contract 摘要。",
+                ),
+                UnifiedEvaluationLayer(
+                    layer_id="quality_gate",
+                    label="Quality Gate",
+                    purpose="判断数据能否发布或进入科研分析。",
+                    status=quality_gate,
+                    primary_outputs=["PASS", "REVIEW", "REJECT"],
+                    evidence_requirement="来源真实性、Evidence、Schema/实体关联、任务硬需求和医学安全规则均需满足。",
+                ),
+            ],
+            task_adaptive_fitness=fitness,
+            model_comparison=model_comparison,
+            horizontal_comparisons=horizontal,
+            stratified_comparisons=stratified,
+            required_next_runs=[
+                "在 Hospital/Flights/Beers 上运行 Cleaning Benchmark，并填入真实 Cell F1。",
+                "在 BEIR SciFact/NFCorpus 上运行 Retrieval Benchmark，并填入 nDCG@10、Recall@100。",
+                "在 Valentine 与 DeepMatcher/ER-Magellan 数据上运行 Schema/Entity Matching。",
+                "用同一冻结 Evaluation Contract 跑 rule_keyword、qwen_only、single_source_agent、multi_source_no_gate、full_agent。",
+                "构建并冻结项目 Gold Set 后再计算 SDTI，未完成前不得宣称系统分数。",
+            ],
+        )
+
+    @staticmethod
+    def _domain_quality_gate(
+        result: AgentTaskResult,
+        *,
+        source_audit_score: float | None,
+        question_fit_score: float | None,
+    ) -> tuple[str, bool, str]:
+        if not result.modeling_dataset.rows:
+            return "REJECT", False, "未形成患者/样本级科研数据集。"
+        if source_audit_score is None or source_audit_score < 0.70:
+            return "REVIEW", False, "来源审计不足，需补充 source_id、官方 URL、checksum 或原始值。"
+        if question_fit_score is not None and question_fit_score < 0.60:
+            return "REVIEW", False, "科研问题要素覆盖不足，需补充结局、治疗或分子变量证据。"
+        if not result.readiness.analysis_ready:
+            return "REVIEW", False, result.readiness.status
+        if source_audit_score < 0.85:
+            return "REVIEW", False, "来源审计未达到建议发布线。"
+        return "PASS", True, "当前任务级质量门通过；仍不等同于 Gold Set SDTI 成绩。"
+
+    @staticmethod
+    def _task_adaptive_fitness(
+        result: AgentTaskResult,
+        *,
+        source_audit_score: float | None,
+        outcome_complete: float | None,
+        field_complete: float | None,
+        question_fit_score: float | None,
+        exploratory_analysis_score: float | None,
+        quality_gate: str,
+        publish_allowed: bool,
+        gate_note: str,
+    ) -> TaskAdaptiveFitnessReport:
+        dataset = result.modeling_dataset
+        row_score = min(dataset.row_count / 50, 1.0) if dataset.row_count else 0.0
+        requested_coverage = result.readiness.requested_variable_coverage_rate
+        relevance = CompetitionReportBuilder._mean_present(
+            [question_fit_score, requested_coverage, 1.0 if result.readiness.target_match else 0.0]
+        )
+        class_score = 0.0
+        if dataset.class_distribution:
+            nonmissing = [
+                count
+                for label, count in dataset.class_distribution.items()
+                if label != "<缺失>" and count > 0
+            ]
+            class_score = 1.0 if len(nonmissing) > 1 else 0.45 if nonmissing else 0.0
+        adequacy = CompetitionReportBuilder._mean_present(
+            [row_score, field_complete, outcome_complete, class_score]
+        )
+        traceability_reliability = source_audit_score
+        raw_retention = CompetitionReportBuilder._raw_retention_score(dataset.rows)
+        reusability = CompetitionReportBuilder._mean_present(
+            [
+                1.0 if dataset.columns else 0.0,
+                raw_retention,
+                1.0 if dataset.rows else 0.0,
+                field_complete,
+            ]
+        )
+        dimension_values = [
+            ("Research Relevance", relevance, "人群、变量、结局和任务要素匹配度。"),
+            ("Analytical Adequacy", adequacy, "样本量、缺失、结局分布和基础分析可用性。"),
+            ("Traceability & Reliability", traceability_reliability, "真实来源、行级 source_id、原始值和证据链完整性。"),
+            ("Reusability", reusability, "字段字典、raw value、机器可读导出和复现信息。"),
+        ]
+        present_values = [value for _, value, _ in dimension_values if value is not None]
+        if len(present_values) == len(dimension_values):
+            product = 1.0
+            for value in present_values:
+                product *= max(0.0, min(1.0, value))
+            fitness_score = round(100 * product ** (1 / len(present_values)), 4)
+            status = "已计算"
+        else:
+            fitness_score = None
+            status = "部分计算"
+        dimensions = [
+            CompetitionReportBuilder._metric(
+                name,
+                value,
+                "0-4 rubric 归一化后几何平均",
+                detail,
+            )
+            for name, value, detail in dimension_values
+        ]
+        gaps: list[str] = []
+        for name, value, detail in dimension_values:
+            if value is None:
+                gaps.append(f"{name} 缺少可计算证据：{detail}")
+            elif value < 0.75:
+                gaps.append(f"{name} 低于建议线：{detail}")
+        if quality_gate != "PASS":
+            gaps.append(f"Quality Gate={quality_gate}：{gate_note}")
+        contract_id = f"contract:{result.task_id}:task-adaptive-v2"
+        return TaskAdaptiveFitnessReport(
+            evaluation_contract_id=contract_id,
+            frozen_before_run=True,
+            status=status,
+            fitness_score=fitness_score,
+            dimensions=dimensions,
+            quality_gate=quality_gate,
+            publish_allowed=publish_allowed,
+            gap_feedback=list(dict.fromkeys(gaps)),
+            note=(
+                "当前 contract 摘要由科研问题和冻结规则生成，用于任务级适用性诊断；"
+                "正式论文/比赛横比应将完整 contract 落盘后批量重跑。"
+            ),
+        )
+
+    @staticmethod
+    def _current_method_id(result: AgentTaskResult, databases: list[str]) -> str:
+        if not result.used_qwen:
+            return "rule_keyword"
+        if len(databases) <= 1:
+            return "single_source_agent"
+        return "full_agent"
+
+    @staticmethod
+    def _model_comparison_rows(
+        result: AgentTaskResult,
+        *,
+        current_method: str,
+        fitness: TaskAdaptiveFitnessReport,
+        quality_gate: str,
+        publish_allowed: bool,
+        observed: dict[str, float | str | None],
+    ) -> list[ModelComparisonRow]:
+        variants = [
+            ("rule_keyword", "Rule/Keyword Baseline", None),
+            ("qwen_only", "Qwen-only", result.model_name if result.used_qwen else None),
+            ("single_source_agent", "Single-source Agent", result.model_name if result.used_qwen else None),
+            ("multi_source_no_gate", "Multi-source No-Gate", result.model_name if result.used_qwen else None),
+            ("full_agent", "Full Agent", result.model_name if result.used_qwen else None),
+        ]
+        rows: list[ModelComparisonRow] = []
+        for method_id, label, model in variants:
+            if method_id == current_method:
+                rows.append(
+                    ModelComparisonRow(
+                        method_id=method_id,
+                        method_label=label,
+                        base_model_id=model,
+                        status="当前任务真实运行",
+                        sdti_status="NOT_EVALUATED",
+                        fitness_score=fitness.fitness_score,
+                        quality_gate=quality_gate,
+                        publish_allowed=publish_allowed,
+                        observed_metrics=observed,
+                        note="来自本次科研任务的真实可观测指标；未运行冻结 Gold Set，SDTI 不评测。",
+                    )
+                )
+            else:
+                rows.append(
+                    ModelComparisonRow(
+                        method_id=method_id,
+                        method_label=label,
+                        base_model_id=model,
+                        status="待同任务实测",
+                        sdti_status="NOT_EVALUATED",
+                        fitness_score=None,
+                        quality_gate="REVIEW",
+                        publish_allowed=False,
+                        observed_metrics={},
+                        note="需使用同一 Evaluation Contract、同一数据范围和同一脚本重跑后填入。",
+                    )
+                )
+        return rows
+
+    @staticmethod
+    def _horizontal_tables(
+        result: AgentTaskResult,
+        *,
+        model_comparison: list[ModelComparisonRow],
+        fitness: TaskAdaptiveFitnessReport,
+        quality_gate: str,
+        source_audit_score: float | None,
+        field_complete: float | None,
+        question_fit_score: float | None,
+    ) -> list[HorizontalComparisonTable]:
+        return [
+            HorizontalComparisonTable(
+                table_id="task_fitness_by_variant",
+                title="当前科研任务模型横向对比",
+                status="当前方法已填真实值，其余待同任务实测",
+                columns=["method", "base_model", "fitness", "quality_gate", "sdti_status", "note"],
+                rows=[
+                    {
+                        "method": row.method_label,
+                        "base_model": row.base_model_id or "N/A",
+                        "fitness": row.fitness_score,
+                        "quality_gate": row.quality_gate,
+                        "sdti_status": row.sdti_status,
+                        "note": row.note,
+                    }
+                    for row in model_comparison
+                ],
+                note="横向表不填推测 baseline 分数；只展示本次真实运行和待实测槽位。",
+            ),
+            HorizontalComparisonTable(
+                table_id="sdti_goldset_by_variant",
+                title="冻结 Gold Set / SDTI 横向对比",
+                status="NOT_EVALUATED",
+                columns=["method", "retrieval_f1", "faithfulness", "traceability", "error_f1", "repair_accuracy", "sdti"],
+                rows=[
+                    {
+                        "method": row.method_label,
+                        "retrieval_f1": None,
+                        "faithfulness": None,
+                        "traceability": None,
+                        "error_f1": None,
+                        "repair_accuracy": None,
+                        "sdti": None,
+                    }
+                    for row in model_comparison
+                ],
+                note="项目 Gold Set 尚未随本次任务提供，所有 SDTI 指标必须保持空值。",
+            ),
+            HorizontalComparisonTable(
+                table_id="quality_gate_ablation",
+                title="Quality Gate 消融横向表",
+                status="Full Gate 当前可诊断，其他消融待重跑",
+                columns=["variant", "critical_error_rate", "traceability", "coverage", "quality_gate", "publish_allowed"],
+                rows=[
+                    {
+                        "variant": "No Gate",
+                        "critical_error_rate": None,
+                        "traceability": None,
+                        "coverage": None,
+                        "quality_gate": "待实测",
+                        "publish_allowed": False,
+                    },
+                    {
+                        "variant": "Source Gate",
+                        "critical_error_rate": None,
+                        "traceability": source_audit_score,
+                        "coverage": None,
+                        "quality_gate": "待实测",
+                        "publish_allowed": False,
+                    },
+                    {
+                        "variant": "Full Gate",
+                        "critical_error_rate": None,
+                        "traceability": source_audit_score,
+                        "coverage": result.readiness.field_completeness_rate,
+                        "quality_gate": quality_gate,
+                        "publish_allowed": fitness.publish_allowed,
+                    },
+                ],
+                note="Critical Error Rate 必须依赖人工/Gold Set 标注，当前任务不自动生成。",
+            ),
+            HorizontalComparisonTable(
+                table_id="domain_quality_metrics",
+                title="当前任务质量横向指标",
+                status="已计算当前 Full Agent 诊断值",
+                columns=["metric", "value", "direction", "source"],
+                rows=[
+                    {"metric": "Fitness Score", "value": fitness.fitness_score, "direction": "higher", "source": fitness.evaluation_contract_id},
+                    {"metric": "Source Audit", "value": source_audit_score, "direction": "higher", "source": "source_items + dataset rows"},
+                    {"metric": "Field Completeness", "value": field_complete, "direction": "higher", "source": "modeling_dataset"},
+                    {"metric": "Question Fit", "value": question_fit_score, "direction": "higher", "source": "research_spec + candidates"},
+                ],
+                note="这些是任务级诊断指标，不是外部 Benchmark 或 Gold Set SDTI。",
+            ),
+        ]
+
+    @staticmethod
+    def _stratified_rows(
+        result: AgentTaskResult,
+        *,
+        databases: list[str],
+        source_audit_score: float | None,
+        fitness: TaskAdaptiveFitnessReport,
+        quality_gate: str,
+        publish_allowed: bool,
+    ) -> list[StratifiedEvaluationRow]:
+        rows: list[StratifiedEvaluationRow] = []
+        subtype = result.research_spec.subtype or "mixed_or_unknown"
+        rows.append(
+            StratifiedEvaluationRow(
+                stratum_name="disease_subtype",
+                stratum_value=subtype,
+                n=result.modeling_dataset.row_count,
+                metrics={"fitness_score": fitness.fitness_score, "target_match": str(result.readiness.target_match)},
+                quality_gate=quality_gate,
+                publish_allowed=publish_allowed,
+                note="按科研问题识别的乳腺癌亚型分层。",
+            )
+        )
+        source_counter: dict[str, int] = {}
+        for source in result.source_items:
+            db = CompetitionReportBuilder._canonical_database(source.source_name)
+            source_counter[db] = source_counter.get(db, 0) + 1
+        for candidate in result.candidate_sources:
+            db = CompetitionReportBuilder._canonical_database(candidate.source_database)
+            source_counter.setdefault(db, 0)
+        for db in databases:
+            rows.append(
+                StratifiedEvaluationRow(
+                    stratum_name="source_type",
+                    stratum_value=db,
+                    n=source_counter.get(db, 0),
+                    metrics={
+                        "selected_source_count": source_counter.get(db, 0),
+                        "source_audit": source_audit_score if source_counter.get(db, 0) else None,
+                    },
+                    quality_gate=quality_gate if source_counter.get(db, 0) else "REVIEW",
+                    publish_allowed=False,
+                    note="来源类型分层；未登记真实来源的候选库不允许自动发布。",
+                )
+            )
+        response_domains = CompetitionReportBuilder._response_domain_counts(result)
+        for domain, count in response_domains.items():
+            rows.append(
+                StratifiedEvaluationRow(
+                    stratum_name="response_domain",
+                    stratum_value=domain,
+                    n=count,
+                    metrics={"row_share": CompetitionReportBuilder._ratio(count, max(result.modeling_dataset.row_count, 1))},
+                    quality_gate=quality_gate,
+                    publish_allowed=publish_allowed and domain == "clinical",
+                    note="患者疗效、细胞系药敏、临床试验和知识证据必须分域评价。",
+                )
+            )
+        evidence_counts = CompetitionReportBuilder._evidence_level_counts(result)
+        for level, count in evidence_counts.items():
+            rows.append(
+                StratifiedEvaluationRow(
+                    stratum_name="evidence_level",
+                    stratum_value=level,
+                    n=count,
+                    metrics={"source_count": count},
+                    quality_gate=quality_gate if level != "secondary_or_unknown" else "REVIEW",
+                    publish_allowed=publish_allowed and level != "secondary_or_unknown",
+                    note="证据等级分层来自 accession、PMID/DOI、官方库 URL 和来源登记情况。",
+                )
+            )
+        link_confidence = "high" if result.modeling_dataset.patient_count and result.modeling_dataset.sample_count else "unresolved"
+        rows.append(
+            StratifiedEvaluationRow(
+                stratum_name="patient_sample_link_confidence",
+                stratum_value=link_confidence,
+                n=result.modeling_dataset.row_count,
+                metrics={
+                    "patient_count": result.modeling_dataset.patient_count,
+                    "sample_count": result.modeling_dataset.sample_count,
+                },
+                quality_gate=quality_gate if link_confidence == "high" else "REVIEW",
+                publish_allowed=publish_allowed and link_confidence == "high",
+                note="低置信度患者/样本关联不得自动合并或发布。",
+            )
+        )
+        if result.readiness.warnings:
+            rows.append(
+                StratifiedEvaluationRow(
+                    stratum_name="risk_level",
+                    stratum_value="review_required",
+                    n=len(result.readiness.warnings),
+                    metrics={"warning_count": len(result.readiness.warnings)},
+                    quality_gate="REVIEW",
+                    publish_allowed=False,
+                    note="风险提示需要进入 REVIEW，不被平均分掩盖。",
+                )
+            )
+        return rows
+
+    @staticmethod
+    def _mean_present(values: list[float | None]) -> float | None:
+        present = [value for value in values if value is not None]
+        if not present:
+            return None
+        return round(fmean(present), 4)
+
+    @staticmethod
+    def _raw_retention_score(rows: list[dict[str, Any]]) -> float:
+        if not rows:
+            return 0.0
+        retained = sum(
+            1
+            for row in rows
+            if row.get("raw_characteristics")
+            or any(str(key).startswith("raw_") and value not in {None, ""} for key, value in row.items())
+        )
+        return round(retained / len(rows), 4)
+
+    @staticmethod
+    def _response_domain_counts(result: AgentTaskResult) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for row in result.modeling_dataset.rows:
+            domain = str(row.get("response_domain") or "").strip()
+            if not domain:
+                domain = "clinical" if result.modeling_dataset.target_column else "knowledge_evidence"
+            counts[domain] = counts.get(domain, 0) + 1
+        if not counts:
+            if any("trial" in source.source_name.casefold() for source in result.source_items):
+                counts["clinical_trial"] = 0
+            else:
+                counts["clinical"] = 0
+        return counts
+
+    @staticmethod
+    def _evidence_level_counts(result: AgentTaskResult) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for source in result.source_items:
+            url = (source.url or "").casefold()
+            accession = source.accession or ""
+            if accession and any(host in url for host in ("ncbi.nlm.nih.gov", "clinicaltrials.gov", "cbioportal.org", "gdc.cancer.gov", "civicdb.org")):
+                level = "official_accession"
+            elif "pmid" in url or "doi" in url:
+                level = "PMID_or_DOI"
+            elif any(host in url for host in ("civicdb.org", "cbioportal.org")):
+                level = "curated_database"
+            else:
+                level = "secondary_or_unknown"
+            counts[level] = counts.get(level, 0) + 1
+        if not counts:
+            counts["secondary_or_unknown"] = 0
+        return counts
 
     @staticmethod
     def _ratio(numerator: int, denominator: int) -> float | None:

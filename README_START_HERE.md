@@ -66,3 +66,5 @@
 当前 `prompts/00` 至 `prompts/10` 已全部实现。后端保留阶段 00 Mock 链路，同时启用真实 GDC、NCBI GEO、cBioPortal、AACT/ClinicalTrials.gov 与 CIViC Adapter；真实数据 Adapter 的大型下载功能默认关闭或限量返回。阶段 06 提供可追溯标准化与安全融合；阶段 07 提供 Gold Set 门控评测；阶段 08 提供初标候选、独立模型复核、官方来源验证、确定性医学规则和人工 review queue；阶段 09 提供确定性错误自动修复、高风险 review、非破坏性重复隔离、修复前后审计和再次质量验证；阶段 10 提供科研任务入口、高级筛选、进度、候选与最终数据、指标、Evidence、Repair 记录和真实 CSV/Parquet 下载。当前 Gold Set 模板仍为空，所以系统不对外宣称任何真实评测成绩。
 
 在阶段 00–10 骨架之上，当前主产品已经重构为 **v2 千问科研数据 Agent**：前端调用 `/api/agent/tasks`，由千问结构化解析科研问题并通过函数调用选择真实 Adapter；系统以临床样本锚定 cBioPortal 队列，防止分子孤立记录制造高缺失率，并可下载解析 GSE76360 Series Matrix，生成 50 名 HER2 阳性患者的基线治疗响应队列。页面提供中文数据值与字段字典、真实清洗记录、结局/变量匹配指标、点线式数据溯源以及 CSV/Parquet/Excel 导出。阶段 00 Mock 接口只作历史回归测试，不再是前端主链。详见 `docs/QWEN_RESEARCH_AGENT.md`。
+
+评价体系已增设 **统一评价体系 v2**：在冻结 SDTI 外层新增外部 Benchmark、模型/系统变体横向对比、Quality Gate 消融、Task-Adaptive Fitness 和分层对比。详见 `docs/UNIFIED_EVALUATION_SYSTEM_V2.md`、`configs/evaluation_system_v2.yaml` 与 `data/evaluation_templates/unified_results_template.csv`。这些扩展不生成虚假成绩；所有数值必须来自真实运行产物和可追溯来源。

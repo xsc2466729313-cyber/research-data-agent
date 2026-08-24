@@ -129,7 +129,7 @@ const ARGUMENT_LABELS = {
 
 const translateTerm = (value) => TERM_TRANSLATIONS[String(value)] || String(value ?? "—");
 const listText = (values) => values?.length ? values.map(translateTerm).join("、") : "未指定";
-const statusClass = (status) => ["完成", "可支持科研分析", "达标", "已覆盖", "已记录", "已计算"].includes(status) ? "is-success" : status === "失败" || status === "部分失败" ? "is-error" : "is-review";
+const statusClass = (status) => ["完成", "可支持科研分析", "达标", "已覆盖", "已记录", "已计算", "PASS"].includes(status) ? "is-success" : ["失败", "部分失败", "REJECT", "FAIL"].includes(status) ? "is-error" : "is-review";
 const metricPercentValue = (metric) => {
   if (!metric) return null;
   const value = Number(metric.value);
@@ -138,12 +138,22 @@ const metricPercentValue = (metric) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 const clampPercent = (value) => {
+  if (value == null || value === "") return null;
   const number = Number(value);
   return Number.isFinite(number) ? Math.max(0, Math.min(100, number)) : null;
 };
 const precisePercent = (value) => {
   const percent = clampPercent(value);
   return percent == null ? "待评测" : `${percent.toFixed(1)}%`;
+};
+const score100 = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? `${number.toFixed(1)}` : "待实测";
+};
+const metricValueText = (value) => {
+  if (value == null || value === "") return "待实测";
+  if (typeof value === "number") return Number.isFinite(value) ? (value <= 1 ? `${(value * 100).toFixed(1)}%` : value.toFixed(1)) : "待实测";
+  return String(value);
 };
 const canonicalDatabaseName = (value) => {
   const text = String(value || "");
@@ -881,6 +891,168 @@ function renderReadiness(readiness, dataset, sources, candidates) {
   document.querySelector("#recommendation-list").innerHTML = readiness.recommendations.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
 }
 
+function renderUnifiedEvaluation(report) {
+  const unified = report?.unified_evaluation;
+  const status = document.querySelector("#unified-evaluation-status");
+  const version = document.querySelector("#unified-evaluation-version");
+  const notice = document.querySelector("#unified-evaluation-notice");
+  const layers = document.querySelector("#evaluation-layer-grid");
+  const flow = document.querySelector("#evaluation-flow-visual");
+  const fitnessScore = document.querySelector("#fitness-score");
+  const fitnessGate = document.querySelector("#fitness-gate");
+  const dimensions = document.querySelector("#fitness-dimensions");
+  const gaps = document.querySelector("#fitness-gaps");
+  const modelVisual = document.querySelector("#model-comparison-visual");
+  const modelBody = document.querySelector("#unified-model-table tbody");
+  const horizontal = document.querySelector("#horizontal-comparison-list");
+  const stratifiedVisual = document.querySelector("#stratified-visual");
+  const stratifiedBody = document.querySelector("#stratified-table tbody");
+  if (!status || !version || !notice || !layers || !flow || !fitnessScore || !fitnessGate || !dimensions || !gaps || !modelVisual || !modelBody || !horizontal || !stratifiedVisual || !stratifiedBody) return;
+  if (!unified) {
+    status.textContent = "待接入";
+    version.textContent = "v2";
+    notice.textContent = "当前任务尚未返回统一评价体系结果。";
+    layers.innerHTML = "";
+    flow.innerHTML = "";
+    dimensions.innerHTML = "";
+    modelVisual.innerHTML = "";
+    modelBody.innerHTML = "";
+    horizontal.innerHTML = "";
+    stratifiedVisual.innerHTML = "";
+    stratifiedBody.innerHTML = "";
+    return;
+  }
+  status.textContent = unified.status;
+  version.textContent = unified.version;
+  notice.textContent = unified.no_fake_scores_notice;
+  layers.innerHTML = (unified.layers || []).map((layer) => `<article class="evaluation-layer-card">
+    <span>${escapeHtml(layer.layer_id)}</span>
+    <strong>${escapeHtml(layer.label)}</strong>
+    <em class="${statusClass(layer.status)}">${escapeHtml(layer.status)}</em>
+    <small>${escapeHtml(localizeNarrative(layer.purpose))}</small>
+  </article>`).join("");
+  renderEvaluationFlow(unified.layers || []);
+  const fitness = unified.task_adaptive_fitness || {};
+  fitnessScore.textContent = score100(fitness.fitness_score);
+  fitnessScore.parentElement?.style.setProperty("--fitness-score", String(clampPercent(fitness.fitness_score) ?? 0));
+  fitnessGate.textContent = fitness.quality_gate || "—";
+  fitnessGate.className = `status-badge ${statusClass(fitness.quality_gate || "REVIEW")}`;
+  dimensions.innerHTML = (fitness.dimensions || []).map((dimension) => `<article class="fitness-dimension">
+    <span>${escapeHtml(dimension.name)}</span>
+    <strong>${escapeHtml(dimension.display_value)}</strong>
+    <i style="width:${(metricPercentValue(dimension) ?? 0).toFixed(1)}%"></i>
+    <small>${escapeHtml(localizeNarrative(dimension.detail))}</small>
+  </article>`).join("");
+  gaps.innerHTML = (fitness.gap_feedback || []).length
+    ? fitness.gap_feedback.map((item) => `<li>${escapeHtml(localizeNarrative(item))}</li>`).join("")
+    : '<li>当前任务级 Fitness 未发现需要单独列出的缺口；正式横向比较仍需批量重跑。</li>';
+  modelBody.innerHTML = (unified.model_comparison || []).map((row) => {
+    const current = row.status === "当前任务真实运行" ? " class=\"is-current\"" : "";
+    return `<tr${current}>
+      <td><strong>${escapeHtml(row.method_label)}</strong><small>${escapeHtml(row.method_id)}</small></td>
+      <td>${escapeHtml(row.base_model_id || "N/A")}</td>
+      <td>${escapeHtml(score100(row.fitness_score))}</td>
+      <td>${escapeHtml(row.sdti_status)}</td>
+      <td><span class="status-badge ${statusClass(row.quality_gate)}">${escapeHtml(row.quality_gate)}</span></td>
+      <td>${escapeHtml(localizeNarrative(row.note))}</td>
+    </tr>`;
+  }).join("");
+  renderModelComparisonVisual(unified.model_comparison || []);
+  horizontal.innerHTML = (unified.horizontal_comparisons || []).map((table) => {
+    const totalRows = (table.rows || []).length;
+    const filledRows = (table.rows || []).filter((row) => Object.values(row).some((value) => value != null && value !== "" && value !== "待实测" && value !== "NOT_EVALUATED")).length;
+    const completion = totalRows ? filledRows / totalRows * 100 : 0;
+    return `<article class="comparison-item">
+      <strong>${escapeHtml(table.title)}</strong>
+      <span>${escapeHtml(table.status)} · ${filledRows}/${(table.rows || []).length} 行有可展示状态</span>
+      <i style="width:${completion.toFixed(1)}%"></i>
+      <small>${escapeHtml(localizeNarrative(table.note))}</small>
+    </article>`;
+  }).join("");
+  renderStratifiedVisual(unified.stratified_comparisons || []);
+  stratifiedBody.innerHTML = (unified.stratified_comparisons || []).map((row) => {
+    const metrics = Object.entries(row.metrics || {}).map(([key, value]) => `${key}=${metricValueText(value)}`).join("；") || "—";
+    return `<tr>
+      <td>${escapeHtml(row.stratum_name)}</td>
+      <td>${escapeHtml(row.stratum_value)}</td>
+      <td>${escapeHtml(row.n)}</td>
+      <td>${escapeHtml(metrics)}</td>
+      <td><span class="status-badge ${statusClass(row.quality_gate)}">${escapeHtml(row.quality_gate)}</span></td>
+      <td>${escapeHtml(localizeNarrative(row.note))}</td>
+    </tr>`;
+  }).join("");
+}
+
+function renderEvaluationFlow(layers) {
+  const container = document.querySelector("#evaluation-flow-visual");
+  if (!container) return;
+  if (!layers.length) {
+    container.innerHTML = '<p class="muted-visual">运行任务后会显示评价体系从外部 Benchmark 到 Quality Gate 的路径。</p>';
+    return;
+  }
+  const arrows = layers.map((layer, index) => `<article class="evaluation-flow-node">
+    <b>${String(index + 1).padStart(2, "0")}</b>
+    <strong>${escapeHtml(layer.label)}</strong>
+    <span class="${statusClass(layer.status)}">${escapeHtml(layer.status)}</span>
+  </article>`).join('<em aria-hidden="true">→</em>');
+  container.innerHTML = arrows;
+}
+
+function renderModelComparisonVisual(rows) {
+  const container = document.querySelector("#model-comparison-visual");
+  if (!container) return;
+  if (!rows.length) {
+    container.innerHTML = '<p class="muted-visual">暂无模型对比结果。</p>';
+    return;
+  }
+  container.innerHTML = rows.map((row) => {
+    const score = clampPercent(row.fitness_score);
+    const width = score ?? 0;
+    const current = row.status === "当前任务真实运行" ? " is-current" : "";
+    return `<article class="model-visual-row${current}">
+      <div><strong>${escapeHtml(row.method_label)}</strong><span>${escapeHtml(row.status)}</span></div>
+      <div class="model-visual-track" role="img" aria-label="${escapeHtml(row.method_label)} ${score100(row.fitness_score)}">
+        <i style="width:${width.toFixed(1)}%"></i>
+      </div>
+      <b>${escapeHtml(score100(row.fitness_score))}</b>
+    </article>`;
+  }).join("");
+}
+
+function renderStratifiedVisual(rows) {
+  const container = document.querySelector("#stratified-visual");
+  if (!container) return;
+  if (!rows.length) {
+    container.innerHTML = '<p class="muted-visual">暂无分层对比结果。</p>';
+    return;
+  }
+  const gateRank = { PASS: 3, REVIEW: 2, REJECT: 1, FAIL: 1 };
+  const grouped = new Map();
+  rows.forEach((row) => {
+    const current = grouped.get(row.stratum_name) || { n: 0, pass: 0, review: 0, fail: 0, values: [] };
+    current.n += Number(row.n || 0);
+    if (row.quality_gate === "PASS") current.pass += 1;
+    else if (["REJECT", "FAIL"].includes(row.quality_gate)) current.fail += 1;
+    else current.review += 1;
+    current.values.push(row);
+    grouped.set(row.stratum_name, current);
+  });
+  container.innerHTML = [...grouped.entries()].map(([name, group]) => {
+    const worst = group.values.reduce((selected, row) => (gateRank[row.quality_gate] || 2) < (gateRank[selected.quality_gate] || 2) ? row : selected, group.values[0]);
+    const status = group.fail ? "REJECT" : group.review ? "REVIEW" : "PASS";
+    const total = group.pass + group.review + group.fail || 1;
+    return `<article class="stratum-card is-${status.toLowerCase()}">
+      <div><strong>${escapeHtml(name)}</strong><span>n=${escapeHtml(group.n)} · ${escapeHtml(status)}</span></div>
+      <div class="stratum-stack" role="img" aria-label="${escapeHtml(name)} PASS ${group.pass} REVIEW ${group.review} REJECT ${group.fail}">
+        <i class="pass" style="width:${(group.pass / total * 100).toFixed(1)}%"></i>
+        <i class="review" style="width:${(group.review / total * 100).toFixed(1)}%"></i>
+        <i class="fail" style="width:${(group.fail / total * 100).toFixed(1)}%"></i>
+      </div>
+      <small>最弱层：${escapeHtml(worst.stratum_value)}｜${escapeHtml(localizeNarrative(worst.note))}</small>
+    </article>`;
+  }).join("");
+}
+
 function renderCompetitionReport(report) {
   const section = document.querySelector("#competition-report");
   if (!section) return;
@@ -891,6 +1063,7 @@ function renderCompetitionReport(report) {
     return;
   }
   section.hidden = false;
+  renderUnifiedEvaluation(report);
   const spotlight = document.querySelector("#competition-spotlight");
   if (spotlight) spotlight.hidden = false;
   document.querySelector("#competition-direction").textContent = report.direction || "方向1A";
@@ -1068,11 +1241,12 @@ function renderScientificUsability(analysis) {
 }
 
 function renderDictionary(columns) {
+  document.querySelector(".quality-grid")?.classList.toggle("is-empty-dictionary", columns.length === 0);
   document.querySelector("#dictionary-count").textContent = `${columns.length} 个字段`;
-  document.querySelector("#dictionary-table tbody").innerHTML = columns.map((column) => `<tr>
+  document.querySelector("#dictionary-table tbody").innerHTML = columns.length ? columns.map((column) => `<tr>
     <td><code>${escapeHtml(column.name)}</code></td><td>${escapeHtml(column.label_zh)}</td>
     <td>${escapeHtml(TYPE_TRANSLATIONS[column.data_type] || column.data_type)}</td><td>${escapeHtml(column.role)}</td><td>${escapeHtml(column.description)}</td>
-  </tr>`).join("");
+  </tr>`).join("") : '<tr><td colspan="5" class="muted-cell">当前任务尚未形成字段字典。</td></tr>';
 }
 
 function renderSources(sources, candidates, dataset) {

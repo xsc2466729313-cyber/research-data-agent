@@ -25,6 +25,8 @@
 
 比赛对齐报告中的指标是任务级诊断指标，用于说明当前结果是否具备科研适用性；它们不是官方 Gold Set Precision/Recall/SDTI 成绩。正式成绩仍必须通过冻结 Gold Set 和 `docs/EVALUATION_SDTI.md` 的流程计算。
 
+统一评价体系 v2 已将这些诊断指标放入更完整的评测框架：外部 Benchmark 负责横向证明通用能力，冻结 Gold Set 负责 SDTI，Task-Adaptive Fitness 负责科研适用性，Quality Gate 负责发布准入。模型对比、横向对比结果表和分层对比规则见 `docs/UNIFIED_EVALUATION_SYSTEM_V2.md`。
+
 | 指标 | 含义 | 设计目的 |
 |---|---|---|
 | 来源审计完整度 | 已登记来源在 `source_id`、官方 URL、accession、status、checksum/local path、行级 `source_id`、原始值保留等维度的加权完整度；自动审计不直接宣称 100% | 衡量可复核性 |

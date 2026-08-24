@@ -1,0 +1,240 @@
+version: "2.0"
+name: unified_research_data_agent_evaluation
+project: breast-cancer-research-agent
+
+frozen_core:
+  sdti_formula_source: docs/06_评测指标与SDTI.md
+  threshold_source: configs/quality_rules.yaml
+  canonical_schema_source: configs/canonical_schema.yaml
+  medical_rule_source: configs/medical_rules.yaml
+  do_not_modify_formula: true
+  note: "SDTI remains the frozen core score; v2 adds comparison, benchmark, and stratified reporting layers around it."
+
+evaluation_layers:
+  external_benchmarks:
+    purpose: "Show generic cleaning, retrieval, schema matching, and entity matching capability against public ground truth."
+    stages:
+      cleaning:
+        primary_metric: cell_f1
+        auxiliary_metrics: [cell_precision, cell_recall, repair_accuracy, latency_ms]
+        datasets: [hospital, flights, beers]
+        optional_datasets: [rayyan, movies]
+        baselines: [holoclean, raha_baran, cocoon]
+      retrieval:
+        primary_metric: ndcg_at_10
+        auxiliary_metrics: [recall_at_100, mrr_at_10, latency_ms]
+        datasets: [beir_scifact, beir_nfcorpus]
+        baselines: [bm25, contriever_msmarco, bge_m3]
+      schema_matching:
+        primary_metric: schema_f1
+        auxiliary_metrics: [schema_precision, schema_recall, runtime_ms]
+        datasets: [valentine]
+        baselines: [jaccard, coma, cupid]
+      entity_matching:
+        primary_metric: entity_f1
+        auxiliary_metrics: [entity_precision, entity_recall, runtime_ms]
+        datasets: [dblp_acm, walmart_amazon]
+        optional_datasets: [dirty_dblp_acm]
+        baselines: [fuzzy_rule, deepmatcher, ditto]
+
+  frozen_goldset_sdti:
+    purpose: "Compute the project core metrics and SDTI only when a validated, frozen Gold Set is supplied."
+    metrics:
+      - retrieval_precision
+      - retrieval_recall
+      - retrieval_f1
+      - faithfulness
+      - traceability
+      - error_precision
+      - error_recall
+      - error_f1
+      - repair_accuracy
+      - sdti
+    output_states: [NOT_EVALUATED, PARTIALLY_EVALUATED, EVALUATED]
+
+  task_adaptive_fitness:
+    purpose: "Judge whether a produced dataset is fit for the current research question after the Evaluation Contract is frozen."
+    fixed_dimensions:
+      research_relevance:
+        weight_policy: task_contract
+        examples: [population_match, exposure_match, outcome_match, unit_of_analysis_match]
+      analytical_adequacy:
+        weight_policy: task_contract
+        examples: [sample_size, missingness, outcome_variability, leakage_risk, temporal_logic]
+      traceability_reliability:
+        weight_policy: task_contract
+        examples: [source_authenticity, evidence_completeness, conflict_resolution, version_recorded]
+      reusability:
+        weight_policy: task_contract
+        examples: [field_dictionary, raw_value_retained, machine_readable_export, reproducible_query]
+    item_scale: [0, 1, 2, 3, 4]
+    aggregate: "100 * geometric_mean(normalized_dimension_scores)"
+    hard_rule: "The contract must be generated and frozen before the agent output is evaluated."
+
+  quality_gate:
+    purpose: "Return PASS, REVIEW, or REJECT for scientific data publication readiness."
+    outputs: [PASS, REVIEW, REJECT]
+    components:
+      - source_authenticity
+      - integration_integrity
+      - traceability
+      - critical_conflict
+      - task_critical_requirements
+      - medical_safety_rules
+
+model_comparison:
+  objective: "Separate base-model effects from system-design effects."
+  required_controls:
+    - same_research_task
+    - same_evaluation_contract
+    - same_candidate_source_scope
+    - same_dataset_version
+    - same_random_seed_when_applicable
+    - same_metric_script_version
+    - repeated_runs_for_llm_variance
+  compare_variants:
+    - id: rule_keyword
+      label: "Rule/Keyword Baseline"
+      qwen_enabled: false
+      multi_source: false
+      quality_gate: false
+      adaptive_fitness: false
+    - id: qwen_only
+      label: "Qwen-only"
+      qwen_enabled: true
+      multi_source: false
+      quality_gate: false
+      adaptive_fitness: false
+    - id: single_source_agent
+      label: "Single-source Agent"
+      qwen_enabled: true
+      multi_source: false
+      quality_gate: true
+      adaptive_fitness: true
+    - id: multi_source_no_gate
+      label: "Multi-source No-Gate"
+      qwen_enabled: true
+      multi_source: true
+      quality_gate: false
+      adaptive_fitness: true
+    - id: full_agent
+      label: "Full Agent"
+      qwen_enabled: true
+      multi_source: true
+      quality_gate: true
+      adaptive_fitness: true
+  base_model_fields:
+    - base_model_id
+    - model_provider
+    - temperature
+    - tool_calling_enabled
+    - judge_model_id
+
+horizontal_comparison:
+  purpose: "Report side-by-side results across public baselines, model variants, and ablations."
+  required_tables:
+    - cleaning_benchmark_by_dataset
+    - retrieval_benchmark_by_dataset
+    - integration_schema_entity
+    - sdti_goldset_by_variant
+    - quality_gate_ablation
+    - task_fitness_by_variant
+  summary_metrics:
+    - mean
+    - median
+    - standard_deviation
+    - bootstrap_ci95_low
+    - bootstrap_ci95_high
+    - win_rate
+    - gate_pass_rate
+  visualization_defaults:
+    precise_comparison: horizontal_bar_or_dot_plot
+    distribution: box_or_violin_plot
+    quality_coverage: scatter_plot
+    ablation: heatmap
+
+stratified_comparison:
+  purpose: "Expose where the system works or fails instead of hiding weak strata inside an average."
+  required_strata:
+    - benchmark_dataset
+    - research_task_type
+    - disease_subtype
+    - source_type
+    - response_domain
+    - evidence_level
+    - patient_sample_link_confidence
+    - error_type
+    - missingness_band
+    - risk_level
+  breast_cancer_strata:
+    disease_subtype: [HER2_positive, HR_positive_HER2_negative, triple_negative, mixed_or_unknown]
+    response_domain: [clinical, preclinical_cell_line, clinical_trial, knowledge_evidence]
+    source_type: [GDC, GEO, cBioPortal, ClinicalTrialsGov, CIViC, publication]
+    evidence_level: [official_accession, PMID_or_DOI, curated_database, derived_or_secondary]
+    patient_sample_link_confidence: [high, medium, low, unresolved]
+  reporting_rules:
+    - report_macro_average
+    - report_weighted_average
+    - report_each_required_stratum_when_n_is_sufficient
+    - mark_small_n_strata_instead_of_suppressing_failures
+    - include_worst_stratum_and_failure_reason
+
+multi_ai_judge:
+  enabled_for_semantic_items_only: true
+  disallowed_items:
+    - exact_sample_count
+    - source_url_existence
+    - schema_type_validity
+    - raw_api_value
+    - deterministic_medical_hard_rule
+  allowed_items:
+    - outcome_semantic_equivalence
+    - evidence_support_strength
+    - research_relevance_grade
+    - adaptive_rubric_semantic_item
+  calibration:
+    human_items_min: 30
+    human_items_target: 50
+    disagreement_threshold_score: 1
+    required_metrics:
+      - weighted_cohen_kappa
+      - agreement_with_human
+      - coverage
+      - abstention_rate
+      - human_review_rate
+      - cost_per_item
+
+result_schema:
+  template: data/evaluation_templates/unified_results_template.csv
+  required_columns:
+    - evaluation_id
+    - evaluation_version
+    - layer
+    - stage
+    - benchmark_or_task
+    - stratum_name
+    - stratum_value
+    - method_id
+    - method_label
+    - base_model_id
+    - metric
+    - value
+    - direction
+    - unit
+    - n
+    - mean
+    - std
+    - ci95_low
+    - ci95_high
+    - run_count
+    - seed
+    - dataset_version
+    - evaluation_contract_id
+    - quality_gate
+    - publish_allowed
+    - source_id
+    - source_url
+    - raw_field
+    - raw_value
+    - notes
+  no_fake_scores_rule: "Leave value/summary cells empty until the exact run artifact and source_id are available."

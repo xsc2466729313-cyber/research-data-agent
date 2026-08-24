@@ -125,6 +125,10 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "TYPE_TRANSLATIONS" in script
     assert "renderCompetitionReport" in script
     assert "competition_report" in script
+    assert "renderUnifiedEvaluation" in script
+    assert "renderEvaluationFlow" in script
+    assert "renderModelComparisonVisual" in script
+    assert "renderStratifiedVisual" in script
     assert "renderRagFlow" in script
     assert "renderRagMatching" in script
     assert "renderKnowledgeGraph" in script
@@ -146,6 +150,9 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert ".rag-matching" in styles
     assert ".kg-visual" in styles
     assert ".scientific-usability" in styles
+    assert ".evaluation-flow-visual" in styles
+    assert ".model-comparison-visual" in styles
+    assert ".stratified-visual" in styles
 
     nginx_config = (ROOT / "frontend" / "nginx.conf").read_text(encoding="utf-8")
     assert "location = /health" in nginx_config
@@ -232,6 +239,12 @@ def test_agent_task_api_exposes_competition_alignment_report(tmp_path: Path) -> 
 
     assert result.competition_report is not None
     assert result.competition_report.direction == "方向1A · 科学数据查找解析与整合"
+    assert result.competition_report.unified_evaluation is not None
+    unified = result.competition_report.unified_evaluation
+    assert unified.version == "v2"
+    assert any(row.method_id == "full_agent" for row in unified.model_comparison)
+    assert any(table.table_id == "task_fitness_by_variant" for table in unified.horizontal_comparisons)
+    assert any(row.stratum_name == "response_domain" for row in unified.stratified_comparisons)
     source_audit = next(metric for metric in result.competition_report.metrics if metric.name == "来源审计完整度")
     assert source_audit.value is not None
     assert source_audit.value < 1

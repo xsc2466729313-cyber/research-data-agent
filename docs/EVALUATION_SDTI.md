@@ -16,6 +16,22 @@ sdti
 `configs/quality_rules.yaml` 读取。本阶段未修改冻结 Schema、医学规则或指标公式，
 也不提前实现阶段 08 的 AI Gold Set 辅助和阶段 09 的 Repair 闭环。
 
+## v2 统一评价扩展层
+
+新增的统一评价体系见 `docs/UNIFIED_EVALUATION_SYSTEM_V2.md` 与
+`configs/evaluation_system_v2.yaml`。v2 不改变本文件实现的冻结 SDTI 指标，
+而是在其外层增设：
+
+- 外部 Benchmark 横向比较：Cleaning、Retrieval、Schema Matching、Entity Matching。
+- 模型/系统变体对比：`rule_keyword`、`qwen_only`、`single_source_agent`、
+  `multi_source_no_gate`、`full_agent`。
+- 横向结果表：统一长表模板为 `data/evaluation_templates/unified_results_template.csv`。
+- 分层对比：按 benchmark、科研任务类型、乳腺癌亚型、来源类型、`response_domain`、
+  Evidence 等级、患者/样本关联置信度、错误类型和风险等级切分。
+- Task-Adaptive Fitness：先冻结 Evaluation Contract，再评价科研适用性。
+
+这些扩展结果不得替代真实 Gold Set SDTI，也不得在未真实运行时填入推测成绩。
+
 ## API
 
 - `GET /api/evaluation/goldset/templates`：校验仓库内三个 CSV 模板的表头，并返回行数。

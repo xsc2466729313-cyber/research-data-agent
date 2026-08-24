@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="千问驱动的乳腺癌科研数据智能体：从科研问题、真实数据库工具调用到可阅读、可追溯的科研数据集。" />
     <title>千问乳腺癌科研数据智能体</title>
-    <link rel="stylesheet" href="/styles.css?v=20260821-1" />
+    <link rel="stylesheet" href="/styles.css?v=20260824-1" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">跳到主要内容</a>
@@ -280,6 +280,40 @@
           <div class="section-heading"><div><p class="section-kicker">09 · 比赛对齐与消融</p><h2>按赛道二方向1A展示可核验改进</h2></div><span id="competition-direction" class="count-tag"></span></div>
           <p id="competition-summary" class="section-note"></p>
           <div id="competition-metrics" class="competition-metrics" aria-label="比赛对齐指标"></div>
+          <article class="unified-evaluation">
+            <div class="unified-heading">
+              <div><h3>统一评价体系 v2</h3><span id="unified-evaluation-status">—</span></div>
+              <strong id="unified-evaluation-version">—</strong>
+            </div>
+            <p id="unified-evaluation-notice" class="unified-notice"></p>
+            <div id="evaluation-layer-grid" class="evaluation-layer-grid"></div>
+            <div id="evaluation-flow-visual" class="evaluation-flow-visual" aria-label="统一评价体系流程图"></div>
+            <div class="fitness-panel">
+              <div class="fitness-summary">
+                <span>Task-Adaptive Fitness</span>
+                <strong id="fitness-score">待评测</strong>
+                <em id="fitness-gate" class="status-badge">—</em>
+              </div>
+              <div id="fitness-dimensions" class="fitness-dimensions"></div>
+              <ul id="fitness-gaps" class="message-list warning-list"></ul>
+            </div>
+            <div class="comparison-grid">
+              <article>
+                <h4>模型对比</h4>
+                <div id="model-comparison-visual" class="model-comparison-visual" aria-label="模型对比可视化"></div>
+                <div class="table-wrap"><table id="unified-model-table"><thead><tr><th>方法</th><th>模型</th><th>Fitness</th><th>SDTI</th><th>Gate</th><th>说明</th></tr></thead><tbody></tbody></table></div>
+              </article>
+              <article>
+                <h4>横向对比结果</h4>
+                <div id="horizontal-comparison-list" class="comparison-list"></div>
+              </article>
+            </div>
+            <article class="stratified-panel">
+              <h4>分层对比</h4>
+              <div id="stratified-visual" class="stratified-visual" aria-label="分层对比风险矩阵"></div>
+              <div class="table-wrap"><table id="stratified-table"><thead><tr><th>分层</th><th>取值</th><th>n</th><th>指标</th><th>Gate</th><th>说明</th></tr></thead><tbody></tbody></table></div>
+            </article>
+          </article>
           <div class="competition-grid">
             <article>
               <h3>RAG 流程可视化</h3>
@@ -360,6 +394,6 @@
     </dialog>
     <div id="toast" class="toast" hidden role="status" aria-live="polite"></div>
     <footer><span>千问科研数据智能体</span><span>模型负责规划 · 规则负责安全 · 数据必须真实可追溯</span></footer>
-    <script src="/app.js?v=20260821-1" defer></script>
+    <script src="/app.js?v=20260824-1" defer></script>
   </body>
 </html>

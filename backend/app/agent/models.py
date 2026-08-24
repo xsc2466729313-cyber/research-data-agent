@@ -240,6 +240,71 @@ class ScientificUsabilityAnalysis(ApiModel):
     interpretation: str
     caveats: list[str] = Field(default_factory=list)
 
+
+class UnifiedEvaluationLayer(ApiModel):
+    layer_id: str
+    label: str
+    purpose: str
+    status: str
+    primary_outputs: list[str] = Field(default_factory=list)
+    evidence_requirement: str
+
+
+class TaskAdaptiveFitnessReport(ApiModel):
+    evaluation_contract_id: str
+    frozen_before_run: bool
+    status: str
+    fitness_score: float | None = Field(default=None, ge=0, le=100)
+    dimensions: list[CompetitionMetric] = Field(default_factory=list)
+    quality_gate: str
+    publish_allowed: bool = False
+    gap_feedback: list[str] = Field(default_factory=list)
+    note: str
+
+
+class ModelComparisonRow(ApiModel):
+    method_id: str
+    method_label: str
+    base_model_id: str | None = None
+    status: str
+    sdti_status: str
+    fitness_score: float | None = Field(default=None, ge=0, le=100)
+    quality_gate: str
+    publish_allowed: bool = False
+    observed_metrics: dict[str, float | str | None] = Field(default_factory=dict)
+    note: str
+
+
+class HorizontalComparisonTable(ApiModel):
+    table_id: str
+    title: str
+    status: str
+    columns: list[str] = Field(default_factory=list)
+    rows: list[dict[str, Any]] = Field(default_factory=list)
+    note: str
+
+
+class StratifiedEvaluationRow(ApiModel):
+    stratum_name: str
+    stratum_value: str
+    n: int = Field(ge=0)
+    metrics: dict[str, float | str | None] = Field(default_factory=dict)
+    quality_gate: str
+    publish_allowed: bool = False
+    note: str
+
+
+class UnifiedEvaluationReport(ApiModel):
+    version: str
+    status: str
+    no_fake_scores_notice: str
+    layers: list[UnifiedEvaluationLayer] = Field(default_factory=list)
+    task_adaptive_fitness: TaskAdaptiveFitnessReport
+    model_comparison: list[ModelComparisonRow] = Field(default_factory=list)
+    horizontal_comparisons: list[HorizontalComparisonTable] = Field(default_factory=list)
+    stratified_comparisons: list[StratifiedEvaluationRow] = Field(default_factory=list)
+    required_next_runs: list[str] = Field(default_factory=list)
+
 class CompetitionGraphSummary(ApiModel):
     enabled: bool
     node_count: int = Field(ge=0)
@@ -260,6 +325,7 @@ class CompetitionAlignmentReport(ApiModel):
     track: str
     direction: str
     problem_focus: str
+    unified_evaluation: UnifiedEvaluationReport | None = None
     metrics: list[CompetitionMetric] = Field(default_factory=list)
     ablation_rows: list[CompetitionAblationRow] = Field(default_factory=list)
     rag_layers: list[CompetitionRagLayer] = Field(default_factory=list)
