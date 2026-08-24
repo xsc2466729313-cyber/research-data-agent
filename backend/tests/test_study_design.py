@@ -55,3 +55,34 @@ def test_study_design_and_cohort_report_use_observed_rows() -> None:
     assert outcome_step.after_count == 1
     assert outcome_step.excluded_count == 1
     assert cohort.patient_linkage_f1 is None
+
+
+def test_plan_only_returns_design_rules_without_claiming_a_built_cohort() -> None:
+    dataset, readiness = ResearchDatasetBuilder().empty()
+    spec = ResearchSpec(
+        task_id="plan-only-test",
+        research_goal="规划 HER2 阳性乳腺癌治疗响应研究",
+        disease="Breast Cancer",
+        subtype="HER2-positive",
+        genes=["PIK3CA"],
+        outcomes=["treatment_response"],
+        required_data_types=["clinical", "mutation", "treatment_response"],
+    )
+
+    design, cohort = StudyDesignBuilder().build(
+        spec,
+        dataset,
+        readiness,
+        [],
+        [],
+        "plan_only",
+    )
+
+    assert design.status == "已生成"
+    assert "仅规划模式" in design.generation_note
+    assert cohort.status == "已生成规则"
+    assert cohort.execution_mode == "plan_only"
+    assert cohort.has_observed_rows is False
+    assert cohort.not_run_reason
+    assert cohort.filter_steps
+    assert all(step.status == "待复核" for step in cohort.filter_steps)

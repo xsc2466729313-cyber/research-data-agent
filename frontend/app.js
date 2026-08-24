@@ -14,6 +14,7 @@ const state = {
   datasetView: "research",
   qwenSessionId: null,
   qwenSessionExpiresAt: null,
+  modelEvaluationReport: null,
   lineage: { sources: [], candidates: [], primary: "", selected: null, hover: null, view: "all", paused: false },
 };
 
@@ -118,6 +119,45 @@ const VALUE_TRANSLATIONS = {
 };
 
 const TYPE_TRANSLATIONS = { string: "文本", number: "数值", boolean: "布尔值" };
+const METRIC_LABELS_ZH = {
+  "Research Relevance": "研究相关性",
+  "Analytical Adequacy": "分析充分性",
+  "Traceability & Reliability": "可追溯性与可靠性",
+  Reusability: "可复用性",
+  "Fitness Score": "科研适配度",
+  fitness_score: "科研适配度",
+  source_audit: "来源审计完整度",
+  outcome_completeness: "结局完整率",
+  field_completeness: "字段完整率",
+  question_fit: "问题匹配度",
+  exploratory_usability: "科研探索可用性",
+  "结构化解析通过": "结构化解析通过率",
+  "问题字段响应率": "问题字段响应率",
+  "基因字段数量": "基因字段数量",
+  "结局字段数量": "结局字段数量",
+  "问题长度": "问题长度",
+};
+const STRATUM_LABELS_ZH = {
+  disease_subtype: "疾病亚型",
+  source_type: "来源类型",
+  response_domain: "响应数据域",
+  evidence_level: "证据等级",
+  patient_sample_link_confidence: "患者-样本关联置信度",
+  risk_level: "风险等级",
+};
+const VALUE_LABELS_ZH = {
+  "HER2-positive": "HER2 阳性",
+  clinical: "临床响应",
+  preclinical_cell_line: "细胞系药敏",
+  clinical_trial: "临床试验",
+  knowledge_evidence: "知识证据",
+  official_accession: "官方数据编号",
+  pmid_or_doi: "PMID / DOI",
+  curated_database: "人工整理数据库",
+  secondary_or_unknown: "次级或未知",
+  unresolved: "未解决",
+  review_required: "需要复核",
+};
 const SOURCE_STATUS_TRANSLATIONS = { cached: "缓存命中", discovered: "已发现", downloaded: "已下载", fetched: "已获取", failed: "失败" };
 const ARGUMENT_LABELS = {
   study_id: "研究编号", gene_symbols: "基因", max_records: "最大记录数",
@@ -155,6 +195,9 @@ const metricValueText = (value) => {
   if (typeof value === "number") return Number.isFinite(value) ? (value <= 1 ? `${(value * 100).toFixed(1)}%` : value.toFixed(1)) : "待实测";
   return String(value);
 };
+const metricLabelZh = (value) => METRIC_LABELS_ZH[String(value)] || String(value ?? "—");
+const stratumLabelZh = (value) => STRATUM_LABELS_ZH[String(value)] || String(value ?? "—");
+const valueLabelZh = (value) => VALUE_LABELS_ZH[String(value)] || translateValue(value);
 const canonicalDatabaseName = (value) => {
   const text = String(value || "");
   const lower = text.toLowerCase();
@@ -740,6 +783,9 @@ function renderStudyDesign(report, dataset) {
   ];
   summary.innerHTML = cards.map(([label, value]) => `<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(localizeNarrative(value))}</strong></article>`).join("");
   expression.textContent = localizeNarrative(report.model_expression || "—");
+  if (report.generation_note) {
+    summary.insertAdjacentHTML("afterend", `<p class="section-note study-generation-note">${escapeHtml(localizeNarrative(report.generation_note))}</p>`);
+  }
   rules.innerHTML = (report.cohort_rules || []).map((rule) => `<li>${escapeHtml(localizeNarrative(rule))}</li>`).join("");
   const variables = report.required_variables || [];
   const available = variables.filter((variable) => variable.available).length;
@@ -786,7 +832,9 @@ function renderCohortConstruction(report) {
   }
   gate.textContent = report.quality_gate || "REVIEW";
   gate.className = `status-badge ${statusClass(report.quality_gate)}`;
-  count.textContent = `${report.final_row_count || 0} 行最终队列`;
+  count.textContent = report.execution_mode === "plan_only"
+    ? "规则已生成，待真实筛选"
+    : `${report.final_row_count || 0} 行最终队列`;
   summary.innerHTML = [
     ["来源行数", report.source_row_count],
     ["最终队列", report.final_row_count],
@@ -814,7 +862,8 @@ function renderCohortConstruction(report) {
     <td><span class="status-badge ${statusClass(step.status)}">${escapeHtml(step.status)}</span></td>
     <td>${escapeHtml(localizeNarrative(step.note))}</td>
   </tr>`).join("");
-  notes.innerHTML = (report.notes || []).map((item) => `<li>${escapeHtml(localizeNarrative(item))}</li>`).join("");
+  const modeNote = report.not_run_reason ? [report.not_run_reason] : [];
+  notes.innerHTML = [...modeNote, ...(report.notes || [])].map((item) => `<li>${escapeHtml(localizeNarrative(item))}</li>`).join("");
 }
 
 function renderReadiness(readiness, dataset, sources, candidates) {
@@ -951,21 +1000,21 @@ function renderUnifiedEvaluation(report) {
   fitnessGate.textContent = fitness.quality_gate || "—";
   fitnessGate.className = `status-badge ${statusClass(fitness.quality_gate || "REVIEW")}`;
   dimensions.innerHTML = (fitness.dimensions || []).map((dimension) => `<article class="fitness-dimension">
-    <span>${escapeHtml(dimension.name)}</span>
+    <span>${escapeHtml(metricLabelZh(dimension.name))}</span>
     <strong>${escapeHtml(dimension.display_value)}</strong>
     <i style="width:${(metricPercentValue(dimension) ?? 0).toFixed(1)}%"></i>
     <small>${escapeHtml(localizeNarrative(dimension.detail))}</small>
   </article>`).join("");
   gaps.innerHTML = (fitness.gap_feedback || []).length
     ? fitness.gap_feedback.map((item) => `<li>${escapeHtml(localizeNarrative(item))}</li>`).join("")
-    : '<li>当前任务级 Fitness 未发现需要单独列出的缺口；正式横向比较仍需批量重跑。</li>';
+    : '<li>当前任务级科研适配度未发现需要单独列出的缺口；正式横向比较仍需批量重跑。</li>';
   modelBody.innerHTML = (unified.model_comparison || []).map((row) => {
     const current = row.status === "当前任务真实运行" ? " class=\"is-current\"" : "";
     return `<tr${current}>
       <td><strong>${escapeHtml(row.method_label)}</strong><small>${escapeHtml(row.method_id)}</small></td>
-      <td>${escapeHtml(row.base_model_id || "N/A")}</td>
+      <td>${escapeHtml(row.base_model_id || "未指定")}</td>
       <td>${escapeHtml(score100(row.fitness_score))}</td>
-      <td>${escapeHtml(row.sdti_status)}</td>
+      <td>${escapeHtml(row.sdti_status === "NOT_EVALUATED" ? "未评测" : row.sdti_status)}</td>
       <td><span class="status-badge ${statusClass(row.quality_gate)}">${escapeHtml(row.quality_gate)}</span></td>
       <td>${escapeHtml(localizeNarrative(row.note))}</td>
     </tr>`;
@@ -984,10 +1033,10 @@ function renderUnifiedEvaluation(report) {
   }).join("");
   renderStratifiedVisual(unified.stratified_comparisons || []);
   stratifiedBody.innerHTML = (unified.stratified_comparisons || []).map((row) => {
-    const metrics = Object.entries(row.metrics || {}).map(([key, value]) => `${key}=${metricValueText(value)}`).join("；") || "—";
+    const metrics = Object.entries(row.metrics || {}).map(([key, value]) => `${metricLabelZh(key)}=${metricValueText(value)}`).join("；") || "—";
     return `<tr>
-      <td>${escapeHtml(row.stratum_name)}</td>
-      <td>${escapeHtml(row.stratum_value)}</td>
+      <td>${escapeHtml(row.stratum_label_zh || stratumLabelZh(row.stratum_name))}<small>${escapeHtml(row.stratum_name)}</small></td>
+      <td>${escapeHtml(row.stratum_value_label_zh || valueLabelZh(row.stratum_value))}</td>
       <td>${escapeHtml(row.n)}</td>
       <td>${escapeHtml(metrics)}</td>
       <td><span class="status-badge ${statusClass(row.quality_gate)}">${escapeHtml(row.quality_gate)}</span></td>
@@ -1000,7 +1049,7 @@ function renderEvaluationFlow(layers) {
   const container = document.querySelector("#evaluation-flow-visual");
   if (!container) return;
   if (!layers.length) {
-    container.innerHTML = '<p class="muted-visual">运行任务后会显示评价体系从外部 Benchmark 到 Quality Gate 的路径。</p>';
+    container.innerHTML = '<p class="muted-visual">运行任务后会显示评价体系从外部基准评测到质量门的路径。</p>';
     return;
   }
   const arrows = layers.map((layer, index) => `<article class="evaluation-flow-node">
@@ -1018,18 +1067,26 @@ function renderModelComparisonVisual(rows) {
     container.innerHTML = '<p class="muted-visual">暂无模型对比结果。</p>';
     return;
   }
-  container.innerHTML = rows.map((row) => {
-    const score = clampPercent(row.fitness_score);
-    const width = score ?? 0;
+  const metric = document.querySelector("#model-chart-metric")?.value || "fitness_score";
+  const metricLabel = metricLabelZh(metric);
+  const values = rows.map((row) => {
+    const raw = metric === "fitness_score"
+      ? row.fitness_score
+      : row.observed_metrics?.[metric];
+    const score = raw == null ? null : (metric === "fitness_score" ? Number(raw) : Number(raw) * 100);
+    return { row, score: Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : null };
+  });
+  container.classList.add("is-bar-chart");
+  container.innerHTML = `<div class="model-bar-chart" role="img" aria-label="${escapeHtml(metricLabel)}模型柱状图">${values.map(({ row, score }) => {
     const current = row.status === "当前任务真实运行" ? " is-current" : "";
-    return `<article class="model-visual-row${current}">
-      <div><strong>${escapeHtml(row.method_label)}</strong><span>${escapeHtml(row.status)}</span></div>
-      <div class="model-visual-track" role="img" aria-label="${escapeHtml(row.method_label)} ${score100(row.fitness_score)}">
-        <i style="width:${width.toFixed(1)}%"></i>
-      </div>
-      <b>${escapeHtml(score100(row.fitness_score))}</b>
+    const pending = score == null ? " is-pending" : "";
+    return `<article class="model-bar-column${current}${pending}">
+      <strong>${escapeHtml(score == null ? "待实测" : `${score.toFixed(1)}%`)}</strong>
+      <div class="model-bar-track"><i style="height:${(score ?? 0).toFixed(1)}%" aria-hidden="true"></i></div>
+      <strong>${escapeHtml(row.method_label)}</strong>
+      <small>${escapeHtml(row.status === "当前任务真实运行" ? "当前任务" : row.status)}</small>
     </article>`;
-  }).join("");
+  }).join("")}</div><div class="model-evaluation-axis"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>`;
 }
 
 function renderStratifiedVisual(rows) {
@@ -1055,13 +1112,13 @@ function renderStratifiedVisual(rows) {
     const status = group.fail ? "REJECT" : group.review ? "REVIEW" : "PASS";
     const total = group.pass + group.review + group.fail || 1;
     return `<article class="stratum-card is-${status.toLowerCase()}">
-      <div><strong>${escapeHtml(name)}</strong><span>n=${escapeHtml(group.n)} · ${escapeHtml(status)}</span></div>
+      <div><strong>${escapeHtml(stratumLabelZh(name))}</strong><span>样本数=${escapeHtml(group.n)} · ${escapeHtml(status)}</span></div>
       <div class="stratum-stack" role="img" aria-label="${escapeHtml(name)} PASS ${group.pass} REVIEW ${group.review} REJECT ${group.fail}">
         <i class="pass" style="width:${(group.pass / total * 100).toFixed(1)}%"></i>
         <i class="review" style="width:${(group.review / total * 100).toFixed(1)}%"></i>
         <i class="fail" style="width:${(group.fail / total * 100).toFixed(1)}%"></i>
       </div>
-      <small>最弱层：${escapeHtml(worst.stratum_value)}｜${escapeHtml(localizeNarrative(worst.note))}</small>
+      <small>最弱层：${escapeHtml(worst.stratum_value_label_zh || valueLabelZh(worst.stratum_value))}｜${escapeHtml(localizeNarrative(worst.note))}</small>
     </article>`;
   }).join("");
 }
@@ -1430,6 +1487,177 @@ document.querySelectorAll(".export-button").forEach((button) => {
       button.disabled = false;
     }
   });
+});
+
+function renderApiCheckResult(result) {
+  const container = document.querySelector("#api-check-result");
+  if (!container) return;
+  const statusClassName = result.status === "连接失败" ? "is-error" : "is-success";
+  const facts = [
+    ["网络可达", result.reachable ? "是" : "否"],
+    ["鉴权成功", result.authenticated ? "是" : "否"],
+    ["模型可用", result.model_available ? "是" : "否"],
+    ["函数调用", result.function_calling_available ? "已支持" : "未确认"],
+    ["Agent 探测", result.agent_ready ? "通过" : "未通过/未执行"],
+    ["状态", result.status],
+  ];
+  container.innerHTML = facts.map(([label, value]) => `<article><span>${escapeHtml(label)}</span><strong class="${statusClassName}">${escapeHtml(value)}</strong></article>`).join("")
+    + `<p>${escapeHtml(result.message)} · ${escapeHtml(result.model)}</p>`;
+}
+
+async function checkApiAgent() {
+  const button = document.querySelector("#api-check-submit");
+  const input = document.querySelector("#api-check-key");
+  const message = document.querySelector("#evaluation-workbench-message");
+  if (!button || !input) return;
+  if (!input.value.trim()) {
+    renderApiCheckResult({ status: "连接失败", message: "请输入已轮换的新 Key；聊天中出现的旧 Key 不会被使用。", model: "—", reachable: false, authenticated: false, model_available: false, function_calling_available: false, agent_ready: false });
+    return;
+  }
+  button.disabled = true;
+  try {
+    const response = await fetch("/api/agent/api-check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: input.value,
+        base_url: document.querySelector("#api-check-base-url").value,
+        model: document.querySelector("#qwen-model")?.value || "qwen-plus",
+        run_agent_probe: document.querySelector("#api-check-agent-probe").checked,
+      }),
+    });
+    const result = await readJson(response);
+    renderApiCheckResult(result);
+    if (message) message.textContent = result.agent_ready ? "API 检测通过，可以运行当前会话。" : result.message;
+  } catch (error) {
+    renderApiCheckResult({ status: "连接失败", message: error.message, model: "—", reachable: false, authenticated: false, model_available: false, function_calling_available: false, agent_ready: false });
+  } finally {
+    input.value = "";
+    button.disabled = false;
+  }
+}
+
+function renderModelEvaluationReport(report) {
+  state.modelEvaluationReport = report;
+  const status = document.querySelector("#model-evaluation-status");
+  const summary = document.querySelector("#model-evaluation-summary");
+  const reportId = document.querySelector("#model-evaluation-report-id");
+  const tableBody = document.querySelector("#model-evaluation-table tbody");
+  const chart = document.querySelector("#model-evaluation-chart");
+  const runButton = document.querySelector("#evaluation-run");
+  const exportButton = document.querySelector("#evaluation-export");
+  if (!status || !summary || !reportId || !tableBody || !chart) return;
+  status.textContent = report.status;
+  status.className = `status-badge ${statusClass(report.status)}`;
+  summary.textContent = report.summary_zh;
+  reportId.textContent = report.report_id;
+  runButton.disabled = !state.qwenSessionId;
+  exportButton.disabled = false;
+  const questions = new Map((report.questions || []).map((item) => [item.question_id, item.question]));
+  tableBody.innerHTML = (report.model_rows || []).map((row) => {
+    const metrics = Object.entries(row.metrics || {}).map(([key, value]) => `${metricLabelZh(key)}=${metricValueText(value)}`).join("；") || "待实测";
+    return `<tr><td><strong>${escapeHtml(row.question_id)}</strong><small>${escapeHtml(questions.get(row.question_id) || "—")}</small></td>
+      <td>${escapeHtml(row.model_label)}<small>${escapeHtml(row.model_id)}</small></td>
+      <td>${escapeHtml(row.status)}</td><td>${escapeHtml(metrics)}</td>
+      <td><span class="status-badge ${statusClass(row.quality_gate)}">${escapeHtml(row.quality_gate === "REVIEW" ? "待复核" : row.quality_gate)}</span></td>
+      <td>${escapeHtml(localizeNarrative(row.note))}</td></tr>`;
+  }).join("") || '<tr><td colspan="6" class="muted-cell">暂无测试行。</td></tr>';
+  const grouped = new Map();
+  (report.model_rows || []).forEach((row) => {
+    const current = grouped.get(row.model_id) || { label: row.model_label, values: [] };
+    const values = Object.values(row.metrics || {}).filter((value) => typeof value === "number");
+    if (values.length) current.values.push(values[0]);
+    grouped.set(row.model_id, current);
+  });
+  const bars = [...grouped.values()].map((item) => {
+    const score = item.values.length ? item.values.reduce((sum, value) => sum + value, 0) / item.values.length * 100 : null;
+    return `<article class="model-evaluation-bar${score == null ? " is-pending" : ""}">
+      <strong>${score == null ? "待实测" : `${score.toFixed(1)}%`}</strong>
+      <div class="model-evaluation-bar-track"><i style="height:${(score || 0).toFixed(1)}%"></i></div>
+      <strong>${escapeHtml(item.label)}</strong><span>${score == null ? "未运行" : "已观测"}</span>
+    </article>`;
+  }).join("");
+  chart.innerHTML = bars ? `<div class="model-evaluation-bars">${bars}</div><div class="model-evaluation-axis"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>` : '<p class="muted-visual">暂无可视化指标。</p>';
+}
+
+async function generateModelEvaluationPlan() {
+  const button = document.querySelector("#evaluation-generate");
+  const message = document.querySelector("#evaluation-workbench-message");
+  button.disabled = true;
+  try {
+    const models = document.querySelector("#evaluation-models").value.split(",").map((item) => item.trim()).filter(Boolean);
+    const payload = {
+      question_count: Number(document.querySelector("#evaluation-question-count").value),
+      seed_question: document.querySelector("#evaluation-seed-question").value,
+      models,
+      run_mode: state.qwenSessionId ? "live" : "dry_run",
+    };
+    if (state.qwenSessionId) payload.qwen_session_id = state.qwenSessionId;
+    const report = await readJson(await fetch("/api/evaluation/model-tests/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }));
+    renderModelEvaluationReport(report);
+    message.textContent = state.qwenSessionId ? "已使用当前千问会话生成问题；请点击“运行当前会话”开始观测。" : "未连接千问，已生成规则测试问题；连接新会话后可运行真实测试。";
+  } catch (error) {
+    message.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function runModelEvaluation() {
+  const report = state.modelEvaluationReport;
+  const button = document.querySelector("#evaluation-run");
+  const message = document.querySelector("#evaluation-workbench-message");
+  if (!report || !state.qwenSessionId) {
+    message.textContent = "请先连接新的千问临时会话，再运行真实测试。";
+    return;
+  }
+  button.disabled = true;
+  try {
+    const updated = await readJson(await fetch("/api/evaluation/model-tests/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ report_id: report.report_id, qwen_session_id: state.qwenSessionId }),
+    }));
+    renderModelEvaluationReport(updated);
+    message.textContent = updated.summary_zh;
+  } catch (error) {
+    message.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function exportModelEvaluationReport() {
+  const report = state.modelEvaluationReport;
+  if (!report) return;
+  const response = await fetch(`/api/evaluation/model-tests/${encodeURIComponent(report.report_id)}/export/xlsx`);
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.detail || "对比报告导出失败。");
+  }
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `${report.report_id}-多模型对比报告.xlsx`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+document.querySelector("#api-check-submit")?.addEventListener("click", checkApiAgent);
+document.querySelector("#evaluation-generate")?.addEventListener("click", generateModelEvaluationPlan);
+document.querySelector("#evaluation-run")?.addEventListener("click", runModelEvaluation);
+document.querySelector("#evaluation-export")?.addEventListener("click", () => exportModelEvaluationReport().catch((error) => {
+  document.querySelector("#evaluation-workbench-message").textContent = error.message;
+}));
+document.querySelector("#model-chart-metric")?.addEventListener("change", () => {
+  renderModelComparisonVisual(state.result?.competition_report?.unified_evaluation?.model_comparison || []);
 });
 
 function showToast(message) {

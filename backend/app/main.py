@@ -17,12 +17,19 @@ from backend.app.agent import (
     AgentExportFormat,
     AgentTaskRequest,
     AgentTaskResult,
+    ApiCheckRequest,
+    ApiCheckResult,
+    ApiCheckService,
     QwenClient,
     QwenClientError,
     QwenSessionRegistry,
     QwenSessionRequest,
     QwenSessionStatus,
     ResearchAgentService,
+    ModelComparisonReport,
+    ModelEvaluationGenerateRequest,
+    ModelEvaluationRunRequest,
+    ModelEvaluationService,
 )
 from backend.app.export_service import DatasetExportFormat, MockDatasetExportService
 from backend.app.evaluation import EvaluationError, EvaluationService, GoldSetCsvLoader
@@ -115,6 +122,8 @@ mock_export_service = MockDatasetExportService()
 research_agent_service = ResearchAgentService()
 qwen_session_registry = QwenSessionRegistry()
 agent_export_service = AgentDatasetExportService()
+api_check_service = ApiCheckService()
+model_evaluation_service = ModelEvaluationService()
 GOLDSET_TEMPLATE_DIR = Path(__file__).resolve().parents[2] / "goldset" / "templates"
 
 
@@ -162,6 +171,14 @@ def get_qwen_session_registry() -> QwenSessionRegistry:
     return qwen_session_registry
 
 
+def get_api_check_service() -> ApiCheckService:
+    return api_check_service
+
+
+def get_model_evaluation_service() -> ModelEvaluationService:
+    return model_evaluation_service
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {
@@ -202,6 +219,84 @@ def delete_qwen_session(
 ) -> FastAPIResponse:
     registry.delete(session_id)
     return FastAPIResponse(status_code=204)
+
+
+@app.post("/api/agent/api-check", response_model=ApiCheckResult)
+def check_agent_api(
+    payload: ApiCheckRequest,
+    service: Annotated[ApiCheckService, Depends(get_api_check_service)],
+) -> ApiCheckResult:
+    return service.check(payload)
+
+
+@app.post(
+    "/api/evaluation/model-tests/generate",
+    response_model=ModelComparisonReport,
+)
+def generate_model_evaluation_plan(
+    payload: ModelEvaluationGenerateRequest,
+    service: Annotated[ModelEvaluationService, Depends(get_model_evaluation_service)],
+    registry: Annotated[QwenSessionRegistry, Depends(get_qwen_session_registry)],
+) -> ModelComparisonReport:
+    client = None
+    if payload.qwen_session_id:
+        client = registry.get(payload.qwen_session_id)
+        if client is None:
+            raise HTTPException(status_code=401, detail="千问临时会话不存在或已过期，请重新连接 API。")
+    return service.generate(payload, qwen_client=client)
+
+
+@app.post(
+    "/api/evaluation/model-tests/run",
+    response_model=ModelComparisonReport,
+)
+def run_model_evaluation(
+    payload: ModelEvaluationRunRequest,
+    service: Annotated[ModelEvaluationService, Depends(get_model_evaluation_service)],
+    registry: Annotated[QwenSessionRegistry, Depends(get_qwen_session_registry)],
+) -> ModelComparisonReport:
+    if not payload.qwen_session_id:
+        raise HTTPException(status_code=401, detail="真实多模型测试需要临时千问会话；计划模式不会填入成绩。")
+    client = registry.get(payload.qwen_session_id)
+    if client is None:
+        raise HTTPException(status_code=401, detail="千问临时会话不存在或已过期，请重新连接 API。")
+    try:
+        return service.run(payload, client)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.get(
+    "/api/evaluation/model-tests/{report_id}",
+    response_model=ModelComparisonReport,
+)
+def get_model_evaluation(
+    report_id: str,
+    service: Annotated[ModelEvaluationService, Depends(get_model_evaluation_service)],
+) -> ModelComparisonReport:
+    report = service.get(report_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="多模型测试报告不存在或服务已重启。")
+    return report
+
+
+@app.get("/api/evaluation/model-tests/{report_id}/export/xlsx")
+def export_model_evaluation(
+    report_id: str,
+    service: Annotated[ModelEvaluationService, Depends(get_model_evaluation_service)],
+) -> Response:
+    try:
+        content = service.export_xlsx(report_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(report_id + '-多模型对比报告.xlsx')}",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @app.post("/api/agent/tasks", response_model=AgentTaskResult)

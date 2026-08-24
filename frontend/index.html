@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="千问驱动的乳腺癌科研数据智能体：从科研问题、真实数据库工具调用到可阅读、可追溯的科研数据集。" />
     <title>千问乳腺癌科研数据智能体</title>
-    <link rel="stylesheet" href="/styles.css?v=20260824-1" />
+    <link rel="stylesheet" href="/styles.css?v=20260824-2" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">跳到主要内容</a>
@@ -111,6 +111,51 @@
             <button id="submit-button" class="button button-primary" type="submit">启动科研数据智能体 <span>↗</span></button>
           </div>
         </form>
+      </section>
+
+      <section id="evaluation-workbench" class="panel evaluation-workbench">
+        <div class="section-heading">
+          <div><p class="section-kicker">评测工作台</p><h2>先生成问题，再做多模型对比</h2></div>
+          <span id="model-evaluation-status" class="status-badge is-review">待运行</span>
+        </div>
+        <p class="section-note">计划模式只生成科研问题和评价合同；只有真实模型调用返回并通过结构化校验后，才填入可观察指标。</p>
+        <div class="workbench-grid">
+          <article class="workbench-panel">
+            <h3>多模型测试 Agent</h3>
+            <label for="evaluation-seed-question">问题主题</label>
+            <textarea id="evaluation-seed-question" rows="3">乳腺癌精准治疗中分子标志物与治疗响应的关系</textarea>
+            <div class="form-grid workbench-form-grid">
+              <label>自动生成问题数
+                <select id="evaluation-question-count"><option>3</option><option>5</option><option>10</option></select>
+              </label>
+              <label>测试模型
+                <input id="evaluation-models" type="text" value="qwen-plus,qwen-max,qwen-turbo" />
+              </label>
+            </div>
+            <div class="button-group">
+              <button id="evaluation-generate" class="button button-primary" type="button">生成测试问题</button>
+              <button id="evaluation-run" class="button button-secondary" type="button" disabled>运行当前会话</button>
+              <button id="evaluation-export" class="button button-secondary" type="button" disabled>导出对比报告</button>
+            </div>
+            <p id="evaluation-workbench-message" class="workbench-message" aria-live="polite">当前未生成测试报告。</p>
+          </article>
+          <article class="workbench-panel">
+            <h3>API / Agent 检测</h3>
+            <p class="section-note">仅接收你重新生成的临时 Key；检测完成后立即清空输入，不写入项目。</p>
+            <label for="api-check-key">百炼 API Key</label>
+            <input id="api-check-key" type="password" autocomplete="new-password" placeholder="请输入新生成的临时 Key" />
+            <label for="api-check-base-url">接口地址</label>
+            <input id="api-check-base-url" type="url" value="https://dashscope.aliyuncs.com/compatible-mode/v1" />
+            <label class="switch-control workbench-switch"><input id="api-check-agent-probe" type="checkbox" checked /><span><strong>执行结构化 Agent 探测</strong><small>额外验证科研问题解析能力</small></span></label>
+            <button id="api-check-submit" class="button button-primary" type="button">检测连接与 Agent</button>
+            <div id="api-check-result" class="api-check-result" aria-live="polite"></div>
+          </article>
+        </div>
+        <article class="model-test-report">
+          <div class="section-heading"><div><h3>独立多模型对比报告</h3><span id="model-evaluation-summary">生成后显示问题、模型、指标和限制。</span></div><span id="model-evaluation-report-id" class="mono-tag">—</span></div>
+          <div id="model-evaluation-chart" class="model-evaluation-chart" aria-label="多模型指标柱状图"></div>
+          <div class="table-wrap"><table id="model-evaluation-table"><thead><tr><th>问题</th><th>模型</th><th>状态</th><th>可观察指标</th><th>质量门</th><th>说明</th></tr></thead><tbody><tr><td colspan="6" class="muted-cell">尚未生成多模型测试报告。</td></tr></tbody></table></div>
+        </article>
       </section>
 
       <section id="progress" class="panel progress-panel" hidden aria-live="polite">
@@ -302,7 +347,7 @@
             <div id="evaluation-flow-visual" class="evaluation-flow-visual" aria-label="统一评价体系流程图"></div>
             <div class="fitness-panel">
               <div class="fitness-summary">
-                <span>Task-Adaptive Fitness</span>
+                <span>科研适配度</span>
                 <strong id="fitness-score">待评测</strong>
                 <em id="fitness-gate" class="status-badge">—</em>
               </div>
@@ -311,9 +356,11 @@
             </div>
             <div class="comparison-grid">
               <article>
-                <h4>模型对比</h4>
+                <div class="comparison-heading"><h4>模型对比</h4><label class="chart-select">指标
+                  <select id="model-chart-metric"><option value="fitness_score">科研适配度</option><option value="source_audit">来源审计完整度</option><option value="outcome_completeness">结局完整率</option><option value="field_completeness">字段完整率</option><option value="question_fit">问题匹配度</option><option value="exploratory_usability">科研探索可用性</option></select>
+                </label></div>
                 <div id="model-comparison-visual" class="model-comparison-visual" aria-label="模型对比可视化"></div>
-                <div class="table-wrap"><table id="unified-model-table"><thead><tr><th>方法</th><th>模型</th><th>Fitness</th><th>SDTI</th><th>Gate</th><th>说明</th></tr></thead><tbody></tbody></table></div>
+                <div class="table-wrap"><table id="unified-model-table"><thead><tr><th>方法</th><th>模型</th><th>科研适配度</th><th>SDTI</th><th>质量门</th><th>说明</th></tr></thead><tbody></tbody></table></div>
               </article>
               <article>
                 <h4>横向对比结果</h4>
@@ -323,7 +370,7 @@
             <article class="stratified-panel">
               <h4>分层对比</h4>
               <div id="stratified-visual" class="stratified-visual" aria-label="分层对比风险矩阵"></div>
-              <div class="table-wrap"><table id="stratified-table"><thead><tr><th>分层</th><th>取值</th><th>n</th><th>指标</th><th>Gate</th><th>说明</th></tr></thead><tbody></tbody></table></div>
+              <div class="table-wrap"><table id="stratified-table"><thead><tr><th>分层</th><th>取值</th><th>样本数</th><th>指标</th><th>质量门</th><th>说明</th></tr></thead><tbody></tbody></table></div>
             </article>
           </article>
           <article class="scientific-usability">
@@ -379,6 +426,6 @@
     </dialog>
     <div id="toast" class="toast" hidden role="status" aria-live="polite"></div>
     <footer><span>千问科研数据智能体</span><span>模型负责规划 · 规则负责安全 · 数据必须真实可追溯</span></footer>
-    <script src="/app.js?v=20260824-1" defer></script>
+    <script src="/app.js?v=20260824-2" defer></script>
   </body>
 </html>

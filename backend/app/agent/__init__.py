@@ -28,6 +28,13 @@ from backend.app.agent.qwen_client import QwenClient, QwenClientError, QwenSetti
 from backend.app.agent.session_registry import QwenSessionRegistry
 from backend.app.agent.competition_report import CompetitionReportBuilder
 from backend.app.agent.study_design import StudyDesignBuilder
+from backend.app.agent.api_check import ApiCheckRequest, ApiCheckResult, ApiCheckService
+from backend.app.agent.model_evaluation_agent import (
+    ModelComparisonReport,
+    ModelEvaluationGenerateRequest,
+    ModelEvaluationRunRequest,
+    ModelEvaluationService,
+)
 from backend.app.agent.service import (
     AgentConfigurationError,
     AgentExecutionError,
@@ -42,6 +49,9 @@ __all__ = [
     "AgentExportFormat",
     "AgentTaskRequest",
     "AgentTaskResult",
+    "ApiCheckRequest",
+    "ApiCheckResult",
+    "ApiCheckService",
     "CohortConstructionReport",
     "CohortFilterStep",
     "CompetitionAlignmentReport",
@@ -62,6 +72,10 @@ __all__ = [
     "StudyDesignBuilder",
     "StudyDesignReport",
     "StudyVariable",
+    "ModelComparisonReport",
+    "ModelEvaluationGenerateRequest",
+    "ModelEvaluationRunRequest",
+    "ModelEvaluationService",
     "QwenSessionRequest",
     "QwenSessionRegistry",
     "QwenSessionStatus",

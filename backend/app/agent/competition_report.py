@@ -286,7 +286,7 @@ class CompetitionReportBuilder:
             layers=[
                 UnifiedEvaluationLayer(
                     layer_id="external_benchmarks",
-                    label="外部 Benchmark",
+                    label="外部基准评测",
                     purpose="证明数据清洗、科学检索、Schema Matching 和 Entity Matching 的通用能力。",
                     status="待接入真实 benchmark run artifact",
                     primary_outputs=["Cleaning F1", "nDCG@10", "Schema F1", "Entity F1"],
@@ -302,15 +302,15 @@ class CompetitionReportBuilder:
                 ),
                 UnifiedEvaluationLayer(
                     layer_id="task_adaptive_fitness",
-                    label="Task-Adaptive Fitness",
+                    label="科研适配度",
                     purpose="判断本次输出是否适合当前科研问题。",
                     status=fitness.status,
-                    primary_outputs=["Research Relevance", "Analytical Adequacy", "Traceability & Reliability", "Reusability"],
+                    primary_outputs=["研究相关性", "分析充分性", "可追溯性与可靠性", "可复用性"],
                     evidence_requirement="Evaluation Contract 必须先于结果冻结；当前任务生成的是可审计 contract 摘要。",
                 ),
                 UnifiedEvaluationLayer(
                     layer_id="quality_gate",
-                    label="Quality Gate",
+                    label="质量门",
                     purpose="判断数据能否发布或进入科研分析。",
                     status=quality_gate,
                     primary_outputs=["PASS", "REVIEW", "REJECT"],
@@ -390,10 +390,10 @@ class CompetitionReportBuilder:
             ]
         )
         dimension_values = [
-            ("Research Relevance", relevance, "人群、变量、结局和任务要素匹配度。"),
-            ("Analytical Adequacy", adequacy, "样本量、缺失、结局分布和基础分析可用性。"),
-            ("Traceability & Reliability", traceability_reliability, "真实来源、行级 source_id、原始值和证据链完整性。"),
-            ("Reusability", reusability, "字段字典、raw value、机器可读导出和复现信息。"),
+            ("研究相关性", relevance, "人群、变量、结局和任务要素匹配度。"),
+            ("分析充分性", adequacy, "样本量、缺失、结局分布和基础分析可用性。"),
+            ("可追溯性与可靠性", traceability_reliability, "真实来源、行级 source_id、原始值和证据链完整性。"),
+            ("可复用性", reusability, "字段字典、raw value、机器可读导出和复现信息。"),
         ]
         present_values = [value for _, value, _ in dimension_values if value is not None]
         if len(present_values) == len(dimension_values):
@@ -457,11 +457,11 @@ class CompetitionReportBuilder:
         observed: dict[str, float | str | None],
     ) -> list[ModelComparisonRow]:
         variants = [
-            ("rule_keyword", "Rule/Keyword Baseline", None),
-            ("qwen_only", "Qwen-only", result.model_name if result.used_qwen else None),
-            ("single_source_agent", "Single-source Agent", result.model_name if result.used_qwen else None),
-            ("multi_source_no_gate", "Multi-source No-Gate", result.model_name if result.used_qwen else None),
-            ("full_agent", "Full Agent", result.model_name if result.used_qwen else None),
+            ("rule_keyword", "规则/关键词基线", None),
+            ("qwen_only", "仅千问解析", result.model_name if result.used_qwen else None),
+            ("single_source_agent", "单源智能体", result.model_name if result.used_qwen else None),
+            ("multi_source_no_gate", "多源无门控", result.model_name if result.used_qwen else None),
+            ("full_agent", "完整科研智能体", result.model_name if result.used_qwen else None),
         ]
         rows: list[ModelComparisonRow] = []
         for method_id, label, model in variants:
@@ -513,7 +513,7 @@ class CompetitionReportBuilder:
                 table_id="task_fitness_by_variant",
                 title="当前科研任务模型横向对比",
                 status="当前方法已填真实值，其余待同任务实测",
-                columns=["method", "base_model", "fitness", "quality_gate", "sdti_status", "note"],
+                columns=["方法", "基础模型", "科研适配度", "质量门", "SDTI状态", "说明"],
                 rows=[
                     {
                         "method": row.method_label,
@@ -531,7 +531,7 @@ class CompetitionReportBuilder:
                 table_id="sdti_goldset_by_variant",
                 title="冻结 Gold Set / SDTI 横向对比",
                 status="NOT_EVALUATED",
-                columns=["method", "retrieval_f1", "faithfulness", "traceability", "error_f1", "repair_accuracy", "sdti"],
+                columns=["方法", "检索F1", "忠实度", "可追溯性", "错误F1", "修复准确率", "SDTI"],
                 rows=[
                     {
                         "method": row.method_label,
@@ -550,7 +550,7 @@ class CompetitionReportBuilder:
                 table_id="quality_gate_ablation",
                 title="Quality Gate 消融横向表",
                 status="Full Gate 当前可诊断，其他消融待重跑",
-                columns=["variant", "critical_error_rate", "traceability", "coverage", "quality_gate", "publish_allowed"],
+                columns=["变体", "关键错误率", "可追溯性", "覆盖率", "质量门", "允许发布"],
                 rows=[
                     {
                         "variant": "No Gate",
@@ -583,12 +583,12 @@ class CompetitionReportBuilder:
                 table_id="domain_quality_metrics",
                 title="当前任务质量横向指标",
                 status="已计算当前 Full Agent 诊断值",
-                columns=["metric", "value", "direction", "source"],
+                columns=["指标", "数值", "方向", "来源"],
                 rows=[
-                    {"metric": "Fitness Score", "value": fitness.fitness_score, "direction": "higher", "source": fitness.evaluation_contract_id},
-                    {"metric": "Source Audit", "value": source_audit_score, "direction": "higher", "source": "source_items + dataset rows"},
-                    {"metric": "Field Completeness", "value": field_complete, "direction": "higher", "source": "modeling_dataset"},
-                    {"metric": "Question Fit", "value": question_fit_score, "direction": "higher", "source": "research_spec + candidates"},
+                    {"metric": "科研适配度", "value": fitness.fitness_score, "direction": "higher", "source": fitness.evaluation_contract_id},
+                    {"metric": "来源审计完整度", "value": source_audit_score, "direction": "higher", "source": "source_items + dataset rows"},
+                    {"metric": "字段完整率", "value": field_complete, "direction": "higher", "source": "modeling_dataset"},
+                    {"metric": "问题匹配度", "value": question_fit_score, "direction": "higher", "source": "research_spec + candidates"},
                 ],
                 note="这些是任务级诊断指标，不是外部 Benchmark 或 Gold Set SDTI。",
             ),
@@ -609,7 +609,9 @@ class CompetitionReportBuilder:
         rows.append(
             StratifiedEvaluationRow(
                 stratum_name="disease_subtype",
+                stratum_label_zh="疾病亚型",
                 stratum_value=subtype,
+                stratum_value_label_zh=CompetitionReportBuilder._subtype_label(subtype),
                 n=result.modeling_dataset.row_count,
                 metrics={"fitness_score": fitness.fitness_score, "target_match": str(result.readiness.target_match)},
                 quality_gate=quality_gate,
@@ -628,7 +630,9 @@ class CompetitionReportBuilder:
             rows.append(
                 StratifiedEvaluationRow(
                     stratum_name="source_type",
+                    stratum_label_zh="来源类型",
                     stratum_value=db,
+                    stratum_value_label_zh=CompetitionReportBuilder._database_label(db),
                     n=source_counter.get(db, 0),
                     metrics={
                         "selected_source_count": source_counter.get(db, 0),
@@ -644,7 +648,9 @@ class CompetitionReportBuilder:
             rows.append(
                 StratifiedEvaluationRow(
                     stratum_name="response_domain",
+                    stratum_label_zh="响应数据域",
                     stratum_value=domain,
+                    stratum_value_label_zh=CompetitionReportBuilder._response_domain_label(domain),
                     n=count,
                     metrics={"row_share": CompetitionReportBuilder._ratio(count, max(result.modeling_dataset.row_count, 1))},
                     quality_gate=quality_gate,
@@ -657,7 +663,9 @@ class CompetitionReportBuilder:
             rows.append(
                 StratifiedEvaluationRow(
                     stratum_name="evidence_level",
+                    stratum_label_zh="证据等级",
                     stratum_value=level,
+                    stratum_value_label_zh=CompetitionReportBuilder._evidence_level_label(level),
                     n=count,
                     metrics={"source_count": count},
                     quality_gate=quality_gate if level != "secondary_or_unknown" else "REVIEW",
@@ -669,7 +677,9 @@ class CompetitionReportBuilder:
         rows.append(
             StratifiedEvaluationRow(
                 stratum_name="patient_sample_link_confidence",
+                stratum_label_zh="患者-样本关联置信度",
                 stratum_value=link_confidence,
+                stratum_value_label_zh={"high": "高", "medium": "中", "low": "低", "unresolved": "未解决"}.get(link_confidence, link_confidence),
                 n=result.modeling_dataset.row_count,
                 metrics={
                     "patient_count": result.modeling_dataset.patient_count,
@@ -684,7 +694,9 @@ class CompetitionReportBuilder:
             rows.append(
                 StratifiedEvaluationRow(
                     stratum_name="risk_level",
+                    stratum_label_zh="风险等级",
                     stratum_value="review_required",
+                    stratum_value_label_zh="需要复核",
                     n=len(result.readiness.warnings),
                     metrics={"warning_count": len(result.readiness.warnings)},
                     quality_gate="REVIEW",
@@ -693,6 +705,43 @@ class CompetitionReportBuilder:
                 )
             )
         return rows
+
+    @staticmethod
+    def _subtype_label(value: str) -> str:
+        return {
+            "HER2-positive": "HER2 阳性",
+            "HR-positive/HER2-negative": "激素受体阳性 / HER2 阴性",
+            "TNBC": "三阴性乳腺癌",
+            "mixed_or_unknown": "混合或未知",
+        }.get(value, value)
+
+    @staticmethod
+    def _database_label(value: str) -> str:
+        return {
+            "GDC": "GDC / TCGA",
+            "NCBI GEO": "NCBI GEO",
+            "cBioPortal": "cBioPortal",
+            "ClinicalTrials.gov": "ClinicalTrials.gov",
+            "CIViC": "CIViC",
+        }.get(value, value)
+
+    @staticmethod
+    def _response_domain_label(value: str) -> str:
+        return {
+            "clinical": "临床响应",
+            "preclinical_cell_line": "细胞系药敏",
+            "clinical_trial": "临床试验",
+            "knowledge_evidence": "知识证据",
+        }.get(value, value)
+
+    @staticmethod
+    def _evidence_level_label(value: str) -> str:
+        return {
+            "official_accession": "官方数据编号",
+            "pmid_or_doi": "PMID / DOI",
+            "curated_database": "人工整理数据库",
+            "secondary_or_unknown": "次级或未知",
+        }.get(value, value)
 
     @staticmethod
     def _mean_present(values: list[float | None]) -> float | None:

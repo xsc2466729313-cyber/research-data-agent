@@ -45,13 +45,14 @@ class StudyDesignBuilder:
         readiness: Any,
         candidates: list[CandidateSource],
         source_items: list[SourceItem],
+        execution_mode: str = "live",
     ) -> tuple[StudyDesignReport, CohortConstructionReport]:
         columns = {
             column.name if hasattr(column, "name") else str(column.get("name"))
             for column in dataset.columns
         }
         design = self._build_design(spec, dataset, columns, candidates, source_items)
-        cohort = self._build_cohort(spec, dataset, readiness, design, columns)
+        cohort = self._build_cohort(spec, dataset, readiness, design, columns, execution_mode)
         design = design.model_copy(
             update={"variable_coverage_rate": cohort.variable_coverage_rate}
         )
@@ -113,6 +114,11 @@ class StudyDesignBuilder:
         ]
         return StudyDesignReport(
             status="已生成" if spec.research_goal else "信息不足",
+            generation_note=(
+                "研究设计规则已生成；当前为仅规划模式，未执行真实数据筛选。"
+                if dataset.row_count == 0
+                else "研究设计规则已生成，并基于当前任务返回的数据字段计算覆盖率。"
+            ),
             research_type=type_label,
             research_type_id=type_id,
             population=population,
@@ -134,6 +140,7 @@ class StudyDesignBuilder:
         readiness: Any,
         design: StudyDesignReport,
         columns: set[str],
+        execution_mode: str,
     ) -> CohortConstructionReport:
         rows = [dict(row) for row in dataset.rows]
         steps: list[CohortFilterStep] = []
@@ -247,8 +254,17 @@ class StudyDesignBuilder:
         if any(row.get("response_domain") == "preclinical_cell_line" for row in final_rows):
             notes.append("检测到细胞系药敏域，必须与患者 clinical response 分层分析。")
         gate = "PASS" if readiness.analysis_ready else "REVIEW"
+        is_plan = execution_mode == "plan_only"
         return CohortConstructionReport(
-            status="已构建" if rows else "未形成队列",
+            status="已生成规则" if is_plan else ("已构建" if rows else "待执行"),
+            execution_mode=execution_mode,
+            rule_status="已生成" if is_plan else ("已执行" if rows else "待执行"),
+            has_observed_rows=bool(rows),
+            not_run_reason=(
+                "仅规划模式未访问真实数据，筛选计数和最终队列暂不执行。"
+                if is_plan
+                else None
+            ),
             source_row_count=len(rows),
             final_row_count=len(final_rows),
             patient_count=len({row.get("patient_id") for row in final_rows if self._has_value(row.get("patient_id"))}),

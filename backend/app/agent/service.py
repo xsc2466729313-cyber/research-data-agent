@@ -283,6 +283,7 @@ class ResearchAgentService:
             readiness,
             self._deduplicate_candidates(candidates),
             self._deduplicate_sources(source_items),
+            request.data_mode.value,
         )
         result = result.model_copy(
             update={

@@ -133,6 +133,11 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "内部综合诊断分" in script
     assert "association-meter" in script
     assert "scientific-usability-findings" in script
+    assert "/api/agent/api-check" in script
+    assert "/api/evaluation/model-tests/generate" in script
+    assert "model-bar-chart" in script
+    assert "研究相关性" in script
+    assert "患者-样本关联置信度" in script
 
     styles = (ROOT / "frontend" / "styles.css").read_text(encoding="utf-8")
     assert "@media (max-width: 760px)" in styles
@@ -147,6 +152,8 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert ".evaluation-flow-visual" in styles
     assert ".model-comparison-visual" in styles
     assert ".stratified-visual" in styles
+    assert ".model-bar-chart" in styles
+    assert ".evaluation-workbench" in styles
 
     nginx_config = (ROOT / "frontend" / "nginx.conf").read_text(encoding="utf-8")
     assert "location = /health" in nginx_config
@@ -255,3 +262,37 @@ def test_agent_task_api_exposes_competition_alignment_report(tmp_path: Path) -> 
     assert result.competition_report.scientific_usability is not None
     assert result.competition_report.scientific_usability.title == "科研适用性初步分析"
     assert "消融" in result.competition_report.summary or result.competition_report.summary
+
+
+def test_model_evaluation_plan_api_returns_pending_rows_without_fake_scores() -> None:
+    response = client.post(
+        "/api/evaluation/model-tests/generate",
+        json={
+            "question_count": 2,
+            "seed_question": "乳腺癌治疗响应",
+            "models": ["qwen-plus", "qwen-max"],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "待运行"
+    assert len(payload["questions"]) == 2
+    assert len(payload["model_rows"]) == 4
+    assert all(row["metrics"] == {} for row in payload["model_rows"])
+
+
+def test_api_check_endpoint_does_not_accept_insecure_endpoint() -> None:
+    response = client.post(
+        "/api/agent/api-check",
+        json={
+            "api_key": "rotated-test-key",
+            "base_url": "http://not-https.example",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "连接失败"
+    assert payload["reachable"] is False
+    assert "rotated-test-key" not in response.text

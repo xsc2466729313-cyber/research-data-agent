@@ -339,6 +339,44 @@ class QwenClient:
             raise QwenClientError("千问未返回数据总结。")
         return summary
 
+    def generate_research_questions(self, seed_question: str, count: int) -> list[str]:
+        """Ask Qwen for a bounded set of research questions without fabricating data."""
+        message = self._chat(
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "你是医学科研问题设计助手。只生成可检索、可审计的乳腺癌科研问题，"
+                        "不得生成患者事实、结果或治疗建议。请严格输出 JSON。"
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {
+                            "种子问题": seed_question,
+                            "数量": count,
+                            "输出格式": {"questions": ["中文科研问题"]},
+                        },
+                        ensure_ascii=False,
+                    ),
+                },
+            ],
+            response_format={"type": "json_object"},
+        )
+        try:
+            payload = json.loads(message.get("content") or "{}")
+            questions = [
+                str(item).strip()
+                for item in payload.get("questions", [])
+                if str(item).strip()
+            ][:count]
+        except (json.JSONDecodeError, TypeError) as exc:
+            raise QwenClientError("千问返回的问题列表不是有效 JSON。") from exc
+        if not questions:
+            raise QwenClientError("千问未返回可用科研问题。")
+        return questions
+
     def _chat(
         self,
         *,

@@ -143,6 +143,7 @@ class DataSourceRecommendation(ApiModel):
 
 class StudyDesignReport(ApiModel):
     status: str
+    generation_note: str = ""
     research_type: str
     research_type_id: str
     population: str
@@ -172,6 +173,10 @@ class CohortFilterStep(ApiModel):
 
 class CohortConstructionReport(ApiModel):
     status: str
+    execution_mode: str = "live"
+    rule_status: str = "待执行"
+    has_observed_rows: bool = False
+    not_run_reason: str | None = None
     source_row_count: int = Field(ge=0)
     final_row_count: int = Field(ge=0)
     patient_count: int = Field(ge=0)
@@ -354,7 +359,9 @@ class HorizontalComparisonTable(ApiModel):
 
 class StratifiedEvaluationRow(ApiModel):
     stratum_name: str
+    stratum_label_zh: str | None = None
     stratum_value: str
+    stratum_value_label_zh: str | None = None
     n: int = Field(ge=0)
     metrics: dict[str, float | str | None] = Field(default_factory=dict)
     quality_gate: str
