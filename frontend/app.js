@@ -15,6 +15,14 @@ const state = {
   qwenSessionId: null,
   qwenSessionExpiresAt: null,
   modelEvaluationReport: null,
+  modelSessions: {},
+  modelConfigs: [
+    { targetId: "qwen-qwen-plus", provider: "qwen", model: "qwen-plus", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", apiKey: "", workspaceId: "", sessionId: null, status: "未连接" },
+    { targetId: "qwen-qwen-max", provider: "qwen", model: "qwen-max", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", apiKey: "", workspaceId: "", sessionId: null, status: "未连接" },
+    { targetId: "qwen-qwen-turbo", provider: "qwen", model: "qwen-turbo", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", apiKey: "", workspaceId: "", sessionId: null, status: "未连接" },
+    { targetId: "deepseek-deepseek-chat", provider: "deepseek", model: "deepseek-chat", baseUrl: "https://api.deepseek.com", apiKey: "", workspaceId: "", sessionId: null, status: "未连接" },
+    { targetId: "deepseek-deepseek-reasoner", provider: "deepseek", model: "deepseek-reasoner", baseUrl: "https://api.deepseek.com", apiKey: "", workspaceId: "", sessionId: null, status: "未连接" },
+  ],
   lineage: { sources: [], candidates: [], primary: "", selected: null, hover: null, view: "all", paused: false },
 };
 
@@ -136,6 +144,7 @@ const METRIC_LABELS_ZH = {
   "基因字段数量": "基因字段数量",
   "结局字段数量": "结局字段数量",
   "问题长度": "问题长度",
+  "综合可观察分": "综合可观察分",
 };
 const STRATUM_LABELS_ZH = {
   disease_subtype: "疾病亚型",
@@ -1520,9 +1529,10 @@ async function checkApiAgent() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        provider: document.querySelector("#api-check-provider").value,
         api_key: input.value,
         base_url: document.querySelector("#api-check-base-url").value,
-        model: document.querySelector("#qwen-model")?.value || "qwen-plus",
+        model: document.querySelector("#api-check-model").value || "qwen-plus",
         run_agent_probe: document.querySelector("#api-check-agent-probe").checked,
       }),
     });
@@ -1535,6 +1545,134 @@ async function checkApiAgent() {
     input.value = "";
     button.disabled = false;
   }
+}
+
+const MODEL_PROVIDER_LABELS = {
+  qwen: "千问",
+  deepseek: "DeepSeek",
+  openai_compatible: "OpenAI 兼容",
+};
+
+const MODEL_PROVIDER_DEFAULTS = {
+  qwen: { model: "qwen-plus", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
+  deepseek: { model: "deepseek-chat", baseUrl: "https://api.deepseek.com" },
+  openai_compatible: { model: "自定义模型", baseUrl: "https://你的兼容接口/v1" },
+};
+
+function modelConfigTargetId(provider, model) {
+  return `${provider}-${String(model).trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-")}`;
+}
+
+function renderModelConfigList() {
+  const container = document.querySelector("#evaluation-model-configs");
+  if (!container) return;
+  container.innerHTML = state.modelConfigs.map((config, index) => {
+    const connected = Boolean(config.sessionId);
+    return `<article class="model-config-row" data-model-index="${index}">
+      <div class="model-config-fields">
+        <label>提供商
+          <select data-model-field="provider">
+            ${Object.entries(MODEL_PROVIDER_LABELS).map(([value, label]) => `<option value="${value}" ${config.provider === value ? "selected" : ""}>${label}</option>`).join("")}
+          </select>
+        </label>
+        <label>模型名称
+          <input data-model-field="model" type="text" value="${escapeHtml(config.model)}" />
+        </label>
+        <label class="model-config-wide">接口地址
+          <input data-model-field="baseUrl" type="url" value="${escapeHtml(config.baseUrl)}" />
+        </label>
+        <label class="model-config-wide">临时 API Key
+          <input data-model-field="apiKey" type="password" autocomplete="new-password" placeholder="${connected ? "已清空，仅保留内存会话" : "连接前输入临时 Key"}" value="${escapeHtml(config.apiKey)}" />
+        </label>
+      </div>
+      <div class="model-config-actions">
+        <span class="model-config-status ${connected ? "is-success" : "is-review"}">${connected ? "已连接" : escapeHtml(config.status || "未连接")}</span>
+        <button class="button button-primary model-connect-button" type="button">${connected ? "重新连接" : "连接并加入"}</button>
+        <button class="button button-secondary model-remove-button" type="button" ${state.modelConfigs.length <= 1 ? "disabled" : ""}>删除</button>
+      </div>
+    </article>`;
+  }).join("");
+}
+
+function updateModelConfigFromField(row, field, value) {
+  const index = Number(row.dataset.modelIndex);
+  const config = state.modelConfigs[index];
+  if (!config) return;
+  config[field] = value;
+  if (field === "provider") {
+    const defaults = MODEL_PROVIDER_DEFAULTS[value];
+    config.model = defaults.model;
+    config.baseUrl = defaults.baseUrl;
+    config.targetId = modelConfigTargetId(value, config.model);
+    config.sessionId = null;
+    config.status = "未连接";
+    renderModelConfigList();
+  } else if (field === "model") {
+    config.targetId = modelConfigTargetId(config.provider, value);
+  }
+}
+
+async function connectEvaluationModel(row) {
+  const index = Number(row.dataset.modelIndex);
+  const config = state.modelConfigs[index];
+  if (!config) return;
+  const button = row.querySelector(".model-connect-button");
+  const status = row.querySelector(".model-config-status");
+  if (!config.apiKey.trim()) {
+    status.textContent = "请输入临时 Key";
+    status.className = "model-config-status is-error";
+    return;
+  }
+  button.disabled = true;
+  status.textContent = "验证中";
+  status.className = "model-config-status is-review";
+  try {
+    const response = await fetch("/api/agent/qwen-sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        provider: config.provider,
+        api_key: config.apiKey,
+        base_url: config.baseUrl,
+        model: config.model,
+        workspace_id: config.workspaceId || null,
+        timeout_seconds: 120,
+      }),
+    });
+    const session = await readJson(response);
+    config.targetId = modelConfigTargetId(config.provider, config.model);
+    config.sessionId = session.session_id;
+    config.status = "已连接";
+    config.apiKey = "";
+    state.modelSessions[config.targetId] = {
+      sessionId: session.session_id,
+      provider: config.provider,
+      modelId: config.model,
+      modelLabel: `${MODEL_PROVIDER_LABELS[config.provider]} ${config.model}`,
+      expiresAt: session.expires_at,
+    };
+    renderModelConfigList();
+    if (state.modelEvaluationReport) renderModelEvaluationReport(state.modelEvaluationReport);
+    showToast(`${session.provider} / ${session.model} 已加入多模型测试`);
+  } catch (error) {
+    config.status = error.message;
+    status.textContent = error.message;
+    status.className = "model-config-status is-error";
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function removeEvaluationModel(index) {
+  const config = state.modelConfigs[index];
+  if (!config) return;
+  if (config.sessionId) {
+    await fetch(`/api/agent/qwen-sessions/${encodeURIComponent(config.sessionId)}`, { method: "DELETE" }).catch(() => null);
+    delete state.modelSessions[config.targetId];
+  }
+  state.modelConfigs.splice(index, 1);
+  renderModelConfigList();
+  if (state.modelEvaluationReport) renderModelEvaluationReport(state.modelEvaluationReport);
 }
 
 function renderModelEvaluationReport(report) {
@@ -1551,22 +1689,23 @@ function renderModelEvaluationReport(report) {
   status.className = `status-badge ${statusClass(report.status)}`;
   summary.textContent = report.summary_zh;
   reportId.textContent = report.report_id;
-  runButton.disabled = !state.qwenSessionId;
+  runButton.disabled = !Object.keys(state.modelSessions).length;
   exportButton.disabled = false;
   const questions = new Map((report.questions || []).map((item) => [item.question_id, item.question]));
   tableBody.innerHTML = (report.model_rows || []).map((row) => {
     const metrics = Object.entries(row.metrics || {}).map(([key, value]) => `${metricLabelZh(key)}=${metricValueText(value)}`).join("；") || "待实测";
     return `<tr><td><strong>${escapeHtml(row.question_id)}</strong><small>${escapeHtml(questions.get(row.question_id) || "—")}</small></td>
+      <td>${escapeHtml(MODEL_PROVIDER_LABELS[row.provider] || row.provider)}</td>
       <td>${escapeHtml(row.model_label)}<small>${escapeHtml(row.model_id)}</small></td>
       <td>${escapeHtml(row.status)}</td><td>${escapeHtml(metrics)}</td>
       <td><span class="status-badge ${statusClass(row.quality_gate)}">${escapeHtml(row.quality_gate === "REVIEW" ? "待复核" : row.quality_gate)}</span></td>
       <td>${escapeHtml(localizeNarrative(row.note))}</td></tr>`;
-  }).join("") || '<tr><td colspan="6" class="muted-cell">暂无测试行。</td></tr>';
+  }).join("") || '<tr><td colspan="7" class="muted-cell">暂无测试行。</td></tr>';
   const grouped = new Map();
   (report.model_rows || []).forEach((row) => {
     const current = grouped.get(row.model_id) || { label: row.model_label, values: [] };
-    const values = Object.values(row.metrics || {}).filter((value) => typeof value === "number");
-    if (values.length) current.values.push(values[0]);
+    const score = row.metrics?.["综合可观察分"];
+    if (typeof score === "number") current.values.push(score);
     grouped.set(row.model_id, current);
   });
   const bars = [...grouped.values()].map((item) => {
@@ -1585,21 +1724,29 @@ async function generateModelEvaluationPlan() {
   const message = document.querySelector("#evaluation-workbench-message");
   button.disabled = true;
   try {
-    const models = document.querySelector("#evaluation-models").value.split(",").map((item) => item.trim()).filter(Boolean);
+    const targets = state.modelConfigs.map((config) => ({
+      target_id: config.targetId || modelConfigTargetId(config.provider, config.model),
+      provider: config.provider,
+      model_id: config.model,
+      model_label: `${MODEL_PROVIDER_LABELS[config.provider]} ${config.model}`,
+    }));
+    const questionSessionId = state.qwenSessionId
+      || state.modelSessions["qwen-qwen-plus"]?.sessionId
+      || null;
     const payload = {
       question_count: Number(document.querySelector("#evaluation-question-count").value),
       seed_question: document.querySelector("#evaluation-seed-question").value,
-      models,
-      run_mode: state.qwenSessionId ? "live" : "dry_run",
+      targets,
+      run_mode: questionSessionId ? "live" : "dry_run",
     };
-    if (state.qwenSessionId) payload.qwen_session_id = state.qwenSessionId;
+    if (questionSessionId) payload.qwen_session_id = questionSessionId;
     const report = await readJson(await fetch("/api/evaluation/model-tests/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     }));
     renderModelEvaluationReport(report);
-    message.textContent = state.qwenSessionId ? "已使用当前千问会话生成问题；请点击“运行当前会话”开始观测。" : "未连接千问，已生成规则测试问题；连接新会话后可运行真实测试。";
+    message.textContent = questionSessionId ? "已使用千问会话生成问题；请点击“运行已连接模型”开始并行观测。" : "已生成规则测试问题；连接一个或多个模型后可运行真实测试。";
   } catch (error) {
     message.textContent = error.message;
   } finally {
@@ -1611,16 +1758,19 @@ async function runModelEvaluation() {
   const report = state.modelEvaluationReport;
   const button = document.querySelector("#evaluation-run");
   const message = document.querySelector("#evaluation-workbench-message");
-  if (!report || !state.qwenSessionId) {
-    message.textContent = "请先连接新的千问临时会话，再运行真实测试。";
+  if (!report || !Object.keys(state.modelSessions).length) {
+    message.textContent = "请先连接至少一个模型临时会话，再运行真实测试。";
     return;
   }
   button.disabled = true;
   try {
+    const session_ids = Object.fromEntries(
+      Object.entries(state.modelSessions).map(([targetId, session]) => [targetId, session.sessionId]),
+    );
     const updated = await readJson(await fetch("/api/evaluation/model-tests/run", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ report_id: report.report_id, qwen_session_id: state.qwenSessionId }),
+      body: JSON.stringify({ report_id: report.report_id, session_ids }),
     }));
     renderModelEvaluationReport(updated);
     message.textContent = updated.summary_zh;
@@ -1651,8 +1801,43 @@ async function exportModelEvaluationReport() {
 }
 
 document.querySelector("#api-check-submit")?.addEventListener("click", checkApiAgent);
+document.querySelector("#api-check-provider")?.addEventListener("change", (event) => {
+  const defaults = MODEL_PROVIDER_DEFAULTS[event.target.value];
+  document.querySelector("#api-check-model").value = defaults.model;
+  document.querySelector("#api-check-base-url").value = defaults.baseUrl;
+});
 document.querySelector("#evaluation-generate")?.addEventListener("click", generateModelEvaluationPlan);
 document.querySelector("#evaluation-run")?.addEventListener("click", runModelEvaluation);
+document.querySelector("#evaluation-add-model")?.addEventListener("click", () => {
+  state.modelConfigs.push({
+    targetId: `custom-${Date.now()}`,
+    provider: "openai_compatible",
+    model: "自定义模型",
+    baseUrl: "https://你的兼容接口/v1",
+    apiKey: "",
+    workspaceId: "",
+    sessionId: null,
+    status: "未连接",
+  });
+  renderModelConfigList();
+});
+document.querySelector("#evaluation-model-configs")?.addEventListener("input", (event) => {
+  const field = event.target.dataset.modelField;
+  const row = event.target.closest("[data-model-index]");
+  if (field && row) updateModelConfigFromField(row, field, event.target.value);
+});
+document.querySelector("#evaluation-model-configs")?.addEventListener("change", (event) => {
+  const field = event.target.dataset.modelField;
+  const row = event.target.closest("[data-model-index]");
+  if (field && row) updateModelConfigFromField(row, field, event.target.value);
+});
+document.querySelector("#evaluation-model-configs")?.addEventListener("click", (event) => {
+  const row = event.target.closest("[data-model-index]");
+  if (!row) return;
+  const index = Number(row.dataset.modelIndex);
+  if (event.target.closest(".model-connect-button")) connectEvaluationModel(row);
+  if (event.target.closest(".model-remove-button")) removeEvaluationModel(index);
+});
 document.querySelector("#evaluation-export")?.addEventListener("click", () => exportModelEvaluationReport().catch((error) => {
   document.querySelector("#evaluation-workbench-message").textContent = error.message;
 }));
@@ -1668,3 +1853,4 @@ function showToast(message) {
 }
 
 checkConfiguration();
+renderModelConfigList();

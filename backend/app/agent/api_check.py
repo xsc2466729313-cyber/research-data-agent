@@ -11,7 +11,7 @@ from pydantic import Field
 
 
 class ApiCheckRequest(ApiModel):
-    provider: Literal["qwen"] = "qwen"
+    provider: Literal["qwen", "deepseek", "openai_compatible"] = "qwen"
     api_key: SecretStr
     base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
     model: str = "qwen-plus"
@@ -50,6 +50,7 @@ class ApiCheckService:
             model=request.model,
             workspace_id=request.workspace_id or None,
             timeout_seconds=request.timeout_seconds,
+            provider=request.provider,
         )
         checked_at = datetime.now(timezone.utc)
         try:
@@ -70,7 +71,7 @@ class ApiCheckService:
                 agent_ready = True
                 message = "网络可达、鉴权成功、模型可用，结构化 Agent 探测通过。"
             return ApiCheckResult(
-                provider="阿里云百炼 / 千问",
+                provider=settings.provider_label,
                 model=settings.model,
                 base_url=settings.base_url,
                 reachable=True,
@@ -96,7 +97,7 @@ class ApiCheckService:
         settings: QwenSettings | None = None,
     ) -> ApiCheckResult:
         return ApiCheckResult(
-            provider="阿里云百炼 / 千问",
+            provider=settings.provider_label if settings else request.provider,
             model=settings.model if settings else request.model,
             base_url=settings.base_url if settings else request.base_url.rstrip("/"),
             reachable=False,

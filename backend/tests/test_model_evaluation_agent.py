@@ -11,6 +11,7 @@ from backend.app.agent import (
     QwenClient,
     QwenSettings,
 )
+from backend.app.agent.model_evaluation_agent import ModelTarget
 
 
 def qwen_spec_handler(request: httpx.Request) -> httpx.Response:
@@ -88,3 +89,62 @@ def test_live_run_only_fills_the_model_backed_by_current_session() -> None:
     assert max_row.status == "待实测"
     assert not max_row.metrics
     assert "独立会话" in max_row.note
+
+
+def test_multi_provider_run_fills_each_connected_target() -> None:
+    service = ModelEvaluationService()
+    report = service.generate(
+        ModelEvaluationGenerateRequest(
+            question_count=2,
+            questions=["比较乳腺癌分子标志物与治疗响应"],
+            targets=[
+                ModelTarget(
+                    target_id="qwen-plus-target",
+                    provider="qwen",
+                    model_id="qwen-plus",
+                    model_label="千问 Plus",
+                ),
+                ModelTarget(
+                    target_id="deepseek-chat-target",
+                    provider="deepseek",
+                    model_id="deepseek-chat",
+                    model_label="DeepSeek Chat",
+                ),
+            ],
+        )
+    )
+
+    def build_client(provider: str, model: str) -> QwenClient:
+        return QwenClient(
+            settings=QwenSettings(
+                api_key=f"{provider}-test-key",
+                base_url=(
+                    "https://dashscope.aliyuncs.com/compatible-mode/v1"
+                    if provider == "qwen"
+                    else "https://api.deepseek.com"
+                ),
+                model=model,
+                workspace_id=None,
+                provider=provider,
+            ),
+            client=httpx.Client(transport=httpx.MockTransport(qwen_spec_handler)),
+        )
+
+    updated = service.run(
+        ModelEvaluationRunRequest(
+            report_id=report.report_id,
+            session_ids={
+                "qwen-plus-target": "session-qwen",
+                "deepseek-chat-target": "session-deepseek",
+            },
+        ),
+        {
+            "qwen-plus-target": build_client("qwen", "qwen-plus"),
+            "deepseek-chat-target": build_client("deepseek", "deepseek-chat"),
+        },
+    )
+
+    assert {row.provider for row in updated.model_rows} == {"qwen", "deepseek"}
+    assert all(row.status == "已完成" for row in updated.model_rows)
+    assert all("综合可观察分" in row.metrics for row in updated.model_rows)
+    assert "已连接 2/2" in updated.summary_zh

@@ -23,6 +23,7 @@ class QwenSettings:
     model: str
     workspace_id: str | None
     timeout_seconds: float = 120.0
+    provider: str = "qwen"
 
     @classmethod
     def from_env(cls) -> "QwenSettings":
@@ -44,17 +45,34 @@ class QwenSettings:
     def validate_base_url(self) -> None:
         parsed = urlparse(self.base_url)
         hostname = (parsed.hostname or "").lower()
-        allow_custom = os.getenv("QWEN_ALLOW_CUSTOM_BASE_URL") == "1"
         if parsed.scheme != "https":
-            raise QwenClientError("千问接口地址必须使用 HTTPS。")
-        if not allow_custom and not (
-            hostname == "dashscope.aliyuncs.com"
-            or hostname.endswith(".maas.aliyuncs.com")
-        ):
-            raise QwenClientError(
-                "千问接口地址必须是阿里云百炼官方域名；如使用受信任代理，"
-                "需显式设置 QWEN_ALLOW_CUSTOM_BASE_URL=1。"
-            )
+            raise QwenClientError(f"{self.provider_label}接口地址必须使用 HTTPS。")
+        if self.provider == "qwen":
+            allow_custom = os.getenv("QWEN_ALLOW_CUSTOM_BASE_URL") == "1"
+            if not allow_custom and not (
+                hostname == "dashscope.aliyuncs.com"
+                or hostname.endswith(".maas.aliyuncs.com")
+            ):
+                raise QwenClientError(
+                    "千问接口地址必须是阿里云百炼官方域名；如使用受信任代理，"
+                    "需显式设置 QWEN_ALLOW_CUSTOM_BASE_URL=1。"
+                )
+        elif self.provider == "deepseek":
+            if hostname != "api.deepseek.com" and not hostname.endswith(".deepseek.com"):
+                raise QwenClientError("DeepSeek 接口地址必须是 DeepSeek 官方域名。")
+        elif self.provider == "openai_compatible":
+            if not hostname:
+                raise QwenClientError("OpenAI 兼容接口地址无效。")
+        else:
+            raise QwenClientError(f"不支持的模型提供商：{self.provider}。")
+
+    @property
+    def provider_label(self) -> str:
+        return {
+            "qwen": "千问",
+            "deepseek": "DeepSeek",
+            "openai_compatible": "OpenAI 兼容模型",
+        }.get(self.provider, self.provider)
 
 
 class QwenClient:
@@ -164,7 +182,7 @@ class QwenClient:
                     "role": "system",
                     "content": "你是连接测试助手，只回复 CONNECTION_OK。",
                 },
-                {"role": "user", "content": "测试千问 API 连接。"},
+                    {"role": "user", "content": f"测试{self.settings.provider_label} API 连接。"},
             ],
         )
         if not str(message.get("content") or "").strip():
@@ -387,7 +405,7 @@ class QwenClient:
         response_format: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         if not self.settings.api_key:
-            raise QwenClientError("未配置 DASHSCOPE_API_KEY。")
+            raise QwenClientError(f"未配置{self.settings.provider_label} API Key。")
         self.settings.validate_base_url()
         payload: dict[str, Any] = {
             "model": self.settings.model,
@@ -413,9 +431,9 @@ class QwenClient:
                 json=payload,
             )
         except httpx.TimeoutException as exc:
-            raise QwenClientError("千问请求超时。") from exc
+            raise QwenClientError(f"{self.settings.provider_label}请求超时。") from exc
         except httpx.RequestError as exc:
-            raise QwenClientError(f"千问网络连接失败：{type(exc).__name__}。") from exc
+            raise QwenClientError(f"{self.settings.provider_label}网络连接失败：{type(exc).__name__}。") from exc
         if response.status_code >= 400:
             try:
                 error = response.json()
@@ -424,7 +442,7 @@ class QwenClient:
             except ValueError:
                 message, code = None, None
             raise QwenClientError(
-                f"千问接口返回 HTTP {response.status_code}"
+                f"{self.settings.provider_label}接口返回 HTTP {response.status_code}"
                 + (f"（{code}）" if code else "")
                 + (f"：{message}" if message else "。")
             )
@@ -432,7 +450,7 @@ class QwenClient:
             body = response.json()
             return body["choices"][0]["message"]
         except (ValueError, KeyError, IndexError, TypeError) as exc:
-            raise QwenClientError("千问返回了无法解析的响应。") from exc
+            raise QwenClientError(f"{self.settings.provider_label}返回了无法解析的响应。") from exc
 
     def close(self) -> None:
         if self._owns_client:

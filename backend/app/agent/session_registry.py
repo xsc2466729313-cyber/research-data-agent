@@ -39,6 +39,7 @@ class QwenSessionRegistry:
             model=request.model,
             workspace_id=request.workspace_id or None,
             timeout_seconds=request.timeout_seconds,
+            provider=request.provider,
         )
         settings.validate_base_url()
         client = self.client_factory(settings)
@@ -100,9 +101,10 @@ class QwenSessionRegistry:
             session_id=session_id,
             model=settings.model,
             base_url=settings.base_url,
+            provider=settings.provider_label,
             workspace_configured=bool(
                 settings.workspace_id or ".maas.aliyuncs.com" in settings.base_url
             ),
             expires_at=expires_at,
-            message="千问 API 已验证并启用；凭据只保存在当前后端进程内存中。",
+            message=f"{settings.provider_label} API 已验证并启用；凭据只保存在当前后端进程内存中。",
         )

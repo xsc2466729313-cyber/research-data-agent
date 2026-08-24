@@ -83,6 +83,39 @@ def test_qwen_session_api_returns_only_sanitized_ephemeral_session() -> None:
         registry.close()
 
 
+def test_registry_supports_deepseek_session_without_exposing_key() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.host == "api.deepseek.com"
+        assert request.headers["Authorization"] == "Bearer deepseek-test-key"
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"role": "assistant", "content": "CONNECTION_OK"}}]},
+            request=request,
+        )
+
+    def factory(settings: QwenSettings) -> QwenClient:
+        return QwenClient(
+            settings=settings,
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+        )
+
+    registry = QwenSessionRegistry(client_factory=factory)
+    try:
+        status = registry.create(
+            QwenSessionRequest(
+                provider="deepseek",
+                api_key="deepseek-test-key",
+                base_url="https://api.deepseek.com",
+                model="deepseek-chat",
+            )
+        )
+        assert status.provider == "DeepSeek"
+        assert status.model == "deepseek-chat"
+        assert "deepseek-test-key" not in status.model_dump_json()
+    finally:
+        registry.close()
+
+
 def test_agent_task_rejects_unknown_qwen_session() -> None:
     response = TestClient(app).post(
         "/api/agent/tasks",

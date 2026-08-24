@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field, SecretStr
 
@@ -26,6 +26,7 @@ class AgentTaskRequest(ApiModel):
 
 
 class QwenSessionRequest(ApiModel):
+    provider: Literal["qwen", "deepseek", "openai_compatible"] = "qwen"
     api_key: SecretStr = Field(min_length=10, max_length=500)
     base_url: str = Field(
         default="https://dashscope.aliyuncs.com/compatible-mode/v1",
@@ -40,7 +41,7 @@ class QwenSessionRequest(ApiModel):
 class QwenSessionStatus(ApiModel):
     session_id: str
     connected: bool = True
-    provider: str = "阿里云百炼 / 千问"
+    provider: str
     model: str
     base_url: str
     workspace_configured: bool

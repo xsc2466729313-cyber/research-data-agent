@@ -34,6 +34,7 @@ from backend.app.agent.model_evaluation_agent import (
     ModelEvaluationGenerateRequest,
     ModelEvaluationRunRequest,
     ModelEvaluationService,
+    ModelTarget,
 )
 from backend.app.agent.service import (
     AgentConfigurationError,
@@ -76,6 +77,7 @@ __all__ = [
     "ModelEvaluationGenerateRequest",
     "ModelEvaluationRunRequest",
     "ModelEvaluationService",
+    "ModelTarget",
     "QwenSessionRequest",
     "QwenSessionRegistry",
     "QwenSessionStatus",

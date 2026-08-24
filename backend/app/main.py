@@ -242,7 +242,7 @@ def generate_model_evaluation_plan(
     if payload.qwen_session_id:
         client = registry.get(payload.qwen_session_id)
         if client is None:
-            raise HTTPException(status_code=401, detail="千问临时会话不存在或已过期，请重新连接 API。")
+            raise HTTPException(status_code=401, detail="临时模型会话不存在或已过期，请重新连接 API。")
     return service.generate(payload, qwen_client=client)
 
 
@@ -255,13 +255,19 @@ def run_model_evaluation(
     service: Annotated[ModelEvaluationService, Depends(get_model_evaluation_service)],
     registry: Annotated[QwenSessionRegistry, Depends(get_qwen_session_registry)],
 ) -> ModelComparisonReport:
-    if not payload.qwen_session_id:
-        raise HTTPException(status_code=401, detail="真实多模型测试需要临时千问会话；计划模式不会填入成绩。")
-    client = registry.get(payload.qwen_session_id)
-    if client is None:
-        raise HTTPException(status_code=401, detail="千问临时会话不存在或已过期，请重新连接 API。")
+    session_ids = dict(payload.session_ids)
+    if payload.qwen_session_id and not session_ids:
+        session_ids["qwen-qwen-plus"] = payload.qwen_session_id
+    clients = {}
+    for target_id, session_id in session_ids.items():
+        client = registry.get(session_id)
+        if client is None:
+            raise HTTPException(status_code=401, detail=f"模型目标 {target_id} 的临时会话不存在或已过期。")
+        clients[target_id] = client
+    if not clients:
+        raise HTTPException(status_code=401, detail="请至少连接一个模型临时会话后再运行真实测试。")
     try:
-        return service.run(payload, client)
+        return service.run(payload, clients)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

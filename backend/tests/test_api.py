@@ -138,6 +138,12 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "model-bar-chart" in script
     assert "研究相关性" in script
     assert "患者-样本关联置信度" in script
+    assert "modelSessions" in script
+    assert "session_ids" in script
+    assert "综合可观察分" in script
+    assert "evaluation-model-configs" in response.text
+    assert "DeepSeek" in response.text
+    assert "提供商</th>" in response.text
 
     styles = (ROOT / "frontend" / "styles.css").read_text(encoding="utf-8")
     assert "@media (max-width: 760px)" in styles

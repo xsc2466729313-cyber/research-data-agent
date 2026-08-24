@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="千问驱动的乳腺癌科研数据智能体：从科研问题、真实数据库工具调用到可阅读、可追溯的科研数据集。" />
     <title>千问乳腺癌科研数据智能体</title>
-    <link rel="stylesheet" href="/styles.css?v=20260824-2" />
+    <link rel="stylesheet" href="/styles.css?v=20260824-3" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">跳到主要内容</a>
@@ -125,16 +125,16 @@
             <label for="evaluation-seed-question">问题主题</label>
             <textarea id="evaluation-seed-question" rows="3">乳腺癌精准治疗中分子标志物与治疗响应的关系</textarea>
             <div class="form-grid workbench-form-grid">
-              <label>自动生成问题数
-                <select id="evaluation-question-count"><option>3</option><option>5</option><option>10</option></select>
-              </label>
-              <label>测试模型
-                <input id="evaluation-models" type="text" value="qwen-plus,qwen-max,qwen-turbo" />
-              </label>
+            <label>自动生成问题数
+              <select id="evaluation-question-count"><option>3</option><option>5</option><option>10</option></select>
+            </label>
             </div>
+            <div class="model-config-heading"><strong>模型与 API 会话</strong><span>每个模型单独连接，运行时会并行测试已连接目标。</span></div>
+            <div id="evaluation-model-configs" class="model-config-list"></div>
+            <button id="evaluation-add-model" class="button button-secondary model-add-button" type="button">添加模型目标</button>
             <div class="button-group">
               <button id="evaluation-generate" class="button button-primary" type="button">生成测试问题</button>
-              <button id="evaluation-run" class="button button-secondary" type="button" disabled>运行当前会话</button>
+              <button id="evaluation-run" class="button button-secondary" type="button" disabled>运行已连接模型</button>
               <button id="evaluation-export" class="button button-secondary" type="button" disabled>导出对比报告</button>
             </div>
             <p id="evaluation-workbench-message" class="workbench-message" aria-live="polite">当前未生成测试报告。</p>
@@ -142,7 +142,15 @@
           <article class="workbench-panel">
             <h3>API / Agent 检测</h3>
             <p class="section-note">仅接收你重新生成的临时 Key；检测完成后立即清空输入，不写入项目。</p>
-            <label for="api-check-key">百炼 API Key</label>
+            <label for="api-check-provider">模型提供商</label>
+            <select id="api-check-provider">
+              <option value="qwen">千问</option>
+              <option value="deepseek">DeepSeek</option>
+              <option value="openai_compatible">OpenAI 兼容模型</option>
+            </select>
+            <label for="api-check-model">模型名称</label>
+            <input id="api-check-model" type="text" value="qwen-plus" />
+            <label for="api-check-key">临时 API Key</label>
             <input id="api-check-key" type="password" autocomplete="new-password" placeholder="请输入新生成的临时 Key" />
             <label for="api-check-base-url">接口地址</label>
             <input id="api-check-base-url" type="url" value="https://dashscope.aliyuncs.com/compatible-mode/v1" />
@@ -154,7 +162,7 @@
         <article class="model-test-report">
           <div class="section-heading"><div><h3>独立多模型对比报告</h3><span id="model-evaluation-summary">生成后显示问题、模型、指标和限制。</span></div><span id="model-evaluation-report-id" class="mono-tag">—</span></div>
           <div id="model-evaluation-chart" class="model-evaluation-chart" aria-label="多模型指标柱状图"></div>
-          <div class="table-wrap"><table id="model-evaluation-table"><thead><tr><th>问题</th><th>模型</th><th>状态</th><th>可观察指标</th><th>质量门</th><th>说明</th></tr></thead><tbody><tr><td colspan="6" class="muted-cell">尚未生成多模型测试报告。</td></tr></tbody></table></div>
+          <div class="table-wrap"><table id="model-evaluation-table"><thead><tr><th>问题</th><th>提供商</th><th>模型</th><th>状态</th><th>可观察指标</th><th>质量门</th><th>说明</th></tr></thead><tbody><tr><td colspan="7" class="muted-cell">尚未生成多模型测试报告。</td></tr></tbody></table></div>
         </article>
       </section>
 
@@ -426,6 +434,6 @@
     </dialog>
     <div id="toast" class="toast" hidden role="status" aria-live="polite"></div>
     <footer><span>千问科研数据智能体</span><span>模型负责规划 · 规则负责安全 · 数据必须真实可追溯</span></footer>
-    <script src="/app.js?v=20260824-2" defer></script>
+    <script src="/app.js?v=20260824-3" defer></script>
   </body>
 </html>
