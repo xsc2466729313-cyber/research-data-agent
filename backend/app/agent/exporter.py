@@ -176,6 +176,84 @@ class AgentDatasetExportService:
         self._style_table(sources, 6)
         sources.freeze_panes = "A2"
 
+        study_design = workbook.create_sheet("研究设计")
+        study_design.append(["项目", "内容"])
+        design = result.study_design
+        if design is not None:
+            for label, value in [
+                ("研究类型", f"{design.research_type}｜{design.research_type_id}"),
+                ("研究人群", design.population),
+                ("核心暴露", design.exposure),
+                ("研究结局", design.outcome),
+                ("协变量", "、".join(design.covariates)),
+                ("分析单位", design.analysis_unit),
+                ("研究模型", design.model_expression),
+                ("变量覆盖率", "未计算" if design.variable_coverage_rate is None else f"{design.variable_coverage_rate:.1%}"),
+            ]:
+                study_design.append([label, value])
+            for rule in design.cohort_rules:
+                study_design.append(["队列规则", rule])
+            for variable in design.required_variables:
+                study_design.append(
+                    [
+                        "变量",
+                        f"{variable.variable_id}｜{variable.label}｜{variable.role}｜"
+                        f"required={variable.required}｜available={variable.available}｜"
+                        f"matched={','.join(variable.matched_fields) or '无'}｜{variable.note}",
+                    ]
+                )
+            for source in design.data_source_recommendations:
+                study_design.append(
+                    [
+                        "数据源建议",
+                        f"{source.database}｜{source.availability}｜selected={source.selected}｜"
+                        f"用途={source.purpose}｜域={','.join(source.data_domains)}｜{source.note}",
+                    ]
+                )
+            for limitation in design.limitations:
+                study_design.append(["限制", limitation])
+        else:
+            study_design.append(["状态", "当前任务没有返回研究设计报告。"])
+        self._style_table(study_design, 2)
+        study_design.column_dimensions["A"].width = 18
+        study_design.column_dimensions["B"].width = 110
+        study_design.column_dimensions["B"].alignment = Alignment(wrap_text=True, vertical="top")
+
+        cohort_sheet = workbook.create_sheet("队列构建")
+        cohort_sheet.append(["步骤", "规则类型", "筛选标准", "前置行数", "保留行数", "排除行数", "状态", "说明"])
+        cohort = result.cohort_construction
+        if cohort is not None:
+            for step in cohort.filter_steps:
+                cohort_sheet.append(
+                    [
+                        step.label,
+                        step.rule_type,
+                        step.criterion,
+                        step.before_count,
+                        step.after_count,
+                        step.excluded_count,
+                        step.status,
+                        step.note,
+                    ]
+                )
+            cohort_sheet.append([])
+            cohort_sheet.append(["最终队列行数", cohort.final_row_count])
+            cohort_sheet.append(["患者数", cohort.patient_count])
+            cohort_sheet.append(["样本数", cohort.sample_count])
+            cohort_sheet.append(["变量覆盖率", "未计算" if cohort.variable_coverage_rate is None else f"{cohort.variable_coverage_rate:.1%}"])
+            cohort_sheet.append(["患者关联 F1", "未评测" if cohort.patient_linkage_f1 is None else f"{cohort.patient_linkage_f1:.3f}"])
+            cohort_sheet.append(["Quality Gate", cohort.quality_gate])
+            for note in cohort.notes:
+                cohort_sheet.append(["说明", note])
+        else:
+            cohort_sheet.append(["状态", "当前任务没有返回队列构建报告。"])
+        self._style_table(cohort_sheet, 8)
+        cohort_sheet.freeze_panes = "A2"
+        for column, width in {"A": 24, "B": 14, "C": 68, "D": 12, "E": 12, "F": 12, "G": 12, "H": 70}.items():
+            cohort_sheet.column_dimensions[column].width = width
+        for row in cohort_sheet.iter_rows():
+            for cell in row:
+                cell.alignment = Alignment(wrap_text=True, vertical="top")
 
         competition = workbook.create_sheet("比赛报告")
         competition.append(["项目", "内容"])

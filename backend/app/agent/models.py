@@ -121,6 +121,72 @@ class AnalysisReadinessReport(ApiModel):
     recommendations: list[str] = Field(default_factory=list)
 
 
+class StudyVariable(ApiModel):
+    variable_id: str
+    label: str
+    role: str
+    required: bool = False
+    available: bool = False
+    matched_fields: list[str] = Field(default_factory=list)
+    note: str
+
+
+class DataSourceRecommendation(ApiModel):
+    database: str
+    purpose: str
+    data_domains: list[str] = Field(default_factory=list)
+    availability: str
+    selected: bool = False
+    source_ids: list[str] = Field(default_factory=list)
+    note: str
+
+
+class StudyDesignReport(ApiModel):
+    status: str
+    research_type: str
+    research_type_id: str
+    population: str
+    exposure: str
+    outcome: str
+    covariates: list[str] = Field(default_factory=list)
+    analysis_unit: str
+    model_expression: str
+    cohort_rules: list[str] = Field(default_factory=list)
+    required_variables: list[StudyVariable] = Field(default_factory=list)
+    variable_coverage_rate: float | None = Field(default=None, ge=0, le=1)
+    data_source_recommendations: list[DataSourceRecommendation] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+
+
+class CohortFilterStep(ApiModel):
+    step_id: str
+    label: str
+    rule_type: str
+    criterion: str
+    before_count: int = Field(ge=0)
+    after_count: int = Field(ge=0)
+    excluded_count: int = Field(ge=0)
+    status: str
+    note: str
+
+
+class CohortConstructionReport(ApiModel):
+    status: str
+    source_row_count: int = Field(ge=0)
+    final_row_count: int = Field(ge=0)
+    patient_count: int = Field(ge=0)
+    sample_count: int = Field(ge=0)
+    inclusion_criteria: list[str] = Field(default_factory=list)
+    exclusion_criteria: list[str] = Field(default_factory=list)
+    filter_steps: list[CohortFilterStep] = Field(default_factory=list)
+    variable_coverage_rate: float | None = Field(default=None, ge=0, le=1)
+    patient_linkage_f1: float | None = Field(default=None, ge=0, le=1)
+    response_domains: list[str] = Field(default_factory=list)
+    quality_gate: str
+    publish_allowed: bool = False
+    notes: list[str] = Field(default_factory=list)
+
+
 class AgentTaskResult(ApiModel):
     task_id: str
     status: str
@@ -136,6 +202,8 @@ class AgentTaskResult(ApiModel):
     source_items: list[SourceItem]
     modeling_dataset: ModelingDataset
     readiness: AnalysisReadinessReport
+    study_design: StudyDesignReport | None = None
+    cohort_construction: CohortConstructionReport | None = None
     competition_report: "CompetitionAlignmentReport | None" = None
     summary_zh: str
     created_at: datetime

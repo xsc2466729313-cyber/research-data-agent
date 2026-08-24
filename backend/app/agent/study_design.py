@@ -1,0 +1,464 @@
+from __future__ import annotations
+
+import json
+from collections.abc import Callable
+from typing import Any
+
+from backend.app.agent.models import (
+    CohortConstructionReport,
+    CohortFilterStep,
+    DataSourceRecommendation,
+    StudyDesignReport,
+    StudyVariable,
+)
+from backend.app.models import CandidateSource, ResearchSpec, SourceItem
+
+
+SOURCE_CATALOG: dict[str, tuple[str, list[str]]] = {
+    "GDC / TCGA": ("患者临床、表达、突变与拷贝数", ["clinical", "mutation", "expression"]),
+    "GTEx": ("健康人体组织与正常对照表达", ["normal_tissue", "expression"]),
+    "NCBI GEO": ("外部表达、治疗响应与验证队列", ["expression", "treatment_response", "survival"]),
+    "cBioPortal / METABRIC": ("乳腺癌临床与分子整合队列", ["clinical", "mutation", "expression", "survival"]),
+    "ClinicalTrials.gov": ("治疗方案、试验设计与临床结局", ["clinical_trial", "treatment_response"]),
+    "GDSC": ("细胞系药物敏感性 AUC / IC50", ["preclinical_cell_line"]),
+    "DepMap": ("细胞系依赖性与药物敏感性", ["preclinical_cell_line"]),
+    "CIViC": ("变异、药物、疾病与证据关系", ["knowledge_evidence"]),
+    "OncoKB": ("肿瘤变异临床意义知识", ["knowledge_evidence"]),
+}
+
+SUPPORTED_DATABASES = {
+    "GDC",
+    "NCBI GEO",
+    "cBioPortal",
+    "ClinicalTrials.gov",
+    "CIViC",
+}
+
+
+class StudyDesignBuilder:
+    """Create auditable study-design and cohort diagnostics from observed task data."""
+
+    def build(
+        self,
+        spec: ResearchSpec,
+        dataset: Any,
+        readiness: Any,
+        candidates: list[CandidateSource],
+        source_items: list[SourceItem],
+    ) -> tuple[StudyDesignReport, CohortConstructionReport]:
+        columns = {
+            column.name if hasattr(column, "name") else str(column.get("name"))
+            for column in dataset.columns
+        }
+        design = self._build_design(spec, dataset, columns, candidates, source_items)
+        cohort = self._build_cohort(spec, dataset, readiness, design, columns)
+        design = design.model_copy(
+            update={"variable_coverage_rate": cohort.variable_coverage_rate}
+        )
+        return design, cohort
+
+    def _build_design(
+        self,
+        spec: ResearchSpec,
+        dataset: Any,
+        columns: set[str],
+        candidates: list[CandidateSource],
+        source_items: list[SourceItem],
+    ) -> StudyDesignReport:
+        type_id, type_label = self._research_type(spec)
+        population = self._population(spec)
+        exposure = self._exposure(spec)
+        outcome = self._outcome(spec)
+        covariates = self._covariates(spec)
+        variables = self._required_variables(spec, columns, type_id)
+        selected_databases = {
+            self._canonical_database(item.source_name)
+            for item in source_items
+        } | {
+            self._canonical_database(item.source_database)
+            for item in candidates
+        }
+        recommendations = []
+        for database, (purpose, domains) in SOURCE_CATALOG.items():
+            canonical = self._canonical_database(database)
+            selected = canonical in selected_databases
+            supported = canonical in SUPPORTED_DATABASES
+            if selected:
+                availability = "本次已登记"
+                note = "本次任务已有真实来源或候选记录；具体可用字段仍以原始数据审计为准。"
+            elif supported:
+                availability = "已接入，可按任务调用"
+                note = "系统已有受控 Adapter，但本次任务未选择或未成功返回该来源。"
+            else:
+                availability = "待接入"
+                note = "方案要求纳入该数据库；当前前端只展示规划，不把它当作已获取数据。"
+            recommendations.append(
+                DataSourceRecommendation(
+                    database=database,
+                    purpose=purpose,
+                    data_domains=domains,
+                    availability=availability,
+                    selected=selected,
+                    source_ids=[
+                        item.source_id
+                        for item in source_items
+                        if self._canonical_database(item.source_name) == canonical
+                    ],
+                    note=note,
+                )
+            )
+        limitations = [
+            "研究设计字段来自科研问题解析与确定性规则；正式统计分析前仍需研究者冻结 Evaluation Contract。",
+            "当前未接入的 GTEx、GDSC、DepMap、OncoKB 只作为数据源规划，不生成虚假记录。",
+        ]
+        return StudyDesignReport(
+            status="已生成" if spec.research_goal else "信息不足",
+            research_type=type_label,
+            research_type_id=type_id,
+            population=population,
+            exposure=exposure,
+            outcome=outcome,
+            covariates=covariates,
+            analysis_unit=dataset.unit_of_analysis,
+            model_expression=self._model_expression(type_id, exposure, outcome),
+            cohort_rules=self._cohort_rules(spec),
+            required_variables=variables,
+            data_source_recommendations=recommendations,
+            limitations=limitations,
+        )
+
+    def _build_cohort(
+        self,
+        spec: ResearchSpec,
+        dataset: Any,
+        readiness: Any,
+        design: StudyDesignReport,
+        columns: set[str],
+    ) -> CohortConstructionReport:
+        rows = [dict(row) for row in dataset.rows]
+        steps: list[CohortFilterStep] = []
+        current = rows
+        current = self._step(
+            steps,
+            current,
+            "include_disease",
+            "目标疾病",
+            "纳入",
+            "disease 应为乳腺癌；字段缺失时保留记录并进入复核。",
+            lambda row: self._contains(row.get("disease"), "breast", "乳腺"),
+            active=any(self._has_value(row.get("disease")) for row in current),
+        )
+        current = self._step(
+            steps,
+            current,
+            "include_primary_tumor",
+            "原发肿瘤",
+            "纳入",
+            "sample_type 为 primary/原发肿瘤；没有该字段时不自动排除。",
+            lambda row: self._contains(row.get("sample_type"), "primary", "原发"),
+            active=any(self._has_value(row.get("sample_type")) for row in current),
+        )
+        if "HER2" in (spec.subtype or "").upper():
+            current = self._step(
+                steps,
+                current,
+                "include_her2_status",
+                "HER2 状态可用",
+                "纳入",
+                "需要 her2_status 原始字段；IHC 2+ 不自动转为阳性。",
+                lambda row: self._has_value(row.get("her2_status")),
+                active="her2_status" in columns,
+            )
+        for gene in spec.genes:
+            mutation_field = f"{gene.lower()}_mutation"
+            current = self._step(
+                steps,
+                current,
+                f"include_{gene.lower()}_mutation",
+                f"{gene} 突变信息",
+                "纳入",
+                f"需要 {mutation_field} 或等价突变字段；当前不跨来源硬拼患者。",
+                lambda row, field=mutation_field: self._has_value(row.get(field)),
+                active=mutation_field in columns,
+            )
+        target = readiness.target_column or dataset.target_column
+        current = self._step(
+            steps,
+            current,
+            "include_outcome",
+            "研究结局可用",
+            "纳入",
+            "结局字段必须与研究问题同域，不能用 OS 替代治疗响应。",
+            lambda row: self._has_value(row.get(target)) if target else False,
+            active=bool(target and target in columns),
+        )
+        current = self._step(
+            steps,
+            current,
+            "exclude_normal_tissue",
+            "排除正常组织",
+            "排除",
+            "若有 sample_type，则排除 normal/正常组织；没有字段时保留并复核。",
+            lambda row: not self._contains(row.get("sample_type"), "normal", "正常"),
+            active=any(self._has_value(row.get("sample_type")) for row in current),
+        )
+        current = self._step(
+            steps,
+            current,
+            "exclude_duplicates",
+            "排除重复记录",
+            "排除",
+            "仅对完全重复的患者/样本行去重，不把同一患者的合法多样本误删。",
+            self._unique_row_predicate(),
+            active=bool(current),
+        )
+        required_fields = [
+            variable.variable_id
+            for variable in design.required_variables
+            if variable.required and variable.available
+        ]
+        current = self._step(
+            steps,
+            current,
+            "exclude_missing_key_variables",
+            "排除关键变量缺失",
+            "排除",
+            "只在必需字段真实存在时执行；字段整体缺失则标记复核而不伪造排除数。",
+            lambda row: all(self._has_value(row.get(field)) for field in required_fields),
+            active=bool(required_fields),
+        )
+        current = self._step(
+            steps,
+            current,
+            "exclude_low_quality_samples",
+            "排除低质量样本",
+            "排除",
+            "需要 quality/quality_score 等质量字段；当前没有质量字段时不自动判定。",
+            lambda row: not self._contains(row.get("quality"), "low", "fail", "低", "不合格"),
+            active=any(self._has_value(row.get("quality")) for row in current),
+        )
+        final_rows = current
+        notes = [
+            "每一步计数来自当前任务实际返回的患者/样本行；未提供字段的规则显示为待复核。",
+            "患者级关联 F1 未加载 Gold Set，因此保持未评测，不用内部诊断分替代。",
+        ]
+        if readiness.repeated_patient_count:
+            notes.append("同一患者对应多个样本，分析时应按患者分组切分，避免信息泄漏。")
+        if any(row.get("response_domain") == "preclinical_cell_line" for row in final_rows):
+            notes.append("检测到细胞系药敏域，必须与患者 clinical response 分层分析。")
+        gate = "PASS" if readiness.analysis_ready else "REVIEW"
+        return CohortConstructionReport(
+            status="已构建" if rows else "未形成队列",
+            source_row_count=len(rows),
+            final_row_count=len(final_rows),
+            patient_count=len({row.get("patient_id") for row in final_rows if self._has_value(row.get("patient_id"))}),
+            sample_count=len({row.get("sample_id") for row in final_rows if self._has_value(row.get("sample_id"))}),
+            inclusion_criteria=[
+                "Breast Cancer",
+                "Primary Tumor",
+                "HER2 status available" if "HER2" in (spec.subtype or "").upper() else "研究对象字段可识别",
+                "Mutation available" if spec.genes else "研究暴露字段可识别",
+                "Outcome available",
+            ],
+            exclusion_criteria=[
+                "Normal tissue",
+                "Non-target disease",
+                "Missing key variables",
+                "Duplicate patients or samples",
+                "Low-quality samples",
+            ],
+            filter_steps=steps,
+            variable_coverage_rate=(
+                sum(variable.available for variable in design.required_variables if variable.required)
+                / sum(variable.required for variable in design.required_variables)
+                if any(variable.required for variable in design.required_variables)
+                else None
+            ),
+            patient_linkage_f1=None,
+            response_domains=sorted(
+                {
+                    str(row.get("response_domain"))
+                    for row in final_rows
+                    if self._has_value(row.get("response_domain"))
+                }
+            ),
+            quality_gate=gate,
+            publish_allowed=gate == "PASS",
+            notes=notes,
+        )
+
+    @staticmethod
+    def _required_variables(
+        spec: ResearchSpec,
+        columns: set[str],
+        research_type: str,
+    ) -> list[StudyVariable]:
+        variables: list[tuple[str, str, str, bool, list[str]]] = [
+            ("disease", "疾病", "Population", True, ["disease"]),
+        ]
+        if spec.subtype:
+            variables.append(("subtype", "疾病亚型", "Population", True, ["subtype", "her2_status", "disease"]))
+        if spec.genes:
+            for gene in spec.genes:
+                field = f"{gene.lower()}_mutation"
+                variables.append((field, f"{gene} 突变", "Exposure", True, [field, "gene", "mutation_status"]))
+        if spec.drugs or "treatment_response" in spec.outcomes:
+            variables.append(("treatment", "治疗方案", "Exposure", True, ["treatment", "drug", "chemotherapy"]))
+        outcome_fields = ["treatment_response", "pcr"] if "treatment_response" in spec.outcomes else ["os_status", "os_months", "dfs_status", "dfs_months"] if "survival" in spec.outcomes else ["expression"]
+        variables.append(("outcome", "研究结局", "Outcome", True, outcome_fields))
+        for field, label in [
+            ("age", "年龄"),
+            ("stage", "分期"),
+            ("er_status", "ER 状态"),
+            ("pr_status", "PR 状态"),
+        ]:
+            variables.append((field, label, "Covariate", False, [field]))
+        variables.append(("patient_id", "患者编号", "Analysis unit", True, ["patient_id", "sample_id"]))
+        result: list[StudyVariable] = []
+        for variable_id, label, role, required, aliases in variables:
+            matched = [field for field in aliases if field in columns]
+            result.append(
+                StudyVariable(
+                    variable_id=variable_id,
+                    label=label,
+                    role=role,
+                    required=required,
+                    available=bool(matched),
+                    matched_fields=matched,
+                    note=(
+                        "字段已出现在当前科研宽表。"
+                        if matched
+                        else "当前结果没有该字段；不能用候选库摘要代替患者级变量。"
+                    ),
+                )
+            )
+        return result
+
+    @staticmethod
+    def _research_type(spec: ResearchSpec) -> tuple[str, str]:
+        goal = spec.research_goal.casefold()
+        if "survival" in spec.outcomes or "生存" in goal:
+            return "survival_analysis", "预后/生存分析"
+        if "expression" in spec.required_data_types and any(term in goal for term in ("差异表达", "tumor normal", "tumor+normal", "正常组织")):
+            return "differential_expression", "肿瘤-正常差异表达"
+        if any(term in goal for term in ("药物敏感", "auc", "ic50", "细胞系")):
+            return "drug_sensitivity", "药物敏感性分析"
+        if "treatment_response" in spec.outcomes or any(term in goal for term in ("响应", "疗效", "pcr", "缓解")):
+            return "response_analysis", "治疗响应分析"
+        return "molecular_association", "分子关联分析"
+
+    @staticmethod
+    def _population(spec: ResearchSpec) -> str:
+        subtype = f"、{spec.subtype}" if spec.subtype else ""
+        return f"{spec.disease}{subtype}患者/样本"
+
+    @staticmethod
+    def _exposure(spec: ResearchSpec) -> str:
+        pieces = []
+        if spec.genes:
+            pieces.append("、".join(spec.genes) + " 突变状态")
+        if spec.drugs:
+            pieces.append("、".join(spec.drugs) + " 治疗")
+        return "；".join(pieces) or "待从科研问题中进一步冻结"
+
+    @staticmethod
+    def _outcome(spec: ResearchSpec) -> str:
+        return "、".join(spec.outcomes) or "待指定"
+
+    @staticmethod
+    def _covariates(spec: ResearchSpec) -> list[str]:
+        return ["年龄", "分期", "ER 状态", "PR 状态"]
+
+    @staticmethod
+    def _model_expression(research_type: str, exposure: str, outcome: str) -> str:
+        if research_type == "survival_analysis":
+            return f"h(t) = h₀(t) · exp(β₁X + β₂G + β₃C)，其中 X={exposure}，Y={outcome}"
+        if research_type == "differential_expression":
+            return f"Expression(Tumor) − Expression(Normal)，分层因子 C={exposure}"
+        return f"Y = f(X, G, C)，X={exposure}，Y={outcome}，C=年龄/分期/ER/PR"
+
+    @staticmethod
+    def _cohort_rules(spec: ResearchSpec) -> list[str]:
+        rules = ["疾病为乳腺癌", "优先保留原发肿瘤样本", "保留患者/样本与来源证据"]
+        if spec.subtype:
+            rules.append(f"按 {spec.subtype} 进行亚型筛选；HER2 检测维度单独保留")
+        if spec.genes:
+            rules.append(f"需要 {', '.join(spec.genes)} 的分子变量")
+        if "treatment_response" in spec.outcomes:
+            rules.append("治疗与响应必须来自 clinical response 域")
+        if "survival" in spec.outcomes:
+            rules.append("生存结局必须保留随访时间与事件状态")
+        return rules
+
+    @staticmethod
+    def _step(
+        steps: list[CohortFilterStep],
+        rows: list[dict[str, Any]],
+        step_id: str,
+        label: str,
+        rule_type: str,
+        criterion: str,
+        predicate: Callable[[dict[str, Any]], bool],
+        *,
+        active: bool,
+    ) -> list[dict[str, Any]]:
+        before = len(rows)
+        if not active:
+            after = rows
+            status = "待复核"
+            note = "当前数据没有可执行的对应字段，未自动排除记录。"
+        else:
+            after = [row for row in rows if predicate(row)]
+            status = "已执行"
+            note = "计数来自当前真实返回行。"
+        steps.append(
+            CohortFilterStep(
+                step_id=step_id,
+                label=label,
+                rule_type=rule_type,
+                criterion=criterion,
+                before_count=before,
+                after_count=len(after),
+                excluded_count=max(0, before - len(after)),
+                status=status,
+                note=note,
+            )
+        )
+        return after
+
+    @staticmethod
+    def _unique_row_predicate() -> Callable[[dict[str, Any]], bool]:
+        seen: set[str] = set()
+
+        def predicate(row: dict[str, Any]) -> bool:
+            key = json.dumps(row, ensure_ascii=False, sort_keys=True, default=str)
+            if key in seen:
+                return False
+            seen.add(key)
+            return True
+
+        return predicate
+
+    @staticmethod
+    def _has_value(value: Any) -> bool:
+        return value not in (None, "", [], {}, "NA", "N/A", "<缺失>")
+
+    @classmethod
+    def _contains(cls, value: Any, *tokens: str) -> bool:
+        text = str(value or "").casefold()
+        return cls._has_value(value) and any(token.casefold() in text for token in tokens)
+
+    @staticmethod
+    def _canonical_database(value: str) -> str:
+        text = value.casefold()
+        if "gdc" in text or "tcga" in text:
+            return "GDC"
+        if "geo" in text:
+            return "NCBI GEO"
+        if "cbio" in text or "metabric" in text:
+            return "cBioPortal"
+        if "clinicaltrials" in text or "aact" in text:
+            return "ClinicalTrials.gov"
+        if "civic" in text:
+            return "CIViC"
+        return value

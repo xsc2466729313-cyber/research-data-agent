@@ -19,8 +19,7 @@
         <a href="#agent-process">智能体过程</a>
         <a href="#research-data">科研数据</a>
         <a href="#readiness">可科研性检查</a>
-        <a href="#competition-report">比赛对齐</a>
-        <a href="#api-console">API 交互</a>
+        <a href="#competition-report">统一评价</a>
       </nav>
       <div id="system-status" class="system-status"><span class="status-dot"></span><span>正在连接</span></div>
     </header>
@@ -114,38 +113,6 @@
         </form>
       </section>
 
-      <section id="api-console" class="panel api-console">
-        <div class="section-heading">
-          <div><p class="section-kicker">API · 开发者入口</p><h2>直接调用并检查科研智能体接口</h2></div>
-          <span class="step-tag">真实后端</span>
-        </div>
-        <p class="section-note">选择预置接口、编辑请求 JSON 并发送；创建成功的科研任务会同步到下方可视化结果。科研任务只传递临时会话编号，不重复传输千问 API Key。</p>
-        <div class="api-console-grid">
-          <div class="api-request-panel">
-            <label for="api-preset">接口预置</label>
-            <select id="api-preset">
-              <option value="create-task" selected>创建科研数据任务</option>
-              <option value="configuration">读取千问配置状态</option>
-              <option value="task-result">读取当前任务结果</option>
-              <option value="health">检查服务健康状态</option>
-            </select>
-            <label for="api-endpoint">请求地址</label>
-            <div class="api-endpoint-line"><span id="api-method" class="api-method">POST</span><input id="api-endpoint" type="text" value="/api/agent/tasks" spellcheck="false" /></div>
-            <label for="api-request-body">请求 JSON</label>
-            <textarea id="api-request-body" class="api-json-editor" rows="13" spellcheck="false"></textarea>
-            <div class="api-actions">
-              <button id="api-load-question" class="button button-secondary" type="button">载入当前科研问题</button>
-              <button id="api-copy-curl" class="button button-secondary" type="button">复制 cURL</button>
-              <button id="api-send" class="button button-primary" type="button">发送 API 请求</button>
-            </div>
-          </div>
-          <div class="api-response-panel">
-            <div class="api-response-heading"><strong>响应结果</strong><span id="api-response-status" class="status-badge">等待发送</span></div>
-            <pre id="api-response-output" tabindex="0">选择接口并点击“发送 API 请求”，这里会显示格式化 JSON。</pre>
-          </div>
-        </div>
-      </section>
-
       <section id="progress" class="panel progress-panel" hidden aria-live="polite">
         <div class="progress-heading"><div><p class="section-kicker">智能体正在运行</p><h2 id="progress-label">正在解析科研问题…</h2></div><strong id="progress-percent">10%</strong></div>
         <div class="progress-track"><span id="progress-bar"></span></div>
@@ -159,13 +126,13 @@
           <article><span>智能体模式</span><strong id="agent-mode">—</strong></article>
           <article><span>千问模型</span><strong id="model-name">—</strong></article>
           <article><span>科研数据</span><strong id="dataset-size">—</strong></article>
-          <article class="result-overview-highlight"><span>比赛对齐</span><strong id="competition-quick-summary">—</strong><small id="competition-quick-stats">—</small></article>
+          <article class="result-overview-highlight"><span>统一评价</span><strong id="competition-quick-summary">—</strong><small id="competition-quick-stats">—</small></article>
         </section>
 
         <section class="panel summary-panel">
           <div class="section-heading"><div><p class="section-kicker">02 · 千问数据总结</p><h2>这批数据能解决什么问题</h2></div><span id="task-id" class="mono-tag"></span></div>
           <div id="competition-spotlight" class="competition-spotlight" hidden>
-            <div class="spotlight-head"><strong>比赛对齐结果</strong><span id="competition-direction-inline" class="count-tag"></span></div>
+            <div class="spotlight-head"><strong>统一评价结果</strong><span id="competition-direction-inline" class="count-tag"></span></div>
             <div id="competition-spotlight-metrics" class="competition-spotlight-metrics"></div>
           </div>
           <p id="agent-summary" class="agent-summary"></p>
@@ -173,8 +140,53 @@
           <div id="spec-grid" class="spec-grid"></div>
         </section>
 
+        <section id="study-design" class="panel study-design-panel">
+          <div class="section-heading">
+            <div><p class="section-kicker">03 · 研究设计</p><h2>先明确研究需要什么数据</h2></div>
+            <span id="study-design-status" class="status-badge"></span>
+          </div>
+          <div id="study-design-summary" class="study-design-summary"></div>
+          <div class="study-design-model">
+            <div><span>研究模型</span><strong id="study-model-expression">—</strong></div>
+            <div><span>队列规则</span><ul id="study-cohort-rules" class="message-list"></ul></div>
+          </div>
+          <div class="study-design-grid">
+            <article>
+              <h3>必需变量与覆盖</h3>
+              <div id="study-variable-coverage" class="coverage-summary"></div>
+              <div class="table-wrap"><table id="study-variable-table"><thead><tr><th>变量</th><th>角色</th><th>是否必需</th><th>当前可用</th><th>匹配字段</th><th>说明</th></tr></thead><tbody></tbody></table></div>
+            </article>
+            <article>
+              <h3>数据源建议</h3>
+              <div id="study-source-recommendations" class="source-recommendation-list"></div>
+            </article>
+          </div>
+          <ul id="study-design-limitations" class="message-list warning-list"></ul>
+        </section>
+
+        <section id="cohort-construction" class="panel cohort-panel">
+          <div class="section-heading">
+            <div><p class="section-kicker">04 · 队列构建</p><h2>每一步筛选都能解释清楚</h2></div>
+            <div class="cohort-heading-meta"><span id="cohort-gate" class="status-badge"></span><span id="cohort-count" class="count-tag"></span></div>
+          </div>
+          <div id="cohort-summary-cards" class="cohort-summary-cards"></div>
+          <div id="cohort-funnel" class="cohort-funnel" aria-label="队列筛选漏斗"></div>
+          <div class="cohort-grid">
+            <article>
+              <h3>纳入标准</h3>
+              <ul id="cohort-inclusion-list" class="message-list"></ul>
+            </article>
+            <article>
+              <h3>排除标准</h3>
+              <ul id="cohort-exclusion-list" class="message-list warning-list"></ul>
+            </article>
+          </div>
+          <div class="table-wrap"><table id="cohort-step-table"><thead><tr><th>步骤</th><th>规则</th><th>筛选标准</th><th>前置</th><th>保留</th><th>排除</th><th>状态</th><th>说明</th></tr></thead><tbody></tbody></table></div>
+          <ul id="cohort-notes" class="message-list cohort-notes"></ul>
+        </section>
+
         <section id="agent-process" class="panel">
-          <div class="section-heading"><div><p class="section-kicker">03 · 智能体过程</p><h2>规划与真实工具调用</h2></div><span id="tool-count" class="count-tag"></span></div>
+          <div class="section-heading"><div><p class="section-kicker">05 · 智能体过程</p><h2>规划与真实工具调用</h2></div><span id="tool-count" class="count-tag"></span></div>
           <div id="plan-list" class="plan-list"></div>
           <div class="table-wrap">
             <table id="tool-table">
@@ -185,7 +197,7 @@
         </section>
 
         <section class="panel">
-          <div class="section-heading"><div><p class="section-kicker">04 · 真实数据来源</p><h2>候选队列与官方地址</h2></div><span id="candidate-count" class="count-tag"></span></div>
+          <div class="section-heading"><div><p class="section-kicker">06 · 真实数据来源</p><h2>候选队列与官方地址</h2></div><span id="candidate-count" class="count-tag"></span></div>
           <div class="table-wrap">
             <table id="candidate-table">
               <thead><tr><th>数据集</th><th>数据库</th><th>数据类型</th><th>样本数</th><th>研究结局信息</th><th>官方来源</th></tr></thead>
@@ -197,7 +209,7 @@
 
         <section id="research-data" class="panel">
           <div class="section-heading action-heading">
-            <div><p class="section-kicker">05 · 科研数据集</p><h2 id="dataset-title">患者/样本级科研宽表</h2></div>
+          <div><p class="section-kicker">07 · 科研数据集</p><h2 id="dataset-title">患者/样本级科研宽表</h2></div>
             <div class="button-group">
               <button class="button button-secondary export-button" data-format="csv" type="button">下载 CSV</button>
               <button class="button button-secondary export-button" data-format="parquet" type="button">下载 Parquet</button>
@@ -219,7 +231,7 @@
 
         <section id="readiness" class="quality-grid">
           <article class="panel readiness-panel">
-            <div class="section-heading"><div><p class="section-kicker">06 · 可科研性检查</p><h2>这批数据能否支持可靠研究</h2></div><span id="readiness-status" class="status-badge"></span></div>
+            <div class="section-heading"><div><p class="section-kicker">08 · 可科研性检查</p><h2>这批数据能否支持可靠研究</h2></div><span id="readiness-status" class="status-badge"></span></div>
             <div id="research-metrics" class="research-metrics" aria-label="科研数据核心指标"></div>
             <div class="outcome-visual">
               <div class="outcome-visual-heading"><h3>研究结局分布</h3><span id="outcome-total"></span></div>
@@ -250,13 +262,13 @@
           </div>
           </article>
           <article class="panel dictionary-panel">
-            <div class="section-heading"><div><p class="section-kicker">07 · 中文字段字典</p><h2>变量是什么意思</h2></div><span id="dictionary-count" class="count-tag"></span></div>
+            <div class="section-heading"><div><p class="section-kicker">09 · 中文字段字典</p><h2>变量是什么意思</h2></div><span id="dictionary-count" class="count-tag"></span></div>
             <div class="table-wrap"><table id="dictionary-table"><thead><tr><th>字段名</th><th>中文标注</th><th>数据类型</th><th>科研用途</th><th>说明</th></tr></thead><tbody></tbody></table></div>
           </article>
         </section>
 
         <section class="panel">
-          <div class="section-heading"><div><p class="section-kicker">08 · 数据溯源</p><h2>每个来源都能回到官方地址</h2></div><span id="source-count" class="count-tag"></span></div>
+          <div class="section-heading"><div><p class="section-kicker">10 · 数据溯源</p><h2>每个来源都能回到官方地址</h2></div><span id="source-count" class="count-tag"></span></div>
           <div class="lineage-panel">
             <div class="lineage-heading">
               <div><strong>科研问题 → 多源检索 → 主科研数据集</strong><span>连线表示检索与选择关系，不表示跨患者拼接</span></div>
@@ -277,9 +289,9 @@
         </section>
 
         <section id="competition-report" class="panel competition-panel">
-          <div class="section-heading"><div><p class="section-kicker">09 · 比赛对齐与消融</p><h2>按赛道二方向1A展示可核验改进</h2></div><span id="competition-direction" class="count-tag"></span></div>
+          <div class="section-heading"><div><p class="section-kicker">11 · 统一评价与科研适用性</p><h2>模型、横向结果与分层结果</h2></div><span id="competition-direction" class="count-tag"></span></div>
           <p id="competition-summary" class="section-note"></p>
-          <div id="competition-metrics" class="competition-metrics" aria-label="比赛对齐指标"></div>
+          <div id="competition-metrics" class="competition-metrics" aria-label="统一评价指标"></div>
           <article class="unified-evaluation">
             <div class="unified-heading">
               <div><h3>统一评价体系 v2</h3><span id="unified-evaluation-status">—</span></div>
@@ -314,40 +326,13 @@
               <div class="table-wrap"><table id="stratified-table"><thead><tr><th>分层</th><th>取值</th><th>n</th><th>指标</th><th>Gate</th><th>说明</th></tr></thead><tbody></tbody></table></div>
             </article>
           </article>
-          <div class="competition-grid">
-            <article>
-              <h3>RAG 流程可视化</h3>
-              <div id="rag-flow-visual" class="rag-flow-visual" aria-label="混合 RAG 流程可视化"></div>
-              <div id="rag-layer-list" class="rag-layer-list"></div>
-            </article>
-            <article>
-              <h3>知识图谱可视化</h3>
-              <div id="knowledge-graph-visual" class="kg-visual" aria-label="知识图谱可视化"></div>
-              <div id="knowledge-graph-summary" class="kg-summary"></div>
-            </article>
-          </div>
-          <article class="rag-matching">
-            <div class="rag-matching-heading"><div><h3>RAG 库匹配可视化</h3><span>展示候选数据库为什么匹配当前科研问题，以及哪些库已经进入本次结果</span></div><strong id="rag-matching-status">—</strong></div>
-            <div id="rag-matching-summary" class="rag-matching-summary"></div>
-            <div id="rag-matching-visual" class="rag-matching-visual" aria-label="RAG 候选数据库匹配热力图"></div>
-            <p class="rag-matching-note">匹配分是基于候选检索相关度、疾病语义、分子数据、治疗字段、结局字段、数据类型和公开访问的任务级诊断分，不是官方 Gold Set 或 SDTI 成绩。</p>
-          </article>
           <article class="scientific-usability">
             <div class="scientific-heading"><div><h3>科研适用性初步分析</h3><span>用缺失率、类别平衡、相关性/关联分析说明数据是否值得继续做科研建模</span></div><strong id="scientific-usability-status">—</strong></div>
             <div id="scientific-usability-summary" class="scientific-summary"></div>
             <div id="scientific-usability-findings" class="scientific-findings"></div>
             <ul id="scientific-usability-caveats" class="message-list scientific-caveats"></ul>
           </article>
-          <div class="table-wrap ablation-wrap">
-            <table id="ablation-table">
-              <thead><tr><th>消融设置</th><th>移除模块</th><th>预期影响</th><th>当前观测</th><th>说明</th></tr></thead>
-              <tbody></tbody>
-            </table>
-          </div>
-          <div class="competition-grid competition-lists">
-            <article><h3>改善亮点</h3><ul id="improvement-list" class="message-list recommendation-list"></ul></article>
-            <article><h3>提交核验</h3><ul id="submission-checklist" class="message-list cleaning-list"></ul></article>
-          </div>
+          <div class="evaluation-footnote"><strong>正式成绩状态</strong><span>模型对比、横向对比和分层对比中的未实测项保持待评测；不生成虚假 benchmark 分数。</span></div>
         </section>
       </div>
     </main>

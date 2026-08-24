@@ -17,6 +17,7 @@ from backend.app.agent.models import (
     AgentToolCall,
 )
 from backend.app.agent.qwen_client import QwenClient, QwenClientError
+from backend.app.agent.study_design import StudyDesignBuilder
 from backend.app.models import (
     CandidateSource,
     ResearchSpec,
@@ -82,6 +83,7 @@ class ResearchAgentService:
         self.civic = civic_adapter or CIViCAdapter()
         self.dataset_builder = dataset_builder or ResearchDatasetBuilder()
         self.competition_report_builder = CompetitionReportBuilder()
+        self.study_design_builder = StudyDesignBuilder()
         self._results: dict[str, AgentTaskResult] = {}
         self._lock = threading.Lock()
 
@@ -274,6 +276,19 @@ class ResearchAgentService:
             readiness=readiness,
             summary_zh=summary,
             created_at=created_at,
+        )
+        study_design, cohort_construction = self.study_design_builder.build(
+            spec,
+            dataset,
+            readiness,
+            self._deduplicate_candidates(candidates),
+            self._deduplicate_sources(source_items),
+        )
+        result = result.model_copy(
+            update={
+                "study_design": study_design,
+                "cohort_construction": cohort_construction,
+            }
         )
         result = result.model_copy(update={"competition_report": self.competition_report_builder.build(result)})
         with self._lock:

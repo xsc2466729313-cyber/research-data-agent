@@ -76,9 +76,6 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "暂停动画" in response.text
     assert "含原始信息" in response.text
     assert "标准化中文值" in response.text
-    assert "API · 开发者入口" in response.text
-    assert "发送 API 请求" in response.text
-    assert "复制 cURL" in response.text
     assert "连接千问 API" in response.text
     assert "从百炼凭据 CSV 导入" in response.text
     assert "测试连接并启用" in response.text
@@ -88,14 +85,15 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "下载 CSV" in response.text
     assert "下载 Parquet" in response.text
     assert "下载 Excel" in response.text
-    assert "比赛对齐与消融" in response.text
-    assert "RAG 流程可视化" in response.text
-    assert "RAG 库匹配可视化" in response.text
-    assert "知识图谱可视化" in response.text
+    assert "先明确研究需要什么数据" in response.text
+    assert "每一步筛选都能解释清楚" in response.text
+    assert "统一评价与科研适用性" in response.text
+    assert "模型、横向结果与分层结果" in response.text
+    assert "study-design" in response.text
+    assert "cohort-construction" in response.text
     assert "科研适用性初步分析" in response.text
-    assert "消融设置" in response.text
-    assert "提交核验" in response.text
-    assert "比赛对齐结果" in response.text
+    assert "比赛对齐" not in response.text
+    assert "API · 开发者入口" not in response.text
     assert "competition-spotlight" in response.text
 
     script = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
@@ -115,9 +113,6 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "updateLineageInteraction" in script
     assert "renderRawCharacteristics" in script
     assert "openRawCharacteristicsDialog" in script
-    assert "sendApiConsoleRequest" in script
-    assert "buildCurlCommand" in script
-    assert "validateApiPath" in script
     assert "connectQwenSession" in script
     assert "importQwenCredentialCsv" in script
     assert "qwen_session_id" in script
@@ -129,14 +124,13 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "renderEvaluationFlow" in script
     assert "renderModelComparisonVisual" in script
     assert "renderStratifiedVisual" in script
-    assert "renderRagFlow" in script
-    assert "renderRagMatching" in script
-    assert "renderKnowledgeGraph" in script
     assert "renderScientificUsability" in script
+    assert "renderStudyDesign" in script
+    assert "renderCohortConstruction" in script
+    assert "study-design-summary" in script
+    assert "cohort-funnel" in script
     assert "competition-spotlight" in script
     assert "内部综合诊断分" in script
-    assert "知识图谱" in script
-    assert "消融实验" in script
     assert "association-meter" in script
     assert "scientific-usability-findings" in script
 

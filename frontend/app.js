@@ -397,7 +397,6 @@ function renderTemporaryQwenConnection(session) {
   document.querySelector("#qwen-open-config").textContent = "更换千问 API";
   document.querySelector("#qwen-disconnect").hidden = false;
   document.querySelector("#use-qwen").checked = true;
-  applyApiPreset(document.querySelector("#api-preset").value);
 }
 
 async function connectQwenSession(event) {
@@ -444,7 +443,6 @@ async function disconnectQwenSession() {
   document.querySelector("#qwen-disconnect").hidden = true;
   document.querySelector("#qwen-open-config").textContent = "连接千问 API";
   await checkConfiguration();
-  applyApiPreset(document.querySelector("#api-preset").value);
   showToast("临时千问连接已清除");
 }
 
@@ -506,108 +504,12 @@ function renderResult(result) {
   renderCandidates(result.candidate_sources);
   renderDataset(result.modeling_dataset);
   renderReadiness(result.readiness, result.modeling_dataset, result.source_items, result.candidate_sources);
+  renderStudyDesign(result.study_design, result.modeling_dataset);
+  renderCohortConstruction(result.cohort_construction);
   renderDictionary(result.modeling_dataset.columns);
   renderSources(result.source_items, result.candidate_sources, result.modeling_dataset);
   renderCompetitionReport(result.competition_report);
-  if (document.querySelector("#api-preset").value === "task-result") applyApiPreset("task-result");
 }
-
-const API_PRESETS = {
-  "create-task": { method: "POST", path: "/api/agent/tasks", body: () => buildAgentTaskPayload() },
-  configuration: { method: "GET", path: "/api/agent/configuration" },
-  "task-result": { method: "GET", path: () => state.result ? `/api/agent/tasks/${state.result.task_id}` : "/api/agent/tasks/{task_id}" },
-  health: { method: "GET", path: "/health" },
-};
-
-function applyApiPreset(presetName = document.querySelector("#api-preset").value) {
-  const preset = API_PRESETS[presetName];
-  const method = preset.method;
-  const path = typeof preset.path === "function" ? preset.path() : preset.path;
-  const body = typeof preset.body === "function" ? preset.body() : null;
-  document.querySelector("#api-method").textContent = method;
-  document.querySelector("#api-endpoint").value = path;
-  const editor = document.querySelector("#api-request-body");
-  editor.disabled = method === "GET";
-  editor.value = body ? JSON.stringify(body, null, 2) : "";
-}
-
-function validateApiPath(path) {
-  if (path === "/health" || path.startsWith("/api/")) return path;
-  throw new Error("仅允许调用当前站点的 /health 或 /api/ 接口。");
-}
-
-async function sendApiConsoleRequest() {
-  const sendButton = document.querySelector("#api-send");
-  const status = document.querySelector("#api-response-status");
-  const output = document.querySelector("#api-response-output");
-  const method = document.querySelector("#api-method").textContent.trim();
-  const path = validateApiPath(document.querySelector("#api-endpoint").value.trim());
-  if (path.includes("{task_id}")) throw new Error("请先创建科研任务，再读取当前任务结果。");
-  const options = { method, headers: { Accept: "application/json" } };
-  if (method === "POST") {
-    const payload = JSON.parse(document.querySelector("#api-request-body").value || "{}");
-    options.headers["Content-Type"] = "application/json";
-    options.body = JSON.stringify(payload);
-  }
-  sendButton.disabled = true;
-  status.textContent = "请求中";
-  status.className = "status-badge is-review";
-  output.textContent = "正在等待服务器响应…";
-  const startedAt = performance.now();
-  try {
-    const response = await fetch(path, options);
-    const data = await response.json().catch(() => ({ message: "服务器没有返回 JSON。" }));
-    const elapsed = Math.round(performance.now() - startedAt);
-    output.textContent = JSON.stringify(data, null, 2);
-    status.textContent = `HTTP ${response.status} · ${elapsed} ms`;
-    status.className = `status-badge ${response.ok ? "is-success" : "is-error"}`;
-    if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : `请求失败（HTTP ${response.status}）`);
-    if (method === "POST" && path === "/api/agent/tasks" && data.task_id) {
-      state.result = data;
-      renderResult(data);
-      resultsPanel.hidden = false;
-    }
-  } finally {
-    sendButton.disabled = false;
-  }
-}
-
-function buildCurlCommand() {
-  const method = document.querySelector("#api-method").textContent.trim();
-  const path = validateApiPath(document.querySelector("#api-endpoint").value.trim());
-  let command = `curl -X ${method} '${window.location.origin}${path}' -H 'Accept: application/json'`;
-  if (method === "POST") {
-    const normalizedBody = JSON.stringify(JSON.parse(document.querySelector("#api-request-body").value || "{}"));
-    command += ` -H 'Content-Type: application/json' -d '${normalizedBody.replaceAll("'", "'\\\"'\\\"'")}'`;
-  }
-  return command;
-}
-
-document.querySelector("#api-preset").addEventListener("change", (event) => applyApiPreset(event.target.value));
-document.querySelector("#api-load-question").addEventListener("click", () => {
-  document.querySelector("#api-preset").value = "create-task";
-  applyApiPreset("create-task");
-});
-document.querySelector("#api-copy-curl").addEventListener("click", async () => {
-  try {
-    await navigator.clipboard.writeText(buildCurlCommand());
-    showToast("cURL 命令已复制");
-  } catch (error) {
-    document.querySelector("#api-response-output").textContent = error.message;
-  }
-});
-document.querySelector("#api-send").addEventListener("click", async () => {
-  try {
-    await sendApiConsoleRequest();
-  } catch (error) {
-    const status = document.querySelector("#api-response-status");
-    status.textContent = "请求失败";
-    status.className = "status-badge is-error";
-    if (document.querySelector("#api-response-output").textContent === "正在等待服务器响应…") document.querySelector("#api-response-output").textContent = error.message;
-  }
-});
-
-applyApiPreset("create-task");
 
 function renderSpec(spec) {
   const cards = [
@@ -802,6 +704,117 @@ function renderModelMetricComparison(report) {
   <tr class="is-primary"><td><strong>综合诊断均值</strong></td><td>${precisePercent(average)}</td><td>正式模型当前可观测效果</td></tr>
   <tr><td><strong>普通 LLM / 单源 / 消融</strong></td><td>待实测</td><td>同一 Gold Set 上填入真实结果后再对比</td></tr></tbody></table>
   <p>说明：正式模型行来自本次任务的真实可观测结果；其他配置必须在同一 Gold Set 上实际运行后填入，不自动生成比较分数。以上不是 Gold Set 官方 Precision/Recall/SDTI 成绩。</p>`;
+}
+
+function renderStudyDesign(report, dataset) {
+  const status = document.querySelector("#study-design-status");
+  const summary = document.querySelector("#study-design-summary");
+  const expression = document.querySelector("#study-model-expression");
+  const rules = document.querySelector("#study-cohort-rules");
+  const coverage = document.querySelector("#study-variable-coverage");
+  const variableBody = document.querySelector("#study-variable-table tbody");
+  const sources = document.querySelector("#study-source-recommendations");
+  const limitations = document.querySelector("#study-design-limitations");
+  if (!status || !summary || !expression || !rules || !coverage || !variableBody || !sources || !limitations) return;
+  if (!report) {
+    status.textContent = "待生成";
+    status.className = "status-badge is-review";
+    summary.innerHTML = '<p class="muted-visual">当前任务没有返回研究设计报告。</p>';
+    expression.textContent = "—";
+    rules.innerHTML = "";
+    coverage.innerHTML = "";
+    variableBody.innerHTML = "";
+    sources.innerHTML = "";
+    limitations.innerHTML = "";
+    return;
+  }
+  status.textContent = report.status || "已生成";
+  status.className = `status-badge ${statusClass(report.status)}`;
+  const cards = [
+    ["研究类型", `${report.research_type || "—"} · ${report.research_type_id || "—"}`],
+    ["研究人群", report.population],
+    ["核心暴露", report.exposure],
+    ["研究结局", report.outcome],
+    ["协变量", (report.covariates || []).join("、") || "未指定"],
+    ["分析单位", report.analysis_unit || dataset?.unit_of_analysis || "—"],
+  ];
+  summary.innerHTML = cards.map(([label, value]) => `<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(localizeNarrative(value))}</strong></article>`).join("");
+  expression.textContent = localizeNarrative(report.model_expression || "—");
+  rules.innerHTML = (report.cohort_rules || []).map((rule) => `<li>${escapeHtml(localizeNarrative(rule))}</li>`).join("");
+  const variables = report.required_variables || [];
+  const available = variables.filter((variable) => variable.available).length;
+  const required = variables.filter((variable) => variable.required).length;
+  coverage.innerHTML = `<strong>${report.variable_coverage_rate == null ? "待计算" : `${(report.variable_coverage_rate * 100).toFixed(1)}%`}</strong><span>当前字段覆盖 · ${available}/${variables.length} 个字段可见，必需变量 ${required} 个</span>`;
+  variableBody.innerHTML = variables.length ? variables.map((variable) => `<tr>
+    <td><strong>${escapeHtml(variable.label)}</strong><small>${escapeHtml(variable.variable_id)}</small></td>
+    <td>${escapeHtml(variable.role)}</td>
+    <td><span class="status-badge ${variable.required ? "is-review" : ""}">${variable.required ? "是" : "建议"}</span></td>
+    <td><span class="status-badge ${variable.available ? "is-success" : "is-error"}">${variable.available ? "可用" : "缺失"}</span></td>
+    <td>${escapeHtml((variable.matched_fields || []).join("、") || "—")}</td>
+    <td>${escapeHtml(localizeNarrative(variable.note))}</td>
+  </tr>`).join("") : '<tr><td colspan="6" class="muted-cell">尚未形成变量协议。</td></tr>';
+  sources.innerHTML = (report.data_source_recommendations || []).map((source) => `<article class="${source.selected ? "is-selected" : ""}">
+    <div><strong>${escapeHtml(source.database)}</strong><span class="status-badge ${source.selected ? "is-success" : statusClass(source.availability)}">${escapeHtml(source.availability)}</span></div>
+    <p>${escapeHtml(localizeNarrative(source.purpose))}</p>
+    <small>${escapeHtml((source.data_domains || []).join(" · "))}</small>
+    <em>${escapeHtml(localizeNarrative(source.note))}</em>
+  </article>`).join("");
+  limitations.innerHTML = (report.limitations || []).map((item) => `<li>${escapeHtml(localizeNarrative(item))}</li>`).join("");
+}
+
+function renderCohortConstruction(report) {
+  const gate = document.querySelector("#cohort-gate");
+  const count = document.querySelector("#cohort-count");
+  const summary = document.querySelector("#cohort-summary-cards");
+  const funnel = document.querySelector("#cohort-funnel");
+  const inclusion = document.querySelector("#cohort-inclusion-list");
+  const exclusion = document.querySelector("#cohort-exclusion-list");
+  const body = document.querySelector("#cohort-step-table tbody");
+  const notes = document.querySelector("#cohort-notes");
+  if (!gate || !count || !summary || !funnel || !inclusion || !exclusion || !body || !notes) return;
+  if (!report) {
+    gate.textContent = "待构建";
+    gate.className = "status-badge is-review";
+    count.textContent = "无队列";
+    summary.innerHTML = "";
+    funnel.innerHTML = '<p class="muted-visual">运行真实数据任务后显示实际筛选计数。</p>';
+    inclusion.innerHTML = "";
+    exclusion.innerHTML = "";
+    body.innerHTML = "";
+    notes.innerHTML = "";
+    return;
+  }
+  gate.textContent = report.quality_gate || "REVIEW";
+  gate.className = `status-badge ${statusClass(report.quality_gate)}`;
+  count.textContent = `${report.final_row_count || 0} 行最终队列`;
+  summary.innerHTML = [
+    ["来源行数", report.source_row_count],
+    ["最终队列", report.final_row_count],
+    ["患者数", report.patient_count],
+    ["样本数", report.sample_count],
+    ["变量覆盖", report.variable_coverage_rate == null ? "待计算" : `${(report.variable_coverage_rate * 100).toFixed(1)}%`],
+    ["患者 Linkage F1", report.patient_linkage_f1 == null ? "未评测" : report.patient_linkage_f1.toFixed(3)],
+  ].map(([label, value]) => `<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join("");
+  const steps = report.filter_steps || [];
+  const maxCount = Math.max(1, ...steps.map((step) => Number(step.before_count || 0)));
+  funnel.innerHTML = steps.map((step, index) => {
+    const width = Math.max(3, Number(step.after_count || 0) / maxCount * 100);
+    return `<article class="cohort-funnel-step ${step.status === "待复核" ? "is-review" : ""}">
+      <div class="cohort-funnel-label"><span>${String(index + 1).padStart(2, "0")} · ${escapeHtml(step.label)}</span><strong>${escapeHtml(step.after_count)} / ${escapeHtml(step.before_count)}</strong></div>
+      <div class="cohort-funnel-track" role="img" aria-label="${escapeHtml(step.label)} 保留 ${escapeHtml(step.after_count)} 条"><i style="width:${width.toFixed(1)}%"></i></div>
+      <small>排除 ${escapeHtml(step.excluded_count)} · ${escapeHtml(step.status)}</small>
+    </article>`;
+  }).join("");
+  inclusion.innerHTML = (report.inclusion_criteria || []).map((item) => `<li>${escapeHtml(localizeNarrative(item))}</li>`).join("");
+  exclusion.innerHTML = (report.exclusion_criteria || []).map((item) => `<li>${escapeHtml(localizeNarrative(item))}</li>`).join("");
+  body.innerHTML = steps.map((step) => `<tr>
+    <td><strong>${escapeHtml(step.label)}</strong><small>${escapeHtml(step.step_id)}</small></td>
+    <td>${escapeHtml(step.rule_type)}</td><td>${escapeHtml(localizeNarrative(step.criterion))}</td>
+    <td>${escapeHtml(step.before_count)}</td><td>${escapeHtml(step.after_count)}</td><td>${escapeHtml(step.excluded_count)}</td>
+    <td><span class="status-badge ${statusClass(step.status)}">${escapeHtml(step.status)}</span></td>
+    <td>${escapeHtml(localizeNarrative(step.note))}</td>
+  </tr>`).join("");
+  notes.innerHTML = (report.notes || []).map((item) => `<li>${escapeHtml(localizeNarrative(item))}</li>`).join("");
 }
 
 function renderReadiness(readiness, dataset, sources, candidates) {
@@ -1092,16 +1105,7 @@ function renderCompetitionReport(report) {
     const detail = metric.target ? `${metric.detail} 目标：${metric.target}` : metric.detail;
     return `<article class="competition-metric"><span>${escapeHtml(metric.name)}</span><strong>${escapeHtml(metric.display_value)}</strong><em class="${statusClass(metric.status)}">${escapeHtml(metric.status)}</em><p>${escapeHtml(localizeNarrative(detail))}</p></article>`;
   }).join("");
-  renderRagFlow(report.rag_flow_nodes || [], report.rag_flow_edges || []);
-  document.querySelector("#rag-layer-list").innerHTML = (report.rag_layers || []).map((layer) => `<div class="rag-layer"><span>${escapeHtml(layer.layer)}</span><strong>${escapeHtml(layer.implementation)}</strong><p>${escapeHtml(layer.why_it_matters)}</p><small>${escapeHtml(layer.observable_effect)}</small></div>`).join("");
-  renderRagMatching(report.rag_matches || []);
-  const graph = report.knowledge_graph || {};
-  renderKnowledgeGraph(report.graph_nodes || [], report.graph_edges || [], graph);
-  document.querySelector("#knowledge-graph-summary").innerHTML = `<div><span>节点</span><strong>${escapeHtml(graph.node_count ?? 0)}</strong></div><div><span>边</span><strong>${escapeHtml(graph.edge_count ?? 0)}</strong></div><div><span>实体类型</span><strong>${escapeHtml((graph.entity_types || []).join("、") || "暂无")}</strong></div><div><span>关系类型</span><strong>${escapeHtml((graph.relation_types || []).join("、") || "暂无")}</strong></div><p>${escapeHtml(graph.note || "尚未形成知识图谱摘要。")}</p>`;
   renderScientificUsability(report.scientific_usability);
-  document.querySelector("#ablation-table tbody").innerHTML = (report.ablation_rows || []).map((row) => `<tr><td>${escapeHtml(row.variant)}</td><td>${escapeHtml(row.removed_component)}</td><td>${escapeHtml(row.expected_effect)}</td><td>${escapeHtml(row.observed_effect)}</td><td>${escapeHtml(row.note)}</td></tr>`).join("");
-  document.querySelector("#improvement-list").innerHTML = (report.improvement_highlights || []).map((item) => `<li>${escapeHtml(localizeNarrative(item))}</li>`).join("");
-  document.querySelector("#submission-checklist").innerHTML = (report.submission_checklist || []).map((item) => `<li><strong>${escapeHtml(item.label)} · ${escapeHtml(item.status)}</strong><br><span>${escapeHtml(item.detail)}</span></li>`).join("");
 }
 
 function renderRagFlow(nodes, edges) {
