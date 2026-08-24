@@ -85,7 +85,7 @@ def test_live_run_only_fills_the_model_backed_by_current_session() -> None:
     plus = next(row for row in updated.model_rows if row.model_id == "qwen-plus")
     max_row = next(row for row in updated.model_rows if row.model_id == "qwen-max")
     assert plus.status == "已完成"
-    assert plus.metrics["结构化解析通过"] == 1
+    assert plus.metrics["结构化完整率"] == 1
     assert max_row.status == "待实测"
     assert not max_row.metrics
     assert "独立会话" in max_row.note
@@ -146,5 +146,6 @@ def test_multi_provider_run_fills_each_connected_target() -> None:
 
     assert {row.provider for row in updated.model_rows} == {"qwen", "deepseek"}
     assert all(row.status == "已完成" for row in updated.model_rows)
-    assert all("综合可观察分" in row.metrics for row in updated.model_rows)
+    assert all("结构化完整率" in row.metrics for row in updated.model_rows)
+    assert all("问题要素覆盖率" in row.metrics for row in updated.model_rows)
     assert "已连接 2/2" in updated.summary_zh

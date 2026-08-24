@@ -140,8 +140,8 @@ class CompetitionReportBuilder:
         summary = (
             f"当前任务围绕 {result.research_spec.research_goal} 形成了可追溯的科研数据集，"
             f"联通 {len(databases)} 类来源，输出 {dataset.row_count} 行数据与 {len(dataset.columns)} 个字段；"
-            f"内部综合诊断分为 {diagnostic_score:.1f}；统一评价体系 v2 已生成模型对比、"
-            "横向对比和分层对比矩阵，未实测 baseline 保持待评测。"
+            f"内部综合诊断分为 {diagnostic_score:.1f}；统一评价体系 v2 已生成任务级诊断和"
+            "分层审计框架，模型横向对比需在独立评价页完成同口径批量实测。"
         )
         return CompetitionAlignmentReport(
             competition_name="2026年度中国青年科技创新揭榜挂帅擂台赛",
@@ -278,10 +278,10 @@ class CompetitionReportBuilder:
         )
         return UnifiedEvaluationReport(
             version="v2",
-            status="已接入当前科研任务；外部 benchmark 与未运行模型保持待实测",
+            status="未运行横向评价；当前仅有任务级诊断",
             no_fake_scores_notice=(
-                "仅 Full Agent 当前任务行使用本次真实可观测结果；未运行的 baseline、"
-                "其他模型和 Gold Set SDTI 一律不填推测分数。"
+                "当前任务级科研适配度不等于模型横向分数。未使用同一 Evaluation Contract "
+                "批量运行至少两个模型/变体前，不生成模型排名或横向柱状图。"
             ),
             layers=[
                 UnifiedEvaluationLayer(
@@ -456,46 +456,9 @@ class CompetitionReportBuilder:
         publish_allowed: bool,
         observed: dict[str, float | str | None],
     ) -> list[ModelComparisonRow]:
-        variants = [
-            ("rule_keyword", "规则/关键词基线", None),
-            ("qwen_only", "仅千问解析", result.model_name if result.used_qwen else None),
-            ("single_source_agent", "单源智能体", result.model_name if result.used_qwen else None),
-            ("multi_source_no_gate", "多源无门控", result.model_name if result.used_qwen else None),
-            ("full_agent", "完整科研智能体", result.model_name if result.used_qwen else None),
-        ]
-        rows: list[ModelComparisonRow] = []
-        for method_id, label, model in variants:
-            if method_id == current_method:
-                rows.append(
-                    ModelComparisonRow(
-                        method_id=method_id,
-                        method_label=label,
-                        base_model_id=model,
-                        status="当前任务真实运行",
-                        sdti_status="NOT_EVALUATED",
-                        fitness_score=fitness.fitness_score,
-                        quality_gate=quality_gate,
-                        publish_allowed=publish_allowed,
-                        observed_metrics=observed,
-                        note="来自本次科研任务的真实可观测指标；未运行冻结 Gold Set，SDTI 不评测。",
-                    )
-                )
-            else:
-                rows.append(
-                    ModelComparisonRow(
-                        method_id=method_id,
-                        method_label=label,
-                        base_model_id=model,
-                        status="待同任务实测",
-                        sdti_status="NOT_EVALUATED",
-                        fitness_score=None,
-                        quality_gate="REVIEW",
-                        publish_allowed=False,
-                        observed_metrics={},
-                        note="需使用同一 Evaluation Contract、同一数据范围和同一脚本重跑后填入。",
-                    )
-                )
-        return rows
+        # A single task result is a task-level observation, not a model comparison.
+        # The independent model-evaluation page creates the required batch artifact.
+        return []
 
     @staticmethod
     def _horizontal_tables(
@@ -512,38 +475,17 @@ class CompetitionReportBuilder:
             HorizontalComparisonTable(
                 table_id="task_fitness_by_variant",
                 title="当前科研任务模型横向对比",
-                status="当前方法已填真实值，其余待同任务实测",
+                status="未运行横向评价",
                 columns=["方法", "基础模型", "科研适配度", "质量门", "SDTI状态", "说明"],
-                rows=[
-                    {
-                        "method": row.method_label,
-                        "base_model": row.base_model_id or "N/A",
-                        "fitness": row.fitness_score,
-                        "quality_gate": row.quality_gate,
-                        "sdti_status": row.sdti_status,
-                        "note": row.note,
-                    }
-                    for row in model_comparison
-                ],
-                note="横向表不填推测 baseline 分数；只展示本次真实运行和待实测槽位。",
+                rows=[],
+                note="当前任务级科研适配度已单独展示；需在独立模型评价页用同一批问题完成至少两个真实目标后，才形成横向表。",
             ),
             HorizontalComparisonTable(
                 table_id="sdti_goldset_by_variant",
                 title="冻结 Gold Set / SDTI 横向对比",
                 status="NOT_EVALUATED",
                 columns=["方法", "检索F1", "忠实度", "可追溯性", "错误F1", "修复准确率", "SDTI"],
-                rows=[
-                    {
-                        "method": row.method_label,
-                        "retrieval_f1": None,
-                        "faithfulness": None,
-                        "traceability": None,
-                        "error_f1": None,
-                        "repair_accuracy": None,
-                        "sdti": None,
-                    }
-                    for row in model_comparison
-                ],
+                rows=[],
                 note="项目 Gold Set 尚未随本次任务提供，所有 SDTI 指标必须保持空值。",
             ),
             HorizontalComparisonTable(

@@ -17,6 +17,8 @@ from backend.app.agent.models import (
     CompetitionRagMatch,
     CompetitionVisualEdge,
     CompetitionVisualNode,
+    DataAlignmentReport,
+    DataAlignmentSource,
     ScientificUsabilityAnalysis,
     ScientificUsabilityFinding,
     StudyDesignReport,
@@ -29,6 +31,7 @@ from backend.app.agent.session_registry import QwenSessionRegistry
 from backend.app.agent.competition_report import CompetitionReportBuilder
 from backend.app.agent.study_design import StudyDesignBuilder
 from backend.app.agent.api_check import ApiCheckRequest, ApiCheckResult, ApiCheckService
+from backend.app.agent.collection_agent import CollectionAgent
 from backend.app.agent.model_evaluation_agent import (
     ModelComparisonReport,
     ModelEvaluationGenerateRequest,
@@ -53,6 +56,7 @@ __all__ = [
     "ApiCheckRequest",
     "ApiCheckResult",
     "ApiCheckService",
+    "CollectionAgent",
     "CohortConstructionReport",
     "CohortFilterStep",
     "CompetitionAlignmentReport",
@@ -67,6 +71,8 @@ __all__ = [
     "CompetitionRagMatch",
     "CompetitionVisualEdge",
     "CompetitionVisualNode",
+    "DataAlignmentReport",
+    "DataAlignmentSource",
     "CompetitionReportBuilder",
     "ScientificUsabilityAnalysis",
     "ScientificUsabilityFinding",

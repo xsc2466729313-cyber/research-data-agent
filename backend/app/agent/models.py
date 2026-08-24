@@ -19,9 +19,13 @@ class AgentTaskRequest(ApiModel):
     use_qwen: bool = True
     allow_deterministic_fallback: bool = True
     data_mode: AgentDataMode = AgentDataMode.LIVE
-    preferred_sources: list[str] = Field(default_factory=list, max_length=5)
-    max_sources: int = Field(default=5, ge=1, le=5)
+    preferred_sources: list[str] = Field(default_factory=list, max_length=20)
+    # This is a budget for retrieval entries, not the number of database
+    # types. One task may inspect several GEO accessions or cBioPortal studies.
+    max_sources: int = Field(default=8, ge=1, le=20)
     max_records: int = Field(default=10_000, ge=10, le=10_000)
+    iterative_collection: bool = True
+    max_collection_rounds: int = Field(default=3, ge=1, le=5)
     qwen_session_id: str | None = Field(default=None, min_length=20, max_length=100)
 
 
@@ -193,6 +197,105 @@ class CohortConstructionReport(ApiModel):
     notes: list[str] = Field(default_factory=list)
 
 
+class CollectionFieldEvidence(ApiModel):
+    source_name: str
+    source_id: str | None = None
+    status: str
+    matched_fields: list[str] = Field(default_factory=list)
+    note: str
+
+
+class CollectionGap(ApiModel):
+    variable_id: str
+    label: str
+    role: str
+    required: bool
+    coverage_rate: float | None = Field(default=None, ge=0, le=1)
+    matched_fields: list[str] = Field(default_factory=list)
+    reason: str
+    suggested_sources: list[str] = Field(default_factory=list)
+    field_evidence: list[CollectionFieldEvidence] = Field(default_factory=list)
+
+
+class CollectionSearchAction(ApiModel):
+    action_id: str
+    tool_name: str
+    source_name: str
+    priority: int = Field(ge=1, le=10)
+    rationale: str
+    status: str
+    arguments: dict[str, Any] = Field(default_factory=dict)
+
+
+class CollectionIteration(ApiModel):
+    round_number: int = Field(ge=1)
+    phase: str
+    status: str
+    quality_gate: str
+    source_names: list[str] = Field(default_factory=list)
+    source_count: int = Field(ge=0)
+    row_count: int = Field(ge=0)
+    column_count: int = Field(ge=0)
+    available_fields: list[str] = Field(default_factory=list)
+    missing_critical_fields: list[str] = Field(default_factory=list)
+    missing_recommended_fields: list[str] = Field(default_factory=list)
+    actions: list[str] = Field(default_factory=list)
+    field_evidence: list[CollectionFieldEvidence] = Field(default_factory=list)
+    note: str
+
+
+class CollectionAgentReport(ApiModel):
+    enabled: bool = True
+    status: str
+    quality_gate: str
+    max_rounds: int = Field(ge=1)
+    completed_rounds: int = Field(ge=0)
+    iterations: list[CollectionIteration] = Field(default_factory=list)
+    critical_gaps: list[CollectionGap] = Field(default_factory=list)
+    recommended_gaps: list[CollectionGap] = Field(default_factory=list)
+    next_actions: list[CollectionSearchAction] = Field(default_factory=list)
+    source_coverage: dict[str, str] = Field(default_factory=dict)
+    note: str
+
+
+class DataAlignmentSource(ApiModel):
+    source_id: str
+    source_name: str
+    source_type: str
+    accession: str | None = None
+    url: str | None = None
+    role: str
+    row_count: int = Field(ge=0)
+    patient_count: int = Field(ge=0)
+    sample_count: int = Field(ge=0)
+    study_ids: list[str] = Field(default_factory=list)
+    note: str
+
+
+class DataAlignmentReport(ApiModel):
+    status: str
+    scope: str
+    identity_namespace: str
+    alignment_basis: list[str] = Field(default_factory=list)
+    row_count: int = Field(ge=0)
+    patient_count: int = Field(ge=0)
+    sample_count: int = Field(ge=0)
+    study_count: int = Field(ge=0)
+    source_count: int = Field(ge=0)
+    patient_id_coverage_rate: float | None = Field(default=None, ge=0, le=1)
+    sample_id_coverage_rate: float | None = Field(default=None, ge=0, le=1)
+    same_study: bool | None = None
+    same_source: bool | None = None
+    unresolved_identity_row_count: int = Field(ge=0)
+    duplicate_identity_count: int = Field(ge=0)
+    cross_source_join_performed: bool = False
+    cross_source_join_status: str
+    primary_source_names: list[str] = Field(default_factory=list)
+    sources: list[DataAlignmentSource] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+    note: str
+
+
 class AgentTaskResult(ApiModel):
     task_id: str
     status: str
@@ -210,6 +313,8 @@ class AgentTaskResult(ApiModel):
     readiness: AnalysisReadinessReport
     study_design: StudyDesignReport | None = None
     cohort_construction: CohortConstructionReport | None = None
+    collection_agent: CollectionAgentReport | None = None
+    data_alignment: DataAlignmentReport | None = None
     competition_report: "CompetitionAlignmentReport | None" = None
     summary_zh: str
     created_at: datetime

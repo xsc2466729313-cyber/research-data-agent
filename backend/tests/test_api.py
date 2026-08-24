@@ -64,7 +64,7 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert response.status_code == 200
     assert "千问驱动" in response.text
     assert "输入你真正想研究的问题" in response.text
-    assert "规划与真实工具调用" in response.text
+    assert "规划与真实检索入口" in response.text
     assert "科研数据集" in response.text
     assert "可科研性检查" in response.text
     assert "研究结局分布" in response.text
@@ -87,14 +87,22 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "下载 Excel" in response.text
     assert "先明确研究需要什么数据" in response.text
     assert "每一步筛选都能解释清楚" in response.text
-    assert "统一评价与科研适用性" in response.text
-    assert "模型、横向结果与分层结果" in response.text
+    assert "模型评价中心 ↗" in response.text
+    assert "数据统一与身份对齐" in response.text
+    assert "患者编号能不能安全对上" in response.text
+    assert "统一评价与科研适用性" not in response.text
+    assert "模型、横向结果与分层结果" not in response.text
     assert "study-design" in response.text
     assert "cohort-construction" in response.text
-    assert "科研适用性初步分析" in response.text
+    assert "模型评价中心" not in response.text.split("</header>", 1)[1]
     assert "比赛对齐" not in response.text
     assert "API · 开发者入口" not in response.text
-    assert "competition-spotlight" in response.text
+    evaluation_page = client.get("/model-evaluation.html")
+    assert evaluation_page.status_code == 200
+    assert "模型评价中心" in evaluation_page.text
+    assert "指标对比" in evaluation_page.text
+    assert "横向结果" in evaluation_page.text
+    assert "真实 API 调用" in evaluation_page.text
 
     script = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
     assert 'fetch("/api/agent/tasks"' in script
@@ -140,10 +148,15 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "患者-样本关联置信度" in script
     assert "modelSessions" in script
     assert "session_ids" in script
-    assert "综合可观察分" in script
-    assert "evaluation-model-configs" in response.text
-    assert "DeepSeek" in response.text
-    assert "提供商</th>" in response.text
+    assert "renderDataAlignment" in script
+    assert "data_alignment" in script
+    evaluation_script = (ROOT / "frontend" / "model-evaluation.js").read_text(encoding="utf-8")
+    assert "evaluation-model-configs" in evaluation_page.text
+    assert "DeepSeek" in evaluation_page.text
+    assert "提供商</th>" in evaluation_page.text
+    assert "结构化完整率" in evaluation_script
+    assert "目标字段输出率" in evaluation_script
+    assert "综合可观察分" not in evaluation_script
 
     styles = (ROOT / "frontend" / "styles.css").read_text(encoding="utf-8")
     assert "@media (max-width: 760px)" in styles
@@ -249,7 +262,8 @@ def test_agent_task_api_exposes_competition_alignment_report(tmp_path: Path) -> 
     assert result.competition_report.unified_evaluation is not None
     unified = result.competition_report.unified_evaluation
     assert unified.version == "v2"
-    assert any(row.method_id == "full_agent" for row in unified.model_comparison)
+    assert unified.model_comparison == []
+    assert unified.status == "未运行横向评价；当前仅有任务级诊断"
     assert any(table.table_id == "task_fitness_by_variant" for table in unified.horizontal_comparisons)
     assert any(row.stratum_name == "response_domain" for row in unified.stratified_comparisons)
     source_audit = next(metric for metric in result.competition_report.metrics if metric.name == "来源审计完整度")

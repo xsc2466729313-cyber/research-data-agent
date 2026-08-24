@@ -4,6 +4,7 @@ import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from io import BytesIO
+from time import perf_counter
 from typing import Any
 from uuid import uuid4
 
@@ -166,18 +167,23 @@ class ModelEvaluationService:
             updated: list[ModelEvaluationRow] = []
             for row in rows:
                 try:
+                    started = perf_counter()
                     spec = client.extract_research_spec(
                         question_map[row.question_id],
                         f"eval-{target_id}-{row.question_id}",
                     )
-                    metrics = self._observed_metrics(spec, question_map[row.question_id])
+                    metrics = self._observed_metrics(
+                        spec,
+                        question_map[row.question_id],
+                        elapsed_ms=(perf_counter() - started) * 1000,
+                    )
                     updated.append(
                         row.model_copy(
                             update={
                                 "status": "已完成",
                                 "metrics": metrics,
-                                "quality_gate": "PASS" if metrics["综合可观察分"] >= 0.8 else "REVIEW",
-                                "note": "指标来自真实模型返回的结构化内容，仅表示可观察结构化质量，不替代 Gold Truth。",
+                                "quality_gate": "PASS" if metrics["结构化完整率"] >= 0.8 else "REVIEW",
+                                "note": "指标来自真实模型返回和确定性结构检查，仅表示可观察输出质量；没有 Gold Set 时不生成整体能力总分。",
                             }
                         )
                     )
@@ -344,16 +350,41 @@ class ModelEvaluationService:
         ]
 
     @staticmethod
-    def _observed_metrics(spec: Any, question: str) -> dict[str, float]:
-        expected = ["disease", "outcomes", "required_data_types"]
+    def _observed_metrics(
+        spec: Any,
+        question: str,
+        *,
+        elapsed_ms: float,
+    ) -> dict[str, float]:
+        expected = [
+            "research_goal",
+            "disease",
+            "outcomes",
+            "required_data_types",
+            "target_fields",
+        ]
         present = sum(bool(getattr(spec, field, None)) for field in expected)
+        question_text = question.casefold()
+        facets: list[bool] = [
+            bool(getattr(spec, "disease", None))
+            and any(term in question_text for term in ("乳腺", "breast")),
+            bool(getattr(spec, "genes", None))
+            and any(
+                gene.casefold() in question_text
+                for gene in getattr(spec, "genes", [])
+            ),
+            bool(getattr(spec, "outcomes", None))
+            and any(term in question_text for term in ("响应", "疗效", "生存", "response", "survival", "pcr")),
+            bool(getattr(spec, "required_data_types", None)),
+        ]
         return {
-            "结构化解析通过": 1.0,
-            "问题字段响应率": round(present / len(expected), 4),
+            "结构化完整率": round(present / len(expected), 4),
+            "问题要素覆盖率": round(sum(facets) / len(facets), 4),
+            "目标字段输出率": 1.0 if getattr(spec, "target_fields", None) else 0.0,
             "基因字段数量": float(len(spec.genes)),
             "结局字段数量": float(len(spec.outcomes)),
-            "问题长度": float(len(question)),
-            "综合可观察分": round(present / len(expected), 4),
+            "输出字段数量": float(len(spec.model_dump(exclude_none=True))),
+            "响应时延_ms": round(max(elapsed_ms, 0.0), 1),
         }
 
     @staticmethod

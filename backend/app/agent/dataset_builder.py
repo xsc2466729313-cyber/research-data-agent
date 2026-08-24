@@ -41,6 +41,8 @@ CHINESE_LABELS = {
     "treatment_response": "术后治疗响应",
     "response_domain": "响应数据域",
     "timepoint": "取样时间点",
+    "sample_timepoint": "样本时间点",
+    "sample_source": "样本来源",
     "raw_characteristics": "原始样本特征",
     "breast_surgery": "乳腺手术方式",
     "cancer_type": "癌症类型",
@@ -91,6 +93,8 @@ FIELD_DESCRIPTIONS = {
     "treatment_response": "术后疗效分组；GSE76360 中 pCR=病理完全缓解、OBJR=客观缓解、NOR=未达客观缓解。",
     "response_domain": "区分患者临床响应、临床试验响应和细胞系药敏，防止不同结局混用。",
     "timepoint": "样本采集相对治疗的时间点；本主分析表保留基线样本以避免配对泄漏。",
+    "sample_timepoint": "标准化样本采集时间点；优先来自原始样本特征，不对缺失时间点做推断。",
+    "sample_source": "样本取材部位或来源；仅保留原始样本字段，不用疾病名称代替样本来源。",
     "raw_characteristics": "GEO Series Matrix 中逐项保留的原始 characteristics 文本，供审计与复核。",
     "breast_surgery": "患者接受的乳腺手术方式。",
     "cancer_type": "上游数据库的癌种大类。",
@@ -142,6 +146,17 @@ ATTRIBUTE_ALIASES = {
     "PATHOLOGIC_COMPLETE_RESPONSE": "pcr",
     "TREATMENT_RESPONSE": "treatment_response",
     "RESPONSE": "treatment_response",
+    "SAMPLE_TYPE": "sample_type",
+    "SAMPLE_TYPE_DETAILED": "sample_type_detailed",
+    "TISSUE_TYPE": "tissue_type",
+    "SPECIMEN_TYPE": "specimen_type",
+    "SAMPLE_SOURCE": "sample_source",
+    "TISSUE_SOURCE": "tissue_source",
+    "TISSUE_SOURCE_SITE": "tissue_source_site",
+    "SPECIMEN_SOURCE": "specimen_source",
+    "SAMPLE_ORIGIN": "sample_origin",
+    "SAMPLE_TIMEPOINT": "sample_timepoint",
+    "COLLECTION_TIMEPOINT": "collection_timepoint",
 }
 
 VALUE_NORMALIZATION = {
@@ -233,10 +248,12 @@ class ResearchDatasetBuilder:
         sample_rows = sample_table.rows if sample_table else []
         for raw in sample_rows:
             patient_id = str(raw.get("patientId") or "").strip()
-            sample_id = str(raw.get("sampleId") or patient_id).strip()
+            # A patient identifier is not a sample identifier. Keep the sample
+            # field missing when the upstream sample table does not provide one.
+            sample_id = str(raw.get("sampleId") or "").strip()
             if not patient_id and not sample_id:
                 continue
-            key = (patient_id or sample_id, sample_id or patient_id)
+            key = (patient_id or sample_id, sample_id)
             row = entity_rows.setdefault(
                 key,
                 {
@@ -264,7 +281,7 @@ class ResearchDatasetBuilder:
                 entity_rows[(patient_id, patient_id)] = {
                     "study_id": result.study.study_id,
                     "patient_id": patient_id,
-                    "sample_id": patient_id,
+                    "sample_id": None,
                     "source_id": source_id,
                     **attributes,
                 }
@@ -403,6 +420,20 @@ class ResearchDatasetBuilder:
                 "sample_title": titles[index] if index < len(titles) else None,
                 "disease": parsed.get("patient_status"),
                 "timepoint": parsed.get("timepoint"),
+                "sample_timepoint": parsed.get("sample_timepoint") or parsed.get("timepoint"),
+                "sample_type": (
+                    parsed.get("sample_type")
+                    or parsed.get("sample_type_detailed")
+                    or parsed.get("tissue_type")
+                    or parsed.get("specimen_type")
+                ),
+                "sample_source": (
+                    parsed.get("sample_source")
+                    or parsed.get("tissue_source_site")
+                    or parsed.get("tissue_source")
+                    or parsed.get("specimen_source")
+                    or parsed.get("sample_origin")
+                ),
                 "treatment_response": parsed.get("response_at_surgery"),
                 "er_status": parsed.get("er_status"),
                 "pr_status": parsed.get("pr_status"),

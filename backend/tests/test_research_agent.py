@@ -20,6 +20,8 @@ from backend.app.agent import (
     QwenSettings,
     ResearchAgentService,
 )
+from backend.app.agent.collection_agent import CollectionAgent
+from backend.app.agent.models import CollectionGap
 from backend.app.agent.models import DatasetColumn
 from backend.app.agent.dataset_builder import ResearchDatasetBuilder
 from backend.app.main import app
@@ -134,6 +136,60 @@ def test_qwen_agent_executes_function_call_and_builds_research_table(tmp_path: P
     assert result.readiness.status == "研究结局不匹配"
     assert "METABRIC" in result.summary_zh
     assert result.source_items
+    assert result.collection_agent is not None
+    assert result.collection_agent.completed_rounds >= 1
+    assert any(
+        gap.variable_id in {"sample_type", "sample_timepoint", "treatment", "outcome"}
+        for gap in result.collection_agent.critical_gaps
+    )
+
+
+def test_collection_agent_deduplicates_search_requests_by_arguments_not_tool_name() -> None:
+    agent = CollectionAgent()
+    spec = ResearchSpec(
+        task_id="collection-test",
+        research_goal="研究乳腺癌治疗响应",
+        disease="Breast Cancer",
+        genes=["PIK3CA"],
+        outcomes=["treatment_response"],
+        required_data_types=["clinical", "mutation", "treatment_response"],
+        target_fields=["patient_id", "sample_id"],
+    )
+    gaps = [
+        CollectionGap(
+            variable_id="sample_type",
+            label="样本类型",
+            role="样本信息",
+            required=True,
+            coverage_rate=0.0,
+            reason="缺失",
+        )
+    ]
+
+    first = agent.propose_actions(
+        spec=spec,
+        gaps=gaps,
+        attempted_calls=set(),
+        max_records=100,
+    )
+    attempted = {
+        agent.call_key({"name": action.tool_name, "arguments": action.arguments})
+        for action in first
+    }
+    second = agent.propose_actions(
+        spec=spec,
+        gaps=gaps,
+        attempted_calls=attempted,
+        max_records=100,
+    )
+
+    assert first
+    assert all(
+        agent.call_key({"name": action.tool_name, "arguments": action.arguments})
+        not in attempted
+        for action in second
+    )
+    assert any(action.tool_name == "search_cbioportal" for action in first)
 
 
 def test_hr_positive_her2_negative_pi3k_question_skips_her2_geo_response_cohort() -> None:
@@ -181,13 +237,23 @@ def test_agent_excel_export_contains_chinese_dictionary_and_readiness(tmp_path: 
     exported = AgentDatasetExportService().export(result, AgentExportFormat.XLSX)
     workbook = load_workbook(BytesIO(exported.content), read_only=True)
 
-    assert workbook.sheetnames == ["科研数据集", "字段字典", "可科研性报告", "数据来源", "研究设计", "队列构建", "比赛报告"]
+    assert workbook.sheetnames == [
+        "科研数据集",
+        "字段字典",
+        "可科研性报告",
+        "数据来源",
+        "研究设计",
+        "队列构建",
+        "搜集智能体",
+        "比赛报告",
+    ]
     assert workbook["科研数据集"]["A1"].value == "study_id"
     assert workbook["字段字典"]["B1"].value == "中文标注"
     assert workbook["字段字典"]["D1"].value == "科研用途"
     assert workbook["可科研性报告"]["A2"].value == "任务编号"
     assert workbook["研究设计"]["A1"].value == "项目"
     assert workbook["队列构建"]["A1"].value == "步骤"
+    assert workbook["搜集智能体"]["A1"].value == "项目"
     competition_values = [cell.value for row in workbook["比赛报告"].iter_rows(values_only=False) for cell in row if cell.value]
     assert "科研适用性" in competition_values
     assert "统一评价体系" in competition_values

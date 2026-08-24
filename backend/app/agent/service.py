@@ -7,6 +7,8 @@ from typing import Any
 from uuid import uuid4
 
 from backend.app.agent.competition_report import CompetitionReportBuilder
+from backend.app.agent.alignment_audit import DataAlignmentAuditor
+from backend.app.agent.collection_agent import CollectionAgent
 from backend.app.agent.dataset_builder import ResearchDatasetBuilder
 from backend.app.agent.models import (
     AgentConfigurationStatus,
@@ -18,6 +20,15 @@ from backend.app.agent.models import (
 )
 from backend.app.agent.qwen_client import QwenClient, QwenClientError
 from backend.app.agent.study_design import StudyDesignBuilder
+from backend.app.agent.source_registry import (
+    GEO_ACCESSION_PATTERN,
+    MAX_ENTRIES_PER_TOOL,
+    MAX_SOURCE_ENTRIES,
+    call_key,
+    entry_key,
+    is_breast_cancer_study_id,
+    is_gdc_breast_project_id,
+)
 from backend.app.models import (
     CandidateSource,
     ResearchSpec,
@@ -35,6 +46,7 @@ from backend.app.sources.cbioportal.models import (
 )
 from backend.app.sources.civic import CIViCAdapter
 from backend.app.sources.civic.models import CIViCAdapterOptions, CIViCAdapterRequest
+from backend.app.sources.discovery import DiscoveryAdapter, DiscoveryAdapterError
 from backend.app.sources.gdc import GDCAdapter
 from backend.app.sources.gdc.models import GDCAdapterOptions, GDCAdapterRequest
 from backend.app.sources.geo import GEOAdapter
@@ -60,6 +72,8 @@ TOOL_LABELS = {
     "search_cbioportal": "检索 cBioPortal 患者队列",
     "search_trials": "检索 ClinicalTrials.gov",
     "search_civic": "检索 CIViC 医学证据",
+    "search_biosample": "检索 NCBI BioSample 样本元数据",
+    "search_europe_pmc": "检索 Europe PMC 文献证据",
 }
 
 
@@ -73,6 +87,7 @@ class ResearchAgentService:
         cbioportal_adapter: CBioPortalAdapter | None = None,
         aact_adapter: AACTClinicalTrialsAdapter | None = None,
         civic_adapter: CIViCAdapter | None = None,
+        discovery_adapter: DiscoveryAdapter | None = None,
         dataset_builder: ResearchDatasetBuilder | None = None,
     ) -> None:
         self.qwen = qwen_client or QwenClient()
@@ -81,9 +96,12 @@ class ResearchAgentService:
         self.cbioportal = cbioportal_adapter or CBioPortalAdapter()
         self.aact = aact_adapter or AACTClinicalTrialsAdapter()
         self.civic = civic_adapter or CIViCAdapter()
+        self.discovery = discovery_adapter or DiscoveryAdapter()
         self.dataset_builder = dataset_builder or ResearchDatasetBuilder()
+        self.alignment_auditor = DataAlignmentAuditor()
         self.competition_report_builder = CompetitionReportBuilder()
         self.study_design_builder = StudyDesignBuilder()
+        self.collection_agent = CollectionAgent()
         self._results: dict[str, AgentTaskResult] = {}
         self._lock = threading.Lock()
 
@@ -181,42 +199,134 @@ class ResearchAgentService:
         raw_results: list[tuple[str, Any]] = []
         candidates: list[CandidateSource] = []
         source_items: list[SourceItem] = []
+        iterations = []
+        collection_actions = []
+        critical_gaps = []
+        recommended_gaps = []
+        attempted_calls: set[str] = set()
+        pending_calls = list(calls)
+        max_rounds = (
+            min(request.max_collection_rounds, self.collection_agent.max_rounds)
+            if request.iterative_collection
+            else 1
+        )
+        dataset, readiness = self.dataset_builder.empty()
+        provisional_design, provisional_cohort = self.study_design_builder.build(
+            spec,
+            dataset,
+            readiness,
+            [],
+            [],
+            request.data_mode.value,
+        )
+
+        for round_number in range(1, max_rounds + 1):
+            round_actions: list[str] = []
+            if request.data_mode == AgentDataMode.LIVE:
+                for call in pending_calls:
+                    attempted_calls.add(CollectionAgent.call_key(call))
+                    log, raw_result = self._execute_tool(call, spec, request.max_records)
+                    executed.append(log)
+                    if raw_result is not None:
+                        raw_results.append((call["name"], raw_result))
+                        candidates.extend(self._candidates(call["name"], raw_result))
+                        source_items.extend(getattr(raw_result, "source_items", []))
+                pending_calls = []
+            elif round_number > 1:
+                break
+
+            built_datasets: list[tuple[Any, Any]] = []
+            for name, raw_result in raw_results:
+                if name == "search_cbioportal" and isinstance(raw_result, CBioPortalAdapterResult):
+                    built_datasets.append(self.dataset_builder.build_from_cbioportal(raw_result, spec))
+                elif name == "search_geo" and isinstance(raw_result, GEOAdapterResult):
+                    geo_dataset = self.dataset_builder.build_from_geo(raw_result, spec)
+                    if geo_dataset is not None:
+                        built_datasets.append(geo_dataset)
+            if built_datasets:
+                dataset, readiness = max(built_datasets, key=self._dataset_selection_score)
+            else:
+                dataset, readiness = self.dataset_builder.empty()
+                if raw_results:
+                    readiness.warnings.insert(
+                        0,
+                        "已检索到来源或关系表，但当前结果不包含可直接解析的患者/样本级数据文件。",
+                    )
+
+            provisional_design, provisional_cohort = self.study_design_builder.build(
+                spec,
+                dataset,
+                readiness,
+                self._deduplicate_candidates(candidates),
+                self._deduplicate_sources(source_items),
+                request.data_mode.value,
+            )
+            iteration, critical, recommended = self.collection_agent.inspect(
+                spec=spec,
+                dataset=dataset,
+                readiness=readiness,
+                design=provisional_design,
+                source_names=[item.source_name for item in source_items],
+                source_items=source_items,
+                round_number=round_number,
+                attempted_calls=attempted_calls,
+                actions=round_actions,
+            )
+            iterations.append(iteration)
+            critical_gaps = critical
+            recommended_gaps = recommended
+
+            if request.data_mode != AgentDataMode.LIVE or iteration.quality_gate == "PASS" or round_number >= max_rounds:
+                break
+            proposed = self.collection_agent.propose_actions(
+                spec=spec,
+                gaps=critical,
+                attempted_calls=attempted_calls,
+                max_records=request.max_records,
+            )
+            collection_actions = proposed
+            if not proposed:
+                break
+            follow_up_calls = [
+                self._follow_up_call(action, spec, request.max_records)
+                for action in proposed
+            ]
+            follow_up_calls = [
+                call
+                for call in follow_up_calls
+                if call is not None and CollectionAgent.call_key(call) not in attempted_calls
+            ]
+            if not follow_up_calls:
+                break
+            pending_calls = self._guard_tool_arguments(
+                follow_up_calls,
+                spec,
+                request,
+            )
+            remaining_budget = max(0, request.max_sources - len(attempted_calls))
+            pending_calls = self._limit_tool_calls(pending_calls, remaining_budget)
+            for action in proposed:
+                action.status = "已加入下一轮"
+                round_actions.append(f"{action.source_name}：{action.rationale}")
+
         if request.data_mode == AgentDataMode.LIVE:
-            for call in calls:
-                log, result = self._execute_tool(call, spec, request.max_records)
-                executed.append(log)
-                if result is not None:
-                    raw_results.append((call["name"], result))
-                    candidates.extend(self._candidates(call["name"], result))
-                    source_items.extend(getattr(result, "source_items", []))
             success_count = sum(item.status == "完成" for item in executed)
             plan_steps[2].status = "完成" if success_count else "失败"
-            plan_steps[2].detail = f"{success_count}/{len(executed)} 个工具成功；登记 {len(source_items)} 个真实来源。"
+            plan_steps[2].detail = (
+                f"完成 {len(iterations)} 轮搜集；{success_count}/{len(executed)} 个工具成功；"
+                f"登记 {len(source_items)} 个真实来源。"
+            )
         else:
             plan_steps[2].status = "跳过"
-            plan_steps[2].detail = "当前为仅规划模式，未访问外部数据库。"
+            plan_steps[2].detail = "当前为仅规划模式，未访问外部数据库；质量门仅展示待执行规则。"
 
-        built_datasets: list[tuple[Any, Any]] = []
-        for name, raw_result in raw_results:
-            if name == "search_cbioportal" and isinstance(raw_result, CBioPortalAdapterResult):
-                built_datasets.append(self.dataset_builder.build_from_cbioportal(raw_result, spec))
-            elif name == "search_geo" and isinstance(raw_result, GEOAdapterResult):
-                geo_dataset = self.dataset_builder.build_from_geo(raw_result, spec)
-                if geo_dataset is not None:
-                    built_datasets.append(geo_dataset)
-        if built_datasets:
-            dataset, readiness = max(built_datasets, key=self._dataset_selection_score)
-        else:
-            dataset, readiness = self.dataset_builder.empty()
-            if raw_results:
-                readiness.warnings.insert(
-                    0,
-                    "已检索到来源或关系表，但当前结果不包含可直接解析的患者/样本级数据文件。",
-                )
         plan_steps[3].status = "完成" if dataset.row_count else "数据不足"
         plan_steps[3].detail = f"生成 {dataset.row_count} 行、{len(dataset.columns)} 列科研数据；分析单位：{dataset.unit_of_analysis}。"
         plan_steps[4].status = "完成"
-        plan_steps[4].detail = f"结论：{readiness.status}；目标字段：{readiness.target_column or '未识别'}。"
+        plan_steps[4].detail = (
+            f"结论：{readiness.status}；目标字段：{readiness.target_column or '未识别'}；"
+            f"搜集质量门：{iterations[-1].quality_gate if iterations else 'REVIEW'}。"
+        )
 
         summary = self._fallback_summary(dataset.row_count, readiness.warnings)
         if qwen_used and tool_message is not None and executed:
@@ -277,18 +387,23 @@ class ResearchAgentService:
             summary_zh=summary,
             created_at=created_at,
         )
-        study_design, cohort_construction = self.study_design_builder.build(
-            spec,
-            dataset,
-            readiness,
-            self._deduplicate_candidates(candidates),
-            self._deduplicate_sources(source_items),
-            request.data_mode.value,
+        collection_report = self.collection_agent.report(
+            iterations=iterations,
+            critical=critical_gaps,
+            recommended=recommended_gaps,
+            actions=collection_actions,
+            source_coverage=self._source_coverage(source_items),
+            max_rounds=max_rounds,
         )
         result = result.model_copy(
             update={
-                "study_design": study_design,
-                "cohort_construction": cohort_construction,
+                "study_design": provisional_design,
+                "cohort_construction": provisional_cohort,
+                "collection_agent": collection_report,
+                "data_alignment": self.alignment_auditor.build(
+                    dataset,
+                    self._deduplicate_sources(source_items),
+                ),
             }
         )
         result = result.model_copy(update={"competition_report": self.competition_report_builder.build(result)})
@@ -338,6 +453,41 @@ class ResearchAgentService:
             result,
         )
 
+    def _follow_up_call(
+        self,
+        action: Any,
+        spec: ResearchSpec,
+        max_records: int,
+    ) -> dict[str, Any] | None:
+        if action.tool_name in {
+            "search_cbioportal",
+            "search_geo",
+            "search_gdc",
+            "search_trials",
+            "search_civic",
+            "search_biosample",
+            "search_europe_pmc",
+        }:
+            arguments = dict(action.arguments or {})
+            arguments.setdefault("max_records", max_records)
+            return {
+                "id": action.action_id,
+                "name": action.tool_name,
+                "arguments": arguments,
+            }
+        return None
+
+    @staticmethod
+    def _source_coverage(source_items: list[SourceItem]) -> dict[str, str]:
+        coverage: dict[str, str] = {}
+        for item in source_items:
+            current = coverage.get(item.source_name)
+            if current is None:
+                coverage[item.source_name] = item.status
+            elif current != "retrieved" and item.status in {"retrieved", "downloaded", "cached"}:
+                coverage[item.source_name] = item.status
+        return coverage
+
     def _dispatch(
         self,
         name: str,
@@ -351,6 +501,8 @@ class ResearchAgentService:
             "search_cbioportal": "cBioPortal",
             "search_trials": "AACT",
             "search_civic": "CIViC",
+            "search_biosample": "BioSample",
+            "search_europe_pmc": "Europe PMC",
         }
         if name not in source_names:
             raise ValueError(f"千问请求了未注册工具：{name}")
@@ -408,14 +560,20 @@ class ResearchAgentService:
                 max_rows_per_table=max_records,
             )
             return self.aact.run(AACTAdapterRequest(search_plan=plan, options=options))
-        options = CIViCAdapterOptions(
-            disease_name=str(args.get("disease_name") or spec.disease),
-            molecular_profile_name=self._optional_text(args.get("molecular_profile_name")),
-            therapy_name=self._optional_text(args.get("therapy_name")),
-            max_evidence_items=min(int(args.get("max_items") or 5), 10),
-            max_rows_per_table=max_records,
-        )
-        return self.civic.run(CIViCAdapterRequest(search_plan=plan, options=options))
+        if name == "search_civic":
+            options = CIViCAdapterOptions(
+                disease_name=str(args.get("disease_name") or spec.disease),
+                molecular_profile_name=self._optional_text(args.get("molecular_profile_name")),
+                therapy_name=self._optional_text(args.get("therapy_name")),
+                max_evidence_items=min(int(args.get("max_items") or 5), 10),
+                max_rows_per_table=max_records,
+            )
+            return self.civic.run(CIViCAdapterRequest(search_plan=plan, options=options))
+        query = str(args.get("query") or f"{spec.disease} {' '.join(spec.genes + spec.drugs)}").strip()
+        limit = min(int(args.get("max_records") or 20), 100)
+        if name == "search_biosample":
+            return self.discovery.search_biosample(task_id=spec.task_id, query=query, max_records=limit, search_plan=plan)
+        return self.discovery.search_europe_pmc(task_id=spec.task_id, query=query, max_records=limit, search_plan=plan)
 
     @staticmethod
     def _deterministic_spec(question: str, task_id: str) -> ResearchSpec:
@@ -494,10 +652,27 @@ class ResearchAgentService:
         preferred = {value.casefold() for value in request.preferred_sources}
         candidates: list[tuple[str, dict[str, Any]]] = []
         genes = spec.genes or ["ERBB2", "PIK3CA"]
-        candidates.append(("search_cbioportal", {"study_id": "brca_metabric", "gene_symbols": genes, "max_records": request.max_records}))
+        # Several real study/accession entries can be explored in one task.
+        # They remain separate provenance namespaces; dataset selection still
+        # chooses one primary patient/sample cohort below.
+        cbio_studies = ["brca_metabric", "brca_tcga_pan_can_atlas_2018", "brca_tcga"]
+        if self._is_pi3k_inhibitor_question(spec):
+            cbio_studies.insert(0, "breast_alpelisib_2020")
+        candidates.append(
+            (
+                "search_cbioportal",
+                {"study_id": cbio_studies[0], "gene_symbols": genes, "max_records": request.max_records},
+            )
+        )
         if self._should_search_geo(spec):
-            candidates.append(("search_geo", {"accession": self._default_geo_accession(spec), "max_files": 5}))
-        candidates.append(("search_gdc", {"project_id": "TCGA-BRCA", "data_types": ["Clinical Supplement"], "max_files": 5}))
+            geo_accessions = [self._default_geo_accession(spec), "GSE25066", "GSE96058"]
+            candidates.append(("search_geo", {"accession": geo_accessions[0], "max_files": 5}))
+        candidates.append(
+            (
+                "search_gdc",
+                {"project_id": "TCGA-BRCA", "data_types": ["Clinical Supplement"], "max_files": 5},
+            )
+        )
         if spec.drugs or "evidence" in spec.required_data_types:
             candidates.append(("search_civic", {"disease_name": "Breast Cancer", "molecular_profile_name": " ".join(genes), "therapy_name": spec.drugs[0] if spec.drugs else None, "max_items": 5}))
         trial_call = ("search_trials", {"condition": "Breast Cancer", "query_terms": " ".join(spec.drugs + genes), "max_trials": 5})
@@ -505,12 +680,53 @@ class ResearchAgentService:
             candidates.insert(0, trial_call)
         elif spec.drugs or "treatment_response" in spec.required_data_types:
             candidates.append(trial_call)
+        # Broadening entries are appended after the task-matched anchors so a
+        # small budget still returns useful sources. They remain independent
+        # calls and are never silently joined into the primary cohort.
+        for study_id in cbio_studies[1:]:
+            candidates.append(
+                (
+                    "search_cbioportal",
+                    {"study_id": study_id, "gene_symbols": genes, "max_records": request.max_records},
+                )
+            )
+        if self._should_search_geo(spec):
+            for accession in geo_accessions[1:]:
+                candidates.append(("search_geo", {"accession": accession, "max_files": 5}))
+        for project_id in ("CPTAC-2", "CPTAC-3"):
+            candidates.append(
+                (
+                    "search_gdc",
+                    {"project_id": project_id, "data_types": ["Clinical Supplement"], "max_files": 5},
+                )
+            )
+        if spec.target_fields or spec.required_data_types:
+            candidates.append(
+                (
+                    "search_biosample",
+                    {
+                        "query": f"{spec.disease} {' '.join(spec.genes or [])} {' '.join(spec.drugs or [])}".strip(),
+                        "max_records": 20,
+                    },
+                )
+            )
+        if spec.drugs or "evidence" in spec.required_data_types:
+            candidates.append(
+                (
+                    "search_europe_pmc",
+                    {
+                        "query": f"{spec.disease} {' '.join(spec.genes or [])} {' '.join(spec.drugs or [])} evidence".strip(),
+                        "max_records": 20,
+                    },
+                )
+            )
         if preferred:
             candidates.sort(key=lambda item: 0 if any(token in item[0].casefold() for token in preferred) else 1)
-        return [
+        calls = [
             {"id": f"rule-call-{index + 1}", "name": name, "arguments": args}
-            for index, (name, args) in enumerate(candidates[: request.max_sources])
+            for index, (name, args) in enumerate(candidates)
         ]
+        return self._limit_tool_calls(calls, request.max_sources)
 
     @staticmethod
     def _merge_tool_calls(
@@ -522,9 +738,10 @@ class ResearchAgentService:
         seen: set[str] = set()
         for call in [*qwen_calls, *deterministic_calls]:
             name = str(call.get("name") or "")
-            if not name or name in seen:
+            key = call_key(call)
+            if not name or key in seen:
                 continue
-            seen.add(name)
+            seen.add(key)
             merged.append(call)
             if len(merged) >= max_sources:
                 break
@@ -537,32 +754,66 @@ class ResearchAgentService:
         request: AgentTaskRequest,
     ) -> list[dict[str, Any]]:
         guarded: list[dict[str, Any]] = []
+        seen_entries: set[str] = set()
+        tool_counts: dict[str, int] = {}
         for call in calls:
             normalized = {**call, "arguments": dict(call.get("arguments") or {})}
             arguments = normalized["arguments"]
-            if call.get("name") == "search_geo":
+            name = str(call.get("name") or "")
+            if name == "search_geo":
                 if not self._should_search_geo(spec):
                     continue
                 # The curated accession resolver prevents a generic expression
                 # cohort from replacing a task-matched response cohort.
-                arguments["accession"] = self._default_geo_accession(spec)
-                arguments["max_files"] = 1
-            elif call.get("name") == "search_cbioportal":
+                accession = str(
+                    arguments.get("accession") or self._default_geo_accession(spec)
+                ).upper()
+                if not GEO_ACCESSION_PATTERN.fullmatch(accession):
+                    accession = self._default_geo_accession(spec)
+                arguments["accession"] = accession
+                arguments["max_files"] = min(int(arguments.get("max_files") or 1), 5)
+            elif name == "search_cbioportal":
+                study_id = str(arguments.get("study_id") or "brca_metabric").strip().casefold()
+                if not is_breast_cancer_study_id(study_id):
+                    study_id = "brca_metabric"
+                arguments["study_id"] = study_id
                 arguments["gene_symbols"] = spec.genes or arguments.get("gene_symbols") or ["PIK3CA"]
                 arguments["max_records"] = request.max_records
-            elif call.get("name") == "search_gdc":
+            elif name == "search_gdc":
                 data_types = ["Clinical Supplement"]
                 if "mutation" in spec.required_data_types:
                     data_types.append("Masked Somatic Mutation")
                 if "expression" in spec.required_data_types:
                     data_types.append("Gene Expression Quantification")
-                arguments.update({"project_id": "TCGA-BRCA", "data_types": data_types, "max_files": 5})
-            elif call.get("name") == "search_civic":
+                project_id = str(arguments.get("project_id") or "TCGA-BRCA").strip().upper()
+                if not is_gdc_breast_project_id(project_id):
+                    project_id = "TCGA-BRCA"
+                arguments.update({"project_id": project_id, "data_types": data_types, "max_files": 5})
+            elif name == "search_trials":
+                arguments["condition"] = str(arguments.get("condition") or spec.disease)[:200]
+                arguments["query_terms"] = self._optional_text(arguments.get("query_terms"))
+                arguments["max_trials"] = min(int(arguments.get("max_trials") or 5), 10)
+            elif name == "search_civic":
                 arguments["disease_name"] = "Breast Cancer"
                 arguments["molecular_profile_name"] = spec.genes[0] if spec.genes else None
                 arguments["therapy_name"] = spec.drugs[0] if spec.drugs else self._optional_text(arguments.get("therapy_name"))
                 arguments["max_items"] = 5
+            elif name in {"search_biosample", "search_europe_pmc"}:
+                arguments["query"] = self._optional_text(arguments.get("query")) or f"{spec.disease} {' '.join(spec.genes + spec.drugs)}"
+                arguments["max_records"] = min(int(arguments.get("max_records") or 20), 100)
+            else:
+                continue
+            normalized["arguments"] = arguments
+            key = entry_key(normalized)
+            if key in seen_entries:
+                continue
+            if tool_counts.get(name, 0) >= MAX_ENTRIES_PER_TOOL:
+                continue
+            seen_entries.add(key)
+            tool_counts[name] = tool_counts.get(name, 0) + 1
             guarded.append(normalized)
+            if len(guarded) >= min(request.max_sources, MAX_SOURCE_ENTRIES):
+                break
         if not guarded:
             genes = spec.genes or ["PIK3CA"]
             guarded.append(
@@ -576,7 +827,26 @@ class ResearchAgentService:
                     },
                 }
             )
-        return guarded
+        return self._limit_tool_calls(guarded, min(request.max_sources, MAX_SOURCE_ENTRIES))
+
+    @staticmethod
+    def _limit_tool_calls(calls: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
+        if limit <= 0:
+            return []
+        result: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        tool_counts: dict[str, int] = {}
+        for call in calls:
+            name = str(call.get("name") or "")
+            key = call_key(call)
+            if not name or key in seen or tool_counts.get(name, 0) >= MAX_ENTRIES_PER_TOOL:
+                continue
+            seen.add(key)
+            tool_counts[name] = tool_counts.get(name, 0) + 1
+            result.append(call)
+            if len(result) >= min(limit, MAX_SOURCE_ENTRIES):
+                break
+        return result
 
     @staticmethod
     def _synchronize_tool_message(
@@ -600,10 +870,16 @@ class ResearchAgentService:
     @staticmethod
     def _dataset_selection_score(item: tuple[Any, Any]) -> tuple[float, float, float, int]:
         dataset, readiness = item
-        target_score = 1.0 if readiness.target_match else 0.0
         coverage = readiness.requested_variable_coverage_rate
+        target_score = 1.0 if readiness.target_match else 0.0
         completeness = readiness.field_completeness_rate or 0.0
-        return (target_score, coverage if coverage is not None else 1.0, completeness, dataset.row_count)
+        # A response cohort without the requested molecular/sample fields is
+        # not a valid replacement for the primary molecular cohort. Prefer
+        # task-variable coverage first, then outcome fit, so broad follow-up
+        # searches enrich the audit trail without silently changing the
+        # analysis unit to an unrelated cohort.
+        variable_score = coverage if coverage is not None else 1.0
+        return (variable_score, target_score, completeness, dataset.row_count)
 
     @staticmethod
     def _default_geo_accession(spec: ResearchSpec) -> str:
@@ -817,6 +1093,8 @@ class ResearchAgentService:
             "search_cbioportal": {"study_id", "gene_symbols", "max_records"},
             "search_trials": {"condition", "query_terms", "max_trials"},
             "search_civic": {"disease_name", "molecular_profile_name", "therapy_name", "max_items"},
+            "search_biosample": {"query", "max_records"},
+            "search_europe_pmc": {"query", "max_records"},
         }.get(name, set())
         return {key: value for key, value in args.items() if key in allowed and value is not None}
 

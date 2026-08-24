@@ -157,6 +157,36 @@ class QwenClient:
                 },
             },
         },
+        {
+            "type": "function",
+            "function": {
+                "name": "search_biosample",
+                "description": "检索 NCBI BioSample 样本元数据，用于核对组织、物种和样本属性；结果不直接填入患者主表。",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "例如 breast cancer GSE25066"},
+                        "max_records": {"type": "integer", "minimum": 1, "maximum": 100},
+                    },
+                    "required": ["query"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "search_europe_pmc",
+                "description": "检索 Europe PMC 文献和摘要，用于发现研究、结局定义和证据线索；结果不作为患者级事实。",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "乳腺癌、基因、药物和结局组合查询"},
+                        "max_records": {"type": "integer", "minimum": 1, "maximum": 100},
+                    },
+                    "required": ["query"],
+                },
+            },
+        },
     ]
 
     def __init__(
@@ -245,7 +275,7 @@ class QwenClient:
         instruction = {
             "任务": "为科研问题选择真实数据工具",
             "research_spec": spec.model_dump(mode="json"),
-            "最多工具数": max_sources,
+            "最多检索入口数": max_sources,
             "用户指定来源": preferred_sources,
             "选择原则": [
                 "需要患者级科研宽表时优先 cBioPortal",
@@ -253,14 +283,19 @@ class QwenClient:
                 "TCGA 临床或组学文件选择 GDC",
                 "临床试验关系选择 ClinicalTrials.gov",
                 "知识证据选择 CIViC，不能替代患者队列",
-                "必须调用至少一个工具，不得虚构 accession",
+                "样本属性不完整时可检索 NCBI BioSample，但只能作为样本元数据核验层",
+                "需要研究语境或结局定义时可检索 Europe PMC，但不能把摘要当患者数据",
+                "可以为同一工具选择多个真实研究入口，例如多个 GSE accession、cBioPortal study_id 或 GDC project_id",
+                "不同研究入口只能作为独立来源审计和候选证据，不能按相同字符串患者编号自动合并",
+                "优先覆盖问题所需的样本字段、患者临床字段、分子字段和研究结局；不要为凑数量调用不相关来源",
+                "必须调用至少一个工具，不得虚构 accession、study_id 或 project_id",
             ],
         }
         message = self._chat(
             messages=[
                 {
                     "role": "system",
-                    "content": "你是科研数据智能体的工具规划器。根据问题调用最少且必要的真实数据库工具。",
+                    "content": "你是科研数据智能体的工具规划器。根据问题自主选择相关公开数据库和多个研究入口，遵守入口预算和来源隔离规则。",
                 },
                 {"role": "user", "content": json.dumps(instruction, ensure_ascii=False)},
             ],

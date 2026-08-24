@@ -52,8 +52,10 @@ GDC / GEO / cBioPortal / ClinicalTrials.gov / CIViC
 | `search_cbioportal` | 检索 cBioPortal 患者队列 | 临床、突变、离散 CNA 原始表 |
 | `search_trials` | 检索 ClinicalTrials.gov | 试验、干预、结局关系表 |
 | `search_civic` | 检索 CIViC 医学证据 | 基因-变异-药物-疾病证据 |
+| `search_biosample` | 检索 NCBI BioSample | 样本属性、组织和命名空间核验 |
+| `search_europe_pmc` | 检索 Europe PMC | 文献语境、结局定义和证据线索 |
 
-所有工具参数都会重新通过 Pydantic 和 Adapter 自身的格式、域名、记录上限与缓存规则校验。模型不能调用未注册函数。
+所有工具参数都会重新通过 Pydantic 和 Adapter 自身的格式、域名、记录上限与缓存规则校验。模型不能调用未注册函数。新增发现层工具只负责样本元数据与文献语境发现，不会直接生成患者主表。
 
 ## 科研数据集
 

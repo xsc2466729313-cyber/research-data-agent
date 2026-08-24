@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="千问驱动的乳腺癌科研数据智能体：从科研问题、真实数据库工具调用到可阅读、可追溯的科研数据集。" />
     <title>千问乳腺癌科研数据智能体</title>
-    <link rel="stylesheet" href="/styles.css?v=20260824-3" />
+    <link rel="stylesheet" href="/styles.css?v=20260824-6" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">跳到主要内容</a>
@@ -19,7 +19,7 @@
         <a href="#agent-process">智能体过程</a>
         <a href="#research-data">科研数据</a>
         <a href="#readiness">可科研性检查</a>
-        <a href="#competition-report">统一评价</a>
+        <a href="/model-evaluation.html">模型评价中心 ↗</a>
       </nav>
       <div id="system-status" class="system-status"><span class="status-dot"></span><span>正在连接</span></div>
     </header>
@@ -30,8 +30,8 @@
           <p class="eyebrow">QWEN · 科研数据智能体</p>
           <h1>不只“找到数据”，<br /><em>还要让科研数据看得懂。</em></h1>
           <p class="hero-lead">
-            千问理解科研问题并选择工具，系统调用 GDC、GEO、cBioPortal、ClinicalTrials.gov 与 CIViC，
-            将患者级临床和组学数据整理为宽表，同时保留来源、字段说明和质量风险。
+            千问理解科研问题并自主选择相关入口，系统可从 GDC、GEO、cBioPortal、ClinicalTrials.gov、CIViC
+            及其多个公开研究编号中扩展检索，也可补充 NCBI BioSample 与 Europe PMC 作为发现层，将患者级临床和组学数据整理为宽表，同时保留来源、字段说明和质量风险。
           </p>
           <div class="capability-tags">
             <span>千问函数调用</span><span>真实公开数据库</span><span>患者/样本级宽表</span><span>中文字段字典</span>
@@ -82,12 +82,15 @@
                 <option value="plan_only">仅生成检索计划</option>
               </select>
             </label>
-            <label>最多调用数据源
+            <label>最多检索入口
               <select id="max-sources">
                 <option value="1">1 个（快速）</option>
                 <option value="2">2 个</option>
                 <option value="3">3 个</option>
-                <option value="5" selected>5 个（多源完整检索）</option>
+                <option value="5">5 个</option>
+                <option value="8" selected>8 个（多入口检索）</option>
+                <option value="12">12 个（广泛检索）</option>
+                <option value="20">20 个（最大范围）</option>
               </select>
             </label>
             <label>每张表最大记录数
@@ -101,69 +104,23 @@
                 <option value="10000" selected>10,000（推荐）</option>
               </select>
             </label>
+            <label>缺口补搜轮次
+              <select id="collection-rounds">
+                <option value="1">1 轮（只检测）</option>
+                <option value="2">2 轮</option>
+                <option value="3" selected>3 轮（推荐）</option>
+              </select>
+            </label>
           </div>
           <div class="switch-row">
             <label class="switch-control"><input id="use-qwen" type="checkbox" checked /><span><strong>使用千问智能体</strong><small>解析问题、函数调用与结果总结</small></span></label>
             <label class="switch-control"><input id="allow-fallback" type="checkbox" checked /><span><strong>允许确定性兜底</strong><small>模型暂时不可用时仍生成可审查计划</small></span></label>
           </div>
           <div class="form-actions">
-            <p>真实模式会访问公开数据库，运行时间取决于所选工具和网络状况。</p>
+            <p>系统会按科研问题自主选择相关数据库和研究入口；入口增加不代表不同研究的患者可以直接合并。</p>
             <button id="submit-button" class="button button-primary" type="submit">启动科研数据智能体 <span>↗</span></button>
           </div>
         </form>
-      </section>
-
-      <section id="evaluation-workbench" class="panel evaluation-workbench">
-        <div class="section-heading">
-          <div><p class="section-kicker">评测工作台</p><h2>先生成问题，再做多模型对比</h2></div>
-          <span id="model-evaluation-status" class="status-badge is-review">待运行</span>
-        </div>
-        <p class="section-note">计划模式只生成科研问题和评价合同；只有真实模型调用返回并通过结构化校验后，才填入可观察指标。</p>
-        <div class="workbench-grid">
-          <article class="workbench-panel">
-            <h3>多模型测试 Agent</h3>
-            <label for="evaluation-seed-question">问题主题</label>
-            <textarea id="evaluation-seed-question" rows="3">乳腺癌精准治疗中分子标志物与治疗响应的关系</textarea>
-            <div class="form-grid workbench-form-grid">
-            <label>自动生成问题数
-              <select id="evaluation-question-count"><option>3</option><option>5</option><option>10</option></select>
-            </label>
-            </div>
-            <div class="model-config-heading"><strong>模型与 API 会话</strong><span>每个模型单独连接，运行时会并行测试已连接目标。</span></div>
-            <div id="evaluation-model-configs" class="model-config-list"></div>
-            <button id="evaluation-add-model" class="button button-secondary model-add-button" type="button">添加模型目标</button>
-            <div class="button-group">
-              <button id="evaluation-generate" class="button button-primary" type="button">生成测试问题</button>
-              <button id="evaluation-run" class="button button-secondary" type="button" disabled>运行已连接模型</button>
-              <button id="evaluation-export" class="button button-secondary" type="button" disabled>导出对比报告</button>
-            </div>
-            <p id="evaluation-workbench-message" class="workbench-message" aria-live="polite">当前未生成测试报告。</p>
-          </article>
-          <article class="workbench-panel">
-            <h3>API / Agent 检测</h3>
-            <p class="section-note">仅接收你重新生成的临时 Key；检测完成后立即清空输入，不写入项目。</p>
-            <label for="api-check-provider">模型提供商</label>
-            <select id="api-check-provider">
-              <option value="qwen">千问</option>
-              <option value="deepseek">DeepSeek</option>
-              <option value="openai_compatible">OpenAI 兼容模型</option>
-            </select>
-            <label for="api-check-model">模型名称</label>
-            <input id="api-check-model" type="text" value="qwen-plus" />
-            <label for="api-check-key">临时 API Key</label>
-            <input id="api-check-key" type="password" autocomplete="new-password" placeholder="请输入新生成的临时 Key" />
-            <label for="api-check-base-url">接口地址</label>
-            <input id="api-check-base-url" type="url" value="https://dashscope.aliyuncs.com/compatible-mode/v1" />
-            <label class="switch-control workbench-switch"><input id="api-check-agent-probe" type="checkbox" checked /><span><strong>执行结构化 Agent 探测</strong><small>额外验证科研问题解析能力</small></span></label>
-            <button id="api-check-submit" class="button button-primary" type="button">检测连接与 Agent</button>
-            <div id="api-check-result" class="api-check-result" aria-live="polite"></div>
-          </article>
-        </div>
-        <article class="model-test-report">
-          <div class="section-heading"><div><h3>独立多模型对比报告</h3><span id="model-evaluation-summary">生成后显示问题、模型、指标和限制。</span></div><span id="model-evaluation-report-id" class="mono-tag">—</span></div>
-          <div id="model-evaluation-chart" class="model-evaluation-chart" aria-label="多模型指标柱状图"></div>
-          <div class="table-wrap"><table id="model-evaluation-table"><thead><tr><th>问题</th><th>提供商</th><th>模型</th><th>状态</th><th>可观察指标</th><th>质量门</th><th>说明</th></tr></thead><tbody><tr><td colspan="7" class="muted-cell">尚未生成多模型测试报告。</td></tr></tbody></table></div>
-        </article>
       </section>
 
       <section id="progress" class="panel progress-panel" hidden aria-live="polite">
@@ -179,15 +136,10 @@
           <article><span>智能体模式</span><strong id="agent-mode">—</strong></article>
           <article><span>千问模型</span><strong id="model-name">—</strong></article>
           <article><span>科研数据</span><strong id="dataset-size">—</strong></article>
-          <article class="result-overview-highlight"><span>统一评价</span><strong id="competition-quick-summary">—</strong><small id="competition-quick-stats">—</small></article>
         </section>
 
         <section class="panel summary-panel">
           <div class="section-heading"><div><p class="section-kicker">02 · 千问数据总结</p><h2>这批数据能解决什么问题</h2></div><span id="task-id" class="mono-tag"></span></div>
-          <div id="competition-spotlight" class="competition-spotlight" hidden>
-            <div class="spotlight-head"><strong>统一评价结果</strong><span id="competition-direction-inline" class="count-tag"></span></div>
-            <div id="competition-spotlight-metrics" class="competition-spotlight-metrics"></div>
-          </div>
           <p id="agent-summary" class="agent-summary"></p>
           <p id="agent-notice" class="agent-notice"></p>
           <div id="spec-grid" class="spec-grid"></div>
@@ -238,8 +190,52 @@
           <ul id="cohort-notes" class="message-list cohort-notes"></ul>
         </section>
 
+        <section id="collection-agent" class="panel collection-agent-panel">
+          <div class="section-heading">
+            <div><p class="section-kicker">05 · 缺口驱动搜集智能体</p><h2>先广搜，再检测，再补搜</h2></div>
+            <div class="cohort-heading-meta"><span id="collection-agent-gate" class="status-badge"></span><span id="collection-agent-rounds" class="count-tag"></span></div>
+          </div>
+          <p id="collection-agent-note" class="section-note">系统会根据样本字段覆盖和质量门结果决定是否继续检索。</p>
+          <div id="collection-agent-summary" class="collection-agent-summary"></div>
+          <div class="collection-agent-grid">
+            <article>
+              <h3>迭代轮次</h3>
+              <div id="collection-agent-iterations" class="collection-agent-iterations"></div>
+            </article>
+            <article>
+              <h3>关键字段缺口</h3>
+              <div id="collection-agent-gaps" class="collection-agent-gaps"></div>
+            </article>
+          </div>
+          <div class="collection-agent-actions">
+            <h3>下一步专业数据库动作</h3>
+            <div id="collection-agent-next-actions" class="collection-agent-next-actions"></div>
+          </div>
+        </section>
+
+        <section id="data-alignment" class="panel data-alignment-panel">
+          <div class="section-heading">
+            <div><p class="section-kicker">06 · 数据统一与身份对齐</p><h2>患者编号能不能安全对上？</h2></div>
+            <span id="data-alignment-status" class="status-badge"></span>
+          </div>
+          <p id="data-alignment-note" class="section-note">系统会区分同一研究内的编号对齐、跨来源检索和真正的跨患者合并。</p>
+          <div id="data-alignment-summary" class="data-alignment-summary"></div>
+          <div class="data-alignment-grid">
+            <article>
+              <h3>当前对齐边界</h3>
+              <p id="data-alignment-namespace" class="alignment-namespace"></p>
+              <ul id="data-alignment-basis" class="message-list"></ul>
+              <ul id="data-alignment-limitations" class="message-list warning-list"></ul>
+            </article>
+            <article>
+              <h3>本次来源身份</h3>
+              <div id="data-alignment-sources" class="data-alignment-sources"></div>
+            </article>
+          </div>
+        </section>
+
         <section id="agent-process" class="panel">
-          <div class="section-heading"><div><p class="section-kicker">05 · 智能体过程</p><h2>规划与真实工具调用</h2></div><span id="tool-count" class="count-tag"></span></div>
+          <div class="section-heading"><div><p class="section-kicker">07 · 智能体过程</p><h2>规划与真实检索入口</h2></div><span id="tool-count" class="count-tag"></span></div>
           <div id="plan-list" class="plan-list"></div>
           <div class="table-wrap">
             <table id="tool-table">
@@ -250,7 +246,7 @@
         </section>
 
         <section class="panel">
-          <div class="section-heading"><div><p class="section-kicker">06 · 真实数据来源</p><h2>候选队列与官方地址</h2></div><span id="candidate-count" class="count-tag"></span></div>
+          <div class="section-heading"><div><p class="section-kicker">08 · 真实数据来源</p><h2>候选队列与官方地址</h2></div><span id="candidate-count" class="count-tag"></span></div>
           <div class="table-wrap">
             <table id="candidate-table">
               <thead><tr><th>数据集</th><th>数据库</th><th>数据类型</th><th>样本数</th><th>研究结局信息</th><th>官方来源</th></tr></thead>
@@ -262,7 +258,7 @@
 
         <section id="research-data" class="panel">
           <div class="section-heading action-heading">
-          <div><p class="section-kicker">07 · 科研数据集</p><h2 id="dataset-title">患者/样本级科研宽表</h2></div>
+          <div><p class="section-kicker">09 · 科研数据集</p><h2 id="dataset-title">患者/样本级科研宽表</h2></div>
             <div class="button-group">
               <button class="button button-secondary export-button" data-format="csv" type="button">下载 CSV</button>
               <button class="button button-secondary export-button" data-format="parquet" type="button">下载 Parquet</button>
@@ -284,7 +280,7 @@
 
         <section id="readiness" class="quality-grid">
           <article class="panel readiness-panel">
-            <div class="section-heading"><div><p class="section-kicker">08 · 可科研性检查</p><h2>这批数据能否支持可靠研究</h2></div><span id="readiness-status" class="status-badge"></span></div>
+            <div class="section-heading"><div><p class="section-kicker">10 · 可科研性检查</p><h2>这批数据能否支持可靠研究</h2></div><span id="readiness-status" class="status-badge"></span></div>
             <div id="research-metrics" class="research-metrics" aria-label="科研数据核心指标"></div>
             <div class="outcome-visual">
               <div class="outcome-visual-heading"><h3>研究结局分布</h3><span id="outcome-total"></span></div>
@@ -295,17 +291,6 @@
             <h3>本次实际清洗动作</h3>
             <ul id="cleaning-action-list" class="message-list cleaning-list"></ul>
           </div>
-          <div class="metric-compare-panel">
-            <div class="metric-compare-heading">
-              <div>
-                <h3>模型指标对比</h3>
-                <span>同口径内部诊断分，展示各模型配置在关键指标上的差异。</span>
-              </div>
-              <strong id="metric-compare-topline">—</strong>
-            </div>
-            <div id="metric-compare-bars" class="metric-compare-bars" aria-label="模型指标柱状图"></div>
-            <div id="metric-compare-values" class="metric-compare-values" aria-label="模型指标精确数值"></div>
-          </div>
           <h3>风险提示</h3><ul id="warning-list" class="message-list warning-list"></ul>
           <h3>下一步建议</h3><ul id="recommendation-list" class="message-list recommendation-list"></ul>
           <div class="evaluation-note">
@@ -315,13 +300,13 @@
           </div>
           </article>
           <article class="panel dictionary-panel">
-            <div class="section-heading"><div><p class="section-kicker">09 · 中文字段字典</p><h2>变量是什么意思</h2></div><span id="dictionary-count" class="count-tag"></span></div>
+            <div class="section-heading"><div><p class="section-kicker">11 · 中文字段字典</p><h2>变量是什么意思</h2></div><span id="dictionary-count" class="count-tag"></span></div>
             <div class="table-wrap"><table id="dictionary-table"><thead><tr><th>字段名</th><th>中文标注</th><th>数据类型</th><th>科研用途</th><th>说明</th></tr></thead><tbody></tbody></table></div>
           </article>
         </section>
 
         <section class="panel">
-          <div class="section-heading"><div><p class="section-kicker">10 · 数据溯源</p><h2>每个来源都能回到官方地址</h2></div><span id="source-count" class="count-tag"></span></div>
+          <div class="section-heading"><div><p class="section-kicker">12 · 数据溯源</p><h2>每个来源都能回到官方地址</h2></div><span id="source-count" class="count-tag"></span></div>
           <div class="lineage-panel">
             <div class="lineage-heading">
               <div><strong>科研问题 → 多源检索 → 主科研数据集</strong><span>连线表示检索与选择关系，不表示跨患者拼接</span></div>
@@ -341,54 +326,6 @@
           <div class="table-wrap"><table id="source-table"><thead><tr><th>数据库</th><th>数据编号（Accession）</th><th>状态</th><th>校验值</th><th>官方地址</th></tr></thead><tbody></tbody></table></div>
         </section>
 
-        <section id="competition-report" class="panel competition-panel">
-          <div class="section-heading"><div><p class="section-kicker">11 · 统一评价与科研适用性</p><h2>模型、横向结果与分层结果</h2></div><span id="competition-direction" class="count-tag"></span></div>
-          <p id="competition-summary" class="section-note"></p>
-          <div id="competition-metrics" class="competition-metrics" aria-label="统一评价指标"></div>
-          <article class="unified-evaluation">
-            <div class="unified-heading">
-              <div><h3>统一评价体系 v2</h3><span id="unified-evaluation-status">—</span></div>
-              <strong id="unified-evaluation-version">—</strong>
-            </div>
-            <p id="unified-evaluation-notice" class="unified-notice"></p>
-            <div id="evaluation-layer-grid" class="evaluation-layer-grid"></div>
-            <div id="evaluation-flow-visual" class="evaluation-flow-visual" aria-label="统一评价体系流程图"></div>
-            <div class="fitness-panel">
-              <div class="fitness-summary">
-                <span>科研适配度</span>
-                <strong id="fitness-score">待评测</strong>
-                <em id="fitness-gate" class="status-badge">—</em>
-              </div>
-              <div id="fitness-dimensions" class="fitness-dimensions"></div>
-              <ul id="fitness-gaps" class="message-list warning-list"></ul>
-            </div>
-            <div class="comparison-grid">
-              <article>
-                <div class="comparison-heading"><h4>模型对比</h4><label class="chart-select">指标
-                  <select id="model-chart-metric"><option value="fitness_score">科研适配度</option><option value="source_audit">来源审计完整度</option><option value="outcome_completeness">结局完整率</option><option value="field_completeness">字段完整率</option><option value="question_fit">问题匹配度</option><option value="exploratory_usability">科研探索可用性</option></select>
-                </label></div>
-                <div id="model-comparison-visual" class="model-comparison-visual" aria-label="模型对比可视化"></div>
-                <div class="table-wrap"><table id="unified-model-table"><thead><tr><th>方法</th><th>模型</th><th>科研适配度</th><th>SDTI</th><th>质量门</th><th>说明</th></tr></thead><tbody></tbody></table></div>
-              </article>
-              <article>
-                <h4>横向对比结果</h4>
-                <div id="horizontal-comparison-list" class="comparison-list"></div>
-              </article>
-            </div>
-            <article class="stratified-panel">
-              <h4>分层对比</h4>
-              <div id="stratified-visual" class="stratified-visual" aria-label="分层对比风险矩阵"></div>
-              <div class="table-wrap"><table id="stratified-table"><thead><tr><th>分层</th><th>取值</th><th>样本数</th><th>指标</th><th>质量门</th><th>说明</th></tr></thead><tbody></tbody></table></div>
-            </article>
-          </article>
-          <article class="scientific-usability">
-            <div class="scientific-heading"><div><h3>科研适用性初步分析</h3><span>用缺失率、类别平衡、相关性/关联分析说明数据是否值得继续做科研建模</span></div><strong id="scientific-usability-status">—</strong></div>
-            <div id="scientific-usability-summary" class="scientific-summary"></div>
-            <div id="scientific-usability-findings" class="scientific-findings"></div>
-            <ul id="scientific-usability-caveats" class="message-list scientific-caveats"></ul>
-          </article>
-          <div class="evaluation-footnote"><strong>正式成绩状态</strong><span>模型对比、横向对比和分层对比中的未实测项保持待评测；不生成虚假 benchmark 分数。</span></div>
-        </section>
       </div>
     </main>
 
@@ -434,6 +371,6 @@
     </dialog>
     <div id="toast" class="toast" hidden role="status" aria-live="polite"></div>
     <footer><span>千问科研数据智能体</span><span>模型负责规划 · 规则负责安全 · 数据必须真实可追溯</span></footer>
-    <script src="/app.js?v=20260824-3" defer></script>
+    <script src="/app.js?v=20260824-5" defer></script>
   </body>
 </html>

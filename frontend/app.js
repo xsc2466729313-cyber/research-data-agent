@@ -380,6 +380,8 @@ function buildAgentTaskPayload() {
     preferred_sources: [],
     max_sources: Number(document.querySelector("#max-sources").value),
     max_records: Number(document.querySelector("#max-records").value),
+    iterative_collection: true,
+    max_collection_rounds: Number(document.querySelector("#collection-rounds")?.value || 3),
   };
   if (state.qwenSessionId) payload.qwen_session_id = state.qwenSessionId;
   return payload;
@@ -558,6 +560,8 @@ function renderResult(result) {
   renderReadiness(result.readiness, result.modeling_dataset, result.source_items, result.candidate_sources);
   renderStudyDesign(result.study_design, result.modeling_dataset);
   renderCohortConstruction(result.cohort_construction);
+  renderCollectionAgent(result.collection_agent);
+  renderDataAlignment(result.data_alignment);
   renderDictionary(result.modeling_dataset.columns);
   renderSources(result.source_items, result.candidate_sources, result.modeling_dataset);
   renderCompetitionReport(result.competition_report);
@@ -583,7 +587,7 @@ function renderPlan(plan) {
 }
 
 function renderTools(tools) {
-  document.querySelector("#tool-count").textContent = `${tools.length} 次调用`;
+  document.querySelector("#tool-count").textContent = `${tools.length} 个检索入口`;
   const body = document.querySelector("#tool-table tbody");
   body.innerHTML = tools.length ? tools.map((tool) => `<tr>
     <td><strong>${escapeHtml(tool.tool_label)}</strong><small>${escapeHtml(tool.tool_name)}</small></td>
@@ -875,6 +879,109 @@ function renderCohortConstruction(report) {
   notes.innerHTML = [...modeNote, ...(report.notes || [])].map((item) => `<li>${escapeHtml(localizeNarrative(item))}</li>`).join("");
 }
 
+function renderCollectionAgent(report) {
+  const gate = document.querySelector("#collection-agent-gate");
+  const rounds = document.querySelector("#collection-agent-rounds");
+  const note = document.querySelector("#collection-agent-note");
+  const summary = document.querySelector("#collection-agent-summary");
+  const iterations = document.querySelector("#collection-agent-iterations");
+  const gaps = document.querySelector("#collection-agent-gaps");
+  const actions = document.querySelector("#collection-agent-next-actions");
+  if (!gate || !rounds || !note || !summary || !iterations || !gaps || !actions) return;
+  if (!report) {
+    gate.textContent = "待检测";
+    gate.className = "status-badge is-review";
+    rounds.textContent = "尚未运行";
+    note.textContent = "当前任务没有返回缺口驱动搜集报告。";
+    summary.innerHTML = "";
+    iterations.innerHTML = "";
+    gaps.innerHTML = "";
+    actions.innerHTML = "";
+    return;
+  }
+  gate.textContent = report.quality_gate === "PASS" ? "已通过质量门" : "需要继续补搜";
+  gate.className = `status-badge ${statusClass(report.quality_gate)}`;
+  rounds.textContent = `${report.completed_rounds}/${report.max_rounds} 轮`;
+  note.textContent = localizeNarrative(report.note || "系统根据字段缺口决定下一轮搜集动作。");
+  const critical = report.critical_gaps || [];
+  const recommended = report.recommended_gaps || [];
+  summary.innerHTML = [
+    ["状态", report.status],
+    ["关键缺口", critical.length],
+    ["建议补充", recommended.length],
+    ["下一步动作", (report.next_actions || []).length],
+    ["来源覆盖", Object.keys(report.source_coverage || {}).length],
+  ].map(([label, value]) => `<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join("");
+  iterations.innerHTML = (report.iterations || []).map((item) => `<article class="collection-iteration ${item.quality_gate === "PASS" ? "is-pass" : "is-review"}">
+    <div class="collection-iteration-head"><strong>第 ${escapeHtml(item.round_number)} 轮 · ${escapeHtml(item.phase)}</strong><span class="status-badge ${statusClass(item.quality_gate)}">${escapeHtml(item.quality_gate)}</span></div>
+    <p>${escapeHtml(item.note)}</p>
+    <small>来源 ${escapeHtml(item.source_count)} 类 · ${escapeHtml(item.row_count)} 行 · ${escapeHtml(item.column_count)} 列 · 关键缺口 ${escapeHtml(item.missing_critical_fields?.length || 0)} 个</small>
+    <small>本轮可见字段：${escapeHtml((item.available_fields || []).map((field) => fieldLabel(state.result?.modeling_dataset, field)).slice(0, 14).join("、") || "尚未形成患者/样本宽表")}</small>
+    ${(item.actions || []).length ? `<ul>${item.actions.map((action) => `<li>${escapeHtml(action)}</li>`).join("")}</ul>` : ""}
+  </article>`).join("") || '<p class="muted-visual">尚未形成迭代记录。</p>';
+  const renderGap = (gap, kind) => `<article class="collection-gap ${kind === "critical" ? "is-critical" : "is-recommended"}">
+    <div><strong>${escapeHtml(gap.label)}</strong><span>${kind === "critical" ? "关键" : "建议"}</span></div>
+    <small>${escapeHtml(gap.variable_id)} · 覆盖率 ${gap.coverage_rate == null ? "未计算" : `${(gap.coverage_rate * 100).toFixed(1)}%`}</small>
+    <p>${escapeHtml(gap.reason)}</p>
+    <em>建议来源：${escapeHtml((gap.suggested_sources || []).join("、") || "待规则匹配")}</em>
+    ${(gap.field_evidence || []).length ? `<small class="collection-evidence">已登记证据：${gap.field_evidence.map((item) => `${item.source_name}（${item.status}）`).join("、")}</small>` : '<small class="collection-evidence">尚未登记可核验的字段来源。</small>'}
+  </article>`;
+  gaps.innerHTML = critical.map((gap) => renderGap(gap, "critical")).join("")
+    + recommended.map((gap) => renderGap(gap, "recommended")).join("")
+    || '<p class="muted-visual">当前没有待补充字段。</p>';
+  actions.innerHTML = (report.next_actions || []).map((action) => `<article>
+    <div><strong>${escapeHtml(action.source_name)}</strong><span class="status-badge ${statusClass(action.status)}">${escapeHtml(action.status)}</span></div>
+    <small>${escapeHtml(action.tool_name)} · 优先级 ${escapeHtml(action.priority)} · ${escapeHtml(JSON.stringify(action.arguments || {}, null, 0))}</small>
+    <p>${escapeHtml(action.rationale)}</p>
+  </article>`).join("") || '<p class="muted-visual">质量门已通过，暂无下一轮动作。</p>';
+}
+
+function renderDataAlignment(report) {
+  const status = document.querySelector("#data-alignment-status");
+  const note = document.querySelector("#data-alignment-note");
+  const summary = document.querySelector("#data-alignment-summary");
+  const namespace = document.querySelector("#data-alignment-namespace");
+  const basis = document.querySelector("#data-alignment-basis");
+  const limitations = document.querySelector("#data-alignment-limitations");
+  const sources = document.querySelector("#data-alignment-sources");
+  if (!status || !note || !summary || !namespace || !basis || !limitations || !sources) return;
+  if (!report) {
+    status.textContent = "待判定";
+    status.className = "status-badge is-review";
+    note.textContent = "当前任务没有返回数据统一与身份对齐审计。";
+    summary.innerHTML = "";
+    namespace.textContent = "";
+    basis.innerHTML = "";
+    limitations.innerHTML = "";
+    sources.innerHTML = "";
+    return;
+  }
+  status.textContent = report.status || "待判定";
+  status.className = `status-badge ${statusClass(report.status)}`;
+  note.textContent = report.note || "系统只在可审计的身份空间内对齐患者和样本。";
+  const percent = (value) => value == null ? "未计算" : `${(Number(value) * 100).toFixed(1)}%`;
+  const yesNo = (value) => value == null ? "未判定" : value ? "是" : "否";
+  summary.innerHTML = [
+    ["主表行数", report.row_count],
+    ["患者数量", report.patient_count],
+    ["样本数量", report.sample_count],
+    ["患者编号覆盖", percent(report.patient_id_coverage_rate)],
+    ["样本编号覆盖", percent(report.sample_id_coverage_rate)],
+    ["研究编号一致", yesNo(report.same_study)],
+    ["行级来源一致", yesNo(report.same_source)],
+    ["跨来源患者合并", report.cross_source_join_status || "未判定"],
+  ].map(([label, value]) => `<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join("");
+  namespace.textContent = `身份命名空间：${report.identity_namespace || "研究编号 + 来源内原始编号"}`;
+  basis.innerHTML = (report.alignment_basis || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+  limitations.innerHTML = (report.limitations || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+  sources.innerHTML = (report.sources || []).map((item) => `<article class="${item.role === "主数据集来源" ? "is-primary" : "is-unselected"}">
+    <div><strong>${escapeHtml(item.source_name)}</strong><span>${escapeHtml(item.role)}</span></div>
+    <small><code>${escapeHtml(item.source_id)}</code>${item.accession ? ` · ${escapeHtml(item.accession)}` : ""}</small>
+    <p>${escapeHtml(item.row_count)} 行 · ${escapeHtml(item.patient_count)} 位患者 · ${escapeHtml(item.sample_count)} 个样本</p>
+    <em>${escapeHtml(item.note)}</em>
+  </article>`).join("") || '<p class="muted-visual">尚无来源身份记录。</p>';
+}
+
 function renderReadiness(readiness, dataset, sources, candidates) {
   const badge = document.querySelector("#readiness-status");
   badge.textContent = readiness.status;
@@ -886,6 +993,10 @@ function renderReadiness(readiness, dataset, sources, candidates) {
     ...sources.map((source) => canonicalDatabaseName(source.source_name)),
     ...(candidates || []).map((candidate) => canonicalDatabaseName(candidate.source_database)),
   ].filter(Boolean));
+  const sourceEntries = new Set([
+    ...sources.map((source) => `${canonicalDatabaseName(source.source_name)}:${source.accession || source.source_id}`),
+    ...(candidates || []).map((candidate) => `${canonicalDatabaseName(candidate.source_database)}:${candidate.accession || candidate.dataset_id}`),
+  ]);
   const reportMetrics = new Map((state.result?.competition_report?.metrics || []).map((metric) => [metric.name, metric]));
   const sourceAuditMetric = reportMetrics.get("来源审计完整度") || reportMetrics.get("来源可追溯率");
   const questionFitMetric = reportMetrics.get("请求要素覆盖率") || reportMetrics.get("请求变量覆盖率");
@@ -912,7 +1023,8 @@ function renderReadiness(readiness, dataset, sources, candidates) {
       percent: questionFitPercent ?? variableCoverage,
       detail: questionFitMetric?.detail || "综合疾病、结局、基因/分子证据、治疗和数据类型匹配",
     },
-    { label: "数据源多样性", value: sourceDatabases.size, suffix: "类", detail: [...sourceDatabases].join("、") || "尚无来源" },
+    { label: "数据库类型数", value: sourceDatabases.size, suffix: "类", detail: [...sourceDatabases].join("、") || "尚无来源" },
+    { label: "实际检索入口", value: sourceEntries.size, suffix: "个", detail: "按数据库类型 + accession / study_id / project_id 去重" },
     {
       label: "来源审计完整度",
       percent: sourceAuditPercent ?? traceabilityRate,
@@ -1085,6 +1197,15 @@ function renderModelComparisonVisual(rows) {
     const score = raw == null ? null : (metric === "fitness_score" ? Number(raw) : Number(raw) * 100);
     return { row, score: Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : null };
   });
+  const measured = values.filter(({ score }) => score != null);
+  if (measured.length < 2) {
+    const current = measured.length === 1
+      ? `当前只有 1 个真实观测值（${measured[0].score.toFixed(1)}%）。`
+      : "当前没有真实横向观测值。";
+    container.classList.remove("is-bar-chart");
+    container.innerHTML = `<div class="comparison-not-ready"><strong>暂不构成横向对比</strong><p>${escapeHtml(current)} 任务级科研适配度不能替代模型对比；请在独立模型评价页用同一批问题完成至少两个模型/变体的真实运行。</p></div>`;
+    return;
+  }
   container.classList.add("is-bar-chart");
   container.innerHTML = `<div class="model-bar-chart" role="img" aria-label="${escapeHtml(metricLabel)}模型柱状图">${values.map(({ row, score }) => {
     const current = row.status === "当前任务真实运行" ? " is-current" : "";
@@ -1320,7 +1441,8 @@ function renderDictionary(columns) {
 }
 
 function renderSources(sources, candidates, dataset) {
-  document.querySelector("#source-count").textContent = `${sources.length} 个来源`;
+  const entryCount = new Set(sources.map((source) => `${canonicalDatabaseName(source.source_name)}:${source.accession || source.source_id}`)).size;
+  document.querySelector("#source-count").textContent = `${sources.length} 个来源文件 · ${entryCount} 个入口`;
   document.querySelector("#source-table tbody").innerHTML = sources.length ? sources.map((source) => `<tr class="source-table-row" data-source-db="${escapeHtml(canonicalDatabaseName(source.source_name))}">
     <td><strong>${escapeHtml(source.source_name)}</strong><small>${escapeHtml(source.source_id)}</small></td>
     <td>${escapeHtml(source.accession)}</td><td>${escapeHtml(SOURCE_STATUS_TRANSLATIONS[source.status] || source.status)}</td>

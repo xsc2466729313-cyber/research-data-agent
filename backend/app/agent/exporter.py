@@ -255,6 +255,69 @@ class AgentDatasetExportService:
             for cell in row:
                 cell.alignment = Alignment(wrap_text=True, vertical="top")
 
+        collection_sheet = workbook.create_sheet("搜集智能体")
+        collection_sheet.append(["项目", "内容"])
+        collection = result.collection_agent
+        if collection is not None:
+            collection_sheet.append(["状态", collection.status])
+            collection_sheet.append(["Quality Gate", collection.quality_gate])
+            collection_sheet.append(["完成轮次", f"{collection.completed_rounds}/{collection.max_rounds}"])
+            collection_sheet.append(["说明", collection.note])
+            for iteration in collection.iterations:
+                collection_sheet.append(
+                    [
+                        f"第 {iteration.round_number} 轮",
+                        f"{iteration.phase}｜状态={iteration.status}｜Gate={iteration.quality_gate}｜"
+                        f"来源={','.join(iteration.source_names) or '无'}｜"
+                        f"行={iteration.row_count}｜列={iteration.column_count}｜"
+                        f"关键缺口={','.join(iteration.missing_critical_fields) or '无'}｜"
+                        f"建议缺口={','.join(iteration.missing_recommended_fields) or '无'}｜"
+                        f"{iteration.note}",
+                    ]
+                )
+                for evidence in iteration.field_evidence:
+                    collection_sheet.append(
+                        [
+                            "字段证据",
+                            f"{evidence.source_name}｜来源={evidence.source_id or '未报告'}｜"
+                            f"状态={evidence.status}｜字段={','.join(evidence.matched_fields) or '未匹配'}｜"
+                            f"{evidence.note}",
+                        ]
+                    )
+            for gap in collection.critical_gaps:
+                collection_sheet.append(
+                    [
+                        "关键缺口",
+                        f"{gap.variable_id}｜{gap.label}｜覆盖率="
+                        f"{'未计算' if gap.coverage_rate is None else f'{gap.coverage_rate:.1%}'}｜"
+                        f"建议来源={','.join(gap.suggested_sources)}｜{gap.reason}",
+                    ]
+                )
+            for gap in collection.recommended_gaps:
+                collection_sheet.append(
+                    [
+                        "建议缺口",
+                        f"{gap.variable_id}｜{gap.label}｜覆盖率="
+                        f"{'未计算' if gap.coverage_rate is None else f'{gap.coverage_rate:.1%}'}｜"
+                        f"建议来源={','.join(gap.suggested_sources)}｜{gap.reason}",
+                    ]
+                )
+            for action in collection.next_actions:
+                collection_sheet.append(
+                    [
+                        "下一轮动作",
+                        f"{action.source_name}｜{action.tool_name}｜优先级={action.priority}｜"
+                        f"状态={action.status}｜参数={json.dumps(action.arguments, ensure_ascii=False)}｜"
+                        f"{action.rationale}",
+                    ]
+                )
+        else:
+            collection_sheet.append(["状态", "当前任务没有返回搜集智能体报告。"])
+        self._style_table(collection_sheet, 2)
+        collection_sheet.column_dimensions["A"].width = 18
+        collection_sheet.column_dimensions["B"].width = 120
+        collection_sheet.column_dimensions["B"].alignment = Alignment(wrap_text=True, vertical="top")
+
         competition = workbook.create_sheet("比赛报告")
         competition.append(["项目", "内容"])
         report = result.competition_report
@@ -298,13 +361,22 @@ class AgentDatasetExportService:
                     )
                 for gap in fitness.gap_feedback:
                     competition.append(["Fitness缺口", gap])
-                for row in unified.model_comparison:
+                if unified.model_comparison:
+                    for row in unified.model_comparison:
+                        competition.append(
+                            [
+                                "模型对比",
+                                f"{row.method_id}｜{row.method_label}｜model={row.base_model_id or 'N/A'}｜"
+                                f"status={row.status}｜fitness={row.fitness_score if row.fitness_score is not None else '待实测'}｜"
+                                f"sdti={row.sdti_status}｜gate={row.quality_gate}｜publish={row.publish_allowed}｜{row.note}",
+                            ]
+                        )
+                else:
                     competition.append(
                         [
                             "模型对比",
-                            f"{row.method_id}｜{row.method_label}｜model={row.base_model_id or 'N/A'}｜"
-                            f"status={row.status}｜fitness={row.fitness_score if row.fitness_score is not None else '待实测'}｜"
-                            f"sdti={row.sdti_status}｜gate={row.quality_gate}｜publish={row.publish_allowed}｜{row.note}",
+                            "未运行横向评价；当前任务级科研适配度不作为模型分数。"
+                            "请在独立模型评价页使用同一批问题完成至少两个模型/变体的真实测试。",
                         ]
                     )
                 for table in unified.horizontal_comparisons:

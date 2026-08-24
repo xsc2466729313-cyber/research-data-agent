@@ -310,26 +310,55 @@ class StudyDesignBuilder:
         research_type: str,
     ) -> list[StudyVariable]:
         variables: list[tuple[str, str, str, bool, list[str]]] = [
-            ("disease", "疾病", "Population", True, ["disease"]),
+            ("disease", "疾病", "人群", True, ["disease"]),
         ]
         if spec.subtype:
-            variables.append(("subtype", "疾病亚型", "Population", True, ["subtype", "her2_status", "disease"]))
+            variables.append(("subtype", "疾病亚型", "人群", True, ["subtype", "her2_status"]))
         if spec.genes:
             for gene in spec.genes:
                 field = f"{gene.lower()}_mutation"
-                variables.append((field, f"{gene} 突变", "Exposure", True, [field, "gene", "mutation_status"]))
+                variables.append((field, f"{gene} 突变", "暴露", True, [field, "gene", "mutation_status"]))
         if spec.drugs or "treatment_response" in spec.outcomes:
-            variables.append(("treatment", "治疗方案", "Exposure", True, ["treatment", "drug", "chemotherapy"]))
+            variables.append(("treatment", "治疗方案", "暴露", True, ["treatment", "drug", "chemotherapy"]))
         outcome_fields = ["treatment_response", "pcr"] if "treatment_response" in spec.outcomes else ["os_status", "os_months", "dfs_status", "dfs_months"] if "survival" in spec.outcomes else ["expression"]
-        variables.append(("outcome", "研究结局", "Outcome", True, outcome_fields))
+        variables.append(("outcome", "研究结局", "结局", True, outcome_fields))
         for field, label in [
             ("age", "年龄"),
             ("stage", "分期"),
             ("er_status", "ER 状态"),
             ("pr_status", "PR 状态"),
         ]:
-            variables.append((field, label, "Covariate", False, [field]))
-        variables.append(("patient_id", "患者编号", "Analysis unit", True, ["patient_id", "sample_id"]))
+            variables.append((field, label, "协变量", False, [field]))
+        variables.append(("patient_id", "患者编号", "分析单位", True, ["patient_id"]))
+        variables.append(("sample_id", "样本编号", "分析单位", True, ["sample_id"]))
+        variables.append(
+            (
+                "sample_type",
+                "样本类型",
+                "样本信息",
+                True,
+                ["sample_type", "sample_type_detailed", "tissue_type", "specimen_type"],
+            )
+        )
+        if "treatment_response" in spec.outcomes or spec.drugs:
+            variables.append(
+                (
+                    "sample_timepoint",
+                    "样本时间点",
+                    "样本信息",
+                    True,
+                    ["sample_timepoint", "timepoint", "collection_timepoint"],
+                )
+            )
+        variables.append(
+            (
+                "sample_source",
+                "样本来源",
+                "样本信息",
+                False,
+                ["sample_source", "tissue_source_site", "tissue_source", "specimen_source", "sample_origin"],
+            )
+        )
         result: list[StudyVariable] = []
         for variable_id, label, role, required, aliases in variables:
             matched = [field for field in aliases if field in columns]
