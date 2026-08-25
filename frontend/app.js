@@ -176,9 +176,84 @@ const ARGUMENT_LABELS = {
   therapy_name: "治疗方案", max_items: "最大条目数",
 };
 
+function localApiOrigins() {
+  if (!window.location.hostname || !["127.0.0.1", "localhost"].includes(window.location.hostname)) return [];
+  const ports = [window.location.port, "8000", "8001", "8002"].filter(Boolean);
+  return [...new Set(ports)].map((port) => `${window.location.protocol}//${window.location.hostname}:${port}`);
+}
+
+// Same-origin routes such as /api/agent/configuration, /api/research/task and /api/agent/tasks
+// are routed through fetchApi so a stale local tab can recover on the other dev port.
+
+let pinnedApiOrigin = null;
+
+function isUnimplementedApi(response) {
+  if (response.status === 405) return true;
+  if (response.status !== 404) return false;
+  const type = (response.headers.get("content-type") || "").toLowerCase();
+  return type.includes("text/html") || type.includes("text/plain");
+}
+
+function originOfApiUrl(url) {
+  if (url.startsWith("http://") || url.startsWith("https://")) return new URL(url).origin;
+  return window.location.origin;
+}
+
+function candidateApiUrls(path) {
+  if (pinnedApiOrigin) return [`${pinnedApiOrigin}${path}`];
+  return [path, ...localApiOrigins().map((origin) => `${origin}${path}`)];
+}
+
+async function originHasResearchTask(origin) {
+  try {
+    const response = await fetch(`${origin}/api/research/task`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question: "x" }),
+    });
+    return response.status === 422 || response.status === 401;
+  } catch {
+    return false;
+  }
+}
+
+async function pinPreferredApiOrigin() {
+  const origins = [window.location.origin, ...localApiOrigins()].filter(Boolean);
+  for (const origin of [...new Set(origins)]) {
+    if (await originHasResearchTask(origin)) {
+      pinnedApiOrigin = origin;
+      return origin;
+    }
+  }
+  return pinnedApiOrigin;
+}
+
+async function fetchApi(path, options = {}) {
+  const uniqueUrls = [...new Set(candidateApiUrls(path))];
+  let lastError = null;
+  let lastResponse = null;
+  for (const url of uniqueUrls) {
+    try {
+      const response = await fetch(url, options);
+      lastResponse = response;
+      if (isUnimplementedApi(response)) continue;
+      pinnedApiOrigin = originOfApiUrl(url);
+      return response;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (lastResponse) {
+    pinnedApiOrigin = originOfApiUrl(uniqueUrls[0]);
+    return lastResponse;
+  }
+  const detail = lastError?.message || "浏览器未返回具体网络错误";
+  throw new Error(`本机后端不可达：已尝试 8000/8001。请确认页面使用 http://127.0.0.1:8000/ 或 http://127.0.0.1:8001/，并关闭旧标签页后强制刷新。原始错误：${detail}`);
+}
+
 const translateTerm = (value) => TERM_TRANSLATIONS[String(value)] || String(value ?? "—");
 const listText = (values) => values?.length ? values.map(translateTerm).join("、") : "未指定";
-const statusClass = (status) => ["完成", "可支持科研分析", "达标", "已覆盖", "已记录", "已计算", "PASS"].includes(status) ? "is-success" : ["失败", "部分失败", "REJECT", "FAIL"].includes(status) ? "is-error" : "is-review";
+const statusClass = (status) => ["完成", "可支持科研分析", "达标", "已覆盖", "已记录", "已计算", "PASS", "MATCH", "PARTIAL"].includes(status) ? (status === "PARTIAL" ? "is-review" : "is-success") : ["失败", "部分失败", "REJECT", "FAIL", "UNMATCH"].includes(status) ? "is-error" : "is-review";
 const metricPercentValue = (metric) => {
   if (!metric) return null;
   const value = Number(metric.value);
@@ -310,31 +385,94 @@ function renderArguments(argumentsObject) {
 async function readJson(response) {
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const message = typeof body.detail === "string" ? body.detail : body.detail?.message || `请求失败（HTTP ${response.status}）`;
+    if (response.status === 405) {
+      throw new Error("当前后端没有这条接口（HTTP 405）。请重启后端后强制刷新页面。");
+    }
+    const detail = body.detail;
+    const message = typeof detail === "string"
+      ? detail
+      : detail?.message || detail?.detail || body.message || response.statusText || `请求失败（HTTP ${response.status}）`;
     throw new Error(message);
   }
   return body;
 }
 
+async function postAgentTask(payload) {
+  return readJson(await fetchApi("/api/agent/tasks", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }));
+}
+
+async function runResearchTaskOnce(payload) {
+  const createdResponse = await fetchApi("/api/research/task", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (isUnimplementedApi(createdResponse)) {
+    setProgress(18, "当前后端尚未加载异步任务接口，改为同步执行…");
+    return postAgentTask(payload);
+  }
+  const created = await readJson(createdResponse);
+  if (created.modeling_dataset && created.plan) return created;
+  const taskId = created.task_id;
+  if (!taskId) throw new Error("后端没有返回任务编号。");
+  setProgress(12, `任务 ${taskId} 已创建，正在理解科研问题…`);
+  while (true) {
+    const status = await readJson(await fetchApi(`/api/task/status/${encodeURIComponent(taskId)}`));
+    setProgress(Math.max(12, Number(status.progress || 12)), status.message || status.stage || "科研任务执行中…");
+    if (status.status === "completed") break;
+    if (status.status === "failed") throw new Error(status.error || status.message || "科研任务执行失败。");
+    await new Promise((resolve) => window.setTimeout(resolve, 1500));
+  }
+  return readJson(await fetchApi(`/api/agent/tasks/${encodeURIComponent(taskId)}`));
+}
+
+async function runResearchTask(payload) {
+  await pinPreferredApiOrigin();
+  try {
+    return await runResearchTaskOnce(payload);
+  } catch (error) {
+    const message = String(error.message || "");
+    if (payload.qwen_session_id && (message.includes("临时会话不存在") || message.includes("已过期"))) {
+      clearStaleQwenSession();
+      const retry = { ...payload };
+      delete retry.qwen_session_id;
+      setProgress(16, "千问临时会话已失效，改用当前后端配置继续…");
+      return runResearchTaskOnce(retry);
+    }
+    throw error;
+  }
+}
+
 async function checkConfiguration() {
   const system = document.querySelector("#system-status");
   try {
+    await pinPreferredApiOrigin();
     const [health, configuration] = await Promise.all([
-      fetch("/health").then(readJson),
-      fetch("/api/agent/configuration").then(readJson),
+      fetchApi("/health").then(readJson),
+      fetchApi("/api/agent/configuration").then(readJson),
     ]);
     system.className = "system-status is-online";
     system.innerHTML = `<span class="status-dot"></span><span>在线 · ${escapeHtml(health.version)}</span>`;
     const badge = document.querySelector("#configuration-badge");
     badge.textContent = configuration.configured ? "千问已连接" : "千问未配置";
     badge.className = `status-badge ${configuration.configured ? "is-success" : "is-review"}`;
-    document.querySelector("#configuration-title").textContent = configuration.configured ? "千问智能体可以运行" : "当前将使用确定性兜底";
+    document.querySelector("#configuration-title").textContent = configuration.configured ? "模型规划可用" : "当前使用确定性规划";
     document.querySelector("#configuration-message").textContent = configuration.message;
     document.querySelector("#configuration-model").textContent = configuration.model;
+    if (!state.qwenSessionId) {
+      const openConfig = document.querySelector("#qwen-open-config");
+      if (openConfig) {
+        openConfig.textContent = configuration.configured ? "更换临时连接（可选）" : "连接千问 API";
+      }
+    }
   } catch (error) {
     system.className = "system-status is-error";
     system.innerHTML = '<span class="status-dot"></span><span>后端未连接</span>';
-    document.querySelector("#configuration-title").textContent = "无法读取智能体配置";
+    document.querySelector("#configuration-title").textContent = "无法读取模型配置";
     document.querySelector("#configuration-message").textContent = error.message;
   }
 }
@@ -348,15 +486,15 @@ function setProgress(percent, label) {
 
 function startProgress() {
   const phases = [
-    [18, "千问正在解析疾病、基因、药物和结局…"],
-    [32, "千问正在通过函数调用选择真实数据工具…"],
-    [48, "正在访问 GDC、GEO 或 cBioPortal 官方接口…"],
-    [63, "正在把临床、突变和拷贝数记录整理成宽表…"],
-    [76, "正在识别研究变量、研究结局与重复患者…"],
-    [86, "正在生成中文字段字典和可科研性报告…"],
+    [18, "正在解析研究问题（PICO）…"],
+    [32, "正在生成研究方案与数据源规划…"],
+    [48, "正在检索并解析公开数据库…"],
+    [63, "正在执行 Schema 匹配与实体对齐…"],
+    [76, "正在执行四层质量门…"],
+    [86, "正在生成分析矩阵、字段字典与质量报告…"],
   ];
   let index = 0;
-  setProgress(8, "正在创建科研数据任务…");
+  setProgress(8, "正在创建研究任务…");
   state.progressTimer = window.setInterval(() => {
     if (index < phases.length) {
       setProgress(phases[index][0], phases[index][1]);
@@ -368,7 +506,7 @@ function startProgress() {
 function stopProgress(success = true) {
   if (state.progressTimer) window.clearInterval(state.progressTimer);
   state.progressTimer = null;
-  if (success) setProgress(100, "科研数据任务已完成，可以检查和下载结果。");
+  if (success) setProgress(100, "任务已完成，可审查结果并导出。");
 }
 
 function buildAgentTaskPayload() {
@@ -381,10 +519,25 @@ function buildAgentTaskPayload() {
     max_sources: Number(document.querySelector("#max-sources").value),
     max_records: Number(document.querySelector("#max-records").value),
     iterative_collection: true,
-    max_collection_rounds: Number(document.querySelector("#collection-rounds")?.value || 3),
+    max_collection_rounds: Number(document.querySelector("#collection-rounds")?.value || 8),
   };
-  if (state.qwenSessionId) payload.qwen_session_id = state.qwenSessionId;
+  if (state.qwenSessionId && !isQwenSessionExpired()) payload.qwen_session_id = state.qwenSessionId;
   return payload;
+}
+
+function isQwenSessionExpired() {
+  if (!state.qwenSessionExpiresAt) return false;
+  const expires = Date.parse(state.qwenSessionExpiresAt);
+  return Number.isFinite(expires) && expires <= Date.now();
+}
+
+function clearStaleQwenSession() {
+  state.qwenSessionId = null;
+  state.qwenSessionExpiresAt = null;
+  const disconnect = document.querySelector("#qwen-disconnect");
+  if (disconnect) disconnect.hidden = true;
+  const openConfig = document.querySelector("#qwen-open-config");
+  if (openConfig) openConfig.textContent = "连接千问 API";
 }
 
 function parseCsvRows(text) {
@@ -436,14 +589,14 @@ function importQwenCredentialCsv(text) {
   document.querySelector("#qwen-api-key").value = mapping.apiKey;
   document.querySelector("#qwen-base-url").value = mapping.openAiCompatible;
   document.querySelector("#qwen-workspace-id").value = mapping.workspaceId || "";
-  document.querySelector("#qwen-connect-status").textContent = "已从本机 CSV 读取连接字段，尚未发送。";
+  document.querySelector("#qwen-connect-status").textContent = "已从本机 CSV 读取连接字段，尚未提交。";
 }
 
 function renderTemporaryQwenConnection(session) {
   state.qwenSessionId = session.session_id;
   state.qwenSessionExpiresAt = session.expires_at;
   const badge = document.querySelector("#configuration-badge");
-  badge.textContent = "临时千问已连接";
+  badge.textContent = "会话已启用";
   badge.className = "status-badge is-success";
   document.querySelector("#configuration-title").textContent = "千问 API 内存会话已启用";
   document.querySelector("#configuration-message").textContent = `连接已验证，将于 ${new Date(session.expires_at).toLocaleString("zh-CN")} 前有效；服务重启会立即清除。`;
@@ -458,10 +611,10 @@ async function connectQwenSession(event) {
   const button = document.querySelector("#qwen-connect");
   const status = document.querySelector("#qwen-connect-status");
   button.disabled = true;
-  status.textContent = "正在验证千问 API，请稍候…";
+  status.textContent = "正在验证千问 API…";
   try {
     const previousSessionId = state.qwenSessionId;
-    const response = await fetch("/api/agent/qwen-sessions", {
+    const response = await fetchApi("/api/agent/qwen-sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -477,7 +630,7 @@ async function connectQwenSession(event) {
     document.querySelector("#qwen-credential-file").value = "";
     renderTemporaryQwenConnection(session);
     if (previousSessionId && previousSessionId !== session.session_id) {
-      fetch(`/api/agent/qwen-sessions/${encodeURIComponent(previousSessionId)}`, { method: "DELETE" }).catch(() => null);
+      fetchApi(`/api/agent/qwen-sessions/${encodeURIComponent(previousSessionId)}`, { method: "DELETE" }).catch(() => null);
     }
     status.textContent = session.message;
     document.querySelector("#qwen-connection-dialog").close();
@@ -493,7 +646,7 @@ async function disconnectQwenSession() {
   const sessionId = state.qwenSessionId;
   state.qwenSessionId = null;
   state.qwenSessionExpiresAt = null;
-  if (sessionId) await fetch(`/api/agent/qwen-sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE" }).catch(() => null);
+  if (sessionId) await fetchApi(`/api/agent/qwen-sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE" }).catch(() => null);
   document.querySelector("#qwen-disconnect").hidden = true;
   document.querySelector("#qwen-open-config").textContent = "连接千问 API";
   await checkConfiguration();
@@ -523,12 +676,7 @@ form.addEventListener("submit", async (event) => {
   state.result = null;
   startProgress();
   try {
-    const response = await fetch("/api/agent/tasks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(buildAgentTaskPayload()),
-    });
-    const result = await readJson(response);
+    const result = await runResearchTask(buildAgentTaskPayload());
     state.result = result;
     renderResult(result);
     resultsPanel.hidden = false;
@@ -552,19 +700,66 @@ function renderResult(result) {
   document.querySelector("#task-id").textContent = result.task_id;
   document.querySelector("#agent-summary").textContent = localizeNarrative(result.summary_zh);
   document.querySelector("#agent-notice").textContent = localizeNarrative(result.notice);
-  renderSpec(result.research_spec);
-  renderPlan(result.plan);
+    renderSpec(result.research_spec);
+    renderParsedQuestion(result.parsed_question, result.study_design);
+    renderPlan(result.plan);
   renderTools(result.tool_calls);
   renderCandidates(result.candidate_sources);
   renderDataset(result.modeling_dataset);
   renderReadiness(result.readiness, result.modeling_dataset, result.source_items, result.candidate_sources);
-  renderStudyDesign(result.study_design, result.modeling_dataset);
-  renderCohortConstruction(result.cohort_construction);
+    renderStudyDesign(result.study_design, result.modeling_dataset);
+    renderCohortConstruction(result.cohort_construction, result.readiness, result.quality_gate_report);
   renderCollectionAgent(result.collection_agent);
-  renderDataAlignment(result.data_alignment);
-  renderDictionary(result.modeling_dataset.columns);
+    renderDataAlignment(result.data_alignment);
+    renderQualityGates(result.quality_gate_report);
+    renderDictionary(result.modeling_dataset.columns);
   renderSources(result.source_items, result.candidate_sources, result.modeling_dataset);
   renderCompetitionReport(result.competition_report);
+}
+
+function renderParsedQuestion(parsed, design) {
+  const container = document.querySelector("#parsed-question");
+  if (!container) return;
+  const source = parsed || {};
+  const cards = [
+    ["Disease", source.disease || "—"],
+    ["Population", source.population || design?.population || "—"],
+    ["Exposure", source.exposure || design?.exposure || "—"],
+    ["Outcome", source.outcome || design?.outcome || "—"],
+    ["Required Variables", (source.required_variables || []).join("、") || "—"],
+  ];
+  container.innerHTML = cards.map(([label, value]) => `<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(localizeNarrative(value))}</strong></article>`).join("");
+}
+
+function renderQualityGates(report) {
+  const overall = document.querySelector("#quality-gate-overall");
+  const note = document.querySelector("#quality-gate-note");
+  const metrics = document.querySelector("#quality-gate-metrics");
+  const layers = document.querySelector("#quality-gate-layers");
+  if (!overall || !note || !metrics || !layers) return;
+  if (!report) {
+    overall.textContent = "待检查";
+    overall.className = "status-badge is-review";
+    note.textContent = "当前任务未返回四层质量门报告。";
+    metrics.innerHTML = "";
+    layers.innerHTML = "";
+    return;
+  }
+  overall.textContent = report.overall || "REVIEW";
+  overall.className = `status-badge ${statusClass(report.overall)}`;
+  note.textContent = localizeNarrative(report.note || "");
+  const metricCards = [
+    ["Cohort F1", report.cohort_f1 == null ? "未评测" : report.cohort_f1.toFixed(3)],
+    ["Variable Coverage", report.variable_coverage == null ? "未计算" : `${(report.variable_coverage * 100).toFixed(1)}%`],
+    ["Traceability", report.traceability == null ? "未计算" : `${(report.traceability * 100).toFixed(1)}%`],
+    ["Research Fitness", report.research_fitness == null ? "未计算" : `${(report.research_fitness * 100).toFixed(1)}%`],
+  ];
+  metrics.innerHTML = metricCards.map(([label, value]) => `<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join("");
+  layers.innerHTML = (report.layers || []).map((layer) => `<article class="${statusClass(layer.decision)}">
+    <div><strong>${escapeHtml(layer.label)}</strong><span class="status-badge ${statusClass(layer.decision)}">${escapeHtml(layer.decision)}</span></div>
+    <small>${escapeHtml((layer.checks || []).join(" · "))}</small>
+    <p>${escapeHtml(localizeNarrative(layer.evidence))}</p>
+  </article>`).join("");
 }
 
 function renderSpec(spec) {
@@ -611,7 +806,11 @@ function renderCandidates(candidates) {
 function renderDataset(dataset) {
   document.querySelector("#dataset-title").textContent = localizeNarrative(dataset.name);
   document.querySelector("#dataset-empty").hidden = dataset.rows.length > 0;
-  document.querySelectorAll(".export-button").forEach((button) => { button.disabled = dataset.rows.length === 0; });
+  document.querySelectorAll(".export-button").forEach((button) => {
+    const format = button.dataset.format;
+    const needsRows = ["csv", "parquet", "xlsx", "json"].includes(format);
+    button.disabled = needsRows && dataset.rows.length === 0;
+  });
   const head = document.querySelector("#dataset-table thead");
   const body = document.querySelector("#dataset-table tbody");
   const auditColumns = dataset.columns.filter((column) => column.role === "审计信息");
@@ -619,8 +818,8 @@ function renderDataset(dataset) {
   document.querySelector("#dataset-research-view").setAttribute("aria-pressed", String(state.datasetView === "research"));
   document.querySelector("#dataset-audit-view").setAttribute("aria-pressed", String(state.datasetView === "audit"));
   document.querySelector("#dataset-view-note").textContent = state.datasetView === "audit"
-    ? `正在显示全部 ${dataset.columns.length} 个字段；原始样本特征已拆成中文键值。`
-    : `正在显示 ${visibleColumns.length} 个科研字段；已隐藏 ${auditColumns.length} 个审计字段，下载文件仍保留全部字段。`;
+    ? `当前显示全部 ${dataset.columns.length} 个字段；原始样本特征已拆分为中文键值。`
+    : `当前显示 ${visibleColumns.length} 个分析字段，已隐藏 ${auditColumns.length} 个审计字段；导出文件保留全部字段。`;
   document.querySelector("#dataset-note").textContent = `分析单位：${dataset.unit_of_analysis}；患者 ${dataset.patient_count} 名，样本 ${dataset.sample_count} 个；研究结局字段：${fieldLabel(dataset, dataset.target_column)}。`;
   if (!dataset.rows.length) {
     head.innerHTML = "";
@@ -775,7 +974,7 @@ function renderStudyDesign(report, dataset) {
   if (!report) {
     status.textContent = "待生成";
     status.className = "status-badge is-review";
-    summary.innerHTML = '<p class="muted-visual">当前任务没有返回研究设计报告。</p>';
+    summary.innerHTML = '<p class="muted-visual">当前任务未返回研究方案报告。</p>';
     expression.textContent = "—";
     rules.innerHTML = "";
     coverage.innerHTML = "";
@@ -821,11 +1020,12 @@ function renderStudyDesign(report, dataset) {
   limitations.innerHTML = (report.limitations || []).map((item) => `<li>${escapeHtml(localizeNarrative(item))}</li>`).join("");
 }
 
-function renderCohortConstruction(report) {
+function renderCohortConstruction(report, readiness, qualityGate) {
   const gate = document.querySelector("#cohort-gate");
   const count = document.querySelector("#cohort-count");
   const summary = document.querySelector("#cohort-summary-cards");
   const funnel = document.querySelector("#cohort-funnel");
+  const stageFunnel = document.querySelector("#cohort-stage-funnel");
   const inclusion = document.querySelector("#cohort-inclusion-list");
   const exclusion = document.querySelector("#cohort-exclusion-list");
   const body = document.querySelector("#cohort-step-table tbody");
@@ -836,7 +1036,8 @@ function renderCohortConstruction(report) {
     gate.className = "status-badge is-review";
     count.textContent = "无队列";
     summary.innerHTML = "";
-    funnel.innerHTML = '<p class="muted-visual">运行真实数据任务后显示实际筛选计数。</p>';
+    if (stageFunnel) stageFunnel.innerHTML = "";
+    funnel.innerHTML = '<p class="muted-visual">真实数据任务完成后显示筛选计数。</p>';
     inclusion.innerHTML = "";
     exclusion.innerHTML = "";
     body.innerHTML = "";
@@ -856,6 +1057,27 @@ function renderCohortConstruction(report) {
     ["变量覆盖", report.variable_coverage_rate == null ? "待计算" : `${(report.variable_coverage_rate * 100).toFixed(1)}%`],
     ["患者 Linkage F1", report.patient_linkage_f1 == null ? "未评测" : report.patient_linkage_f1.toFixed(3)],
   ].map(([label, value]) => `<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join("");
+  if (stageFunnel) {
+    const raw = Number(report.source_row_count || 0);
+    const target = Number(report.final_row_count || 0);
+    const analysisReady = Boolean(readiness?.analysis_ready) && (qualityGate?.overall === "PASS" || report.quality_gate === "PASS");
+    const analysis = analysisReady ? target : 0;
+    const maxStage = Math.max(1, raw, target, analysis);
+    const stages = [
+      ["Raw Samples", raw, "原始样本/记录"],
+      ["Target Cohort", target, "目标队列"],
+      ["Analysis Dataset", analysis, "通过质量门的分析数据集"],
+    ];
+    stageFunnel.innerHTML = stages.map(([label, count, note]) => {
+      const width = Math.max(8, count / maxStage * 100);
+      return `<article>
+        <span>${escapeHtml(label)}</span>
+        <strong>${escapeHtml(count)}</strong>
+        <div class="cohort-funnel-track" role="img" aria-label="${escapeHtml(note)} ${escapeHtml(count)}"><i style="width:${width.toFixed(1)}%"></i></div>
+        <small>${escapeHtml(note)}</small>
+      </article>`;
+    }).join("");
+  }
   const steps = report.filter_steps || [];
   const maxCount = Math.max(1, ...steps.map((step) => Number(step.before_count || 0)));
   funnel.innerHTML = steps.map((step, index) => {
@@ -883,6 +1105,7 @@ function renderCollectionAgent(report) {
   const gate = document.querySelector("#collection-agent-gate");
   const rounds = document.querySelector("#collection-agent-rounds");
   const note = document.querySelector("#collection-agent-note");
+  const goalsBox = document.querySelector("#collection-agent-goals");
   const summary = document.querySelector("#collection-agent-summary");
   const iterations = document.querySelector("#collection-agent-iterations");
   const gaps = document.querySelector("#collection-agent-gaps");
@@ -891,31 +1114,40 @@ function renderCollectionAgent(report) {
   if (!report) {
     gate.textContent = "待检测";
     gate.className = "status-badge is-review";
-    rounds.textContent = "尚未运行";
-    note.textContent = "当前任务没有返回缺口驱动搜集报告。";
+    rounds.textContent = "未执行";
+    note.textContent = "当前任务未返回 Agent 闭环报告。";
+    if (goalsBox) goalsBox.innerHTML = "";
     summary.innerHTML = "";
     iterations.innerHTML = "";
     gaps.innerHTML = "";
     actions.innerHTML = "";
     return;
   }
-  gate.textContent = report.quality_gate === "PASS" ? "已通过质量门" : "需要继续补搜";
+  const gateLabel = report.quality_gate === "PASS" ? "已通过质量门" : report.quality_gate === "PARTIAL" ? "主目标已达成" : "需继续换方法";
+  gate.textContent = gateLabel;
   gate.className = `status-badge ${statusClass(report.quality_gate)}`;
   rounds.textContent = `${report.completed_rounds}/${report.max_rounds} 轮`;
-  note.textContent = localizeNarrative(report.note || "系统根据字段缺口决定下一轮搜集动作。");
+  note.textContent = localizeNarrative(report.stop_reason || report.note || "观察缺口后更换尚未尝试的方法。");
+  if (goalsBox) {
+    goalsBox.innerHTML = (report.goals || []).map((goal) => `<article class="${goal.met ? "is-met" : ""}">
+      <span>${goal.required ? "必需目标" : "可选目标"} · ${goal.met ? "已达成" : "未达成"}</span>
+      <strong>${escapeHtml(goal.label)}</strong>
+      <small>${escapeHtml(goal.evidence || "")}</small>
+    </article>`).join("");
+  }
   const critical = report.critical_gaps || [];
   const recommended = report.recommended_gaps || [];
   summary.innerHTML = [
     ["状态", report.status],
+    ["诊断", report.diagnosis || "未记录"],
     ["关键缺口", critical.length],
-    ["建议补充", recommended.length],
+    ["已试方法", (report.strategies_tried || []).length],
     ["下一步动作", (report.next_actions || []).length],
-    ["来源覆盖", Object.keys(report.source_coverage || {}).length],
   ].map(([label, value]) => `<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join("");
   iterations.innerHTML = (report.iterations || []).map((item) => `<article class="collection-iteration ${item.quality_gate === "PASS" ? "is-pass" : "is-review"}">
-    <div class="collection-iteration-head"><strong>第 ${escapeHtml(item.round_number)} 轮 · ${escapeHtml(item.phase)}</strong><span class="status-badge ${statusClass(item.quality_gate)}">${escapeHtml(item.quality_gate)}</span></div>
+    <div class="collection-iteration-head"><strong>第 ${escapeHtml(item.round_number)} 轮 · ${escapeHtml(item.diagnosis_label || item.phase)}</strong><span class="status-badge ${statusClass(item.quality_gate)}">${escapeHtml(item.decision || item.quality_gate)}</span></div>
     <p>${escapeHtml(item.note)}</p>
-    <small>来源 ${escapeHtml(item.source_count)} 类 · ${escapeHtml(item.row_count)} 行 · ${escapeHtml(item.column_count)} 列 · 关键缺口 ${escapeHtml(item.missing_critical_fields?.length || 0)} 个</small>
+    <small>来源 ${escapeHtml(item.source_count)} 类 · ${escapeHtml(item.row_count)} 行 · ${escapeHtml(item.column_count)} 列 · 已达成 ${escapeHtml((item.goals_met || []).length)} · 未闭合 ${escapeHtml((item.goals_open || []).length)}</small>
     <small>本轮可见字段：${escapeHtml((item.available_fields || []).map((field) => fieldLabel(state.result?.modeling_dataset, field)).slice(0, 14).join("、") || "尚未形成患者/样本宽表")}</small>
     ${(item.actions || []).length ? `<ul>${item.actions.map((action) => `<li>${escapeHtml(action)}</li>`).join("")}</ul>` : ""}
   </article>`).join("") || '<p class="muted-visual">尚未形成迭代记录。</p>';
@@ -930,10 +1162,10 @@ function renderCollectionAgent(report) {
     + recommended.map((gap) => renderGap(gap, "recommended")).join("")
     || '<p class="muted-visual">当前没有待补充字段。</p>';
   actions.innerHTML = (report.next_actions || []).map((action) => `<article>
-    <div><strong>${escapeHtml(action.source_name)}</strong><span class="status-badge ${statusClass(action.status)}">${escapeHtml(action.status)}</span></div>
+    <div><strong>${escapeHtml(action.strategy_label || action.source_name)}</strong><span class="status-badge ${statusClass(action.status)}">${escapeHtml(action.status)}</span></div>
     <small>${escapeHtml(action.tool_name)} · 优先级 ${escapeHtml(action.priority)} · ${escapeHtml(JSON.stringify(action.arguments || {}, null, 0))}</small>
     <p>${escapeHtml(action.rationale)}</p>
-  </article>`).join("") || '<p class="muted-visual">质量门已通过，暂无下一轮动作。</p>';
+  </article>`).join("") || '<p class="muted-visual">没有可继续缩小缺口的合法方法，或质量门已通过。</p>';
 }
 
 function renderDataAlignment(report) {
@@ -948,7 +1180,7 @@ function renderDataAlignment(report) {
   if (!report) {
     status.textContent = "待判定";
     status.className = "status-badge is-review";
-    note.textContent = "当前任务没有返回数据统一与身份对齐审计。";
+    note.textContent = "当前任务未返回实体对齐审计。";
     summary.innerHTML = "";
     namespace.textContent = "";
     basis.innerHTML = "";
@@ -956,9 +1188,11 @@ function renderDataAlignment(report) {
     sources.innerHTML = "";
     return;
   }
-  status.textContent = report.status || "待判定";
-  status.className = `status-badge ${statusClass(report.status)}`;
-  note.textContent = report.note || "系统只在可审计的身份空间内对齐患者和样本。";
+  status.textContent = report.entity_match_status
+    ? `${report.entity_match_status} · ${report.status || "待判定"}`
+    : (report.status || "待判定");
+  status.className = `status-badge ${statusClass(report.entity_match_status || report.status)}`;
+  note.textContent = report.entity_match_note || report.note || "仅在可审计身份空间内对齐患者与样本。";
   const percent = (value) => value == null ? "未计算" : `${(Number(value) * 100).toFixed(1)}%`;
   const yesNo = (value) => value == null ? "未判定" : value ? "是" : "否";
   summary.innerHTML = [
@@ -970,6 +1204,7 @@ function renderDataAlignment(report) {
     ["研究编号一致", yesNo(report.same_study)],
     ["行级来源一致", yesNo(report.same_source)],
     ["跨来源患者合并", report.cross_source_join_status || "未判定"],
+    ["实体匹配", report.entity_match_status || "REVIEW"],
   ].map(([label, value]) => `<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join("");
   namespace.textContent = `身份命名空间：${report.identity_namespace || "研究编号 + 来源内原始编号"}`;
   basis.innerHTML = (report.alignment_basis || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
@@ -1599,13 +1834,21 @@ document.querySelectorAll(".export-button").forEach((button) => {
     button.disabled = true;
     downloadStatus.textContent = `正在生成 ${format.toUpperCase()} 文件…`;
     try {
-      const response = await fetch(`/api/agent/tasks/${encodeURIComponent(state.result.task_id)}/export/${format}`);
+      const response = await fetchApi(`/api/agent/tasks/${encodeURIComponent(state.result.task_id)}/export/${format}`);
       if (!response.ok) await readJson(response);
+      const filenames = {
+        csv: `${state.result.task_id}-科研数据集.csv`,
+        parquet: `${state.result.task_id}-科研数据集.parquet`,
+        xlsx: `${state.result.task_id}-科研数据集.xlsx`,
+        json: `${state.result.task_id}-科研数据集.json`,
+        metadata: `${state.result.task_id}-元数据.json`,
+        quality_report: `${state.result.task_id}-质量报告.json`,
+      };
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = `${state.result.task_id}-科研数据集.${format}`;
+      anchor.download = filenames[format] || `${state.result.task_id}-科研数据集.${format}`;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
@@ -1615,7 +1858,9 @@ document.querySelectorAll(".export-button").forEach((button) => {
     } catch (error) {
       downloadStatus.textContent = error.message;
     } finally {
-      button.disabled = false;
+      const hasRows = Boolean(state.result?.modeling_dataset?.rows?.length);
+      const needsRows = ["csv", "parquet", "xlsx", "json"].includes(format);
+      button.disabled = needsRows && !hasRows;
     }
   });
 });
@@ -1647,7 +1892,7 @@ async function checkApiAgent() {
   }
   button.disabled = true;
   try {
-    const response = await fetch("/api/agent/api-check", {
+    const response = await fetchApi("/api/agent/api-check", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1749,7 +1994,7 @@ async function connectEvaluationModel(row) {
   status.textContent = "验证中";
   status.className = "model-config-status is-review";
   try {
-    const response = await fetch("/api/agent/qwen-sessions", {
+    const response = await fetchApi("/api/agent/qwen-sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1789,7 +2034,7 @@ async function removeEvaluationModel(index) {
   const config = state.modelConfigs[index];
   if (!config) return;
   if (config.sessionId) {
-    await fetch(`/api/agent/qwen-sessions/${encodeURIComponent(config.sessionId)}`, { method: "DELETE" }).catch(() => null);
+    await fetchApi(`/api/agent/qwen-sessions/${encodeURIComponent(config.sessionId)}`, { method: "DELETE" }).catch(() => null);
     delete state.modelSessions[config.targetId];
   }
   state.modelConfigs.splice(index, 1);
@@ -1862,7 +2107,7 @@ async function generateModelEvaluationPlan() {
       run_mode: questionSessionId ? "live" : "dry_run",
     };
     if (questionSessionId) payload.qwen_session_id = questionSessionId;
-    const report = await readJson(await fetch("/api/evaluation/model-tests/generate", {
+    const report = await readJson(await fetchApi("/api/evaluation/model-tests/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -1889,7 +2134,7 @@ async function runModelEvaluation() {
     const session_ids = Object.fromEntries(
       Object.entries(state.modelSessions).map(([targetId, session]) => [targetId, session.sessionId]),
     );
-    const updated = await readJson(await fetch("/api/evaluation/model-tests/run", {
+    const updated = await readJson(await fetchApi("/api/evaluation/model-tests/run", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ report_id: report.report_id, session_ids }),
@@ -1906,7 +2151,7 @@ async function runModelEvaluation() {
 async function exportModelEvaluationReport() {
   const report = state.modelEvaluationReport;
   if (!report) return;
-  const response = await fetch(`/api/evaluation/model-tests/${encodeURIComponent(report.report_id)}/export/xlsx`);
+  const response = await fetchApi(`/api/evaluation/model-tests/${encodeURIComponent(report.report_id)}/export/xlsx`);
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new Error(body.detail || "对比报告导出失败。");

@@ -37,13 +37,25 @@ class EuropePMCRecord(ApiModel):
     source_item: SourceItem
 
 
+class GeoCatalogRecord(ApiModel):
+    uid: str
+    accession: str
+    title: str | None = None
+    summary: str | None = None
+    n_samples: int | None = None
+    dataset_type: str | None = None
+    url: str
+    raw_record: dict[str, Any] = Field(default_factory=dict)
+    source_item: SourceItem
+
+
 class DiscoveryAdapterResult(ApiModel):
     task_id: str
     adapter: str = "discovery"
     query: str
     source_kind: str
     total_count: int = Field(ge=0)
-    records: list[BioSampleRecord | EuropePMCRecord]
+    records: list[BioSampleRecord | EuropePMCRecord | GeoCatalogRecord]
     source_items: list[SourceItem]
     request_url: str
     queried_at: datetime

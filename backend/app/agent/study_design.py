@@ -71,7 +71,7 @@ class StudyDesignBuilder:
         exposure = self._exposure(spec)
         outcome = self._outcome(spec)
         covariates = self._covariates(spec)
-        variables = self._required_variables(spec, columns, type_id)
+        variables = self._required_variables(spec, columns, type_id, dataset)
         selected_databases = {
             self._canonical_database(item.source_name)
             for item in source_items
@@ -219,8 +219,8 @@ class StudyDesignBuilder:
             self._unique_row_predicate(),
             active=bool(current),
         )
-        required_fields = [
-            variable.variable_id
+        required_variables = [
+            variable
             for variable in design.required_variables
             if variable.required and variable.available
         ]
@@ -230,9 +230,9 @@ class StudyDesignBuilder:
             "exclude_missing_key_variables",
             "排除关键变量缺失",
             "排除",
-            "只在必需字段真实存在时执行；字段整体缺失则标记复核而不伪造排除数。",
-            lambda row: all(self._has_value(row.get(field)) for field in required_fields),
-            active=bool(required_fields),
+            "只在必需字段真实存在时执行；按已匹配字段取值，不用变量编号冒充列名。",
+            lambda row: all(self._row_has_variable(row, variable) for variable in required_variables),
+            active=bool(required_variables),
         )
         current = self._step(
             steps,
@@ -308,6 +308,7 @@ class StudyDesignBuilder:
         spec: ResearchSpec,
         columns: set[str],
         research_type: str,
+        dataset: Any = None,
     ) -> list[StudyVariable]:
         variables: list[tuple[str, str, str, bool, list[str]]] = [
             ("disease", "疾病", "人群", True, ["disease"]),
@@ -315,9 +316,16 @@ class StudyDesignBuilder:
         if spec.subtype:
             variables.append(("subtype", "疾病亚型", "人群", True, ["subtype", "her2_status"]))
         if spec.genes:
+            subtype = (spec.subtype or "").casefold()
+            her2_positive = "her2-positive" in subtype and "her2-negative" not in subtype
+            goal_upper = spec.research_goal.upper()
+            any_gene_mentioned = any(item.upper() in goal_upper for item in spec.genes)
             for gene in spec.genes:
+                if gene.upper() == "ERBB2" and her2_positive and "ERBB2" not in goal_upper:
+                    continue
                 field = f"{gene.lower()}_mutation"
-                variables.append((field, f"{gene} 突变", "暴露", True, [field, "gene", "mutation_status"]))
+                required = gene.upper() in goal_upper if any_gene_mentioned else True
+                variables.append((field, f"{gene} 突变", "暴露", required, [field, "gene", "mutation_status"]))
         if spec.drugs or "treatment_response" in spec.outcomes:
             variables.append(("treatment", "治疗方案", "暴露", True, ["treatment", "drug", "chemotherapy"]))
         outcome_fields = ["treatment_response", "pcr"] if "treatment_response" in spec.outcomes else ["os_status", "os_months", "dfs_status", "dfs_months"] if "survival" in spec.outcomes else ["expression"]
@@ -360,19 +368,28 @@ class StudyDesignBuilder:
             )
         )
         result: list[StudyVariable] = []
+        rows = list(getattr(dataset, "rows", []) or [])
         for variable_id, label, role, required, aliases in variables:
             matched = [field for field in aliases if field in columns]
+            if rows:
+                available = any(
+                    StudyDesignBuilder._has_value(row.get(field))
+                    for field in matched
+                    for row in rows
+                )
+            else:
+                available = bool(matched)
             result.append(
                 StudyVariable(
                     variable_id=variable_id,
                     label=label,
                     role=role,
                     required=required,
-                    available=bool(matched),
+                    available=available,
                     matched_fields=matched,
                     note=(
                         "字段已出现在当前科研宽表。"
-                        if matched
+                        if available
                         else "当前结果没有该字段；不能用候选库摘要代替患者级变量。"
                     ),
                 )
@@ -470,6 +487,11 @@ class StudyDesignBuilder:
             )
         )
         return after
+
+    @staticmethod
+    def _row_has_variable(row: dict[str, Any], variable: StudyVariable) -> bool:
+        fields = variable.matched_fields or [variable.variable_id]
+        return any(StudyDesignBuilder._has_value(row.get(field)) for field in fields)
 
     @staticmethod
     def _unique_row_predicate() -> Callable[[dict[str, Any]], bool]:

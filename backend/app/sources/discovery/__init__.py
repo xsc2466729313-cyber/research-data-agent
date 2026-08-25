@@ -3,6 +3,7 @@ from backend.app.sources.discovery.models import (
     BioSampleRecord,
     DiscoveryAdapterResult,
     EuropePMCRecord,
+    GeoCatalogRecord,
 )
 
 __all__ = [
@@ -11,4 +12,5 @@ __all__ = [
     "DiscoveryAdapterError",
     "DiscoveryAdapterResult",
     "EuropePMCRecord",
+    "GeoCatalogRecord",
 ]

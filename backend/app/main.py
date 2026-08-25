@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Annotated
 from urllib.parse import quote
+from uuid import uuid4
 
 from fastapi import Depends, FastAPI, HTTPException, Response as FastAPIResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
+from pydantic import ValidationError
 
 from backend.app.agent import (
     AgentConfigurationError,
@@ -26,6 +29,10 @@ from backend.app.agent import (
     QwenSessionRequest,
     QwenSessionStatus,
     ResearchAgentService,
+    ResearchTaskCreated,
+    ResearchTaskSpec,
+    ResearchTaskStatus,
+    QualityGateReport,
     ModelComparisonReport,
     ModelEvaluationGenerateRequest,
     ModelEvaluationRunRequest,
@@ -85,6 +92,9 @@ from backend.app.sources.geo import GEOAdapter, GEOAdapterError
 from backend.app.sources.geo.models import GEOAdapterRequest, GEOAdapterResult
 
 
+logger = logging.getLogger(__name__)
+
+
 app = FastAPI(
     title="Breast Cancer Research Data Agent",
     version="2.0.0-qwen-agent",
@@ -101,6 +111,12 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "http://localhost:8888",
         "http://127.0.0.1:8888",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://localhost:8001",
+        "http://127.0.0.1:8001",
+        "http://localhost:8002",
+        "http://127.0.0.1:8002",
     ],
     allow_credentials=False,
     allow_methods=["GET", "POST", "DELETE"],
@@ -169,6 +185,24 @@ def get_research_agent_service() -> ResearchAgentService:
 
 def get_qwen_session_registry() -> QwenSessionRegistry:
     return qwen_session_registry
+
+
+def resolve_qwen_session_client(
+    payload: AgentTaskRequest,
+    registry: QwenSessionRegistry,
+) -> QwenClient | None:
+    if not payload.qwen_session_id:
+        return None
+    client = registry.get(payload.qwen_session_id)
+    if client is not None:
+        return client
+    if payload.allow_deterministic_fallback or not payload.use_qwen:
+        logger.warning("Ignoring stale Qwen session id because fallback is allowed")
+        return None
+    raise HTTPException(
+        status_code=401,
+        detail="千问临时会话不存在或已过期，请重新连接 API。",
+    )
 
 
 def get_api_check_service() -> ApiCheckService:
@@ -311,22 +345,90 @@ def run_agent_task(
     service: Annotated[ResearchAgentService, Depends(get_research_agent_service)],
     registry: Annotated[QwenSessionRegistry, Depends(get_qwen_session_registry)],
 ) -> AgentTaskResult:
+    request_id = f"agent-request-{uuid4().hex[:12]}"
     try:
-        session_client: QwenClient | None = None
-        if payload.qwen_session_id:
-            session_client = registry.get(payload.qwen_session_id)
-            if session_client is None:
-                raise HTTPException(
-                    status_code=401,
-                    detail="千问临时会话不存在或已过期，请重新连接 API。",
-                )
+        session_client = resolve_qwen_session_client(payload, registry)
         return service.run(payload, qwen_client=session_client)
     except AgentConfigurationError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except AgentExecutionError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except ValidationError as exc:
+        logger.exception("Agent result validation failed request_id=%s", request_id)
+        raise HTTPException(
+            status_code=502,
+            detail=f"科研结果校验失败（请求编号：{request_id}）：{exc.error_count()} 处字段不合法。",
+        ) from exc
+    except AttributeError as exc:
+        logger.exception("Agent result mapping failed request_id=%s", request_id)
+        raise HTTPException(
+            status_code=502,
+            detail=f"数据源结果解析失败（请求编号：{request_id}）。已隔离未知工具结果，请重启后端后再试。",
+        ) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        # Keep the browser response actionable while retaining the full traceback in server logs.
+        logger.exception("Unexpected agent task failure request_id=%s", request_id)
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"科研任务执行失败（请求编号：{request_id}）：{type(exc).__name__}。"
+                "请重启后端后强制刷新；若持续失败，请提供该请求编号。"
+            ),
+        ) from exc
+
+
+@app.post("/api/research/task", response_model=ResearchTaskCreated)
+def create_research_task(
+    payload: AgentTaskRequest,
+    service: Annotated[ResearchAgentService, Depends(get_research_agent_service)],
+    registry: Annotated[QwenSessionRegistry, Depends(get_qwen_session_registry)],
+) -> ResearchTaskCreated:
+    session_client = resolve_qwen_session_client(payload, registry)
+    status = service.start(payload, qwen_client=session_client)
+    return ResearchTaskCreated(task_id=status.task_id, status=status.status)
+
+
+@app.get("/api/task/status/{task_id}", response_model=ResearchTaskStatus)
+def get_research_task_status(
+    task_id: str,
+    service: Annotated[ResearchAgentService, Depends(get_research_agent_service)],
+) -> ResearchTaskStatus:
+    status = service.status(task_id)
+    if status is None:
+        raise HTTPException(status_code=404, detail="科研任务不存在或服务已重启。")
+    return status
+
+
+@app.get("/api/task/spec/{task_id}", response_model=ResearchTaskSpec)
+def get_research_task_spec(
+    task_id: str,
+    service: Annotated[ResearchAgentService, Depends(get_research_agent_service)],
+) -> ResearchTaskSpec:
+    result = service.get(task_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="科研方案尚未生成，或不存在该任务。")
+    return ResearchTaskSpec(
+        task_id=result.task_id,
+        question_parse=result.parsed_question,
+        study_design=result.study_design,
+    )
+
+
+@app.get("/api/task/report/{task_id}", response_model=QualityGateReport)
+def get_research_task_report(
+    task_id: str,
+    service: Annotated[ResearchAgentService, Depends(get_research_agent_service)],
+) -> QualityGateReport:
+    result = service.get(task_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="质量报告尚未生成，或不存在该任务。")
+    if result.quality_gate_report is None:
+        raise HTTPException(status_code=404, detail="当前任务没有质量门报告。")
+    return result.quality_gate_report
 
 
 @app.get("/api/agent/tasks/{task_id}", response_model=AgentTaskResult)

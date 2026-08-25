@@ -177,6 +177,16 @@ class CompetitionReportBuilder:
 
     @staticmethod
     def _metric(name: str, value: float | None, target: str, detail: str) -> CompetitionMetric:
+        if value is not None:
+            try:
+                value = float(value)
+            except (TypeError, ValueError):
+                value = None
+            else:
+                if value != value:  # NaN
+                    value = None
+                else:
+                    value = min(1.0, max(0.0, value))
         if value is None:
             return CompetitionMetric(
                 name=name,
@@ -1067,6 +1077,7 @@ class CompetitionReportBuilder:
                 "公开访问": 0.10,
             }
             match_score = round(sum(signals[name] * weight for name, weight in weights.items()), 4)
+            match_score = min(1.0, max(0.0, match_score))
             selected = bool(
                 candidate.dataset_id in selected_keys
                 or candidate.accession in selected_keys
@@ -1240,6 +1251,7 @@ class CompetitionReportBuilder:
                 ys = [pair[1] for pair in paired]
                 score = CompetitionReportBuilder._pearson(xs, ys)
                 group_counts = CompetitionReportBuilder._binary_groups(ys)
+                abs_score = None if score is None else min(1.0, abs(score))
                 findings.append(
                     ScientificUsabilityFinding(
                         variable=name,
@@ -1247,7 +1259,7 @@ class CompetitionReportBuilder:
                         method="Pearson 相关系数",
                         n=len(paired),
                         display_score=f"r={score:.2f}" if score is not None else "未计算",
-                        score=abs(score) if score is not None else None,
+                        score=abs_score,
                         status="可作探索性证据" if score is not None else "样本不足",
                         interpretation=CompetitionReportBuilder._interpret_score(score, name, target),
                         group_counts=group_counts,
@@ -1326,7 +1338,10 @@ class CompetitionReportBuilder:
         denominator_y = sum((y - mean_y) ** 2 for y in ys) ** 0.5
         if denominator_x == 0 or denominator_y == 0:
             return None
-        return numerator / (denominator_x * denominator_y)
+        ratio = numerator / (denominator_x * denominator_y)
+        if ratio != ratio:
+            return None
+        return max(-1.0, min(1.0, ratio))
 
     @staticmethod
     def _category_counts(values: Any) -> dict[str, int]:

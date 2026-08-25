@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import json
 import gzip
+import time
 from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
+
+import pytest
 
 import httpx
 import pyarrow as pa
@@ -27,6 +30,7 @@ from backend.app.agent.dataset_builder import ResearchDatasetBuilder
 from backend.app.main import app
 from backend.app.models import ResearchSpec, SourceItem
 from backend.app.sources.cbioportal import CBioPortalAdapter
+from backend.app.sources.discovery import DiscoveryAdapter
 from backend.app.sources.geo.models import (
     GEOAdapterResult,
     GEOCacheStatus,
@@ -92,6 +96,24 @@ def qwen_handler(request: httpx.Request) -> httpx.Response:
     )
 
 
+def discovery_handler(request: httpx.Request) -> httpx.Response:
+    if request.url.path.endswith("/esearch.fcgi"):
+        return httpx.Response(
+            200,
+            json={"esearchresult": {"count": "0", "idlist": []}},
+            request=request,
+        )
+    if request.url.path.endswith("/esummary.fcgi"):
+        return httpx.Response(200, json={"result": {"uids": []}}, request=request)
+    if request.url.host == "www.ebi.ac.uk":
+        return httpx.Response(
+            200,
+            json={"hitCount": 0, "resultList": {"result": []}},
+            request=request,
+        )
+    raise AssertionError(f"Unexpected discovery request: {request.url}")
+
+
 def build_agent(tmp_path: Path) -> ResearchAgentService:
     qwen_http = httpx.Client(transport=httpx.MockTransport(qwen_handler))
     qwen = QwenClient(
@@ -105,7 +127,8 @@ def build_agent(tmp_path: Path) -> ResearchAgentService:
     )
     cbio_http = httpx.Client(transport=httpx.MockTransport(standard_handler))
     cbio = CBioPortalAdapter(cache_dir=tmp_path / "cbio", client=cbio_http)
-    return ResearchAgentService(qwen_client=qwen, cbioportal_adapter=cbio)
+    discovery = DiscoveryAdapter(client=httpx.Client(transport=httpx.MockTransport(discovery_handler)))
+    return ResearchAgentService(qwen_client=qwen, cbioportal_adapter=cbio, discovery_adapter=discovery)
 
 
 def test_qwen_agent_executes_function_call_and_builds_research_table(tmp_path: Path) -> None:
@@ -117,6 +140,7 @@ def test_qwen_agent_executes_function_call_and_builds_research_table(tmp_path: P
             data_mode="live",
             max_sources=1,
             max_records=100,
+            iterative_collection=False,
         )
     )
 
@@ -192,6 +216,151 @@ def test_collection_agent_deduplicates_search_requests_by_arguments_not_tool_nam
     assert any(action.tool_name == "search_cbioportal" for action in first)
 
 
+def test_her2_positive_response_gap_searches_gse76360_first() -> None:
+    agent = CollectionAgent()
+    spec = ResearchSpec(
+        task_id="geo-order-test",
+        research_goal="研究 HER2 阳性乳腺癌治疗响应",
+        disease="Breast Cancer",
+        subtype="HER2-positive",
+        genes=["PIK3CA"],
+        outcomes=["treatment_response"],
+        required_data_types=["clinical", "mutation", "treatment_response"],
+    )
+    gaps = [
+        CollectionGap(
+            variable_id="outcome",
+            label="研究结局",
+            role="结局",
+            required=True,
+            coverage_rate=0.0,
+            reason="缺失治疗响应",
+        )
+    ]
+
+    actions = agent.propose_actions(spec=spec, gaps=gaps, attempted_calls=set(), max_records=100)
+    geo_actions = [action for action in actions if action.tool_name == "search_geo"]
+
+    assert geo_actions
+    assert geo_actions[0].arguments["accession"] == "GSE76360"
+
+
+def test_response_question_prefers_outcome_matched_cohort_over_larger_molecular_table() -> None:
+    spec = ResearchSpec(
+        task_id="select-test",
+        research_goal="研究 HER2 阳性乳腺癌中 PIK3CA 突变是否影响治疗响应",
+        disease="Breast Cancer",
+        subtype="HER2-positive",
+        genes=["PIK3CA"],
+        outcomes=["treatment_response"],
+        required_data_types=["clinical", "mutation", "treatment_response"],
+    )
+    molecular, molecular_ready = ResearchDatasetBuilder().empty()
+    molecular = molecular.model_copy(update={"name": "METABRIC", "row_count": 848})
+    molecular_ready = molecular_ready.model_copy(
+        update={
+            "target_match": False,
+            "requested_variable_coverage_rate": 0.7,
+            "field_completeness_rate": 0.689,
+        }
+    )
+    response, response_ready = ResearchDatasetBuilder().empty()
+    response = response.model_copy(update={"name": "GSE76360", "row_count": 50})
+    response_ready = response_ready.model_copy(
+        update={
+            "target_match": True,
+            "requested_variable_coverage_rate": 0.0,
+            "field_completeness_rate": 0.9,
+        }
+    )
+
+    chosen, _ready = max(
+        [(molecular, molecular_ready), (response, response_ready)],
+        key=lambda item: ResearchAgentService._dataset_selection_score(item, spec),
+    )
+
+    assert chosen.name == "GSE76360"
+
+
+def test_iterative_collection_switches_to_geo_response_cohort(tmp_path: Path) -> None:
+    result = build_agent(tmp_path).run(
+        AgentTaskRequest(
+            question=QUESTION,
+            use_qwen=True,
+            allow_deterministic_fallback=False,
+            data_mode="live",
+            max_sources=1,
+            max_records=100,
+            iterative_collection=True,
+            max_collection_rounds=3,
+        )
+    )
+
+    assert result.readiness.target_match is True
+    assert result.modeling_dataset.target_column == "treatment_response"
+    assert result.modeling_dataset.row_count >= 30
+    assert "曲妥珠" in result.modeling_dataset.name or "GSE76360" in result.modeling_dataset.name
+    assert any("切换到含治疗响应" in warning for warning in result.readiness.warnings)
+    assert result.cohort_construction is not None
+    assert result.cohort_construction.final_row_count > 0
+    assert result.collection_agent is not None
+    assert result.collection_agent.quality_gate in {"PARTIAL", "REVIEW", "PASS"}
+    assert result.collection_agent.completed_rounds >= 2
+    assert any(item.diagnosis == "outcome_mismatch" for item in result.collection_agent.iterations)
+    assert any(
+        "GSE76360" in (item.note or "") or "gse76360" in " ".join(item.strategy_ids)
+        for item in result.collection_agent.iterations
+    )
+    assert not any("跨库" in (warning or "") and "已把" in (warning or "") for warning in result.readiness.warnings)
+
+
+def test_autonomous_follow_up_converts_catalog_hits_into_geo_fetch() -> None:
+    from types import SimpleNamespace
+
+    service = ResearchAgentService()
+    spec = ResearchSpec(
+        task_id="harvest-follow-up",
+        research_goal="研究 HER2 阳性乳腺癌中 PIK3CA 突变是否影响治疗响应",
+        disease="Breast Cancer",
+        subtype="HER2-positive",
+        genes=["PIK3CA"],
+        outcomes=["treatment_response"],
+        required_data_types=["clinical", "mutation", "treatment_response"],
+    )
+    catalog = SimpleNamespace(
+        records=[
+            SimpleNamespace(
+                accession="GSE50948",
+                title="HER2 positive breast cancer PIK3CA trastuzumab response",
+                summary="pCR",
+            )
+        ]
+    )
+    decision = SimpleNamespace(
+        actions=[],
+        diagnosis="missing_same_cohort_exposure",
+        quality_gate="REVIEW",
+        goals=[],
+    )
+    calls = service._autonomous_follow_up_calls(
+        spec=spec,
+        request=AgentTaskRequest(question=QUESTION, use_qwen=False),
+        decision=decision,
+        raw_results=[("search_geo_catalog", catalog)],
+        critical=[],
+        dataset=SimpleNamespace(row_count=50),
+        readiness=SimpleNamespace(target_match=True),
+        attempted_calls=set(),
+        qwen_client=None,
+        round_number=2,
+        max_rounds=8,
+    )
+
+    assert calls
+    assert calls[0]["name"] == "search_geo"
+    assert calls[0]["arguments"]["accession"] == "GSE50948"
+
+
 def test_hr_positive_her2_negative_pi3k_question_skips_her2_geo_response_cohort() -> None:
     question = "PIK3CA 突变的 HR+/HER2- 乳腺癌患者，使用 PI3K 抑制剂后的响应是否优于野生型？"
     request = AgentTaskRequest(
@@ -232,6 +401,7 @@ def test_agent_excel_export_contains_chinese_dictionary_and_readiness(tmp_path: 
             data_mode="live",
             max_sources=1,
             max_records=100,
+            iterative_collection=False,
         )
     )
     exported = AgentDatasetExportService().export(result, AgentExportFormat.XLSX)
@@ -274,6 +444,7 @@ def test_agent_parquet_export_normalizes_mixed_upstream_types(tmp_path: Path) ->
             data_mode="live",
             max_sources=1,
             max_records=100,
+            iterative_collection=False,
         )
     )
     if not any(column.name == "stage" for column in result.modeling_dataset.columns):
@@ -316,7 +487,12 @@ def test_agent_api_plan_only_is_not_mock() -> None:
     payload = response.json()
     assert payload["agent_mode"] == "确定性科研规划"
     assert payload["used_qwen"] is False
-    assert payload["plan"][1]["label"] == "选择真实数据工具"
+    assert payload["plan"][1]["label"] == "生成研究设计与数据规划"
+    assert payload["parsed_question"]["disease"]
+    assert payload["parsed_question"]["required_variables"]
+    assert payload["quality_gate_report"]["overall"] in {"PASS", "REVIEW", "REJECT"}
+    assert len(payload["quality_gate_report"]["layers"]) == 4
+    assert payload["quality_gate_report"]["cohort_f1"] is None
     assert "Mock" not in payload["notice"]
 
 
@@ -389,7 +565,79 @@ def test_geo_series_matrix_builds_baseline_response_cohort(tmp_path: Path) -> No
     assert dataset.class_distribution == {"病理完全缓解（pCR）": 1, "未达客观缓解": 1}
     assert {row["timepoint"] for row in dataset.rows} == {"基线"}
     assert all(row["raw_characteristics"] for row in dataset.rows)
+    assert all(row["subtype"] == "HER2-positive" for row in dataset.rows)
+    assert all(row["her2_status"] == "阳性" for row in dataset.rows)
+    assert all(row["treatment"] == "曲妥珠单抗新辅助治疗" for row in dataset.rows)
+    assert all(row["sample_type"] == "原发肿瘤" for row in dataset.rows)
+    assert all(row["disease"] == "乳腺癌" for row in dataset.rows)
     assert readiness.target_match is True
     assert readiness.target_missing_rate == 0
     assert readiness.requested_variable_coverage_rate == 0
     assert any("治疗后配对样本" in action for action in readiness.cleaning_actions)
+
+
+def test_plan_only_exports_metadata_and_quality_report_without_rows() -> None:
+    result = ResearchAgentService().run(
+        AgentTaskRequest(
+            question=QUESTION,
+            use_qwen=False,
+            data_mode="plan_only",
+            max_sources=2,
+            max_records=100,
+        )
+    )
+    exporter = AgentDatasetExportService()
+    metadata = json.loads(exporter.export(result, AgentExportFormat.METADATA).content)
+    report = json.loads(exporter.export(result, AgentExportFormat.QUALITY_REPORT).content)
+
+    assert metadata["question_parse"]["disease"]
+    assert metadata["research_spec"]["disease"]
+    assert report["quality_gate"]["overall"] in {"PASS", "REVIEW", "REJECT"}
+    assert len(report["quality_gate"]["layers"]) == 4
+    assert report["entity_matching"]["status"] in {"MATCH", "REVIEW", "UNMATCH"}
+    with pytest.raises(ValueError, match="没有可导出的科研数据行"):
+        exporter.export(result, AgentExportFormat.JSON)
+
+
+def test_research_task_api_polls_status_and_returns_spec_and_report() -> None:
+    client = TestClient(app)
+    created = client.post(
+        "/api/research/task",
+        json={
+            "question": QUESTION,
+            "use_qwen": False,
+            "data_mode": "plan_only",
+            "max_sources": 2,
+            "max_records": 100,
+        },
+    )
+
+    assert created.status_code == 200
+    payload = created.json()
+    task_id = payload["task_id"]
+    assert payload["status"] == "running"
+
+    status = None
+    for _ in range(80):
+        response = client.get(f"/api/task/status/{task_id}")
+        assert response.status_code == 200
+        status = response.json()
+        if status["status"] in {"completed", "failed"}:
+            break
+        time.sleep(0.05)
+
+    assert status is not None
+    assert status["status"] == "completed"
+    assert status["progress"] == 100
+    assert status["stage"]
+
+    spec = client.get(f"/api/task/spec/{task_id}")
+    assert spec.status_code == 200
+    assert spec.json()["question_parse"]["disease"]
+    assert spec.json()["study_design"]["research_type"]
+
+    report = client.get(f"/api/task/report/{task_id}")
+    assert report.status_code == 200
+    assert report.json()["overall"] in {"PASS", "REVIEW", "REJECT"}
+    assert len(report.json()["layers"]) == 4
+    assert report.json()["cohort_f1"] is None

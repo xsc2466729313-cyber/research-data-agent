@@ -33,6 +33,8 @@ CHINESE_LABELS = {
     "er_status": "ER 状态",
     "pr_status": "PR 状态",
     "her2_status": "HER2 状态",
+    "subtype": "疾病亚型",
+    "treatment": "治疗方案",
     "os_status": "总生存状态",
     "os_months": "总生存时间（月）",
     "dfs_status": "无病生存状态",
@@ -85,6 +87,8 @@ FIELD_DESCRIPTIONS = {
     "er_status": "雌激素受体状态；阳性/阴性来自原研究样本特征。",
     "pr_status": "孕激素受体状态；阳性/阴性来自原研究样本特征。",
     "her2_status": "临床 HER2 状态；IHC 2+ 不会被自动判为阳性。",
+    "subtype": "疾病亚型；由同一样本的 HER2/患者状态字段解析，不从其他研究推断。",
+    "treatment": "该样本所属研究记录的治疗方案；研究级统一方案会标注来源，不跨患者贴值。",
     "os_status": "随访截止时总生存结局状态。",
     "os_months": "从原研究定义的起点到死亡或末次随访的月数。",
     "dfs_status": "无病生存事件状态。",
@@ -196,6 +200,15 @@ DATASET_NAMES = {
     "brca_metabric": "乳腺癌 METABRIC 临床与分子队列",
     "GSE76360": "HER2 阳性乳腺癌术前曲妥珠单抗响应队列",
     "GSE25066": "乳腺癌新辅助化疗响应与生存队列",
+}
+
+# Same-study protocol fields. Applied only when the accession is a curated
+# uniform-treatment cohort and the patient row still lacks that column.
+GEO_COHORT_PROTOCOL: dict[str, dict[str, str]] = {
+    "GSE76360": {
+        "treatment": "曲妥珠单抗新辅助治疗",
+        "sample_type": "原发肿瘤",
+    },
 }
 
 
@@ -325,6 +338,7 @@ class ResearchDatasetBuilder:
                 if isinstance(variants, list):
                     row[f"{gene.lower()}_variants"] = ";".join(variants)
         rows, subtype_action = self._filter_rows_for_research_spec(rows, spec)
+        rows, alias_actions = self._materialize_canonical_fields(rows, spec, result.study.study_id)
 
         cleaning_actions = [
             "以临床样本表作为队列锚点，未把无临床信息的分子记录扩成新患者。",
@@ -333,6 +347,7 @@ class ResearchDatasetBuilder:
         ]
         if subtype_action:
             cleaning_actions.append(subtype_action)
+        cleaning_actions.extend(alias_actions)
         if orphan_records:
             cleaning_actions.append(f"排除 {orphan_records} 条无法连接到临床队列的分子记录。")
         dataset = self._dataset_from_rows(
@@ -434,12 +449,22 @@ class ResearchDatasetBuilder:
                     or parsed.get("specimen_source")
                     or parsed.get("sample_origin")
                 ),
-                "treatment_response": parsed.get("response_at_surgery"),
+                "treatment_response": parsed.get("response_at_surgery")
+                or parsed.get("treatment_response")
+                or parsed.get("response"),
                 "er_status": parsed.get("er_status"),
                 "pr_status": parsed.get("pr_status"),
+                "her2_status": parsed.get("her2_status") or parsed.get("her2"),
+                "treatment": (
+                    parsed.get("treatment")
+                    or parsed.get("therapy")
+                    or parsed.get("neoadjuvant_treatment")
+                    or parsed.get("drug")
+                ),
                 "response_domain": "患者临床响应",
                 "raw_characteristics": "；".join(raw_items),
             }
+            self._enrich_geo_row_from_status(row, parsed, result.accession)
             rows.append(row)
 
         baseline_rows = [row for row in rows if row.get("timepoint") == "基线"]
@@ -447,10 +472,13 @@ class ResearchDatasetBuilder:
         if baseline_rows:
             rows = baseline_rows
         rows, duplicate_count = self._deduplicate_rows(rows, "sample_id")
+        rows, alias_actions = self._materialize_canonical_fields(rows, spec, result.accession)
         cleaning_actions = [
             "解析 GEO Series Matrix 的真实样本元数据并保留原始 characteristics。",
             "统一疾病、受体状态、取样时间点和术后响应的分类值。",
+            "从同一样本特征解析亚型、HER2 和治疗字段，不从其他研究补患者。",
         ]
+        cleaning_actions.extend(alias_actions)
         if filtered_count:
             cleaning_actions.append(
                 f"主分析表保留 {len(rows)} 个基线样本，分离 {filtered_count} 个治疗后配对样本，避免同一患者跨分析分区。"
@@ -551,10 +579,12 @@ class ResearchDatasetBuilder:
             and not truncated
             and (target_missing_rate or 0) <= 0.2
             and len(nonmissing_classes) > 1
-            and (variable_coverage is None or variable_coverage == 1)
         )
         if analysis_ready:
-            status = "可支持科研分析"
+            if variable_coverage is not None and variable_coverage < 1:
+                status = "可支持治疗响应分析，分子暴露待同队列补充"
+            else:
+                status = "可支持科研分析"
         elif not target_match:
             status = "研究结局不匹配"
         elif variable_coverage is not None and variable_coverage < 1:
@@ -633,6 +663,90 @@ class ResearchDatasetBuilder:
             except ValueError:
                 pass
         return text, False
+
+    @staticmethod
+    def _has_filled(value: Any) -> bool:
+        return value not in (None, "", [], {}, "NA", "N/A", "<缺失>")
+
+    @classmethod
+    def _enrich_geo_row_from_status(
+        cls,
+        row: dict[str, Any],
+        parsed: dict[str, Any],
+        accession: str,
+    ) -> None:
+        blob = " ".join(
+            str(parsed.get(key) or row.get(key) or "")
+            for key in ("patient_status", "disease", "subtype", "her2_status", "raw_characteristics")
+        )
+        upper = blob.upper()
+        if any(token in upper or token in blob for token in ("HER2+", "HER2 阳性", "HER2阳性", "HER-2+")):
+            if not cls._has_filled(row.get("her2_status")):
+                row["her2_status"] = "阳性"
+            if not cls._has_filled(row.get("subtype")):
+                row["subtype"] = "HER2-positive"
+            if str(row.get("disease") or "").strip() in {"HER2 阳性乳腺癌", "HER2+ Breast Cancer"}:
+                row["disease"] = "乳腺癌"
+        protocol = GEO_COHORT_PROTOCOL.get(str(accession or "").upper()) or {}
+        for field, value in protocol.items():
+            if not cls._has_filled(row.get(field)):
+                row[field] = value
+
+    @classmethod
+    def _materialize_canonical_fields(
+        cls,
+        rows: list[dict[str, Any]],
+        spec: ResearchSpec,
+        accession: str,
+    ) -> tuple[list[dict[str, Any]], list[str]]:
+        actions: list[str] = []
+        subtype_filled = 0
+        treatment_filled = 0
+        protocol = GEO_COHORT_PROTOCOL.get(str(accession or "").upper()) or {}
+        for row in rows:
+            if not cls._has_filled(row.get("subtype")):
+                her2 = str(row.get("her2_status") or "").strip()
+                if her2 in {"阳性", "Positive", "positive"}:
+                    row["subtype"] = "HER2-positive"
+                    subtype_filled += 1
+                elif her2 in {"阴性", "Negative", "negative"}:
+                    row["subtype"] = "HER2-negative"
+                    subtype_filled += 1
+            if not cls._has_filled(row.get("treatment")):
+                for candidate in (
+                    row.get("chemotherapy"),
+                    row.get("hormone_therapy"),
+                    row.get("radio_therapy"),
+                    protocol.get("treatment"),
+                ):
+                    if cls._has_filled(candidate):
+                        text = str(candidate)
+                        if text in {"是", "Yes", "YES", "true"}:
+                            if candidate is row.get("chemotherapy"):
+                                row["treatment"] = "化疗"
+                            elif candidate is row.get("hormone_therapy"):
+                                row["treatment"] = "内分泌治疗"
+                            elif candidate is row.get("radio_therapy"):
+                                row["treatment"] = "放射治疗"
+                            else:
+                                row["treatment"] = text
+                        else:
+                            row["treatment"] = text
+                        treatment_filled += 1
+                        break
+            if not cls._has_filled(row.get("sample_type")) and protocol.get("sample_type"):
+                row["sample_type"] = protocol["sample_type"]
+            if not cls._has_filled(row.get("sample_timepoint")) and cls._has_filled(row.get("timepoint")):
+                row["sample_timepoint"] = row.get("timepoint")
+        if subtype_filled:
+            actions.append(f"由同队列 HER2 状态解析疾病亚型 {subtype_filled} 行。")
+        if treatment_filled:
+            actions.append(f"由同队列治疗/方案字段补全治疗方案 {treatment_filled} 行。")
+        if protocol:
+            actions.append(
+                f"对 {accession} 均匀治疗队列补全研究级方案字段，并保留样本原始特征备查。"
+            )
+        return rows, actions
 
     @staticmethod
     def _filter_rows_for_research_spec(

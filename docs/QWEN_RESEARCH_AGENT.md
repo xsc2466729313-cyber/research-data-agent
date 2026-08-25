@@ -13,17 +13,19 @@
   ↓
 千问 JSON Mode：生成 ResearchSpec
   ↓
-千问函数调用（Function Calling）：选择真实数据工具与参数
+千问函数调用 / 确定性规划：选择真实数据工具
   ↓
-受控工具注册表：校验来源、accession、记录上限
+受控工具执行：GDC / GEO / GEO 目录 / cBioPortal / ClinicalTrials.gov / CIViC / Europe PMC
   ↓
-GDC / GEO / cBioPortal / ClinicalTrials.gov / CIViC
+从目录与文献收割 GSE/NCT，再下载解析
   ↓
-患者/样本级队列构建器
+观察主表、结局域、队列与分子覆盖
+  ↓
+千问根据观察再规划下一步；诊断缺口类型并更换尚未尝试的方法
+  ↓
+达标停止 / 主目标达成且检索耗尽则停止 / 达到轮次门限则停止
   ↓
 科研数据宽表 + 中文字段字典 + 可科研性报告 + 来源清单
-  ↓
-千问基于确定性统计事实生成中文总结
 ```
 
 ## 千问职责
@@ -49,6 +51,7 @@ GDC / GEO / cBioPortal / ClinicalTrials.gov / CIViC
 |---|---|---|
 | `search_gdc` | 检索 GDC / TCGA | 项目、开放文件、来源登记 |
 | `search_geo` | 检索 NCBI GEO | Series Matrix、SOFT、Supplement 资源 |
+| `search_geo_catalog` | 按关键词检索 NCBI GEO 目录 | 发现真实 GSE accession，需再调用 `search_geo` 解析患者表 |
 | `search_cbioportal` | 检索 cBioPortal 患者队列 | 临床、突变、离散 CNA 原始表 |
 | `search_trials` | 检索 ClinicalTrials.gov | 试验、干预、结局关系表 |
 | `search_civic` | 检索 CIViC 医学证据 | 基因-变异-药物-疾病证据 |

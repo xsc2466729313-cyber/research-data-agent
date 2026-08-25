@@ -63,25 +63,33 @@ class DataAlignmentAuditor:
         same_source = len(row_source_ids) == 1 if row_count else None
         if not rows:
             status = "无法判定"
+            entity_match_status = "UNMATCH"
             note = "当前没有患者/样本级主表，不能判断编号对齐或来源一致性。"
+            entity_match_note = "无主表行，实体匹配为 UNMATCH；禁止无证据合并患者。"
         elif same_study and same_source and patient_rate == 1 and sample_rate == 1:
             status = "同一研究内可对齐"
+            entity_match_status = "MATCH"
             note = (
                 "主表每行都有研究编号、患者编号、样本编号和行级 source_id；"
                 "当前可在这一研究空间内对齐，不能据此推断其他数据库中的同名编号是同一患者。"
             )
+            entity_match_note = "MATCH：同一研究、同一来源内患者/样本编号完整，仅在该命名空间内关联。"
         elif same_study and same_source:
             status = "同一研究内部分可对齐"
+            entity_match_status = "REVIEW"
             note = (
                 "主表来源和研究编号一致，但仍有患者编号或样本编号缺失；"
                 "缺失行不能自动补成同一患者。"
             )
+            entity_match_note = "REVIEW：同一研究内仍有身份缺失，低置信度关联不得自动合并。"
         else:
             status = "混合边界，不能直接合并"
+            entity_match_status = "UNMATCH"
             note = (
                 "主表包含多个研究或多个来源标识；这些编号属于不同命名空间，"
                 "没有经过可审计的身份映射前不能视为同一患者队列。"
             )
+            entity_match_note = "UNMATCH：跨研究或跨来源编号不能直接合并，系统未执行跨患者拼接。"
 
         source_by_id = {
             str(getattr(item, "source_id", "")): item
@@ -166,4 +174,6 @@ class DataAlignmentAuditor:
                 "GEO 等公开队列可能没有真实患者编号，系统使用研究前缀加原始 subject 标识构造隔离命名空间，并保留原始样本特征。",
             ],
             note=note,
+            entity_match_status=entity_match_status,
+            entity_match_note=entity_match_note,
         )

@@ -53,6 +53,7 @@ def test_same_study_and_source_is_reported_as_safe_internal_alignment() -> None:
     assert report.patient_id_coverage_rate == 1
     assert report.sample_id_coverage_rate == 1
     assert report.cross_source_join_performed is False
+    assert report.entity_match_status == "MATCH"
     assert report.sources[0].role == "主数据集来源"
 
 
@@ -71,5 +72,6 @@ def test_mixed_source_ids_are_not_declared_as_same_patient_cohort() -> None:
     assert report.same_study is False
     assert report.same_source is False
     assert report.cross_source_join_status == "未执行跨来源患者合并"
+    assert report.entity_match_status == "UNMATCH"
     assert len(report.sources) == 2
     assert all(item.role == "主数据集来源" for item in report.sources)

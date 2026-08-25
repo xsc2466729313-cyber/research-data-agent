@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import json
 import os
+import sys
+from collections.abc import MutableMapping
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
@@ -10,6 +13,58 @@ import httpx
 from pydantic import ValidationError
 
 from backend.app.models import ResearchSpec
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
+
+def parse_dotenv(text: str) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        if not key:
+            continue
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+            value = value[1:-1]
+        values[key] = value
+    return values
+
+
+def apply_dotenv(
+    values: dict[str, str],
+    environ: MutableMapping[str, str],
+    *,
+    override: bool = False,
+) -> None:
+    for key, value in values.items():
+        if override or not str(environ.get(key) or "").strip():
+            environ[key] = value
+
+
+def load_local_dotenv(
+    environ: MutableMapping[str, str] | None = None,
+    *,
+    override: bool = False,
+    path: Path | None = None,
+) -> bool:
+    """Load gitignored project-root .env into process env. Skipped under pytest."""
+    if environ is None:
+        if "pytest" in sys.modules:
+            return False
+        environ = os.environ
+    dotenv_path = path or (_PROJECT_ROOT / ".env")
+    if not dotenv_path.is_file():
+        return False
+    apply_dotenv(
+        parse_dotenv(dotenv_path.read_text(encoding="utf-8")),
+        environ,
+        override=override,
+    )
+    return True
 
 
 class QwenClientError(RuntimeError):
@@ -27,6 +82,7 @@ class QwenSettings:
 
     @classmethod
     def from_env(cls) -> "QwenSettings":
+        load_local_dotenv()
         return cls(
             api_key=os.getenv("DASHSCOPE_API_KEY") or None,
             base_url=(
@@ -97,7 +153,7 @@ class QwenClient:
             "type": "function",
             "function": {
                 "name": "search_geo",
-                "description": "检索 NCBI GEO 表达谱及治疗响应队列资源；需要真实 GSE accession。",
+                "description": "按真实 GSE accession 检索并下载 NCBI GEO Series Matrix，用于构建患者/样本表。若尚不知 accession，先调用 search_geo_catalog。",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -166,6 +222,24 @@ class QwenClient:
                     "type": "object",
                     "properties": {
                         "query": {"type": "string", "description": "例如 breast cancer GSE25066"},
+                        "max_records": {"type": "integer", "minimum": 1, "maximum": 100},
+                    },
+                    "required": ["query"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "search_geo_catalog",
+                "description": "按关键词检索 NCBI GEO 目录，发现真实 GSE accession；发现后必须再调用 search_geo 下载 Series Matrix，不能把目录摘要当患者表。",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "例如 HER2 positive breast cancer PIK3CA trastuzumab response",
+                        },
                         "max_records": {"type": "integer", "minimum": 1, "maximum": 100},
                     },
                     "required": ["query"],
@@ -279,7 +353,9 @@ class QwenClient:
             "用户指定来源": preferred_sources,
             "选择原则": [
                 "需要患者级科研宽表时优先 cBioPortal",
-                "治疗响应表达队列可选择 GEO",
+                "不知道具体 GSE 时先调用 search_geo_catalog 按关键词检索 GEO 目录",
+                "文献里提到的 GSE/NCT 再用 search_geo 或 search_trials 拉取",
+                "治疗响应表达队列可选择 GEO，且必须使用真实 accession",
                 "TCGA 临床或组学文件选择 GDC",
                 "临床试验关系选择 ClinicalTrials.gov",
                 "知识证据选择 CIViC，不能替代患者队列",
@@ -321,6 +397,62 @@ class QwenClient:
                 }
             )
         return message, normalized
+
+    def plan_next_tools(
+        self,
+        spec: ResearchSpec,
+        observation: dict[str, Any],
+        *,
+        max_calls: int = 4,
+    ) -> list[dict[str, Any]]:
+        instruction = {
+            "任务": "根据当前观察继续检索，直到做出可用科研数据包或确认公开数据不足",
+            "research_spec": spec.model_dump(mode="json"),
+            "观察": observation,
+            "本轮最多调用": max_calls,
+            "选择原则": [
+                "像独立研究员一样换查询词、换数据库、换研究入口，不要重复已经尝试过的完全相同调用",
+                "缺患者主表或缺治疗响应时，先 search_geo_catalog 再 search_geo",
+                "文献摘要里出现的 GSE 必须再调用 search_geo；出现的 NCT 可调用 search_trials",
+                "缺同队列分子暴露时继续搜索同时含突变和响应的独立研究，禁止建议把不同研究的患者拼成一行",
+                "不得虚构 accession、study_id 或 PMID",
+                "如果没有尚未尝试且能缩小缺口的检索，返回空 tool_calls",
+            ],
+        }
+        message = self._chat(
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "你是科研数据智能体的下一轮规划器。根据观察自主决定下一步公开数据库调用。"
+                        "质量门只用于防止空转，不能用来停止尚未尝试的合法检索。"
+                    ),
+                },
+                {"role": "user", "content": json.dumps(instruction, ensure_ascii=False)},
+            ],
+            tools=self.TOOL_DEFINITIONS,
+            tool_choice="auto",
+            parallel_tool_calls=True,
+        )
+        calls = message.get("tool_calls") or []
+        normalized: list[dict[str, Any]] = []
+        for index, call in enumerate(calls[:max_calls]):
+            function = call.get("function") or {}
+            try:
+                arguments = json.loads(function.get("arguments") or "{}")
+            except json.JSONDecodeError as exc:
+                raise QwenClientError("千问下一轮工具参数不是有效 JSON。") from exc
+            name = function.get("name")
+            if not name:
+                continue
+            normalized.append(
+                {
+                    "id": call.get("id") or f"qwen-next-{index + 1}",
+                    "name": name,
+                    "arguments": arguments,
+                }
+            )
+        return normalized
 
     def summarize(
         self,

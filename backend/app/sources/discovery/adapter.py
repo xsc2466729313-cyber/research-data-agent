@@ -13,6 +13,7 @@ from backend.app.sources.discovery.models import (
     BioSampleRecord,
     DiscoveryAdapterResult,
     EuropePMCRecord,
+    GeoCatalogRecord,
 )
 
 
@@ -26,6 +27,7 @@ class DiscoveryAdapter:
     BIOSAMPLE_ESEARCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
     BIOSAMPLE_ESUMMARY_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi"
     BIOSAMPLE_URL = "https://www.ncbi.nlm.nih.gov/biosample/{uid}"
+    GEO_PORTAL_URL = "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc={accession}"
     EUROPE_PMC_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
     EUROPE_PMC_RECORD_URL = "https://europepmc.org/article/{kind}/{value}"
 
@@ -91,6 +93,74 @@ class DiscoveryAdapter:
             request_url=str(response.url),
             queried_at=datetime.now(timezone.utc),
             notice="BioSample 结果用于样本元数据发现和来源核验，不代表已与患者主表完成身份对齐。",
+        )
+
+    def search_geo_catalog(
+        self,
+        *,
+        task_id: str,
+        query: str,
+        max_records: int = 20,
+        search_plan: SearchPlan | None = None,
+    ) -> DiscoveryAdapterResult:
+        del search_plan
+        limit = min(max(int(max_records), 1), 100)
+        params = {"db": "gds", "term": query, "retmode": "json", "retmax": limit}
+        response = self.client.get(self.BIOSAMPLE_ESEARCH_URL, params=params)
+        payload = self._json(response, "NCBI GEO 目录检索")
+        ids = [str(value) for value in (payload.get("esearchresult", {}).get("idlist") or [])]
+        total = int(payload.get("esearchresult", {}).get("count") or 0)
+        records: list[GeoCatalogRecord] = []
+        if ids:
+            summary_response = self.client.get(
+                self.BIOSAMPLE_ESUMMARY_URL,
+                params={"db": "gds", "id": ",".join(ids), "retmode": "json"},
+            )
+            summary = self._json(summary_response, "NCBI GEO 目录摘要")
+            for uid in ids:
+                raw = dict((summary.get("result") or {}).get(uid) or {})
+                if not raw or uid == "uids":
+                    continue
+                accession = (self._text(raw.get("accession")) or "").upper()
+                if not accession.startswith("GSE"):
+                    continue
+                url = self.GEO_PORTAL_URL.format(accession=accession)
+                item = self._source_item(
+                    task_id=task_id,
+                    source_id=f"ncbi-geo-catalog:{accession}",
+                    source_name="NCBI GEO",
+                    accession=accession,
+                    url=url,
+                    raw=raw,
+                )
+                n_samples = raw.get("n_samples")
+                try:
+                    n_samples = int(n_samples) if n_samples not in {None, ""} else None
+                except (TypeError, ValueError):
+                    n_samples = None
+                records.append(
+                    GeoCatalogRecord(
+                        uid=uid,
+                        accession=accession,
+                        title=self._text(raw.get("title")),
+                        summary=self._text(raw.get("summary")),
+                        n_samples=n_samples,
+                        dataset_type=self._text(raw.get("gdsType")),
+                        url=url,
+                        raw_record=raw,
+                        source_item=item,
+                    )
+                )
+        return DiscoveryAdapterResult(
+            task_id=task_id,
+            query=query,
+            source_kind="geo_catalog",
+            total_count=total,
+            records=records,
+            source_items=[record.source_item for record in records],
+            request_url=str(response.url),
+            queried_at=datetime.now(timezone.utc),
+            notice="GEO 目录检索只发现候选 Series；必须再下载并解析 Series Matrix 后才能形成患者主表。",
         )
 
     def search_europe_pmc(

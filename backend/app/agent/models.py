@@ -25,7 +25,7 @@ class AgentTaskRequest(ApiModel):
     max_sources: int = Field(default=8, ge=1, le=20)
     max_records: int = Field(default=10_000, ge=10, le=10_000)
     iterative_collection: bool = True
-    max_collection_rounds: int = Field(default=3, ge=1, le=5)
+    max_collection_rounds: int = Field(default=8, ge=1, le=12)
     qwen_session_id: str | None = Field(default=None, min_length=20, max_length=100)
 
 
@@ -221,10 +221,20 @@ class CollectionSearchAction(ApiModel):
     action_id: str
     tool_name: str
     source_name: str
-    priority: int = Field(ge=1, le=10)
+    priority: int = Field(ge=1, le=20)
     rationale: str
     status: str
     arguments: dict[str, Any] = Field(default_factory=dict)
+    strategy_id: str | None = None
+    strategy_label: str | None = None
+
+
+class AgentGoalStatus(ApiModel):
+    goal_id: str
+    label: str
+    required: bool = True
+    met: bool = False
+    evidence: str = ""
 
 
 class CollectionIteration(ApiModel):
@@ -242,6 +252,12 @@ class CollectionIteration(ApiModel):
     actions: list[str] = Field(default_factory=list)
     field_evidence: list[CollectionFieldEvidence] = Field(default_factory=list)
     note: str
+    diagnosis: str | None = None
+    diagnosis_label: str | None = None
+    decision: str | None = None
+    strategy_ids: list[str] = Field(default_factory=list)
+    goals_met: list[str] = Field(default_factory=list)
+    goals_open: list[str] = Field(default_factory=list)
 
 
 class CollectionAgentReport(ApiModel):
@@ -256,6 +272,10 @@ class CollectionAgentReport(ApiModel):
     next_actions: list[CollectionSearchAction] = Field(default_factory=list)
     source_coverage: dict[str, str] = Field(default_factory=dict)
     note: str
+    stop_reason: str = ""
+    diagnosis: str | None = None
+    goals: list[AgentGoalStatus] = Field(default_factory=list)
+    strategies_tried: list[str] = Field(default_factory=list)
 
 
 class DataAlignmentSource(ApiModel):
@@ -294,6 +314,57 @@ class DataAlignmentReport(ApiModel):
     sources: list[DataAlignmentSource] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
     note: str
+    entity_match_status: str = "REVIEW"
+    entity_match_note: str = ""
+
+
+class ParsedResearchQuestion(ApiModel):
+    disease: str
+    population: str
+    exposure: str
+    outcome: str
+    required_variables: list[str] = Field(default_factory=list)
+    research_type: str | None = None
+
+
+class QualityGateLayer(ApiModel):
+    gate_id: str
+    label: str
+    decision: str
+    checks: list[str] = Field(default_factory=list)
+    evidence: str
+
+
+class QualityGateReport(ApiModel):
+    overall: str
+    publish_allowed: bool = False
+    layers: list[QualityGateLayer] = Field(default_factory=list)
+    cohort_f1: float | None = Field(default=None, ge=0, le=1)
+    variable_coverage: float | None = Field(default=None, ge=0, le=1)
+    traceability: float | None = Field(default=None, ge=0, le=1)
+    research_fitness: float | None = Field(default=None, ge=0, le=1)
+    note: str
+
+
+class ResearchTaskStatus(ApiModel):
+    task_id: str
+    status: str
+    stage: str
+    progress: int = Field(ge=0, le=100)
+    message: str
+    error: str | None = None
+    created_at: datetime
+
+
+class ResearchTaskCreated(ApiModel):
+    task_id: str
+    status: str = "running"
+
+
+class ResearchTaskSpec(ApiModel):
+    task_id: str
+    question_parse: ParsedResearchQuestion | None = None
+    study_design: StudyDesignReport | None = None
 
 
 class AgentTaskResult(ApiModel):
@@ -305,6 +376,7 @@ class AgentTaskResult(ApiModel):
     used_qwen: bool
     notice: str
     research_spec: ResearchSpec
+    parsed_question: ParsedResearchQuestion | None = None
     plan: list[AgentPlanStep]
     tool_calls: list[AgentToolCall]
     candidate_sources: list[CandidateSource]
@@ -315,6 +387,7 @@ class AgentTaskResult(ApiModel):
     cohort_construction: CohortConstructionReport | None = None
     collection_agent: CollectionAgentReport | None = None
     data_alignment: DataAlignmentReport | None = None
+    quality_gate_report: QualityGateReport | None = None
     competition_report: "CompetitionAlignmentReport | None" = None
     summary_zh: str
     created_at: datetime

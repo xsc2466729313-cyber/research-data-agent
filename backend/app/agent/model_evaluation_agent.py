@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from io import BytesIO
 from time import perf_counter
-from typing import Any
+from typing import Any, Literal
 from uuid import uuid4
 
 from openpyxl import Workbook
@@ -27,6 +27,7 @@ DEFAULT_TARGETS = [
 
 class ModelTarget(ApiModel):
     target_id: str = Field(min_length=1, max_length=100)
+    target_kind: Literal["model", "framework"] = "model"
     provider: str = Field(min_length=1, max_length=40)
     model_id: str = Field(min_length=1, max_length=100)
     model_label: str = Field(min_length=1, max_length=120)
@@ -43,6 +44,7 @@ class GeneratedResearchQuestion(ApiModel):
 class ModelEvaluationRow(ApiModel):
     question_id: str
     target_id: str
+    target_kind: Literal["model", "framework"] = "model"
     provider: str
     model_id: str
     model_label: str
@@ -98,6 +100,7 @@ class ModelEvaluationService:
             ModelEvaluationRow(
                 question_id=item.question_id,
                 target_id=target.target_id,
+                target_kind=target.target_kind,
                 provider=target.provider,
                 model_id=target.model_id,
                 model_label=target.model_label,
@@ -247,13 +250,14 @@ class ModelEvaluationService:
         workbook = Workbook()
         sheet = workbook.active
         sheet.title = "对比报告"
-        sheet.append(["问题编号", "科研问题", "模型", "状态", "质量门", "指标", "说明"])
+        sheet.append(["问题编号", "科研问题", "目标类型", "模型/框架", "状态", "质量门", "指标", "说明"])
         questions = {item.question_id: item.question for item in report.questions}
         for row in report.model_rows:
             sheet.append(
                 [
                     row.question_id,
                     questions.get(row.question_id, ""),
+                    "框架" if row.target_kind == "framework" else "模型",
                     row.model_label,
                     row.status,
                     row.quality_gate,
@@ -313,6 +317,7 @@ class ModelEvaluationService:
         return [
             ModelTarget(
                 target_id=f"qwen-{model}",
+                target_kind="model",
                 provider="qwen",
                 model_id=model,
                 model_label=ModelEvaluationService._model_label(model),

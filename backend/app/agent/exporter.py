@@ -20,6 +20,9 @@ class AgentExportFormat(str, Enum):
     CSV = "csv"
     PARQUET = "parquet"
     XLSX = "xlsx"
+    JSON = "json"
+    METADATA = "metadata"
+    QUALITY_REPORT = "quality_report"
 
 
 @dataclass(frozen=True)
@@ -36,21 +39,36 @@ class AgentDatasetExportService:
         file_format: AgentExportFormat,
     ) -> AgentExportedDataset:
         dataset = result.modeling_dataset
-        if not dataset.rows:
+        if file_format in {AgentExportFormat.CSV, AgentExportFormat.PARQUET, AgentExportFormat.XLSX, AgentExportFormat.JSON} and not dataset.rows:
             raise ValueError("当前任务没有可导出的科研数据行。")
         if file_format == AgentExportFormat.CSV:
             content = self._csv(result)
             media_type = "text/csv; charset=utf-8"
+            filename = f"{result.task_id}-科研数据集.csv"
         elif file_format == AgentExportFormat.PARQUET:
             content = self._parquet(result)
             media_type = "application/vnd.apache.parquet"
+            filename = f"{result.task_id}-科研数据集.parquet"
+        elif file_format == AgentExportFormat.JSON:
+            content = self._json_dataset(result)
+            media_type = "application/json; charset=utf-8"
+            filename = f"{result.task_id}-科研数据集.json"
+        elif file_format == AgentExportFormat.METADATA:
+            content = self._metadata(result)
+            media_type = "application/json; charset=utf-8"
+            filename = f"{result.task_id}-元数据.json"
+        elif file_format == AgentExportFormat.QUALITY_REPORT:
+            content = self._quality_report(result)
+            media_type = "application/json; charset=utf-8"
+            filename = f"{result.task_id}-质量报告.json"
         else:
             content = self._xlsx(result)
             media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            filename = f"{result.task_id}-科研数据集.xlsx"
         return AgentExportedDataset(
             content=content,
             media_type=media_type,
-            filename=f"{result.task_id}-科研数据集.{file_format.value}",
+            filename=filename,
         )
 
     @staticmethod
@@ -87,6 +105,53 @@ class AgentDatasetExportService:
         sink = pa.BufferOutputStream()
         pq.write_table(table, sink, compression="snappy")
         return sink.getvalue().to_pybytes()
+
+    @staticmethod
+    def _json_dataset(result: AgentTaskResult) -> bytes:
+        payload = {
+            "task_id": result.task_id,
+            "unit_of_analysis": result.modeling_dataset.unit_of_analysis,
+            "columns": [column.model_dump(mode="json") for column in result.modeling_dataset.columns],
+            "rows": result.modeling_dataset.rows,
+            "row_count": result.modeling_dataset.row_count,
+        }
+        return json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+
+    @staticmethod
+    def _metadata(result: AgentTaskResult) -> bytes:
+        payload = {
+            "task_id": result.task_id,
+            "question_parse": None if result.parsed_question is None else result.parsed_question.model_dump(mode="json"),
+            "research_spec": result.research_spec.model_dump(mode="json"),
+            "study_design": None if result.study_design is None else result.study_design.model_dump(mode="json"),
+            "dictionary": [column.model_dump(mode="json") for column in result.modeling_dataset.columns],
+            "sources": [item.model_dump(mode="json") for item in result.source_items],
+        }
+        return json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+
+    @staticmethod
+    def _quality_report(result: AgentTaskResult) -> bytes:
+        payload = {
+            "task_id": result.task_id,
+            "quality_gate": None if result.quality_gate_report is None else result.quality_gate_report.model_dump(mode="json"),
+            "readiness": result.readiness.model_dump(mode="json"),
+            "entity_matching": None if result.data_alignment is None else {
+                "status": result.data_alignment.entity_match_status,
+                "note": result.data_alignment.entity_match_note,
+                "unresolved_identity_row_count": result.data_alignment.unresolved_identity_row_count,
+                "cross_source_join_status": result.data_alignment.cross_source_join_status,
+            },
+            "cohort": None if result.cohort_construction is None else {
+                "source_row_count": result.cohort_construction.source_row_count,
+                "final_row_count": result.cohort_construction.final_row_count,
+                "patient_count": result.cohort_construction.patient_count,
+                "sample_count": result.cohort_construction.sample_count,
+                "variable_coverage_rate": result.cohort_construction.variable_coverage_rate,
+                "patient_linkage_f1": result.cohort_construction.patient_linkage_f1,
+                "quality_gate": result.cohort_construction.quality_gate,
+            },
+        }
+        return json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
 
     def _xlsx(self, result: AgentTaskResult) -> bytes:
         workbook = Workbook()
@@ -262,6 +327,16 @@ class AgentDatasetExportService:
             collection_sheet.append(["状态", collection.status])
             collection_sheet.append(["Quality Gate", collection.quality_gate])
             collection_sheet.append(["完成轮次", f"{collection.completed_rounds}/{collection.max_rounds}"])
+            collection_sheet.append(["停止原因", collection.stop_reason or collection.note])
+            collection_sheet.append(["诊断", collection.diagnosis or "未记录"])
+            collection_sheet.append(["已试方法", "、".join(collection.strategies_tried) or "首轮规划"])
+            for goal in collection.goals:
+                collection_sheet.append(
+                    [
+                        "研究目标",
+                        f"{goal.label}｜{'已达成' if goal.met else '未达成'}｜必需={goal.required}｜{goal.evidence}",
+                    ]
+                )
             collection_sheet.append(["说明", collection.note])
             for iteration in collection.iterations:
                 collection_sheet.append(

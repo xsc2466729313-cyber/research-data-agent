@@ -133,3 +133,24 @@ def test_agent_task_rejects_unknown_qwen_session() -> None:
 
     assert response.status_code == 401
     assert "不存在或已过期" in response.json()["detail"]
+
+
+def test_stale_qwen_session_is_ignored_when_fallback_is_allowed() -> None:
+    response = TestClient(app).post(
+        "/api/agent/tasks",
+        json={
+            "question": "整理 HER2 阳性乳腺癌科研数据来源",
+            "use_qwen": True,
+            "allow_deterministic_fallback": True,
+            "data_mode": "plan_only",
+            "preferred_sources": [],
+            "max_sources": 1,
+            "max_records": 100,
+            "qwen_session_id": "qws_0000000000000000000000000000000000000000",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["used_qwen"] is False
+    assert payload["plan"]

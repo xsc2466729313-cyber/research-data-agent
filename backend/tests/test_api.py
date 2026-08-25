@@ -83,8 +83,12 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "本次实际清洗动作" in response.text
     assert "系统评测指标" in response.text
     assert "下载 CSV" in response.text
+    assert "下载 JSON" in response.text
+    assert "下载 Metadata" in response.text
+    assert "下载质量报告" in response.text
     assert "下载 Parquet" in response.text
     assert "下载 Excel" in response.text
+    assert "四层质量门" in response.text
     assert "先明确研究需要什么数据" in response.text
     assert "每一步筛选都能解释清楚" in response.text
     assert "模型评价中心 ↗" in response.text
@@ -105,8 +109,18 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "真实 API 调用" in evaluation_page.text
 
     script = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
-    assert 'fetch("/api/agent/tasks"' in script
-    assert 'fetch("/api/agent/configuration"' in script
+    assert 'fetchApi("/api/research/task"' in script
+    assert 'fetchApi("/api/agent/tasks"' in script
+    assert "isUnimplementedApi" in script
+    assert "pinnedApiOrigin" in script
+    assert "pinPreferredApiOrigin" in script
+    assert "originHasResearchTask" in script
+    assert "clearStaleQwenSession" in script
+    assert "runResearchTaskOnce" in script
+    assert "runResearchTask" in script
+    assert "/api/task/status/" in script
+    assert "/api/agent/tasks/" in script
+    assert 'fetchApi("/api/agent/configuration"' in script
     assert "/export/${format}" in script
     assert "renderDataset" in script
     assert "renderReadiness" in script
@@ -135,8 +149,11 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "renderScientificUsability" in script
     assert "renderStudyDesign" in script
     assert "renderCohortConstruction" in script
+    assert "renderParsedQuestion" in script
+    assert "renderQualityGates" in script
     assert "study-design-summary" in script
     assert "cohort-funnel" in script
+    assert "cohort-stage-funnel" in script
     assert "competition-spotlight" in script
     assert "内部综合诊断分" in script
     assert "association-meter" in script
@@ -173,6 +190,9 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert ".stratified-visual" in styles
     assert ".model-bar-chart" in styles
     assert ".evaluation-workbench" in styles
+    assert ".pico-grid" in styles
+    assert ".quality-gate-panel" in styles
+    assert ".cohort-stage-funnel" in styles
 
     nginx_config = (ROOT / "frontend" / "nginx.conf").read_text(encoding="utf-8")
     assert "location = /health" in nginx_config

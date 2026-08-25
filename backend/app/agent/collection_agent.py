@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from backend.app.agent.goal_loop import GoalLoopController
 from backend.app.agent.models import (
     CollectionAgentReport,
     CollectionFieldEvidence,
@@ -71,10 +72,11 @@ SOURCE_RULES: dict[str, dict[str, Any]] = {
 
 
 class CollectionAgent:
-    """Plan bounded, auditable follow-up searches from observed field gaps."""
+    """Observe field gaps, diagnose the failure, and switch unused retrieval methods."""
 
-    def __init__(self, max_rounds: int = 3) -> None:
+    def __init__(self, max_rounds: int = 12) -> None:
         self.max_rounds = max_rounds
+        self.goal_loop = GoalLoopController()
 
     def inspect(
         self,
@@ -126,11 +128,11 @@ class CollectionAgent:
         note = (
             "关键样本字段、研究变量和结局已满足当前研究契约；可进入下一步队列质检。"
             if quality_gate == "PASS"
-            else "质量门未通过；系统只记录缺口和补搜方向，不用外部摘要或其他患者填补主表。"
+            else "质量门未通过；将按缺口类型更换尚未尝试的检索方法，不用其他患者填补主表。"
         )
         iteration = CollectionIteration(
             round_number=round_number,
-            phase="质量门检测",
+            phase="观察-诊断",
             status=status,
             quality_gate=quality_gate,
             source_names=sorted(set(source_names)),
@@ -157,114 +159,48 @@ class CollectionAgent:
         gaps: list[CollectionGap],
         attempted_calls: set[str],
         max_records: int,
+        dataset: Any | None = None,
+        readiness: Any | None = None,
+        limit: int = 2,
     ) -> list[CollectionSearchAction]:
-        actions: list[CollectionSearchAction] = []
+        diagnosis = self.goal_loop.diagnose(
+            spec=spec,
+            dataset=dataset,
+            readiness=readiness,
+            gaps=gaps,
+        )
+        return self.goal_loop.next_actions(
+            spec=spec,
+            diagnosis=diagnosis,
+            attempted_calls=attempted_calls,
+            max_records=max_records,
+            limit=limit,
+        )
 
-        def add(
-            tool_name: str,
-            source_name: str,
-            priority: int,
-            rationale: str,
-            arguments: dict[str, Any],
-        ) -> None:
-            call = {"name": tool_name, "arguments": arguments}
-            if self.call_key(call) in attempted_calls:
-                return
-            if any(self.call_key({"name": item.tool_name, "arguments": item.arguments}) == self.call_key(call) for item in actions):
-                return
-            actions.append(
-                CollectionSearchAction(
-                    action_id=f"follow-up-{len(actions) + 1}",
-                    tool_name=tool_name,
-                    source_name=source_name,
-                    priority=priority,
-                    rationale=rationale,
-                    status="待执行",
-                    arguments=arguments,
-                )
-            )
-
-        gap_ids = {gap.variable_id for gap in gaps}
-        if any(item in gap_ids or item.endswith("_mutation") for item in gap_ids):
-            add(
-                "search_cbioportal",
-                "cBioPortal",
-                1,
-                "切换到 TCGA-BRCA 患者级队列，补充临床样本表、突变表和患者-样本关联；优先保留主表可连接的分子记录。",
-                {
-                    "study_id": "brca_tcga",
-                    "gene_symbols": spec.genes or ["ERBB2", "PIK3CA"],
-                    "max_records": max_records,
-                },
-            )
-            add(
-                "search_gdc",
-                "GDC / TCGA",
-                2,
-                "扩大 TCGA-BRCA 官方文件检索，核对临床补充字段和突变文件；只有下载并解析后才能进入患者主表。",
-                {
-                    "project_id": "TCGA-BRCA",
-                    "data_types": ["Clinical Supplement", "Masked Somatic Mutation"],
-                    "max_files": 20,
-                },
-            )
-        if "treatment" in gap_ids or "treatment_response" in gap_ids or "outcome" in gap_ids:
-            for accession in ("GSE25066", "GSE96058", "GSE76360"):
-                add(
-                    "search_geo",
-                    "NCBI GEO",
-                    1,
-                    f"检索 {accession} 患者级样本元数据和治疗结局，并下载可审计的 Series Matrix；不把不同队列直接横向拼接。",
-                    {"accession": accession, "max_files": 5},
-                )
-            add(
-                "search_trials",
-                "ClinicalTrials.gov",
-                3,
-                "补充治疗方案、响应定义和试验设计语境；结果只作为解释层，不填患者字段。",
-                {
-                    "condition": spec.disease,
-                    "query_terms": " ".join(spec.drugs + spec.genes),
-                    "max_trials": 10,
-                },
-            )
-        if {"subtype", "age", "stage", "sample_type", "sample_source", "sample_timepoint"} & gap_ids:
-            add(
-                "search_cbioportal",
-                "cBioPortal",
-                1,
-                "回到患者临床属性接口，补充亚型、年龄、分期和样本元数据等样本级字段。",
-                {
-                    "study_id": "brca_tcga",
-                    "gene_symbols": spec.genes or ["ERBB2", "PIK3CA"],
-                    "max_records": max_records,
-                },
-            )
-            add(
-                "search_gdc",
-                "GDC / TCGA",
-                2,
-                "查找官方临床补充文件和病例级临床字段，核对分期、年龄和样本类型定义。",
-                {
-                    "project_id": "TCGA-BRCA",
-                    "data_types": ["Clinical Supplement"],
-                    "max_files": 20,
-                },
-            )
-        if "evidence" in gap_ids or "knowledge_evidence" in spec.required_data_types:
-            add(
-                "search_civic",
-                "CIViC",
-                4,
-                "补充基因-变异-药物的权威知识证据，但不把证据行拼入患者主表。",
-                {
-                    "disease_name": spec.disease,
-                    "molecular_profile_name": spec.genes[0] if spec.genes else None,
-                    "therapy_name": spec.drugs[0] if spec.drugs else None,
-                    "max_items": 10,
-                },
-            )
-        return sorted(actions, key=lambda item: (item.priority, item.tool_name))
+    def decide(
+        self,
+        *,
+        spec: ResearchSpec,
+        dataset: Any,
+        readiness: Any,
+        gaps: list[CollectionGap],
+        attempted_calls: set[str],
+        max_records: int,
+        round_number: int,
+        max_rounds: int,
+        cohort: Any | None = None,
+    ):
+        return self.goal_loop.decide(
+            spec=spec,
+            dataset=dataset,
+            readiness=readiness,
+            gaps=gaps,
+            attempted_calls=attempted_calls,
+            max_records=max_records,
+            round_number=round_number,
+            max_rounds=max_rounds,
+            cohort=cohort,
+        )
 
     def report(
         self,
@@ -275,9 +211,18 @@ class CollectionAgent:
         actions: list[CollectionSearchAction],
         source_coverage: dict[str, str],
         max_rounds: int | None = None,
+        stop_reason: str = "",
+        diagnosis: str | None = None,
+        goals: list[Any] | None = None,
+        strategies_tried: list[str] | None = None,
     ) -> CollectionAgentReport:
         last_gate = iterations[-1].quality_gate if iterations else "REVIEW"
-        status = "已通过质量门" if last_gate == "PASS" else "需要继续补搜"
+        if last_gate == "PASS":
+            status = "已通过质量门"
+        elif last_gate == "PARTIAL":
+            status = "主目标已达成，剩余科学缺口"
+        else:
+            status = "需要继续换方法" if any(item.decision == "continue" for item in iterations) else "方法已用尽或仍待补搜"
         return CollectionAgentReport(
             status=status,
             quality_gate=last_gate,
@@ -289,9 +234,14 @@ class CollectionAgent:
             next_actions=actions,
             source_coverage=source_coverage,
             note=(
-                "质量门通过后才进入后续队列构建；未通过时保留明确缺口，"
+                stop_reason
+                or "观察缺口类型后更换尚未尝试的方法；质量门通过或方法耗尽后停止。"
                 "禁止用知识库、试验目录或不相干患者队列代替样本字段。"
             ),
+            stop_reason=stop_reason or (iterations[-1].note if iterations else ""),
+            diagnosis=diagnosis or (iterations[-1].diagnosis if iterations else None),
+            goals=list(goals or []),
+            strategies_tried=list(strategies_tried or []),
         )
 
     @staticmethod
