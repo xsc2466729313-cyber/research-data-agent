@@ -189,3 +189,117 @@ def test_her2_positive_question_uses_her2_status_not_erbb2_mutation() -> None:
     assert by_id["pik3ca_mutation"].available is False
     assert by_id["tp53_mutation"].required is False
 
+
+def test_same_cohort_covariates_are_listed_without_cross_study_fill() -> None:
+    dataset = ResearchDatasetBuilder().empty()[0]
+    dataset = dataset.model_copy(
+        update={
+            "columns": [
+                {"name": "patient_id", "label_zh": "患者编号", "data_type": "string", "role": "分析单位", "description": "患者"},
+                {"name": "disease", "label_zh": "疾病", "data_type": "string", "role": "研究变量", "description": "疾病"},
+                {"name": "pik3ca_mutation", "label_zh": "PIK3CA", "data_type": "number", "role": "研究变量", "description": "突变"},
+                {"name": "treatment", "label_zh": "治疗", "data_type": "string", "role": "研究变量", "description": "治疗"},
+                {"name": "treatment_response", "label_zh": "治疗响应", "data_type": "string", "role": "研究结局", "description": "结局"},
+                {"name": "sample_id", "label_zh": "样本编号", "data_type": "string", "role": "分析单位", "description": "样本"},
+                {"name": "sex", "label_zh": "性别", "data_type": "string", "role": "研究变量", "description": "性别"},
+                {"name": "endocrine_therapy", "label_zh": "内分泌治疗", "data_type": "string", "role": "研究变量", "description": "内分泌"},
+            ],
+            "rows": [
+                {
+                    "patient_id": "P1",
+                    "disease": "乳腺癌",
+                    "pik3ca_mutation": 1,
+                    "treatment": "Alpelisib",
+                    "treatment_response": "部分缓解",
+                    "sample_id": "S1",
+                    "sex": "女性",
+                    "endocrine_therapy": "Letrozole",
+                }
+            ],
+            "row_count": 1,
+            "patient_count": 1,
+            "sample_count": 1,
+            "target_column": "treatment_response",
+        }
+    )
+    spec = ResearchSpec(
+        task_id="covariate-test",
+        research_goal="研究 HER2 阳性乳腺癌中 PIK3CA 突变与治疗响应",
+        disease="Breast Cancer",
+        subtype="HER2-positive",
+        genes=["PIK3CA"],
+        outcomes=["treatment_response"],
+        required_data_types=["clinical", "mutation", "treatment_response"],
+    )
+
+    design, _cohort = StudyDesignBuilder().build(spec, dataset, ResearchDatasetBuilder().empty()[1], [], [])
+    by_id = {variable.variable_id: variable for variable in design.required_variables}
+
+    assert by_id["age"].required is False
+    assert by_id["age"].available is False
+    assert "本公开队列未发布" in by_id["age"].note
+    assert by_id["sex"].available is True
+    assert by_id["endocrine_therapy"].available is True
+    assert "性别" in design.covariates
+    assert "内分泌治疗" in design.covariates
+    assert any("年龄（本队列未发布）" == item for item in design.covariates)
+
+
+def test_companion_source_marks_covariates_without_joining_patients() -> None:
+    primary = ResearchDatasetBuilder().empty()[0].model_copy(
+        update={
+            "name": "Alpelisib",
+            "columns": [
+                {"name": "patient_id", "label_zh": "患者编号", "data_type": "string", "role": "分析单位", "description": "患者"},
+                {"name": "pik3ca_mutation", "label_zh": "PIK3CA", "data_type": "number", "role": "研究变量", "description": "突变"},
+                {"name": "treatment_response", "label_zh": "治疗响应", "data_type": "string", "role": "研究结局", "description": "结局"},
+            ],
+            "rows": [{"patient_id": "A1", "pik3ca_mutation": 1, "treatment_response": "PR"}],
+            "row_count": 1,
+            "patient_count": 1,
+            "sample_count": 1,
+            "target_column": "treatment_response",
+        }
+    )
+    companion = ResearchDatasetBuilder().empty()[0].model_copy(
+        update={
+            "name": "METABRIC 临床与分子队列",
+            "dataset_role": "companion",
+            "study_key": "brca_metabric",
+            "columns": [
+                {"name": "age", "label_zh": "年龄", "data_type": "number", "role": "研究变量", "description": "年龄"},
+                {"name": "stage", "label_zh": "分期", "data_type": "string", "role": "研究变量", "description": "分期"},
+                {"name": "er_status", "label_zh": "ER", "data_type": "string", "role": "研究变量", "description": "ER"},
+                {"name": "pr_status", "label_zh": "PR", "data_type": "string", "role": "研究变量", "description": "PR"},
+            ],
+            "rows": [{"age": 58, "stage": "II", "er_status": "阳性", "pr_status": "阳性"}],
+            "row_count": 1,
+            "patient_count": 1,
+            "sample_count": 1,
+        }
+    )
+    spec = ResearchSpec(
+        task_id="companion-test",
+        research_goal="研究 HER2 阳性乳腺癌中 PIK3CA 突变与治疗响应",
+        disease="Breast Cancer",
+        subtype="HER2-positive",
+        genes=["PIK3CA"],
+        outcomes=["treatment_response"],
+        required_data_types=["clinical", "mutation", "treatment_response"],
+    )
+    design, _cohort = StudyDesignBuilder().build(
+        spec,
+        primary,
+        ResearchDatasetBuilder().empty()[1],
+        [],
+        [],
+        "live",
+        [companion],
+    )
+    by_id = {variable.variable_id: variable for variable in design.required_variables}
+    assert by_id["age"].available is False
+    assert by_id["age"].companion_sources
+    assert "独立来源表" in by_id["age"].note
+    assert "年龄（独立来源表）" in design.covariates
+    assert primary.rows[0].get("age") is None
+

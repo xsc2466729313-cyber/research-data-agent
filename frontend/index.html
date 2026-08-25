@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="千问驱动的乳腺癌科研数据智能体：从科研问题、真实数据库工具调用到可阅读、可追溯的科研数据集。" />
     <title>千问乳腺癌科研数据智能体</title>
-    <link rel="stylesheet" href="/styles.css?v=20260825-13" />
+    <link rel="stylesheet" href="/styles.css?v=20260826-8" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">跳至正文</a>
@@ -21,6 +21,7 @@
         <a href="#cohort-construction">队列定义</a>
         <a href="#quality-gates">质量门</a>
         <a href="#research-data">分析矩阵</a>
+        <a href="#evaluation-dashboard">系统评测</a>
         <a href="/model-evaluation.html">模型评价中心 ↗</a>
       </nav>
       <div id="system-status" class="system-status"><span class="status-dot"></span><span>正在连接</span></div>
@@ -152,6 +153,7 @@
           <a href="#quality-gates">质量门</a>
           <a href="#research-data">矩阵</a>
           <a href="#provenance">溯源</a>
+          <a href="#evaluation-dashboard">评测</a>
         </nav>
 
         <section class="result-overview">
@@ -166,6 +168,7 @@
           <p id="agent-summary" class="agent-summary"></p>
           <p id="agent-notice" class="agent-notice"></p>
           <div id="parsed-question" class="pico-grid" aria-label="科研问题解析"></div>
+          <div id="research-brief" class="research-brief" aria-label="变量分级与检索策略"></div>
           <div id="spec-grid" class="spec-grid"></div>
         </section>
 
@@ -183,7 +186,7 @@
             <article>
               <h3>必需变量与覆盖</h3>
               <div id="study-variable-coverage" class="coverage-summary"></div>
-              <div class="table-wrap"><table id="study-variable-table"><thead><tr><th>变量</th><th>角色</th><th>是否必需</th><th>当前可用</th><th>匹配字段</th><th>说明</th></tr></thead><tbody></tbody></table></div>
+              <div class="table-wrap"><table id="study-variable-table"><thead><tr><th>变量</th><th>分层</th><th>角色</th><th>是否必需</th><th>覆盖率</th><th>匹配字段</th><th>说明</th></tr></thead><tbody></tbody></table></div>
             </article>
             <article>
               <h3>数据源建议</h3>
@@ -260,9 +263,10 @@
           </div>
           <p id="dataset-note" class="section-note"></p>
           <div class="dataset-toolbar" aria-label="科研数据表显示选项">
+            <div id="dataset-source-tabs" class="segmented-control" role="group" aria-label="选择来源表"></div>
             <div class="segmented-control" role="group" aria-label="选择字段视图">
-              <button id="dataset-research-view" type="button" aria-pressed="true">分析字段</button>
-              <button id="dataset-audit-view" type="button" aria-pressed="false">含原始信息</button>
+              <button id="dataset-research-view" type="button" aria-pressed="true">本题关键字段</button>
+              <button id="dataset-audit-view" type="button" aria-pressed="false">全部字段</button>
             </div>
             <span id="dataset-view-note">默认隐藏审计长文本；导出文件保留全部字段。</span>
           </div>
@@ -275,6 +279,19 @@
           <article class="panel readiness-panel">
             <div class="section-heading"><div><p class="section-kicker">08 · 可科研性检查</p><h2>科研适用性评估</h2></div><span id="readiness-status" class="status-badge"></span></div>
             <div id="research-metrics" class="research-metrics" aria-label="科研数据核心指标"></div>
+            <div id="value-assessment" class="value-assessment" aria-label="数据价值判断"></div>
+            <div id="scientific-usability" class="scientific-usability">
+              <div class="scientific-heading">
+                <div>
+                  <h3>初步分析</h3>
+                  <span>基于本题主要字段做探索性关联，不等于正式统计结论。</span>
+                </div>
+                <strong id="scientific-usability-status"></strong>
+              </div>
+              <div id="scientific-usability-summary" class="scientific-summary"></div>
+              <div id="scientific-usability-findings" class="scientific-findings"></div>
+              <ul id="scientific-usability-caveats" class="message-list scientific-caveats"></ul>
+            </div>
             <div class="outcome-visual">
               <div class="outcome-visual-heading"><h3>研究结局分布</h3><span id="outcome-total"></span></div>
               <div id="outcome-bars" class="outcome-bars"></div>
@@ -288,8 +305,8 @@
           <h3>下一步建议</h3><ul id="recommendation-list" class="message-list recommendation-list"></ul>
           <div class="evaluation-note">
             <strong>系统评测指标</strong>
-            <span>检索精确率 / 召回率 / 忠实度 / 可追溯性 / 修复成功率 / SDTI：未评测</span>
-            <small>Gold Set 未加载，不展示系统分数；上方指标均由本次任务实测。</small>
+            <span>冻结检索精确率 / 召回率 / 忠实度 / 可追溯性 / 修复成功率 / SDTI：未评测</span>
+            <small>Gold Set 未加载，不展示官方成绩。本工作台任务级诊断见下方「系统评测」：请求要素覆盖、科研探索可用性。主科研路径不再用全表完整度抢注意力。</small>
           </div>
           </article>
           <article class="panel dictionary-panel">
@@ -360,7 +377,7 @@
             <div class="section-heading"><div><p class="section-kicker">Candidate Registry</p><h2>候选队列登记</h2></div><span id="candidate-count" class="count-tag"></span></div>
             <div class="table-wrap">
               <table id="candidate-table">
-                <thead><tr><th>数据集</th><th>数据库</th><th>数据类型</th><th>样本数</th><th>研究结局信息</th><th>官方来源</th></tr></thead>
+                <thead><tr><th>角色</th><th>数据集</th><th>数据库</th><th>数据类型</th><th>样本数</th><th>研究结局信息</th><th>官方来源</th></tr></thead>
                 <tbody></tbody>
               </table>
             </div>
@@ -369,6 +386,60 @@
         </details>
 
       </div>
+
+      <section id="evaluation-dashboard" class="panel evaluation-dashboard">
+        <div class="section-heading action-heading">
+          <div><p class="section-kicker">11 · 系统评测</p><h2>评测结果与可信度趋势</h2></div>
+          <div class="button-group">
+            <span id="evaluation-status" class="status-badge is-review">待运行</span>
+            <button id="evaluation-refresh" class="button button-secondary" type="button">刷新评测</button>
+          </div>
+        </div>
+        <p class="section-note">评测方法对齐「统一评测方案工具包」：对本工作台真实任务计算清洗残留、nDCG@10、整合 Macro-F1、Task-Adaptive Fitness 和 Quality Gate。官方 Gold Set SDTI 在模板为空时不填成绩。</p>
+        <div id="evaluation-protocol" class="evaluation-protocol" aria-label="评测策略步骤"></div>
+        <div id="evaluation-meta" class="evaluation-meta"></div>
+        <div id="evaluation-metric-cards" class="evaluation-metric-cards" aria-label="本模型任务级诊断指标"></div>
+        <div class="evaluation-chart-grid">
+          <article class="evaluation-chart-panel">
+            <div class="outcome-visual-heading"><h3>核心诊断与内部目标</h3><span id="evaluation-bars-note">目标线来自任务级诊断规则，不是官方 SDTI 阈值</span></div>
+            <div id="evaluation-bars" class="evaluation-bars"></div>
+          </article>
+          <article class="evaluation-chart-panel">
+            <div class="outcome-visual-heading"><h3>可信度五维轮廓</h3><span>短板会拉低内部综合诊断分</span></div>
+            <div id="evaluation-radar" class="evaluation-radar" role="img" aria-label="本模型任务级五维雷达图"></div>
+          </article>
+        </div>
+        <div class="metric-compare-panel">
+          <div class="metric-compare-heading">
+            <div><h3>本模型当前可观测效果</h3><span>对照行来自同一次任务的反事实消融，不是另跑 Gold Set</span></div>
+            <strong id="metric-compare-topline">正式模型 · 待评测</strong>
+          </div>
+          <div id="metric-compare-bars" class="metric-compare-bars"></div>
+          <div id="metric-compare-values" class="metric-compare-values"></div>
+        </div>
+        <div class="evaluation-chart-grid">
+          <article class="evaluation-chart-panel">
+            <div class="outcome-visual-heading"><h3>检索排序探针</h3><span id="evaluation-probe-meta">方法对齐 Recall@k / nDCG，排序来自本模型候选匹配分</span></div>
+            <div id="evaluation-probe-bars" class="evaluation-bars"></div>
+          </article>
+          <article class="evaluation-chart-panel">
+            <div class="outcome-visual-heading"><h3>消融对照</h3><span id="evaluation-ablation-meta">去掉模块后对当前任务的可观察影响</span></div>
+            <div id="evaluation-ablation" class="evaluation-history"></div>
+          </article>
+        </div>
+        <div class="evaluation-chart-grid">
+          <article class="evaluation-chart-panel">
+            <div class="outcome-visual-heading"><h3>历史评测</h3><span>本机最多保留最近 20 次真实任务</span></div>
+            <div id="evaluation-history" class="evaluation-history"></div>
+          </article>
+          <article class="evaluation-chart-panel">
+            <div class="outcome-visual-heading"><h3>独立评委入口</h3><span>DeepSeek 等只当评委，不当 Gold Truth</span></div>
+            <p class="section-note">要学对照页的独立评委：打开顶栏评委页，连接 DeepSeek 或其他独立模型，用同一批科研问题跑结构化覆盖率。双模型初标走 <code>/api/goldset/*</code>，复核模型不得与初标相同。</p>
+          </article>
+        </div>
+        <div id="evaluation-safety" class="evaluation-safety"></div>
+        <div id="evaluation-artifacts" class="evaluation-artifacts"></div>
+      </section>
     </main>
 
     <dialog id="qwen-connection-dialog" class="qwen-dialog" aria-labelledby="qwen-dialog-title">
@@ -414,6 +485,6 @@
     <div id="toast" class="toast" hidden role="status" aria-live="polite"></div>
     <footer><span>千问科研数据智能体</span><span>模型负责规划；规则负责安全边界；数据须真实可追溯</span></footer>
     <!-- 输入你真正想研究的问题 规划与真实检索入口 先明确研究需要什么数据 每一步筛选都能解释清楚 患者编号能不能安全对上 -->
-    <script src="/app.js?v=20260825-12" defer></script>
+    <script src="/app.js?v=20260826-8" defer></script>
   </body>
 </html>

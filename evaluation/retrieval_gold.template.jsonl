@@ -1,0 +1,4 @@
+# 这是待人工审核的评测模板，不是正式 Gold Set。正式评测前请确认 expected_sources。
+{"case_id":"brca-her2-response-001","question":"研究HER2阳性乳腺癌中PIK3CA突变与新辅助治疗响应的关系，并整理患者级科研数据集","difficulty":"medium","expected_sources":["brca_metabric","GSE76360"],"review_status":"provisional"}
+{"case_id":"brca-erbb2-clinical-002","question":"整理乳腺癌患者的ERBB2相关临床特征、突变信息和样本级证据","difficulty":"easy","expected_sources":["brca_metabric","TCGA-BRCA"],"review_status":"provisional"}
+{"case_id":"brca-treatment-evidence-003","question":"检索乳腺癌中PIK3CA变异与治疗证据，并区分患者队列和医学知识证据","difficulty":"hard","expected_sources":["brca_metabric","CIViC"],"review_status":"provisional"}

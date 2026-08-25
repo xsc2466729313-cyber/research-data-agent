@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-labelledby="title desc">
+  <title id="title">乳腺癌精准治疗科研数据智能体端到端流程</title>
+  <desc id="desc">从问题输入、研究问题解析、工具规划、真实数据获取、标准化融合到质量门、换方法闭环和科研数据包输出。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#F1F5F9"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="7" result="blur"/>
+      <feOffset in="blur" dx="0" dy="5" result="offsetBlur"/>
+      <feFlood flood-color="#0F172A" flood-opacity="0.11" result="shadowColor"/>
+      <feComposite in="shadowColor" in2="offsetBlur" operator="in" result="shadowLayer"/>
+      <feMerge><feMergeNode in="shadowLayer"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="softShadow" x="-15%" y="-15%" width="130%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur"/>
+      <feOffset in="blur" dx="0" dy="3" result="offsetBlur"/>
+      <feFlood flood-color="#0F172A" flood-opacity="0.08" result="shadowColor"/>
+      <feComposite in="shadowColor" in2="offsetBlur" operator="in" result="shadowLayer"/>
+      <feMerge><feMergeNode in="shadowLayer"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10.5" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L12,6 L0,12 z" fill="#475569"/></marker>
+    <marker id="arrowBlue" markerWidth="12" markerHeight="12" refX="10.5" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L12,6 L0,12 z" fill="#2563EB"/></marker>
+    <marker id="arrowRed" markerWidth="12" markerHeight="12" refX="10.5" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L12,6 L0,12 z" fill="#DC2626"/></marker>
+    <style>
+      .zh { font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif; }
+      .title { font-size: 42px; font-weight: 800; fill: #0F172A; letter-spacing: 1px; }
+      .subtitle { font-size: 20px; font-weight: 500; fill: #475569; }
+      .stepTitle { font-size: 22px; font-weight: 800; fill: #0F172A; }
+      .stepBody { font-size: 16px; font-weight: 500; fill: #475569; }
+      .num { font-size: 19px; font-weight: 800; fill: #FFFFFF; }
+      .gateTitle { font-size: 18px; font-weight: 800; fill: #0F172A; }
+      .gateBody { font-size: 15px; font-weight: 500; fill: #64748B; }
+      .label { font-size: 17px; font-weight: 800; }
+      .card { fill: #FFFFFF; stroke-width: 2; }
+      .flow { fill: none; stroke: #475569; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrow); }
+      .loop { fill: none; stroke: #2563EB; stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrowBlue); }
+    </style>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <circle cx="1825" cy="75" r="170" fill="#DBEAFE" opacity="0.50"/>
+  <circle cx="90" cy="1030" r="210" fill="#CCFBF1" opacity="0.28"/>
+
+  <g class="zh">
+    <text x="70" y="62" class="title">乳腺癌精准治疗科研数据智能体｜端到端流程与质量闭环</text>
+    <text x="72" y="99" class="subtitle">主链：问题理解 → 真实数据 → 同研究融合 → 质量判定；失败链：诊断缺口 → 换方法 → 再执行</text>
+
+    <!-- Stage labels -->
+    <rect x="72" y="126" width="185" height="32" rx="16" fill="#DBEAFE"/>
+    <text x="164" y="148" text-anchor="middle" class="label" fill="#1D4ED8">A｜需求与数据发现</text>
+    <rect x="72" y="342" width="185" height="32" rx="16" fill="#CCFBF1"/>
+    <text x="164" y="364" text-anchor="middle" class="label" fill="#0F766E">B｜处理、融合与审计</text>
+
+    <!-- Top snake: steps 1-5 -->
+    <g filter="url(#softShadow)">
+      <rect x="72" y="174" width="310" height="132" rx="18" class="card" stroke="#93C5FD"/>
+      <rect x="438" y="174" width="310" height="132" rx="18" class="card" stroke="#93C5FD"/>
+      <rect x="804" y="174" width="310" height="132" rx="18" class="card" stroke="#C4B5FD"/>
+      <rect x="1170" y="174" width="310" height="132" rx="18" class="card" stroke="#67E8F9"/>
+      <rect x="1536" y="174" width="310" height="132" rx="18" class="card" stroke="#67E8F9"/>
+    </g>
+    <g>
+      <circle cx="106" cy="204" r="20" fill="#2563EB"/><text x="106" y="211" text-anchor="middle" class="num">1</text>
+      <text x="142" y="211" class="stepTitle">输入科研问题</text>
+      <text x="106" y="250" class="stepBody">自然语言 + 高级筛选</text><text x="106" y="277" class="stepBody">明确疾病 / 基因 / 结局 / 粒度</text>
+
+      <circle cx="472" cy="204" r="20" fill="#2563EB"/><text x="472" y="211" text-anchor="middle" class="num">2</text>
+      <text x="508" y="211" class="stepTitle">解析 ResearchSpec</text>
+      <text x="472" y="250" class="stepBody">PICO 与医学实体识别</text><text x="472" y="277" class="stepBody">生成目标字段与研究约束</text>
+
+      <circle cx="838" cy="204" r="20" fill="#7C3AED"/><text x="838" y="211" text-anchor="middle" class="num">3</text>
+      <text x="874" y="211" class="stepTitle">规划与工具选择</text>
+      <text x="838" y="250" class="stepBody">千问 Function Calling</text><text x="838" y="277" class="stepBody">确定性规划可安全兜底</text>
+
+      <circle cx="1204" cy="204" r="20" fill="#0891B2"/><text x="1204" y="211" text-anchor="middle" class="num">4</text>
+      <text x="1240" y="211" class="stepTitle">发现并验证来源</text>
+      <text x="1204" y="250" class="stepBody">检索候选 accession / URL</text><text x="1204" y="277" class="stepBody">校验真实性、相关性和权限</text>
+
+      <circle cx="1570" cy="204" r="20" fill="#0891B2"/><text x="1570" y="211" text-anchor="middle" class="num">5</text>
+      <text x="1606" y="211" class="stepTitle">获取真实公开数据</text>
+      <text x="1570" y="250" class="stepBody">GDC · GEO · cBioPortal</text><text x="1570" y="277" class="stepBody">ClinicalTrials.gov · CIViC</text>
+    </g>
+    <path d="M382 240 H430" class="flow"/><path d="M748 240 H796" class="flow"/>
+    <path d="M1114 240 H1162" class="flow"/><path d="M1480 240 H1528" class="flow"/>
+
+    <!-- turn down -->
+    <path d="M1691 306 V360" class="flow"/>
+
+    <!-- Bottom snake: steps 6-10, right to left -->
+    <g filter="url(#softShadow)">
+      <rect x="1536" y="390" width="310" height="132" rx="18" class="card" stroke="#5EEAD4"/>
+      <rect x="1170" y="390" width="310" height="132" rx="18" class="card" stroke="#5EEAD4"/>
+      <rect x="804" y="390" width="310" height="132" rx="18" class="card" stroke="#86EFAC"/>
+      <rect x="438" y="390" width="310" height="132" rx="18" class="card" stroke="#C4B5FD"/>
+      <rect x="72" y="390" width="310" height="132" rx="18" class="card" stroke="#FDBA74"/>
+    </g>
+    <g>
+      <circle cx="1570" cy="420" r="20" fill="#0F766E"/><text x="1570" y="427" text-anchor="middle" class="num">6</text>
+      <text x="1606" y="427" class="stepTitle">解析与原始审计</text>
+      <text x="1570" y="466" class="stepBody">登记 source_id 和真实来源</text><text x="1570" y="493" class="stepBody">保留 raw_field / raw_value</text>
+
+      <circle cx="1204" cy="420" r="20" fill="#0F766E"/><text x="1204" y="427" text-anchor="middle" class="num">7</text>
+      <text x="1240" y="427" class="stepTitle">医学标准化</text>
+      <text x="1204" y="466" class="stepBody">Gene / Drug / Biomarker</text><text x="1204" y="493" class="stepBody">对齐冻结 Canonical Schema</text>
+
+      <circle cx="838" cy="420" r="20" fill="#16A34A"/><text x="838" y="427" text-anchor="middle" class="num">8</text>
+      <text x="874" y="427" class="stepTitle">同研究队列融合</text>
+      <text x="838" y="466" class="stepBody">患者 / 样本锚定与命名空间</text><text x="838" y="493" class="stepBody">不同 response_domain 分层</text>
+
+      <circle cx="472" cy="420" r="20" fill="#7C3AED"/><text x="472" y="427" text-anchor="middle" class="num">9</text>
+      <text x="508" y="427" class="stepTitle">Evidence 与 Repair</text>
+      <text x="472" y="466" class="stepBody">字段级证据、冲突检测</text><text x="472" y="493" class="stepBody">确定性修复 / 人工复核</text>
+
+      <circle cx="106" cy="420" r="20" fill="#D97706"/><text x="106" y="427" text-anchor="middle" class="num">10</text>
+      <text x="142" y="427" class="stepTitle">构建分析矩阵</text>
+      <text x="106" y="466" class="stepBody">队列漏斗 · 字段字典</text><text x="106" y="493" class="stepBody">暴露 / 结局 / 协变量就绪</text>
+    </g>
+    <path d="M1536 456 H1488" class="flow"/><path d="M1170 456 H1122" class="flow"/>
+    <path d="M804 456 H756" class="flow"/><path d="M438 456 H390" class="flow"/>
+    <path d="M227 522 V552" class="flow"/>
+
+    <!-- Quality gates -->
+    <rect x="72" y="566" width="1190" height="172" rx="22" fill="#FFFFFF" stroke="#A78BFA" stroke-width="2.5" filter="url(#shadow)"/>
+    <rect x="72" y="566" width="1190" height="42" rx="22" fill="#7C3AED"/>
+    <path d="M72 588 Q72 608 94 608 H1240 Q1262 608 1262 588 V608 H72 Z" fill="#7C3AED"/>
+    <text x="98" y="595" font-size="20" font-weight="800" fill="#FFFFFF">四层质量门｜Quality Gate</text>
+    <text x="1232" y="595" text-anchor="end" font-size="15" font-weight="700" fill="#EDE9FE">逐层判定，禁止“有表即通过”</text>
+
+    <g>
+      <rect x="94" y="626" width="266" height="88" rx="14" fill="#EFF6FF" stroke="#BFDBFE"/>
+      <rect x="378" y="626" width="266" height="88" rx="14" fill="#ECFEFF" stroke="#A5F3FC"/>
+      <rect x="662" y="626" width="266" height="88" rx="14" fill="#F0FDF4" stroke="#BBF7D0"/>
+      <rect x="946" y="626" width="294" height="88" rx="14" fill="#FFF7ED" stroke="#FED7AA"/>
+      <text x="227" y="657" text-anchor="middle" class="gateTitle">G1｜身份与主表</text><text x="227" y="686" text-anchor="middle" class="gateBody">患者 / 样本是否可可靠定位</text>
+      <text x="511" y="657" text-anchor="middle" class="gateTitle">G2｜结局域匹配</text><text x="511" y="686" text-anchor="middle" class="gateBody">问题结局与数据结局同域</text>
+      <text x="795" y="657" text-anchor="middle" class="gateTitle">G3｜分子覆盖</text><text x="795" y="686" text-anchor="middle" class="gateBody">目标变量是否在同队列可用</text>
+      <text x="1093" y="657" text-anchor="middle" class="gateTitle">G4｜证据与安全</text><text x="1093" y="686" text-anchor="middle" class="gateBody">来源完整、冲突可解释、边界合规</text>
+    </g>
+
+    <!-- Decision 1 -->
+    <path d="M1262 652 H1320" class="flow"/>
+    <polygon points="1435,580 1545,652 1435,724 1325,652" fill="#FFFFFF" stroke="#7C3AED" stroke-width="3" filter="url(#softShadow)"/>
+    <text x="1435" y="638" text-anchor="middle" class="gateTitle">全部必需目标</text>
+    <text x="1435" y="666" text-anchor="middle" class="gateTitle">是否满足？</text>
+
+    <!-- PASS output -->
+    <path d="M1545 652 H1572" class="flow"/>
+    <text x="1559" y="638" text-anchor="middle" class="label" fill="#15803D">是</text>
+    <rect x="1580" y="568" width="330" height="170" rx="20" fill="#F0FDF4" stroke="#22C55E" stroke-width="2.5" filter="url(#shadow)"/>
+    <rect x="1604" y="588" width="78" height="30" rx="15" fill="#16A34A"/>
+    <text x="1643" y="609" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF">PASS</text>
+    <text x="1604" y="650" class="stepTitle">可信科研数据包</text>
+    <text x="1604" y="681" class="stepBody">Dataset + Evidence</text>
+    <text x="1604" y="707" class="stepBody">报告 + CSV / Parquet / Excel</text>
+
+    <!-- Failure diagnosis -->
+    <path d="M1435 724 V758" fill="none" stroke="#DC2626" stroke-width="2.4" marker-end="url(#arrowRed)"/>
+    <text x="1454" y="748" class="label" fill="#DC2626">否</text>
+    <rect x="1264" y="770" width="342" height="92" rx="18" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="2" filter="url(#softShadow)"/>
+    <text x="1435" y="805" text-anchor="middle" class="stepTitle">诊断缺口类型</text>
+    <text x="1435" y="835" text-anchor="middle" class="stepBody">无主表 / 结局错域 / 分子缺失 / 冲突</text>
+
+    <!-- Decision 2 -->
+    <path d="M1264 816 H1215" class="flow"/>
+    <polygon points="1070,752 1210,816 1070,880 930,816" fill="#FFFFFF" stroke="#2563EB" stroke-width="3" filter="url(#softShadow)"/>
+    <text x="1070" y="804" text-anchor="middle" class="gateTitle">还有未尝试的方法</text>
+    <text x="1070" y="831" text-anchor="middle" class="gateTitle">且未达轮次门限？</text>
+
+    <!-- Yes loop -->
+    <path d="M930 816 H850 V960 H34 V330 H959 V314" class="loop"/>
+    <text x="884" y="799" class="label" fill="#2563EB">是：换方法</text>
+    <rect x="322" y="882" width="515" height="58" rx="16" fill="#EFF6FF" stroke="#93C5FD" stroke-width="1.8"/>
+    <text x="580" y="908" text-anchor="middle" class="gateTitle" fill="#1D4ED8">可选策略</text>
+    <text x="580" y="930" text-anchor="middle" class="gateBody">换可解析队列 · 换响应队列 · 扩展真实检索 · 换官方临床表</text>
+
+    <!-- No / partial -->
+    <path d="M1070 880 V912 H1245" fill="none" stroke="#D97706" stroke-width="2.4" marker-end="url(#arrow)"/>
+    <text x="1092" y="903" class="label" fill="#B45309">否</text>
+    <rect x="1254" y="884" width="592" height="68" rx="17" fill="#FFF7ED" stroke="#FDBA74" stroke-width="2" filter="url(#softShadow)"/>
+    <text x="1280" y="912" class="stepTitle" fill="#9A3412">PARTIAL / REVIEW</text>
+    <text x="1280" y="939" class="stepBody">保留已达成目标与科学缺口；不跨库拼患者，不把缺失解释为阴性</text>
+
+    <!-- Safety rail -->
+    <rect x="72" y="984" width="1774" height="70" rx="18" fill="#0F172A" filter="url(#shadow)"/>
+    <text x="98" y="1027" font-size="20" font-weight="800" fill="#FFFFFF">安全护栏</text>
+    <line x1="222" y1="1000" x2="222" y2="1038" stroke="#475569" stroke-width="2"/>
+    <g font-size="16" font-weight="700">
+      <rect x="248" y="1001" width="232" height="36" rx="18" fill="#1E3A8A"/><text x="364" y="1025" text-anchor="middle" fill="#DBEAFE">真实 source_id 与来源</text>
+      <rect x="496" y="1001" width="228" height="36" rx="18" fill="#134E4A"/><text x="610" y="1025" text-anchor="middle" fill="#CCFBF1">原始字段与原始值保留</text>
+      <rect x="740" y="1001" width="260" height="36" rx="18" fill="#4C1D95"/><text x="870" y="1025" text-anchor="middle" fill="#EDE9FE">HER2 / CNA 检测维度分离</text>
+      <rect x="1016" y="1001" width="272" height="36" rx="18" fill="#7C2D12"/><text x="1152" y="1025" text-anchor="middle" fill="#FFEDD5">临床与细胞系响应域分离</text>
+      <rect x="1304" y="1001" width="514" height="36" rx="18" fill="#7F1D1D"/><text x="1561" y="1025" text-anchor="middle" fill="#FEE2E2">低置信度进入 Review · 禁止虚假来源、成绩与医学结论</text>
+    </g>
+  </g>
+</svg>

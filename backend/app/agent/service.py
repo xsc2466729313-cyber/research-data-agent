@@ -8,7 +8,15 @@ from typing import Any
 from uuid import uuid4
 
 from backend.app.agent.competition_report import CompetitionReportBuilder
-from backend.app.agent.accession_harvest import catalog_query, harvest_from_raw_results, literature_query
+from backend.app.agent.accession_harvest import (
+    catalog_query,
+    harvest_from_raw_results,
+    literature_query,
+    needs_clinical_outcome,
+    question_asks_clinical_outcome,
+    question_asks_survival,
+    score_geo_text,
+)
 from backend.app.agent.alignment_audit import DataAlignmentAuditor
 from backend.app.agent.collection_agent import CollectionAgent
 from backend.app.agent.goal_loop import DIAGNOSIS_LABELS
@@ -25,6 +33,8 @@ from backend.app.agent.models import (
 from backend.app.agent.qwen_client import QwenClient, QwenClientError, QwenSettings
 from backend.app.agent.quality_gate import QualityGateBuilder
 from backend.app.agent.research_parser import ResearchQuestionParser
+from backend.app.agent.research_brief import ResearchBriefBuilder
+from backend.app.agent.search_planner import FieldDrivenSearchPlanner, geo_search_applicable, question_search_terms
 from backend.app.agent.study_design import StudyDesignBuilder
 from backend.app.agent.source_registry import (
     GEO_ACCESSION_PATTERN,
@@ -114,6 +124,7 @@ class ResearchAgentService:
         self.alignment_auditor = DataAlignmentAuditor()
         self.competition_report_builder = CompetitionReportBuilder()
         self.study_design_builder = StudyDesignBuilder()
+        self.research_brief_builder = ResearchBriefBuilder()
         self.collection_agent = CollectionAgent()
         self.question_parser = ResearchQuestionParser()
         self.quality_gate_builder = QualityGateBuilder()
@@ -153,7 +164,27 @@ class ResearchAgentService:
 
     def get(self, task_id: str) -> AgentTaskResult | None:
         with self._lock:
-            return self._results.get(task_id)
+            result = self._results.get(task_id)
+            refreshed = self._refresh_competition_report(result)
+            if refreshed is not None and result is not None and refreshed is not result:
+                self._results[task_id] = refreshed
+            return refreshed
+
+    def latest(self) -> AgentTaskResult | None:
+        with self._lock:
+            if not self._results:
+                return None
+            result = max(self._results.values(), key=lambda item: item.created_at)
+            refreshed = self._refresh_competition_report(result)
+            if refreshed is not None and refreshed is not result:
+                self._results[result.task_id] = refreshed
+            return refreshed
+
+    def _refresh_competition_report(self, result: AgentTaskResult | None) -> AgentTaskResult | None:
+        if result is None:
+            return None
+        rebuilt = self.competition_report_builder.build(result)
+        return result.model_copy(update={"competition_report": rebuilt})
 
     def status(self, task_id: str) -> ResearchTaskStatus | None:
         with self._lock:
@@ -284,8 +315,14 @@ class ResearchAgentService:
         else:
             spec = self._deterministic_spec(request.question, task_id)
         spec = self._enrich_research_spec(spec, request.question)
+        brief = self.research_brief_builder.build(request.question, spec)
         plan_steps[0].status = "完成"
-        plan_steps[0].detail = f"识别疾病 {spec.disease}；基因 {', '.join(spec.genes) or '未指定'}；结局 {', '.join(spec.outcomes) or '未指定'}。"
+        primary_labels = [field.label for field in brief.fields if field.priority == "primary"]
+        named_labels = [cohort.name for cohort in brief.named_cohorts if cohort.role == "named_primary"]
+        plan_steps[0].detail = (
+            f"识别疾病 {spec.disease}；主要字段 {', '.join(primary_labels) or '未指定'}；"
+            f"命名队列 {', '.join(named_labels) or '未点名'}；结局 {', '.join(spec.outcomes) or '本题不强制临床终点'}。"
+        )
         self._set_status(
             task_id,
             status="running",
@@ -306,9 +343,10 @@ class ResearchAgentService:
                 if not request.allow_deterministic_fallback:
                     raise AgentExecutionError(str(exc)) from exc
                 qwen_warning = f"千问工具选择失败，已使用确定性兜底：{exc}"
-        deterministic_calls = self._deterministic_tool_calls(spec, request)
+        deterministic_calls = self._deterministic_tool_calls(spec, request, brief)
         if calls:
             calls = self._merge_tool_calls(calls, deterministic_calls, request.max_sources)
+            calls = self._prioritize_named_cohort_calls(calls, brief)
             calls = self._guard_tool_arguments(calls, spec, request)
             if tool_message is not None:
                 tool_message = self._synchronize_tool_message(tool_message, calls)
@@ -316,7 +354,7 @@ class ResearchAgentService:
             calls = self._guard_tool_arguments(deterministic_calls, spec, request)
             tool_message = None
         plan_steps[1].status = "完成"
-        plan_steps[1].detail = "已规划数据源并选择：" + "、".join(
+        plan_steps[1].detail = (brief.search_strategy + " 已选择：" if brief.search_strategy else "已规划数据源并选择：") + "、".join(
             TOOL_LABELS.get(call["name"], call["name"]) for call in calls
         )
         self._set_status(
@@ -345,6 +383,7 @@ class ResearchAgentService:
             else 1
         )
         dataset, readiness = self.dataset_builder.empty()
+        source_datasets: list[Any] = []
         provisional_design, provisional_cohort = self.study_design_builder.build(
             spec,
             dataset,
@@ -352,6 +391,7 @@ class ResearchAgentService:
             [],
             [],
             request.data_mode.value,
+            brief=brief,
         )
 
         for round_number in range(1, max_rounds + 1):
@@ -364,7 +404,7 @@ class ResearchAgentService:
                     if raw_result is not None:
                         raw_results.append((call["name"], raw_result))
                         try:
-                            candidates.extend(self._candidates(call["name"], raw_result))
+                            candidates.extend(self._candidates(call["name"], raw_result, spec))
                         except Exception as exc:
                             logger.exception("Failed to register candidates for tool %s", call["name"])
                             executed[-1] = log.model_copy(
@@ -388,10 +428,26 @@ class ResearchAgentService:
             if built_datasets:
                 dataset, readiness = max(
                     built_datasets,
-                    key=lambda item: self._dataset_selection_score(item, spec),
+                    key=lambda item: self._dataset_selection_score(item, spec, brief),
                 )
-                switched_from_unmatched = readiness.target_match and any(
-                    not other_readiness.target_match for _, other_readiness in built_datasets
+                dataset = dataset.model_copy(
+                    update={"dataset_role": "primary", "study_key": self._dataset_key(dataset)}
+                )
+                source_datasets = []
+                primary_key = self._dataset_key(dataset)
+                for other, _other_ready in built_datasets:
+                    other_key = self._dataset_key(other)
+                    if other_key == primary_key:
+                        continue
+                    source_datasets.append(
+                        other.model_copy(
+                            update={"dataset_role": "companion", "study_key": other_key}
+                        )
+                    )
+                switched_from_unmatched = (
+                    needs_clinical_outcome(spec)
+                    and readiness.target_match
+                    and any(not other_readiness.target_match for _, other_readiness in built_datasets)
                 )
                 if switched_from_unmatched:
                     readiness.warnings.insert(
@@ -402,8 +458,19 @@ class ResearchAgentService:
                         0,
                         "PIK3CA 等分子暴露必须来自同一研究的患者/样本检测，不能用 METABRIC 突变补到 GEO 响应队列。",
                     )
+                if brief.named_cohorts and source_datasets:
+                    readiness.recommendations.insert(
+                        0,
+                        "题目点名的队列各自作为独立表保留；比较可重复性时只核对关联方向，不按患者编号跨研究合并。",
+                    )
+                if source_datasets:
+                    readiness.recommendations.insert(
+                        0,
+                        f"已整合 {len(source_datasets)} 张独立来源表；年龄/分期/ER/PR 等协变量如在其他研究中解析，会单独保留，不贴到当前分析患者。",
+                    )
             else:
                 dataset, readiness = self.dataset_builder.empty()
+                source_datasets = []
                 if raw_results:
                     readiness.warnings.insert(
                         0,
@@ -417,6 +484,8 @@ class ResearchAgentService:
                 self._deduplicate_candidates(candidates),
                 self._deduplicate_sources(source_items),
                 request.data_mode.value,
+                source_datasets,
+                brief,
             )
             iteration, critical, recommended = self.collection_agent.inspect(
                 spec=spec,
@@ -428,17 +497,19 @@ class ResearchAgentService:
                 round_number=round_number,
                 attempted_calls=attempted_calls,
                 actions=round_actions,
+                source_datasets=source_datasets,
             )
             decision = self.collection_agent.decide(
                 spec=spec,
                 dataset=dataset,
                 readiness=readiness,
-                gaps=critical,
+                gaps=[*critical, *recommended],
                 attempted_calls=attempted_calls,
                 max_records=request.max_records,
                 round_number=round_number,
                 max_rounds=max_rounds,
                 cohort=provisional_cohort,
+                source_datasets=source_datasets,
             )
             last_decision = decision
             iteration = iteration.model_copy(
@@ -605,11 +676,14 @@ class ResearchAgentService:
             notice=" ".join(notice_parts),
             research_spec=spec,
             parsed_question=self.question_parser.parse(request.question, spec, provisional_design),
+            research_brief=brief,
+            value_assessment=self.research_brief_builder.assess(brief, dataset, source_datasets, readiness),
             plan=plan_steps,
             tool_calls=executed,
             candidate_sources=self._deduplicate_candidates(candidates),
             source_items=self._deduplicate_sources(source_items),
             modeling_dataset=dataset,
+            source_datasets=source_datasets,
             readiness=readiness,
             summary_zh=summary,
             created_at=created_at,
@@ -770,6 +844,7 @@ class ResearchAgentService:
                         "critical_gaps": [getattr(gap, "label", str(gap)) for gap in critical],
                         "row_count": getattr(dataset, "row_count", 0),
                         "target_match": bool(getattr(readiness, "target_match", False)),
+                        "target_match_rate": getattr(readiness, "target_match_rate", None),
                         "harvested_gse": harvested,
                         "attempted_calls": sorted(attempted_calls)[:50],
                         "round_number": round_number,
@@ -779,7 +854,7 @@ class ResearchAgentService:
                 )
             except QwenClientError:
                 logger.exception("Qwen next-tool planning failed for task %s", spec.task_id)
-        merged = self._merge_tool_calls(qwen_calls, harvest_calls + loop_calls, FOLLOW_UP_BUDGET)
+        merged = self._merge_tool_calls(harvest_calls + loop_calls, qwen_calls, FOLLOW_UP_BUDGET)
         return [
             call
             for call in merged
@@ -917,7 +992,26 @@ class ResearchAgentService:
     @staticmethod
     def _deterministic_spec(question: str, task_id: str) -> ResearchSpec:
         upper = question.upper()
-        known_genes = ["ERBB2", "PIK3CA", "TP53", "BRCA1", "BRCA2", "ESR1", "AKT1", "PTEN"]
+        known_genes = [
+            "ERBB2",
+            "PIK3CA",
+            "TP53",
+            "BRCA1",
+            "BRCA2",
+            "ESR1",
+            "AKT1",
+            "PTEN",
+            "GATA3",
+            "CDH1",
+            "MAP3K1",
+            "CCND1",
+            "MYC",
+            "FGFR1",
+            "PIK3R1",
+            "NF1",
+            "TBX3",
+            "RUNX1",
+        ]
         genes = [gene for gene in known_genes if gene in upper]
         her2_negative = ResearchAgentService._mentions_her2_negative(question)
         her2_positive = ResearchAgentService._mentions_her2_positive(question)
@@ -936,7 +1030,9 @@ class ResearchAgentService:
                 drugs.append(standard)
         if "PI3K" in upper and any(term in question for term in ("抑制剂", "抑制", "inhibitor", "Inhibitor")):
             drugs.append("Alpelisib")
-        if "HR+" in upper or "HR阳性" in question or "HR 阳性" in question:
+        if "三阴性" in question or "TNBC" in upper or "TRIPLE-NEGATIVE" in upper:
+            subtype = "Triple-negative"
+        elif "HR+" in upper or "HR阳性" in question or "HR 阳性" in question:
             subtype = "HR-positive/HER2-negative" if her2_negative else "HR-positive"
         elif her2_negative:
             subtype = "HER2-negative"
@@ -947,10 +1043,8 @@ class ResearchAgentService:
         outcomes: list[str] = []
         if any(term in upper for term in ("PCR", "RESPONSE")) or any(term in question for term in ("响应", "疗效", "缓解")):
             outcomes.append("treatment_response")
-        if any(term in upper for term in ("SURVIVAL", " OS ", "DFS")) or "生存" in question:
+        if question_asks_survival(question):
             outcomes.append("survival")
-        if not outcomes:
-            outcomes.append("treatment_response")
         required = ["clinical"]
         if genes:
             required.append("mutation")
@@ -973,11 +1067,9 @@ class ResearchAgentService:
                 "patient_id",
                 "sample_id",
                 "subtype",
-                "stage",
-                "gene",
-                "mutation_status",
-                "treatment",
-                "response",
+                *(["gene", "mutation_status"] if genes else []),
+                *(["treatment", "response"] if "treatment_response" in outcomes else []),
+                *(["os_status", "os_months", "dfs_status", "dfs_months"] if "survival" in outcomes else []),
             ],
         )
 
@@ -985,91 +1077,9 @@ class ResearchAgentService:
         self,
         spec: ResearchSpec,
         request: AgentTaskRequest,
+        brief: Any | None = None,
     ) -> list[dict[str, Any]]:
-        preferred = {value.casefold() for value in request.preferred_sources}
-        candidates: list[tuple[str, dict[str, Any]]] = []
-        genes = spec.genes or ["ERBB2", "PIK3CA"]
-        # Several real study/accession entries can be explored in one task.
-        # They remain separate provenance namespaces; dataset selection still
-        # chooses one primary patient/sample cohort below.
-        cbio_studies = ["brca_metabric", "brca_tcga_pan_can_atlas_2018", "brca_tcga"]
-        if self._is_pi3k_inhibitor_question(spec):
-            cbio_studies.insert(0, "breast_alpelisib_2020")
-        candidates.append(
-            (
-                "search_cbioportal",
-                {"study_id": cbio_studies[0], "gene_symbols": genes, "max_records": request.max_records},
-            )
-        )
-        if self._should_search_geo(spec):
-            geo_accessions = [self._default_geo_accession(spec), "GSE25066", "GSE96058"]
-            candidates.append(("search_geo", {"accession": geo_accessions[0], "max_files": 5}))
-        if spec.genes or "treatment_response" in spec.required_data_types:
-            candidates.append(
-                (
-                    "search_geo_catalog",
-                    {"query": catalog_query(spec), "max_records": 20},
-                )
-            )
-        candidates.append(
-            (
-                "search_gdc",
-                {"project_id": "TCGA-BRCA", "data_types": ["Clinical Supplement"], "max_files": 5},
-            )
-        )
-        if spec.drugs or "evidence" in spec.required_data_types:
-            candidates.append(("search_civic", {"disease_name": "Breast Cancer", "molecular_profile_name": " ".join(genes), "therapy_name": spec.drugs[0] if spec.drugs else None, "max_items": 5}))
-        trial_call = ("search_trials", {"condition": "Breast Cancer", "query_terms": " ".join(spec.drugs + genes), "max_trials": 5})
-        if any(term in spec.research_goal for term in ("试验", "招募", "临床研究")):
-            candidates.insert(0, trial_call)
-        elif spec.drugs or "treatment_response" in spec.required_data_types:
-            candidates.append(trial_call)
-        # Broadening entries are appended after the task-matched anchors so a
-        # small budget still returns useful sources. They remain independent
-        # calls and are never silently joined into the primary cohort.
-        for study_id in cbio_studies[1:]:
-            candidates.append(
-                (
-                    "search_cbioportal",
-                    {"study_id": study_id, "gene_symbols": genes, "max_records": request.max_records},
-                )
-            )
-        if self._should_search_geo(spec):
-            for accession in geo_accessions[1:]:
-                candidates.append(("search_geo", {"accession": accession, "max_files": 5}))
-        for project_id in ("CPTAC-2", "CPTAC-3"):
-            candidates.append(
-                (
-                    "search_gdc",
-                    {"project_id": project_id, "data_types": ["Clinical Supplement"], "max_files": 5},
-                )
-            )
-        if spec.target_fields or spec.required_data_types:
-            candidates.append(
-                (
-                    "search_biosample",
-                    {
-                        "query": f"{spec.disease} {' '.join(spec.genes or [])} {' '.join(spec.drugs or [])}".strip(),
-                        "max_records": 20,
-                    },
-                )
-            )
-        if spec.drugs or "evidence" in spec.required_data_types or spec.genes:
-            candidates.append(
-                (
-                    "search_europe_pmc",
-                    {
-                        "query": literature_query(spec),
-                        "max_records": 20,
-                    },
-                )
-            )
-        if preferred:
-            candidates.sort(key=lambda item: 0 if any(token in item[0].casefold() for token in preferred) else 1)
-        calls = [
-            {"id": f"rule-call-{index + 1}", "name": name, "arguments": args}
-            for index, (name, args) in enumerate(candidates)
-        ]
+        calls = FieldDrivenSearchPlanner().plan(spec, request, brief)
         return self._limit_tool_calls(calls, request.max_sources)
 
     @staticmethod
@@ -1090,6 +1100,25 @@ class ResearchAgentService:
             if len(merged) >= max_sources:
                 break
         return merged
+
+    @staticmethod
+    def _prioritize_named_cohort_calls(calls: list[dict[str, Any]], brief: Any | None) -> list[dict[str, Any]]:
+        named = list(getattr(brief, "named_cohorts", None) or [])
+        if not named:
+            return calls
+        named_studies = {cohort.study_id.casefold() for cohort in named if cohort.study_id}
+        named_projects = {cohort.project_id for cohort in named if cohort.project_id}
+
+        def rank(call: dict[str, Any]) -> int:
+            name = str(call.get("name") or "")
+            arguments = call.get("arguments") or {}
+            if name == "search_cbioportal" and str(arguments.get("study_id") or "").casefold() in named_studies:
+                return 0
+            if name == "search_gdc" and str(arguments.get("project_id") or "") in named_projects:
+                return 1
+            return 2
+
+        return sorted(calls, key=rank)
 
     def _guard_tool_arguments(
         self,
@@ -1141,12 +1170,13 @@ class ResearchAgentService:
                 arguments["therapy_name"] = spec.drugs[0] if spec.drugs else self._optional_text(arguments.get("therapy_name"))
                 arguments["max_items"] = 5
             elif name in {"search_biosample", "search_europe_pmc", "search_geo_catalog"}:
+                terms = question_search_terms(spec.research_goal, spec)
                 default_query = (
-                    catalog_query(spec)
+                    catalog_query(spec, extra_terms=terms)
                     if name == "search_geo_catalog"
-                    else literature_query(spec)
+                    else literature_query(spec, extra_terms=terms)
                     if name == "search_europe_pmc"
-                    else f"{spec.disease} {' '.join(spec.genes + spec.drugs)}"
+                    else f"{spec.disease} {' '.join(spec.genes + spec.drugs + terms[:8])}"
                 )
                 arguments["query"] = self._optional_text(arguments.get("query")) or default_query
                 arguments["max_records"] = min(int(arguments.get("max_records") or 20), 100)
@@ -1217,19 +1247,45 @@ class ResearchAgentService:
         return synchronized
 
     @staticmethod
-    def _dataset_selection_score(item: tuple[Any, Any], spec: ResearchSpec) -> tuple[float, float, float, int]:
+    def _dataset_selection_score(
+        item: tuple[Any, Any],
+        spec: ResearchSpec,
+        brief: Any | None = None,
+    ) -> tuple[float, float, float, float, int]:
         dataset, readiness = item
         coverage = readiness.requested_variable_coverage_rate
-        target_score = 1.0 if readiness.target_match else 0.0
+        target_score = readiness.target_match_rate
+        if target_score is None:
+            target_score = 1.0 if readiness.target_match else 0.0
         completeness = readiness.field_completeness_rate or 0.0
         variable_score = coverage if coverage is not None else 0.0
-        needs_response = "treatment_response" in spec.outcomes or "treatment_response" in spec.required_data_types
-        # When the question asks for treatment response, keep trying a different
-        # independent cohort that actually has the outcome. Do not keep a larger
-        # molecular table that cannot support the analysis, and do not merge patients.
+        named_ids = {
+            cohort.study_id.casefold()
+            for cohort in (getattr(brief, "named_cohorts", None) or [])
+            if cohort.study_id
+        }
+        key = ResearchAgentService._dataset_key(dataset).casefold()
+        named_hit = 1.0 if any(token and token in key for token in named_ids) else 0.0
+        primary_score = ResearchBriefBuilder.primary_coverage(dataset, brief) if brief is not None else variable_score
+        needs_response = needs_clinical_outcome(spec)
+        needs_genes = bool(spec.genes)
+        if named_ids:
+            return (named_hit, primary_score, variable_score, target_score, dataset.row_count)
+        if needs_response and needs_genes:
+            dual_score = target_score * variable_score
+            return (dual_score, target_score, variable_score, completeness, dataset.row_count)
         if needs_response:
-            return (target_score, variable_score, completeness, dataset.row_count)
-        return (variable_score, target_score, completeness, dataset.row_count)
+            return (0.0, target_score, variable_score, completeness, dataset.row_count)
+        return (primary_score, variable_score, target_score, completeness, dataset.row_count)
+
+    @staticmethod
+    def _dataset_key(dataset: Any) -> str:
+        if getattr(dataset, "study_key", None):
+            return str(dataset.study_key)
+        rows = getattr(dataset, "rows", None) or []
+        if rows and rows[0].get("study_id"):
+            return str(rows[0]["study_id"])
+        return str(getattr(dataset, "name", "") or "dataset")
 
     @staticmethod
     def _default_geo_accession(spec: ResearchSpec) -> str:
@@ -1241,7 +1297,9 @@ class ResearchAgentService:
             and not ResearchAgentService._is_pi3k_inhibitor_question(spec)
         ):
             return "GSE76360"
-        if "RESPONSE" in text or any(term in spec.research_goal for term in ("响应", "疗效", "新辅助")):
+        if any(token in subtype or token in spec.research_goal for token in ("三阴性", "TNBC", "triple-negative", "Triple-negative")):
+            return "GSE25066"
+        if "RESPONSE" in text or any(term in spec.research_goal for term in ("响应", "疗效", "新辅助", "pCR", "缓解")):
             return "GSE25066"
         return "GSE96058"
 
@@ -1256,7 +1314,9 @@ class ResearchAgentService:
         if "PI3K" in upper:
             genes = [gene for gene in genes if gene == "PIK3CA" or gene in upper]
         subtype = spec.subtype
-        if ("HR+" in upper or "HR阳性" in question or "HR 阳性" in question) and ResearchAgentService._mentions_her2_negative(question):
+        if "三阴性" in question or "TNBC" in upper or "TRIPLE-NEGATIVE" in upper:
+            subtype = "Triple-negative"
+        elif ("HR+" in upper or "HR阳性" in question or "HR 阳性" in question) and ResearchAgentService._mentions_her2_negative(question):
             subtype = "HR-positive/HER2-negative"
         elif ResearchAgentService._mentions_her2_negative(question):
             subtype = "HER2-negative"
@@ -1270,10 +1330,14 @@ class ResearchAgentService:
             drugs.append("Alpelisib")
         if "CAPIVASERTIB" in upper or "卡匹伐塞替" in question:
             drugs.append("Capivasertib")
-        outcomes = list(dict.fromkeys(spec.outcomes or ["treatment_response"]))
+        outcomes = list(dict.fromkeys(spec.outcomes or []))
+        if not question_asks_clinical_outcome(question):
+            outcomes = [item for item in outcomes if item not in {"treatment_response", "pCR", "pcr", "survival"}]
         if any(term in upper for term in ("RESPONSE", "PCR")) or any(term in question for term in ("响应", "疗效", "缓解")):
             if "treatment_response" not in outcomes:
                 outcomes.append("treatment_response")
+        if question_asks_survival(question) and "survival" not in outcomes:
+            outcomes.append("survival")
         required = list(dict.fromkeys(spec.required_data_types))
         for item in ("clinical", "mutation", "evidence"):
             if item not in required:
@@ -1311,21 +1375,20 @@ class ResearchAgentService:
 
     @staticmethod
     def _is_pi3k_inhibitor_question(spec: ResearchSpec) -> bool:
-        text = f"{spec.research_goal} {' '.join(spec.drugs)}".upper()
-        return "PI3K" in text or "ALPELISIB" in text or "CAPIVASERTIB" in text or "阿培利司" in spec.research_goal
+        text = f"{spec.research_goal} {' '.join(spec.drugs)}"
+        upper = text.upper()
+        if any(token in upper for token in ("ALPELISIB", "CAPIVASERTIB")) or any(
+            token in spec.research_goal for token in ("阿培利司", "卡匹伐塞替")
+        ):
+            return True
+        inhibitor = any(term in text for term in ("抑制剂", "抑制", "inhibitor", "Inhibitor"))
+        if not inhibitor:
+            return False
+        return "PI3K" in upper or "PIK3" in upper
 
     @staticmethod
     def _should_search_geo(spec: ResearchSpec) -> bool:
-        if ResearchAgentService._is_pi3k_inhibitor_question(spec):
-            return False
-        if "expression" in spec.required_data_types:
-            return True
-        if "treatment_response" not in spec.required_data_types:
-            return False
-        subtype = (spec.subtype or "").casefold()
-        if "hr-positive" in subtype and ("her2-negative" in subtype or "her2-" in subtype):
-            return False
-        return True
+        return geo_search_applicable(spec)
 
     @staticmethod
     def _record_count(result: Any) -> int:
@@ -1354,7 +1417,7 @@ class ResearchAgentService:
         return count if count >= 0 else None
 
     @staticmethod
-    def _candidates(name: str, result: Any) -> list[CandidateSource]:
+    def _candidates(name: str, result: Any, spec: ResearchSpec | None = None) -> list[CandidateSource]:
         if name == "search_gdc":
             return [
                 CandidateSource(
@@ -1394,7 +1457,7 @@ class ResearchAgentService:
                 )
             ]
         if name == "search_geo_catalog":
-            return ResearchAgentService._discovery_candidates(name, result)
+            return ResearchAgentService._discovery_candidates(name, result, spec)
         if name == "search_cbioportal":
             metadata = result.study.raw_metadata
             return [
@@ -1435,7 +1498,7 @@ class ResearchAgentService:
                 if str(trial.nct_id or "").strip() and str(trial.brief_title or "").strip() and str(trial.study_url or "").strip()
             ]
         if name in {"search_biosample", "search_europe_pmc", "search_geo_catalog"}:
-            return ResearchAgentService._discovery_candidates(name, result)
+            return ResearchAgentService._discovery_candidates(name, result, spec)
         if name == "search_civic":
             items = list(getattr(result, "evidence_items", None) or [])
             first = items[0] if items else None
@@ -1457,14 +1520,14 @@ class ResearchAgentService:
         return []
 
     @staticmethod
-    def _discovery_candidates(name: str, result: Any) -> list[CandidateSource]:
+    def _discovery_candidates(name: str, result: Any, spec: ResearchSpec | None = None) -> list[CandidateSource]:
         is_biosample = name == "search_biosample"
         is_geo_catalog = name == "search_geo_catalog"
         source_database = (
             "NCBI BioSample" if is_biosample else "NCBI GEO" if is_geo_catalog else "Europe PMC"
         )
         data_type = "样本元数据" if is_biosample else "GEO 目录候选" if is_geo_catalog else "文献证据"
-        relevance = 0.78 if is_geo_catalog else 0.72 if is_biosample else 0.68
+        baseline = 0.78 if is_geo_catalog else 0.72 if is_biosample else 0.68
         candidates: list[CandidateSource] = []
         for record in getattr(result, "records", []) or []:
             dataset_id = str(
@@ -1478,21 +1541,32 @@ class ResearchAgentService:
             url = str(getattr(record, "url", None) or "").strip()
             if not dataset_id or not dataset_name or not url:
                 continue
+            text = " ".join(
+                [
+                    dataset_name,
+                    str(getattr(record, "summary", "") or ""),
+                    str(getattr(record, "abstract", "") or ""),
+                ]
+            )
+            match_score = score_geo_text(text, spec, extra_terms=question_search_terms(spec.research_goal, spec)) if spec is not None else 0
+            has_response = any(token in text.casefold() for token in ("pcr", "response", "neoadjuvant", "缓解", "响应"))
+            relevance = min(0.99, baseline + min(match_score, 20) * 0.01)
             candidates.append(
                 CandidateSource(
                     dataset_id=dataset_id,
                     dataset_name=dataset_name,
                     source_database=source_database,
                     data_type=data_type,
-                    sample_count=None,
-                    has_treatment=False,
-                    has_response=False,
+                    sample_count=ResearchAgentService._optional_count(getattr(record, "n_samples", None)),
+                    has_treatment=has_response,
+                    has_response=has_response,
                     public_access=True,
-                    relevance_score=relevance,
+                    relevance_score=round(relevance, 3),
                     url=url,
                     accession=dataset_id,
                 )
             )
+        candidates.sort(key=lambda item: (-item.relevance_score, item.dataset_id))
         return candidates
 
     @staticmethod

@@ -74,7 +74,11 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "科研问题 → 多源检索 → 主科研数据集" in response.text
     assert "仅主路径" in response.text
     assert "暂停动画" in response.text
-    assert "含原始信息" in response.text
+    assert "本题关键字段" in response.text
+    assert "全部字段" in response.text
+    assert "scientific-usability" in response.text
+    assert "变量分级" in response.text or "research-brief" in response.text
+    assert "价值判断" in response.text or "value-assessment" in response.text
     assert "标准化中文值" in response.text
     assert "连接千问 API" in response.text
     assert "从百炼凭据 CSV 导入" in response.text
@@ -82,6 +86,13 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "最长 2 小时" in response.text
     assert "本次实际清洗动作" in response.text
     assert "系统评测指标" in response.text
+    assert "评测结果与可信度趋势" in response.text
+    assert "evaluation-dashboard" in response.text
+    assert "统一评测方案工具包" in response.text
+    assert "团队压缩包对照探针" not in response.text
+    assert "团队对照探针" not in response.text
+    assert "AI proxy" not in response.text
+    assert "DeepSeek Judge" not in response.text
     assert "下载 CSV" in response.text
     assert "下载 JSON" in response.text
     assert "下载 Metadata" in response.text
@@ -127,11 +138,23 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "renderDictionary" in script
     assert "结局完整率" in script
     assert "来源审计完整度" in script
-    assert "全表字段完整率" in script
+    assert "全表字段完整率" not in script
+    assert "主字段覆盖" in script
+    assert "renderResearchBrief" in script
+    assert "brief-keywords" in script
+    assert "检索关键词" in script
     assert "主表基因变量覆盖" in script
     assert "请求要素覆盖率" in script
     assert "科研探索可用性" in script
     assert "renderLineage" in script
+    assert "SYSTEM_EVALUATION_HISTORY_KEY" in script
+    assert "persistAndRenderSystemEvaluation" in script
+    assert "renderSystemEvaluationDashboard" in script
+    assert 'fetchApi("/api/evaluation/overview"' in script
+    assert 'fetchApi("/api/agent/tasks/latest"' in script
+    assert "deriveSameTableVariants" in script
+    assert "resolveVariantScores" in script
+    assert "需一次完整任务结果才能做同表反事实" not in script
     assert "updateLineageInteraction" in script
     assert "renderRawCharacteristics" in script
     assert "openRawCharacteristicsDialog" in script
@@ -292,6 +315,19 @@ def test_agent_task_api_exposes_competition_alignment_report(tmp_path: Path) -> 
     assert any(metric.name == "请求要素覆盖率" for metric in result.competition_report.metrics)
     assert any(metric.name == "科研探索可用性" for metric in result.competition_report.metrics)
     assert any(row.variant == "去掉千问结构化解析" for row in result.competition_report.ablation_rows)
+    assert any(row.variant == "去掉质量门与修正闭环" for row in result.competition_report.ablation_rows)
+    assert all(row.diagnostic_score is not None for row in result.competition_report.ablation_rows)
+    ours = next(row for row in result.competition_report.variant_scores if row.variant_id == "full")
+    assert ours.diagnostic_score is not None
+    assert ours.is_primary is True
+    assert {row.variant_id for row in result.competition_report.variant_scores} >= {"full", "no_qwen", "single_source", "no_repair"}
+    assert all(row.diagnostic_score is not None for row in result.competition_report.variant_scores)
+    no_qwen = next(row for row in result.competition_report.variant_scores if row.variant_id == "no_qwen")
+    single_source = next(row for row in result.competition_report.variant_scores if row.variant_id == "single_source")
+    no_repair = next(row for row in result.competition_report.variant_scores if row.variant_id == "no_repair")
+    assert no_qwen.status == "已计算"
+    assert single_source.status == "已计算"
+    assert no_repair.status == "已计算"
     assert result.competition_report.knowledge_graph.enabled is True
     assert result.competition_report.rag_flow_nodes
     assert result.competition_report.rag_flow_edges
@@ -320,6 +356,20 @@ def test_model_evaluation_plan_api_returns_pending_rows_without_fake_scores() ->
     assert len(payload["questions"]) == 2
     assert len(payload["model_rows"]) == 4
     assert all(row["metrics"] == {} for row in payload["model_rows"])
+
+
+def test_latest_agent_task_endpoint_does_not_invent_scores() -> None:
+    response = client.get("/api/agent/tasks/latest")
+
+    if response.status_code == 404:
+        assert "还没有已完成的科研任务" in response.json()["detail"]
+        return
+    assert response.status_code == 200
+    payload = response.json()
+    report = payload.get("competition_report") or {}
+    scores = report.get("variant_scores") or []
+    assert {row["variant_id"] for row in scores} >= {"full", "no_qwen", "single_source", "no_repair"}
+    assert all(row.get("diagnostic_score") is not None for row in scores)
 
 
 def test_api_check_endpoint_does_not_accept_insecure_endpoint() -> None:

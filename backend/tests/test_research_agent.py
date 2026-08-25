@@ -27,6 +27,7 @@ from backend.app.agent.collection_agent import CollectionAgent
 from backend.app.agent.models import CollectionGap
 from backend.app.agent.models import DatasetColumn
 from backend.app.agent.dataset_builder import ResearchDatasetBuilder
+from backend.app.agent.study_design import StudyDesignBuilder
 from backend.app.main import app
 from backend.app.models import ResearchSpec, SourceItem
 from backend.app.sources.cbioportal import CBioPortalAdapter
@@ -282,6 +283,35 @@ def test_response_question_prefers_outcome_matched_cohort_over_larger_molecular_
     assert chosen.name == "GSE76360"
 
 
+def test_selection_prefers_same_patient_gene_and_response_pack() -> None:
+    spec = ResearchSpec(
+        task_id="dual-select",
+        research_goal="研究 HER2 阳性乳腺癌中 PIK3CA 突变是否影响治疗响应",
+        disease="Breast Cancer",
+        subtype="HER2-positive",
+        genes=["PIK3CA"],
+        outcomes=["treatment_response"],
+        required_data_types=["clinical", "mutation", "treatment_response"],
+    )
+    response_only, response_ready = ResearchDatasetBuilder().empty()
+    response_only = response_only.model_copy(update={"name": "GSE76360", "row_count": 50})
+    response_ready = response_ready.model_copy(
+        update={"target_match": True, "requested_variable_coverage_rate": 0.0, "field_completeness_rate": 0.9}
+    )
+    dual, dual_ready = ResearchDatasetBuilder().empty()
+    dual = dual.model_copy(update={"name": "breast_alpelisib_2020", "row_count": 40})
+    dual_ready = dual_ready.model_copy(
+        update={"target_match": True, "requested_variable_coverage_rate": 1.0, "field_completeness_rate": 0.85}
+    )
+
+    chosen, _ready = max(
+        [(response_only, response_ready), (dual, dual_ready)],
+        key=lambda item: ResearchAgentService._dataset_selection_score(item, spec),
+    )
+
+    assert chosen.name == "breast_alpelisib_2020"
+
+
 def test_iterative_collection_switches_to_geo_response_cohort(tmp_path: Path) -> None:
     result = build_agent(tmp_path).run(
         AgentTaskRequest(
@@ -390,6 +420,29 @@ def test_hr_positive_her2_negative_pi3k_question_skips_her2_geo_response_cohort(
     assert cbio_call["arguments"]["gene_symbols"] == ["PIK3CA"]
     civic_call = next(call for call in guarded if call["name"] == "search_civic")
     assert civic_call["arguments"]["therapy_name"] == "Alpelisib"
+
+
+def test_tnbc_pcr_question_prioritizes_response_geo_and_literature() -> None:
+    question = "研究三阴性乳腺癌中 BRCA1/BRCA2 突变与新辅助化疗病理完全缓解（pCR）的关系，并整理患者级科研数据集"
+    request = AgentTaskRequest(
+        question=question,
+        use_qwen=False,
+        data_mode="plan_only",
+        max_sources=5,
+        max_records=200,
+    )
+    service = ResearchAgentService()
+    spec = service._enrich_research_spec(service._deterministic_spec(question, "task-tnbc-pcr"), question)
+    calls = service._deterministic_tool_calls(spec, request)
+    names = [call["name"] for call in calls]
+
+    assert spec.subtype == "Triple-negative"
+    assert spec.genes == ["BRCA1", "BRCA2"]
+    assert "treatment_response" in spec.outcomes or "pCR" in " ".join(spec.outcomes)
+    assert names[0] == "search_geo"
+    assert calls[0]["arguments"]["accession"] == "GSE25066"
+    assert "search_geo_catalog" in names
+    assert "search_europe_pmc" in names
 
 
 def test_agent_excel_export_contains_chinese_dictionary_and_readiness(tmp_path: Path) -> None:
@@ -569,6 +622,8 @@ def test_geo_series_matrix_builds_baseline_response_cohort(tmp_path: Path) -> No
     assert all(row["her2_status"] == "阳性" for row in dataset.rows)
     assert all(row["treatment"] == "曲妥珠单抗新辅助治疗" for row in dataset.rows)
     assert all(row["sample_type"] == "原发肿瘤" for row in dataset.rows)
+    assert all(row["sample_source"] == "乳腺肿瘤穿刺活检" for row in dataset.rows)
+    assert all(row["sample_timepoint"] == "基线" for row in dataset.rows)
     assert all(row["disease"] == "乳腺癌" for row in dataset.rows)
     assert readiness.target_match is True
     assert readiness.target_missing_rate == 0
@@ -641,3 +696,230 @@ def test_research_task_api_polls_status_and_returns_spec_and_report() -> None:
     assert report.json()["overall"] in {"PASS", "REVIEW", "REJECT"}
     assert len(report.json()["layers"]) == 4
     assert report.json()["cohort_f1"] is None
+
+
+def _geo_matrix_result(tmp_path: Path, lines: list[str], *, accession: str = "GSE76360") -> GEOAdapterResult:
+    matrix = tmp_path / f"{accession}_series_matrix.txt.gz"
+    with gzip.open(matrix, "wt", encoding="utf-8") as handle:
+        handle.write("\n".join(lines))
+    source = SourceItem(
+        source_id=f"geo:{accession}:test",
+        task_id="task-geo",
+        source_name="NCBI GEO",
+        source_type="database",
+        accession=accession,
+        url="https://ftp.ncbi.nlm.nih.gov/test",
+        file_type="series_matrix",
+        local_path=str(matrix),
+        checksum="sha256:test",
+        status="downloaded",
+    )
+    return GEOAdapterResult(
+        task_id="task-geo",
+        accession=accession,
+        portal_url=f"https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc={accession}",
+        availability=[],
+        resources=[
+            GEOResourceRecord(
+                accession=accession,
+                resource_type=GEOResourceType.SERIES_MATRIX,
+                file_name=matrix.name,
+                download_url=source.url,
+                status="downloaded",
+                file_size=matrix.stat().st_size,
+                source_item=source,
+            )
+        ],
+        source_items=[source],
+        cache_hit=GEOCacheStatus(accession_directory=False, resource_directories={}),
+        queried_at=datetime.now(timezone.utc),
+        notice="test",
+    )
+
+
+def _response_spec() -> ResearchSpec:
+    return ResearchSpec(
+        task_id="task-geo",
+        research_goal=QUESTION,
+        disease="Breast Cancer",
+        subtype="HER2-positive",
+        genes=["PIK3CA"],
+        outcomes=["treatment_response"],
+        required_data_types=["clinical", "treatment_response"],
+    )
+
+
+def test_geo_maps_synonym_and_concatenated_characteristics(tmp_path: Path) -> None:
+    geo = _geo_matrix_result(
+        tmp_path,
+        [
+            '!Sample_title\t"119_B"\t"120_B"',
+            '!Sample_geo_accession\t"GSM1"\t"GSM3"',
+            '!Sample_source_name_ch1\t"Breast tumor core biopsy"\t"Breast tumor core biopsy"',
+            '!Sample_characteristics_ch1\t"subject id: 119; patient status: HER2+ Breast Cancer; timepoint: baseline; pathological complete response: pCR; er status: Pos"\t"subject id: 120; patient status: HER2+ Breast Cancer; timepoint: baseline; pathological complete response: NOR; er status: Neg"',
+            "!series_matrix_table_begin",
+        ],
+    )
+
+    built = ResearchDatasetBuilder().build_from_geo(geo, _response_spec())
+
+    assert built is not None
+    dataset, readiness = built
+    assert dataset.row_count == 2
+    assert dataset.target_column == "treatment_response" or dataset.target_column == "pcr"
+    assert readiness.target_match is True
+    assert {row["treatment_response"] for row in dataset.rows} == {"病理完全缓解（pCR）", "未达客观缓解"}
+    assert all(row["sample_source"] == "Breast tumor core biopsy" for row in dataset.rows)
+    assert all(row["sample_type"] == "原发肿瘤" for row in dataset.rows)
+    assert all(row["sample_timepoint"] == "基线" for row in dataset.rows)
+    assert all(row["disease"] == "乳腺癌" for row in dataset.rows)
+
+
+def test_geo_response_cohort_does_not_report_zero_outcome_coverage(tmp_path: Path) -> None:
+    geo = _geo_matrix_result(
+        tmp_path,
+        [
+            '!Sample_title\t"119_B"\t"119_P"\t"120_B"\t"120_P"',
+            '!Sample_geo_accession\t"GSM1"\t"GSM2"\t"GSM3"\t"GSM4"',
+            '!Sample_source_name_ch1\t"Breast tumor core biopsy"\t"Breast tumor core biopsy"\t"Breast tumor core biopsy"\t"Breast tumor core biopsy"',
+            '!Sample_characteristics_ch1\t"subject id: 119"\t"subject id: 119"\t"subject id: 120"\t"subject id: 120"',
+            '!Sample_characteristics_ch1\t"patient status: HER2+ Breast Cancer"\t"patient status: HER2+ Breast Cancer"\t"patient status: HER2+ Breast Cancer"\t"patient status: HER2+ Breast Cancer"',
+            '!Sample_characteristics_ch1\t"timepoint: baseline"\t"timepoint: post"\t"timepoint: baseline"\t"timepoint: post"',
+            '!Sample_characteristics_ch1\t"response at surgery: pCR"\t"response at surgery: pCR"\t"response at surgery: NOR"\t"response at surgery: NOR"',
+            "!series_matrix_table_begin",
+        ],
+    )
+    spec = _response_spec()
+    built = ResearchDatasetBuilder().build_from_geo(geo, spec)
+    assert built is not None
+    dataset, readiness = built
+    design, _cohort = StudyDesignBuilder().build(spec, dataset, readiness, [], [])
+    _iteration, critical, recommended = CollectionAgent().inspect(
+        spec=spec,
+        dataset=dataset,
+        readiness=readiness,
+        design=design,
+        source_names=["NCBI GEO"],
+        source_items=[],
+        round_number=2,
+        attempted_calls=set(),
+        actions=[],
+    )
+    critical_ids = {gap.variable_id for gap in critical}
+    by_id = {variable.variable_id: variable for variable in design.required_variables}
+
+    assert by_id["outcome"].available is True
+    assert by_id["treatment"].available is True
+    assert by_id["disease"].available is True
+    assert by_id["sample_type"].available is True
+    assert by_id["sample_timepoint"].available is True
+    assert by_id["sample_source"].available is True
+    assert "outcome" not in critical_ids
+    assert "treatment" not in critical_ids
+    assert "disease" not in critical_ids
+    assert "sample_type" not in critical_ids
+    assert "sample_timepoint" not in critical_ids
+    assert "sample_source" not in {gap.variable_id for gap in recommended}
+    assert "pik3ca_mutation" in critical_ids
+
+
+def test_same_patient_complete_pack_has_no_critical_gaps() -> None:
+    spec = _response_spec()
+    rows = [
+        {
+            "study_id": "breast_alpelisib_2020",
+            "patient_id": f"P{index}",
+            "sample_id": f"S{index}",
+            "source_id": "cbioportal:breast_alpelisib_2020",
+            "disease": "乳腺癌",
+            "subtype": "HR-positive",
+            "pik3ca_mutation": index % 2,
+            "treatment": "Alpelisib",
+            "treatment_response": "部分缓解" if index % 2 else "疾病进展",
+            "sample_type": "原发肿瘤",
+            "sample_timepoint": "治疗前",
+        }
+        for index in range(40)
+    ]
+    dataset = ResearchDatasetBuilder()._dataset_from_rows(
+        rows,
+        name="PIK3CA 突变乳腺癌 Alpelisib 治疗响应队列科研数据集",
+        unit="患者",
+        spec=spec,
+    )
+    readiness = ResearchDatasetBuilder()._readiness(dataset, spec)
+    design, _cohort = StudyDesignBuilder().build(spec, dataset, readiness, [], [])
+    _iteration, critical, recommended = CollectionAgent().inspect(
+        spec=spec,
+        dataset=dataset,
+        readiness=readiness,
+        design=design,
+        source_names=["cBioPortal"],
+        source_items=[],
+        round_number=2,
+        attempted_calls=set(),
+        actions=[],
+    )
+
+    assert dataset.target_column == "treatment_response"
+    assert readiness.requested_variable_coverage_rate == 1
+    assert {gap.variable_id for gap in critical} == set()
+    assert all(not gap.required for gap in recommended)
+
+
+def test_geo_maps_pik3ca_mutation_from_sample_characteristics(tmp_path: Path) -> None:
+    geo = _geo_matrix_result(
+        tmp_path,
+        [
+            '!Sample_title\t"119_B"\t"120_B"',
+            '!Sample_geo_accession\t"GSM1"\t"GSM3"',
+            '!Sample_characteristics_ch1\t"subject id: 119"\t"subject id: 120"',
+            '!Sample_characteristics_ch1\t"patient status: HER2+ Breast Cancer"\t"patient status: HER2+ Breast Cancer"',
+            '!Sample_characteristics_ch1\t"timepoint: baseline"\t"timepoint: baseline"',
+            '!Sample_characteristics_ch1\t"response at surgery: pCR"\t"response at surgery: NOR"',
+            '!Sample_characteristics_ch1\t"pik3ca mutation: mutant"\t"pik3ca mutation: WT"',
+            "!series_matrix_table_begin",
+        ],
+    )
+    spec = _response_spec()
+    built = ResearchDatasetBuilder().build_from_geo(geo, spec)
+    assert built is not None
+    dataset, readiness = built
+    design, _cohort = StudyDesignBuilder().build(spec, dataset, readiness, [], [])
+    _iteration, critical, _recommended = CollectionAgent().inspect(
+        spec=spec,
+        dataset=dataset,
+        readiness=readiness,
+        design=design,
+        source_names=["NCBI GEO"],
+        source_items=[],
+        round_number=1,
+        attempted_calls=set(),
+        actions=[],
+    )
+
+    assert {row["pik3ca_mutation"] for row in dataset.rows} == {0, 1}
+    assert readiness.requested_variable_coverage_rate == 1
+    assert "pik3ca_mutation" not in {gap.variable_id for gap in critical}
+    assert "outcome" not in {gap.variable_id for gap in critical}
+
+
+def test_empty_geo_outcome_column_is_not_treated_as_matched_target(tmp_path: Path) -> None:
+    geo = _geo_matrix_result(
+        tmp_path,
+        [
+            '!Sample_title\t"s1"\t"s2"',
+            '!Sample_geo_accession\t"GSM1"\t"GSM2"',
+            '!Sample_characteristics_ch1\t"subject id: 1"\t"subject id: 2"',
+            '!Sample_characteristics_ch1\t"patient status: HER2+ Breast Cancer"\t"patient status: HER2+ Breast Cancer"',
+            "!series_matrix_table_begin",
+        ],
+        accession="GSE99999",
+    )
+    built = ResearchDatasetBuilder().build_from_geo(geo, _response_spec())
+    assert built is not None
+    dataset, readiness = built
+    assert dataset.target_column is None
+    assert readiness.target_match is False
+    names = {column.name for column in dataset.columns}
+    assert "treatment_response" not in names

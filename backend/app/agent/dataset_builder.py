@@ -7,6 +7,14 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
+from backend.app.agent.accession_harvest import (
+    asks_pcr,
+    asks_survival,
+    asks_treatment,
+    is_tnbc_question,
+    needs_clinical_outcome,
+)
+from backend.app.agent.match_scoring import outcome_match_rate, requested_gene_coverage
 from backend.app.agent.models import (
     AnalysisReadinessReport,
     DatasetColumn,
@@ -57,6 +65,9 @@ CHINESE_LABELS = {
     "her2_snp6": "HER2 拷贝数状态（SNP6）",
     "histological_subtype": "组织学亚型",
     "hormone_therapy": "是否接受内分泌治疗",
+    "endocrine_therapy": "内分泌治疗",
+    "measurable_disease": "可测量病灶",
+    "weeks_on_study": "在研周数",
     "inferred_menopausal_state": "推定绝经状态",
     "intclust": "整合聚类亚型",
     "laterality": "肿瘤侧别",
@@ -71,6 +82,10 @@ CHINESE_LABELS = {
     "tmb_nonsynonymous": "非同义肿瘤突变负荷",
     "tumor_size": "肿瘤大小",
     "vital_status": "生存状态",
+    "derived_ihc_subtype": "免疫组化亚型（同队列派生）",
+    "pcr_binary": "病理完全缓解（二值派生）",
+    "age_group": "年龄分组（同队列派生）",
+    "brca_any_mutation": "BRCA1/2 任一突变（同队列派生）",
 }
 
 FIELD_DESCRIPTIONS = {
@@ -111,6 +126,9 @@ FIELD_DESCRIPTIONS = {
     "her2_snp6": "SNP6 推断的 ERBB2/HER2 拷贝数状态，不等同临床 IHC 阳性。",
     "histological_subtype": "乳腺癌组织学亚型。",
     "hormone_therapy": "是否接受过内分泌治疗。",
+    "endocrine_therapy": "原研究记录的内分泌治疗药物或方案；不等于 ER 免疫组化状态。",
+    "measurable_disease": "原研究记录的可测量病灶状态。",
+    "weeks_on_study": "患者在该研究中的随访或用药周数。",
     "inferred_menopausal_state": "原研究推定的绝经状态。",
     "intclust": "METABRIC 整合聚类分子亚型。",
     "laterality": "原发肿瘤位于左侧或右侧乳腺。",
@@ -125,6 +143,10 @@ FIELD_DESCRIPTIONS = {
     "tmb_nonsynonymous": "每兆碱基非同义体细胞突变负荷。",
     "tumor_size": "原发肿瘤大小；单位以原研究数据字典为准。",
     "vital_status": "末次随访时患者生存状态。",
+    "derived_ihc_subtype": "由同一行 ER/PR/HER2 临床字段组合；HER2 IHC 2+ 不自动判阳，ERBB2 CNA 不参与该字段。",
+    "pcr_binary": "由同队列 pCR/治疗响应文本映射的二值标记；不用生存结局冒充 pCR。",
+    "age_group": "由同队列年龄切分的分组，未发布年龄时不生成。",
+    "brca_any_mutation": "同一行 BRCA1 或 BRCA2 突变为 1 则记为 1；拷贝数不计入该字段。",
 }
 
 ATTRIBUTE_ALIASES = {
@@ -139,6 +161,9 @@ ATTRIBUTE_ALIASES = {
     "GRADE": "grade",
     "ER_STATUS": "er_status",
     "PR_STATUS": "pr_status",
+    "ENDOCRINE_THERAPY": "endocrine_therapy",
+    "MEASURABLE_DISEASE": "measurable_disease",
+    "WEEKS_ON_STUDY": "weeks_on_study",
     "HER2_STATUS": "her2_status",
     "OS_STATUS": "os_status",
     "OS_MONTHS": "os_months",
@@ -147,9 +172,24 @@ ATTRIBUTE_ALIASES = {
     "RFS_STATUS": "dfs_status",
     "RFS_MONTHS": "dfs_months",
     "PCR": "pcr",
+    "PCR_RESPONSE": "pcr",
+    "PCR_STATUS": "pcr",
     "PATHOLOGIC_COMPLETE_RESPONSE": "pcr",
     "TREATMENT_RESPONSE": "treatment_response",
     "RESPONSE": "treatment_response",
+    "RECIST_RESPONSE": "treatment_response",
+    "TREATMENT_BEST_RESPONSE": "treatment_response",
+    "BEST_RESPONSE_TO_THERAPY": "treatment_response",
+    "CLINICAL_BENEFIT": "treatment_response",
+    "BEST_RESPONSE": "treatment_response",
+    "TREATMENT_ARM": "treatment",
+    "BREAST_CANCER_SUBTYPE": "subtype",
+    "SAMPLE_COLLECTION_TIMEPOINT": "sample_timepoint",
+    "CANCER_TYPE": "disease",
+    "PIK3CA_MUT_PRE_TREATMENT_TUMOR": "pik3ca_mutation",
+    "PIK3CA_PRE_TREATMENT_TUMOR": "pik3ca_mutation",
+    "PIK3CA_MUTATION": "pik3ca_mutation",
+    "PIK3CA_STATUS": "pik3ca_mutation",
     "SAMPLE_TYPE": "sample_type",
     "SAMPLE_TYPE_DETAILED": "sample_type_detailed",
     "TISSUE_TYPE": "tissue_type",
@@ -161,6 +201,10 @@ ATTRIBUTE_ALIASES = {
     "SAMPLE_ORIGIN": "sample_origin",
     "SAMPLE_TIMEPOINT": "sample_timepoint",
     "COLLECTION_TIMEPOINT": "collection_timepoint",
+    "INTCLUST": "intclust",
+    "INT_CLUST": "intclust",
+    "INTEGRATIVE_CLUSTER": "intclust",
+    "CLAUDIN_SUBTYPE": "claudin_subtype",
 }
 
 VALUE_NORMALIZATION = {
@@ -188,8 +232,20 @@ VALUE_NORMALIZATION = {
     "MODERATE": "中",
     "LOW": "低",
     "BASELINE": "基线",
+    "PRE": "基线",
+    "PRE-TREATMENT": "基线",
+    "PRETREATMENT": "基线",
+    "PRE_TREATMENT": "基线",
+    "BEFORE TREATMENT": "基线",
+    "T0": "基线",
+    "DIAGNOSIS": "基线",
     "POST": "治疗后",
+    "POST-TREATMENT": "治疗后",
+    "POSTTREATMENT": "治疗后",
+    "ON-TREATMENT": "治疗后",
+    "AFTER TREATMENT": "治疗后",
     "PCR": "病理完全缓解（pCR）",
+    "RD": "未达客观缓解",
     "OBJR": "客观缓解",
     "NOR": "未达客观缓解",
     "0:LIVING": "生存",
@@ -200,6 +256,9 @@ DATASET_NAMES = {
     "brca_metabric": "乳腺癌 METABRIC 临床与分子队列",
     "GSE76360": "HER2 阳性乳腺癌术前曲妥珠单抗响应队列",
     "GSE25066": "乳腺癌新辅助化疗响应与生存队列",
+    "GSE50948": "HER2 阳性乳腺癌新辅助治疗病理完全缓解队列",
+    "breast_alpelisib_2020": "PIK3CA 突变乳腺癌 Alpelisib 治疗响应队列",
+    "brca_mskcc_2019": "MSK 乳腺癌突变与治疗响应队列",
 }
 
 # Same-study protocol fields. Applied only when the accession is a curated
@@ -208,7 +267,94 @@ GEO_COHORT_PROTOCOL: dict[str, dict[str, str]] = {
     "GSE76360": {
         "treatment": "曲妥珠单抗新辅助治疗",
         "sample_type": "原发肿瘤",
+        "sample_source": "乳腺肿瘤穿刺活检",
     },
+    "GSE50948": {
+        "sample_type": "原发肿瘤",
+        "sample_source": "乳腺肿瘤组织",
+    },
+}
+
+# GEO Series Matrix local names → canonical analysis fields.
+GEO_FIELD_SYNONYMS: dict[str, tuple[str, ...]] = {
+    "treatment_response": (
+        "response_at_surgery",
+        "treatment_response",
+        "response",
+        "pcr",
+        "pcr_status",
+        "pathological_complete_response",
+        "pathologic_complete_response",
+        "pathologic_response",
+        "clinical_response",
+        "trastuzumab_response",
+        "herceptin_response",
+        "neoadjuvant_response",
+        "chemo_response",
+        "chemotherapy_response",
+        "residual_cancer_burden",
+        "rcb_class",
+        "miller_payne",
+    ),
+    "pcr": (
+        "pcr",
+        "pcr_status",
+        "pathological_complete_response",
+        "pathologic_complete_response",
+    ),
+    "disease": ("patient_status", "disease", "diagnosis", "cancer_type", "disease_state"),
+    "treatment": (
+        "treatment",
+        "therapy",
+        "neoadjuvant_treatment",
+        "neoadjuvant_therapy",
+        "drug",
+        "regimen",
+        "treatment_protocol",
+        "her2_therapy",
+    ),
+    "sample_type": ("sample_type", "sample_type_detailed", "tissue_type", "specimen_type"),
+    "sample_source": (
+        "sample_source",
+        "tissue_source_site",
+        "tissue_source",
+        "specimen_source",
+        "sample_origin",
+        "organ",
+        "tissue",
+        "biopsy_site",
+    ),
+    "sample_timepoint": (
+        "sample_timepoint",
+        "timepoint",
+        "time_point",
+        "collection_timepoint",
+        "sampling_timepoint",
+        "treatment_timepoint",
+    ),
+    "her2_status": ("her2_status", "her2", "her2_ihc", "erbb2_status"),
+    "er_status": ("er_status", "er", "estrogen_receptor"),
+    "pr_status": ("pr_status", "pr", "progesterone_receptor"),
+    "subtype": ("subtype", "molecular_subtype", "breast_cancer_subtype"),
+    "stage": ("stage", "tumor_stage", "ajcc_stage"),
+    "age": ("age", "age_at_diagnosis", "age_years"),
+}
+
+GEO_SAMPLE_METADATA_KEYS = {
+    "title": "sample_title",
+    "geo_accession": "geo_accession",
+    "source_name_ch1": "source_name",
+    "source_name_ch2": "source_name",
+    "organism_ch1": "organism",
+    "description": "sample_description",
+}
+
+_CHARACTERISTIC_SPLIT = re.compile(r"\s*;\s*|\s*\|\s*")
+_PCR_FIELD_NAMES = {
+    "pcr",
+    "pcr_status",
+    "pathological_complete_response",
+    "pathologic_complete_response",
 }
 
 
@@ -339,6 +485,7 @@ class ResearchDatasetBuilder:
                     row[f"{gene.lower()}_variants"] = ";".join(variants)
         rows, subtype_action = self._filter_rows_for_research_spec(rows, spec)
         rows, alias_actions = self._materialize_canonical_fields(rows, spec, result.study.study_id)
+        rows, derive_actions = self._derive_same_cohort_fields(rows, spec)
 
         cleaning_actions = [
             "以临床样本表作为队列锚点，未把无临床信息的分子记录扩成新患者。",
@@ -348,6 +495,7 @@ class ResearchDatasetBuilder:
         if subtype_action:
             cleaning_actions.append(subtype_action)
         cleaning_actions.extend(alias_actions)
+        cleaning_actions.extend(derive_actions)
         if orphan_records:
             cleaning_actions.append(f"排除 {orphan_records} 条无法连接到临床队列的分子记录。")
         dataset = self._dataset_from_rows(
@@ -400,70 +548,75 @@ class ResearchDatasetBuilder:
                     fields = next(csv.reader([line.rstrip("\r\n")], delimiter="\t"))
                     if len(fields) < 2:
                         continue
-                    key = fields[0].removeprefix("!Sample_")
+                    key = fields[0].removeprefix("!Sample_").strip()
                     values = fields[1:]
-                    if key == "characteristics_ch1":
+                    if key.startswith("characteristics_ch"):
                         characteristics.append(values)
-                    elif key in {"title", "geo_accession"}:
+                    elif key in GEO_SAMPLE_METADATA_KEYS:
                         sample_data[key] = values
         except (OSError, EOFError, csv.Error):
             return None
 
         accessions = sample_data.get("geo_accession", [])
         titles = sample_data.get("title", [])
+        source_names = sample_data.get("source_name_ch1") or sample_data.get("source_name_ch2") or []
         if not accessions:
             return None
         rows: list[dict[str, Any]] = []
         cleaned_values = 0
         for index, sample_id in enumerate(accessions):
             raw_items = [values[index] for values in characteristics if index < len(values)]
-            parsed: dict[str, Any] = {}
-            for raw_item in raw_items:
-                field, separator, raw_value = raw_item.partition(":")
-                if not separator:
-                    continue
-                normalized_field = re.sub(r"[^a-z0-9]+", "_", field.casefold()).strip("_")
-                value, changed = self._clean_value(raw_value)
-                parsed[normalized_field] = value
-                cleaned_values += int(changed)
-            subject = str(parsed.get("subject_id") or "").strip()
+            parsed, changed = self._parse_geo_characteristics(raw_items)
+            cleaned_values += changed
+            source_name, source_changed = self._clean_value(
+                source_names[index] if index < len(source_names) else None
+            )
+            cleaned_values += int(source_changed)
+            if self._has_filled(source_name) and not self._has_filled(parsed.get("source_name")):
+                parsed["source_name"] = source_name
+            subject = str(
+                parsed.get("subject_id")
+                or parsed.get("patid")
+                or parsed.get("patient_id")
+                or parsed.get("case_id")
+                or ""
+            ).strip()
+            treatment_response = self._geo_mapped_value(parsed, "treatment_response")
             row = {
                 "study_id": result.accession,
                 "patient_id": f"{result.accession}-{subject}" if subject else None,
                 "sample_id": sample_id,
                 "source_id": resource.source_item.source_id,
                 "sample_title": titles[index] if index < len(titles) else None,
-                "disease": parsed.get("patient_status"),
-                "timepoint": parsed.get("timepoint"),
-                "sample_timepoint": parsed.get("sample_timepoint") or parsed.get("timepoint"),
-                "sample_type": (
-                    parsed.get("sample_type")
-                    or parsed.get("sample_type_detailed")
-                    or parsed.get("tissue_type")
-                    or parsed.get("specimen_type")
-                ),
-                "sample_source": (
-                    parsed.get("sample_source")
-                    or parsed.get("tissue_source_site")
-                    or parsed.get("tissue_source")
-                    or parsed.get("specimen_source")
-                    or parsed.get("sample_origin")
-                ),
-                "treatment_response": parsed.get("response_at_surgery")
-                or parsed.get("treatment_response")
-                or parsed.get("response"),
-                "er_status": parsed.get("er_status"),
-                "pr_status": parsed.get("pr_status"),
-                "her2_status": parsed.get("her2_status") or parsed.get("her2"),
-                "treatment": (
-                    parsed.get("treatment")
-                    or parsed.get("therapy")
-                    or parsed.get("neoadjuvant_treatment")
-                    or parsed.get("drug")
-                ),
+                "disease": self._geo_mapped_value(parsed, "disease"),
+                "timepoint": self._geo_mapped_value(parsed, "sample_timepoint"),
+                "sample_timepoint": self._geo_mapped_value(parsed, "sample_timepoint"),
+                "sample_type": self._geo_mapped_value(parsed, "sample_type")
+                or self._infer_sample_type(source_name or parsed.get("source_name") or parsed.get("tissue")),
+                "sample_source": self._geo_mapped_value(parsed, "sample_source") or source_name,
+                "treatment_response": treatment_response,
+                "pcr": self._geo_mapped_value(parsed, "pcr"),
+                "er_status": self._geo_mapped_value(parsed, "er_status"),
+                "pr_status": self._geo_mapped_value(parsed, "pr_status"),
+                "her2_status": self._geo_mapped_value(parsed, "her2_status"),
+                "treatment": self._geo_mapped_value(parsed, "treatment"),
+                "stage": self._geo_mapped_value(parsed, "stage"),
+                "age": self._geo_mapped_value(parsed, "age"),
+                "subtype": self._geo_mapped_value(parsed, "subtype"),
                 "response_domain": "患者临床响应",
-                "raw_characteristics": "；".join(raw_items),
+                "raw_characteristics": "；".join(item for item in raw_items if item),
             }
+            for gene in spec.genes:
+                field = f"{gene.lower()}_mutation"
+                raw_mut = (
+                    parsed.get(field)
+                    or parsed.get(f"{gene.lower()}_status")
+                    or parsed.get(f"{gene.lower()}_mut")
+                    or parsed.get(gene.lower())
+                )
+                flag = self._as_mutation_flag(raw_mut)
+                if flag is not None:
+                    row[field] = flag
             self._enrich_geo_row_from_status(row, parsed, result.accession)
             rows.append(row)
 
@@ -473,12 +626,14 @@ class ResearchDatasetBuilder:
             rows = baseline_rows
         rows, duplicate_count = self._deduplicate_rows(rows, "sample_id")
         rows, alias_actions = self._materialize_canonical_fields(rows, spec, result.accession)
+        rows, derive_actions = self._derive_same_cohort_fields(rows, spec)
         cleaning_actions = [
             "解析 GEO Series Matrix 的真实样本元数据并保留原始 characteristics。",
             "统一疾病、受体状态、取样时间点和术后响应的分类值。",
             "从同一样本特征解析亚型、HER2 和治疗字段，不从其他研究补患者。",
         ]
         cleaning_actions.extend(alias_actions)
+        cleaning_actions.extend(derive_actions)
         if filtered_count:
             cleaning_actions.append(
                 f"主分析表保留 {len(rows)} 个基线样本，分离 {filtered_count} 个治疗后配对样本，避免同一患者跨分析分区。"
@@ -506,10 +661,11 @@ class ResearchDatasetBuilder:
         unit: str,
         spec: ResearchSpec,
     ) -> ModelingDataset:
-        ordered_names = self._ordered_columns(rows)
-        columns = [self._describe_column(name, rows) for name in ordered_names]
+        rows, _derive_actions = self._derive_same_cohort_fields(rows, spec)
+        ordered_names = self._ordered_columns(rows, spec)
+        columns = [self._describe_column(name, rows, spec) for name in ordered_names]
         normalized_rows = [{name: row.get(name) for name in ordered_names} for row in rows]
-        target = self._select_target(ordered_names, spec)
+        target = self._select_target(ordered_names, spec, normalized_rows)
         return ModelingDataset(
             name=name,
             unit_of_analysis=unit,
@@ -543,11 +699,20 @@ class ResearchDatasetBuilder:
         if dataset.row_count < 30:
             warnings.append("当前患者/样本数少于 30，不足以支持稳健的多变量统计分析。")
 
+        needs_outcome = needs_clinical_outcome(spec)
+        target_match_rate = outcome_match_rate(dataset, spec)
         target_match = dataset.target_column is not None
-        if not target_match:
+        if needs_outcome and not target_match:
             requested = "、".join(spec.outcomes) or "当前科研问题指定的结局"
             warnings.append(f"当前队列不含与“{requested}”匹配的研究结局；系统未用生存结局冒充治疗响应。")
             recommendations.append("更换为含目标结局的独立队列，不对不同患者来源的数据进行强行补值或横向拼接。")
+        elif not needs_outcome:
+            target_match = True
+            target_match_rate = 1.0
+        elif target_match and target_match_rate < 1:
+            warnings.append(
+                f"研究结局匹配率为 {target_match_rate:.1%}：按字段别名契合与行覆盖连续计分，不是有列即 100%。"
+            )
         if truncated:
             warnings.append("以下上游表仍受最大记录数限制：" + "、".join(truncated) + "。")
             recommendations.append("提高最大记录数或改用能够完整下载的队列文件；截断的突变缺失不能解释为野生型。")
@@ -561,31 +726,36 @@ class ResearchDatasetBuilder:
             missing = sum(value in {None, ""} for value in target_values)
             target_missing_rate = missing / dataset.row_count if dataset.row_count else 1.0
             nonmissing_classes = {str(value) for value in target_values if value not in {None, ""}}
-            if target_missing_rate > 0.2:
+            if needs_outcome and target_missing_rate > 0.2:
                 warnings.append(f"研究结局缺失率为 {target_missing_rate:.1%}，需要预先定义纳入/排除规则。")
-            if len(nonmissing_classes) <= 1:
+            if needs_outcome and len(nonmissing_classes) <= 1:
                 warnings.append("非缺失研究结局只有一个类别，无法进行可靠的分组比较。")
 
         field_completeness_rate = self._field_completeness(dataset)
         variable_coverage = self._requested_variable_coverage(dataset, spec)
         if variable_coverage is not None and variable_coverage < 1:
-            covered = round(variable_coverage * len(spec.genes))
-            warnings.append(f"请求的基因变量仅覆盖 {covered}/{len(spec.genes)}；当前队列不能单独回答完整基因假设。")
-            recommendations.append("把该队列用于治疗响应/受体分层；基因假设需选择同时具有分子检测和同一患者结局的队列。")
+            warnings.append(
+                f"请求的基因变量覆盖率为 {variable_coverage:.1%}；按突变、蛋白变异和拷贝数的行覆盖连续计分，拷贝数不得记为完整突变证据。"
+            )
+            recommendations.append(
+                "基因假设需选择同时具有分子检测的同一患者队列；禁止把其他研究的突变补到当前患者。"
+                if not needs_outcome
+                else "把该队列用于治疗响应/受体分层；基因假设需选择同时具有分子检测和同一患者结局的队列。"
+            )
 
         analysis_ready = bool(
             dataset.row_count >= 30
-            and target_match
+            and (target_match if needs_outcome else True)
             and not truncated
-            and (target_missing_rate or 0) <= 0.2
-            and len(nonmissing_classes) > 1
+            and ((target_missing_rate or 0) <= 0.2 if needs_outcome and dataset.target_column else True)
+            and (len(nonmissing_classes) > 1 if needs_outcome and dataset.target_column else True)
         )
         if analysis_ready:
             if variable_coverage is not None and variable_coverage < 1:
-                status = "可支持治疗响应分析，分子暴露待同队列补充"
+                status = "可支持当前分析，分子暴露待同队列补充"
             else:
                 status = "可支持科研分析"
-        elif not target_match:
+        elif needs_outcome and dataset.target_column is None:
             status = "研究结局不匹配"
         elif variable_coverage is not None and variable_coverage < 1:
             status = "研究变量待补充"
@@ -608,6 +778,7 @@ class ResearchDatasetBuilder:
             target_missing_rate=target_missing_rate,
             field_completeness_rate=field_completeness_rate,
             target_match=target_match,
+            target_match_rate=target_match_rate,
             requested_variable_coverage_rate=variable_coverage,
             repeated_patient_count=repeated_count,
             duplicate_row_count=duplicate_row_count,
@@ -669,6 +840,94 @@ class ResearchDatasetBuilder:
         return value not in (None, "", [], {}, "NA", "N/A", "<缺失>")
 
     @classmethod
+    def _parse_geo_characteristics(cls, raw_items: list[str]) -> tuple[dict[str, Any], int]:
+        parsed: dict[str, Any] = {}
+        cleaned = 0
+        for raw_item in raw_items:
+            for piece in cls._characteristic_pieces(raw_item):
+                field, value_text = cls._split_characteristic_piece(piece)
+                if not field:
+                    continue
+                normalized_field = re.sub(r"[^a-z0-9]+", "_", field.casefold()).strip("_")
+                if not normalized_field:
+                    continue
+                value, changed = cls._clean_value(value_text)
+                parsed[normalized_field] = value
+                cleaned += int(changed)
+        return parsed, cleaned
+
+    @staticmethod
+    def _characteristic_pieces(raw_item: str) -> list[str]:
+        text = str(raw_item or "").strip().strip('"')
+        if not text:
+            return []
+        parts = [part.strip() for part in _CHARACTERISTIC_SPLIT.split(text) if part.strip()]
+        keyed = [part for part in parts if ":" in part or "=" in part]
+        if len(parts) > 1 and len(keyed) >= 2:
+            return parts
+        return [text]
+
+    @staticmethod
+    def _split_characteristic_piece(piece: str) -> tuple[str | None, str]:
+        for separator in (":", "="):
+            if separator in piece:
+                field, _, value = piece.partition(separator)
+                if field.strip():
+                    return field.strip(), value.strip()
+        return None, piece.strip()
+
+    @classmethod
+    def _geo_mapped_value(cls, parsed: dict[str, Any], canonical: str) -> Any:
+        for key in GEO_FIELD_SYNONYMS.get(canonical, (canonical,)):
+            value = parsed.get(key)
+            if not cls._has_filled(value):
+                continue
+            if canonical == "treatment_response":
+                return cls._as_treatment_response(key, value)
+            return value
+        return None
+
+    @classmethod
+    def _as_treatment_response(cls, source_field: str, value: Any) -> Any:
+        text = str(value).strip()
+        upper = text.upper()
+        if source_field in _PCR_FIELD_NAMES or source_field == "pcr":
+            if text in {"是", "1"} or upper in {"YES", "TRUE", "PCR", "POSITIVE"}:
+                return "病理完全缓解（pCR）"
+            if text in {"否", "0"} or upper in {"NO", "FALSE", "NEGATIVE", "RD", "NON-PCR"}:
+                return "未达客观缓解"
+        return value
+
+    @staticmethod
+    def _as_mutation_flag(value: Any) -> int | None:
+        if value in {0, 1}:
+            return int(value)
+        text = str(value or "").strip()
+        if not text:
+            return None
+        compact = text.casefold().replace(" ", "").replace("_", "").replace("-", "")
+        if compact in {"1", "yes", "true", "mutant", "mutated", "mutation", "positive", "pos", "是", "突变"}:
+            return 1
+        if compact in {"0", "no", "false", "wt", "wildtype", "wild", "negative", "neg", "否", "野生"}:
+            return 0
+        if re.fullmatch(r"[A-Z]\d+[A-Z*]|[A-Z]\d+fs", text, re.IGNORECASE):
+            return 1
+        return None
+
+    @staticmethod
+    def _infer_sample_type(source_name: Any) -> str | None:
+        text = str(source_name or "").casefold()
+        if not text:
+            return None
+        if any(token in text for token in ("metastasis", "metastatic", "转移")):
+            return "转移灶"
+        if any(token in text for token in ("normal", "healthy", "正常")):
+            return "正常组织"
+        if any(token in text for token in ("tumor", "tumour", "cancer", "carcinoma", "biopsy", "肿瘤", "癌")):
+            return "原发肿瘤"
+        return None
+
+    @classmethod
     def _enrich_geo_row_from_status(
         cls,
         row: dict[str, Any],
@@ -704,6 +963,11 @@ class ResearchDatasetBuilder:
         treatment_filled = 0
         protocol = GEO_COHORT_PROTOCOL.get(str(accession or "").upper()) or {}
         for row in rows:
+            for key, value in list(row.items()):
+                if str(key).endswith("_mutation"):
+                    flag = cls._as_mutation_flag(value)
+                    if flag is not None:
+                        row[key] = flag
             if not cls._has_filled(row.get("subtype")):
                 her2 = str(row.get("her2_status") or "").strip()
                 if her2 in {"阳性", "Positive", "positive"}:
@@ -734,6 +998,8 @@ class ResearchDatasetBuilder:
                             row["treatment"] = text
                         treatment_filled += 1
                         break
+            if not cls._has_filled(row.get("treatment_response")) and cls._has_filled(row.get("pcr")):
+                row["treatment_response"] = row.get("pcr")
             if not cls._has_filled(row.get("sample_type")) and protocol.get("sample_type"):
                 row["sample_type"] = protocol["sample_type"]
             if not cls._has_filled(row.get("sample_timepoint")) and cls._has_filled(row.get("timepoint")):
@@ -754,38 +1020,80 @@ class ResearchDatasetBuilder:
         spec: ResearchSpec,
     ) -> tuple[list[dict[str, Any]], str | None]:
         subtype = (spec.subtype or "").casefold()
-        if not rows or not ("hr-positive" in subtype and ("her2-negative" in subtype or "her2-" in subtype)):
+        if not rows:
             return rows, None
+        if "hr-positive" in subtype and ("her2-negative" in subtype or "her2-" in subtype):
+            return ResearchDatasetBuilder._filter_by_receptor_rule(
+                rows,
+                require_hr_positive=True,
+                require_her2_negative=True,
+                label="HR+/HER2-",
+            )
+        if is_tnbc_question(spec):
+            return ResearchDatasetBuilder._filter_by_receptor_rule(
+                rows,
+                require_hr_positive=False,
+                require_her2_negative=True,
+                require_hr_negative=True,
+                label="三阴性（TNBC）",
+            )
+        return rows, None
+
+    @staticmethod
+    def _filter_by_receptor_rule(
+        rows: list[dict[str, Any]],
+        *,
+        require_hr_positive: bool = False,
+        require_her2_negative: bool = False,
+        require_hr_negative: bool = False,
+        label: str,
+    ) -> tuple[list[dict[str, Any]], str | None]:
         receptor_columns = {"er_status", "pr_status", "her2_status"} & {
             key for row in rows for key in row
         }
         if not receptor_columns:
-            return rows, "当前问题要求 HR+/HER2-，但主队列缺少 ER/PR/HER2 受体字段；未强行过滤患者。"
-
-        def positive(value: Any) -> bool:
-            text = str(value or "").strip().casefold()
-            return text in {"阳性", "positive", "pos", "是", "yes", "1", "true"}
-
-        def negative(value: Any) -> bool:
-            text = str(value or "").strip().casefold()
-            return text in {"阴性", "negative", "neg", "否", "no", "0", "false"}
+            return rows, f"当前问题要求 {label}，但主队列缺少 ER/PR/HER2 受体字段；未强行过滤患者。"
 
         filtered: list[dict[str, Any]] = []
         for row in rows:
-            her2_value = row.get("her2_status")
-            er_value = row.get("er_status")
-            pr_value = row.get("pr_status")
-            her2_ok = her2_value in {None, ""} or negative(her2_value)
-            hr_fields_present = er_value not in {None, ""} or pr_value not in {None, ""}
-            hr_ok = not hr_fields_present or positive(er_value) or positive(pr_value)
-            if her2_ok and hr_ok:
-                filtered.append(row)
+            her2 = ResearchDatasetBuilder._receptor_polarity(row.get("her2_status"))
+            er = ResearchDatasetBuilder._receptor_polarity(row.get("er_status"))
+            pr = ResearchDatasetBuilder._receptor_polarity(row.get("pr_status"))
+            if require_her2_negative and her2 not in {None, "negative"}:
+                continue
+            hr_present = er is not None or pr is not None
+            hr_positive = er == "positive" or pr == "positive"
+            if require_hr_positive and hr_present and not hr_positive:
+                continue
+            if require_hr_negative and hr_positive:
+                continue
+            if require_hr_negative and her2 == "equivocal":
+                continue
+            if require_hr_negative and er is not None and pr is not None and not (
+                er == "negative" and pr == "negative"
+            ):
+                continue
+            filtered.append(row)
         if not filtered:
-            return rows, "当前问题要求 HR+/HER2-，但自动过滤后无可用记录；保留原队列并提示人工复核受体定义。"
+            return rows, f"当前问题要求 {label}，但自动过滤后无可用记录；保留原队列并提示人工复核受体定义。"
         removed = len(rows) - len(filtered)
         if removed:
-            return filtered, f"按 HR+/HER2- 约束过滤 cBioPortal 队列，保留 {len(filtered)} 行，排除 {removed} 行非匹配或受体冲突记录。"
-        return filtered, "当前 cBioPortal 队列记录满足 HR+/HER2- 自动过滤条件。"
+            return filtered, f"按 {label} 约束过滤队列，保留 {len(filtered)} 行，排除 {removed} 行非匹配或受体冲突记录。"
+        return filtered, f"当前队列记录满足 {label} 自动过滤条件。"
+
+    @staticmethod
+    def _receptor_polarity(value: Any) -> str | None:
+        text = str(value or "").strip()
+        if not text:
+            return None
+        compact = text.casefold().replace(" ", "").replace("_", "")
+        if compact in {"2+", "ihc2+", "2", "equivocal", "ambiguous", "indeterminate", "不明", "临界", "可疑"}:
+            return "equivocal"
+        if compact in {"阳性", "positive", "pos", "是", "yes", "1", "true", "3+", "ihc3+"}:
+            return "positive"
+        if compact in {"阴性", "negative", "neg", "否", "no", "0", "false", "0+", "1+", "ihc0", "ihc1+", "ihc0+"}:
+            return "negative"
+        return None
 
     @staticmethod
     def _typed_value(value: Any) -> Any:
@@ -800,21 +1108,207 @@ class ResearchDatasetBuilder:
         return text if re.fullmatch(r"[A-Z0-9][A-Z0-9._-]*", text) else None
 
     @staticmethod
-    def _ordered_columns(rows: list[dict[str, Any]]) -> list[str]:
-        fixed = ["study_id", "patient_id", "sample_id", "source_id"]
-        dynamic = sorted({key for row in rows for key in row} - set(fixed))
-        return [name for name in fixed if any(name in row for row in rows)] + dynamic
+    def _research_priority_columns(spec: ResearchSpec | None) -> list[str]:
+        if spec is None:
+            return []
+        names: list[str] = ["disease", "subtype", "derived_ihc_subtype"]
+        for gene in spec.genes:
+            symbol = gene.lower()
+            names.extend([f"{symbol}_mutation", f"{symbol}_variants", f"{symbol}_cna", f"{symbol}_altered"])
+        if {item.upper() for item in spec.genes} >= {"BRCA1", "BRCA2"}:
+            names.append("brca_any_mutation")
+        if asks_pcr(spec):
+            names.extend(["pcr", "pcr_binary", "treatment_response", "response_domain"])
+        elif asks_survival(spec):
+            names.extend(["os_status", "os_months", "dfs_status", "dfs_months"])
+        elif needs_clinical_outcome(spec):
+            names.extend(["treatment_response", "pcr", "pcr_binary", "response", "response_domain"])
+        names.extend(["er_status", "pr_status", "her2_status"])
+        goal = (spec.research_goal or "").casefold()
+        if any(token in goal for token in ("intclust", "integrative cluster", "整合聚类")):
+            names.append("intclust")
+        if asks_treatment(spec) or needs_clinical_outcome(spec):
+            names.extend(["treatment", "chemotherapy", "hormone_therapy", "radio_therapy", "drug"])
+        names.extend(
+            [
+                "sample_type",
+                "sample_timepoint",
+                "timepoint",
+                "sample_source",
+                "age",
+                "age_group",
+                "stage",
+            ]
+        )
+        return list(dict.fromkeys(names))
+
+    @classmethod
+    def _derive_same_cohort_fields(
+        cls,
+        rows: list[dict[str, Any]],
+        spec: ResearchSpec,
+    ) -> tuple[list[dict[str, Any]], list[str]]:
+        if not rows:
+            return rows, []
+        actions: list[str] = []
+        subtype_n = 0
+        pcr_n = 0
+        age_n = 0
+        altered_n = 0
+        brca_n = 0
+        genes = [gene.lower() for gene in spec.genes]
+        want_brca = {item.upper() for item in spec.genes} >= {"BRCA1", "BRCA2"}
+        for row in rows:
+            er = cls._receptor_polarity(row.get("er_status"))
+            pr = cls._receptor_polarity(row.get("pr_status"))
+            her2 = cls._receptor_polarity(row.get("her2_status"))
+            derived_subtype = None
+            if er == "negative" and pr == "negative" and her2 == "negative":
+                derived_subtype = "Triple-negative"
+            elif her2 == "positive" and (er == "positive" or pr == "positive"):
+                derived_subtype = "HR-positive/HER2-positive"
+            elif her2 == "positive":
+                derived_subtype = "HER2-positive"
+            elif her2 == "negative" and (er == "positive" or pr == "positive"):
+                derived_subtype = "HR-positive/HER2-negative"
+            if derived_subtype:
+                row["derived_ihc_subtype"] = derived_subtype
+                subtype_n += 1
+                if not cls._has_filled(row.get("subtype")):
+                    row["subtype"] = derived_subtype
+            pcr_flag = cls._as_pcr_flag(row.get("pcr"))
+            if pcr_flag is None:
+                pcr_flag = cls._as_pcr_flag(row.get("treatment_response"))
+            if pcr_flag is not None:
+                row["pcr_binary"] = pcr_flag
+                pcr_n += 1
+                if not cls._has_filled(row.get("pcr")) and pcr_flag == 1:
+                    row["pcr"] = "病理完全缓解（pCR）"
+                elif not cls._has_filled(row.get("pcr")) and pcr_flag == 0:
+                    row["pcr"] = "未达病理完全缓解"
+            age_group = cls._age_group(row.get("age"))
+            if age_group is not None:
+                row["age_group"] = age_group
+                age_n += 1
+            for gene in genes:
+                mutated = cls._as_mutation_flag(row.get(f"{gene}_mutation"))
+                cna_altered = cls._cna_is_altered(row.get(f"{gene}_cna"))
+                if mutated is None and cna_altered is None:
+                    continue
+                row[f"{gene}_altered"] = int(mutated == 1 or cna_altered is True)
+                altered_n += 1
+            if want_brca:
+                brca1 = cls._as_mutation_flag(row.get("brca1_mutation"))
+                brca2 = cls._as_mutation_flag(row.get("brca2_mutation"))
+                if brca1 is not None or brca2 is not None:
+                    row["brca_any_mutation"] = int(brca1 == 1 or brca2 == 1)
+                    brca_n += 1
+        if subtype_n:
+            actions.append(f"由同一行 ER/PR/HER2 组合免疫组化亚型 {subtype_n} 行；HER2 IHC 2+ 未自动判阳，未使用 ERBB2 CNA。")
+        if pcr_n:
+            actions.append(f"由同队列 pCR/治疗响应文本派生病理完全缓解二值标记 {pcr_n} 行，未使用生存结局。")
+        if age_n:
+            actions.append(f"由同队列年龄派生年龄分组 {age_n} 行。")
+        if altered_n:
+            actions.append(
+                f"由同队列突变和/或离散拷贝数派生基因分子改变标记；拷贝数扩增不得解释为免疫组化阳性。"
+            )
+        if brca_n:
+            actions.append(f"由同一行 BRCA1/BRCA2 突变组合 BRCA 任一突变标记 {brca_n} 行。")
+        return rows, actions
 
     @staticmethod
-    def _select_target(columns: list[str], spec: ResearchSpec) -> str | None:
-        outcome_text = " ".join(spec.outcomes).lower()
-        if any(term in outcome_text for term in ("pcr", "pathological", "response", "响应", "疗效", "缓解")):
-            priority = ["pcr", "treatment_response"]
-        elif any(term in outcome_text for term in ("survival", " os ", "dfs", "生存")):
+    def _as_pcr_flag(value: Any) -> int | None:
+        if value in {0, 1}:
+            return int(value)
+        text = str(value or "").strip()
+        if not text:
+            return None
+        compact = text.casefold().replace(" ", "").replace("_", "").replace("-", "")
+        if any(token in compact for token in ("nonpcr", "nopcr", "未达", "未获得")):
+            return 0
+        if compact in {"rd", "nor", "residualdisease", "nonresponse", "noresponse"}:
+            return 0
+        if compact in {"pcr", "yes", "true", "1", "是"} or "病理完全缓解" in text or compact.endswith("pcr"):
+            if "客观缓解" in text and "病理完全缓解" not in text:
+                return None
+            return 1
+        return None
+
+    @staticmethod
+    def _age_group(value: Any) -> str | None:
+        age: float | None = None
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, (int, float)):
+            age = float(value)
+        else:
+            text = str(value or "").strip()
+            if re.fullmatch(r"-?\d+(?:\.\d+)?", text):
+                age = float(text)
+        if age is None or age < 0 or age > 120:
+            return None
+        if age < 40:
+            return "<40"
+        if age < 50:
+            return "40-49"
+        if age < 60:
+            return "50-59"
+        if age < 70:
+            return "60-69"
+        return ">=70"
+
+    @staticmethod
+    def _cna_is_altered(value: Any) -> bool | None:
+        if value in {None, ""}:
+            return None
+        if isinstance(value, bool):
+            return None
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return None
+        return abs(number) >= 2
+
+    @staticmethod
+    def _ordered_columns(rows: list[dict[str, Any]], spec: ResearchSpec | None = None) -> list[str]:
+        fixed = ["study_id", "patient_id", "sample_id", "source_id"]
+        filled = {
+            key
+            for row in rows
+            for key, value in row.items()
+            if key not in fixed and ResearchDatasetBuilder._has_filled(value)
+        }
+        present_fixed = [name for name in fixed if any(name in row for row in rows)]
+        priority = [
+            name
+            for name in ResearchDatasetBuilder._research_priority_columns(spec)
+            if name in filled
+        ]
+        rest = sorted(name for name in filled if name not in present_fixed and name not in set(priority))
+        return present_fixed + priority + rest
+
+    @staticmethod
+    def _select_target(columns: list[str], spec: ResearchSpec, rows: list[dict[str, Any]] | None = None) -> str | None:
+        if asks_pcr(spec):
+            priority = ["pcr", "pcr_binary", "treatment_response", "response"]
+        elif asks_survival(spec) or "survival" in spec.outcomes:
             priority = ["os_status", "os_months", "dfs_status", "dfs_months"]
+        elif needs_clinical_outcome(spec):
+            priority = ["treatment_response", "pcr", "pcr_binary", "response"]
         else:
             priority = []
-        return next((name for name in priority if name in columns), None)
+            for gene in spec.genes:
+                symbol = gene.lower()
+                priority.extend([f"{symbol}_mutation", f"{symbol}_variants", f"{symbol}_altered"])
+            priority.extend(["er_status", "her2_status", "subtype", "derived_ihc_subtype"])
+        for name in priority:
+            if name not in columns:
+                continue
+            if rows is not None and not any(ResearchDatasetBuilder._has_filled(row.get(name)) for row in rows):
+                continue
+            return name
+        return None
 
     @staticmethod
     def _distribution(rows: list[dict[str, Any]], target: str | None) -> dict[str, int]:
@@ -834,11 +1328,7 @@ class ResearchDatasetBuilder:
 
     @staticmethod
     def _requested_variable_coverage(dataset: ModelingDataset, spec: ResearchSpec) -> float | None:
-        if not spec.genes:
-            return None
-        names = {column.name.casefold() for column in dataset.columns}
-        covered = sum(any(name.startswith(gene.casefold() + "_") for name in names) for gene in spec.genes)
-        return covered / len(spec.genes)
+        return requested_gene_coverage(dataset, spec)
 
     @staticmethod
     def _deduplicate_rows(rows: list[dict[str, Any]], key_name: str) -> tuple[list[dict[str, Any]], int]:
@@ -856,17 +1346,29 @@ class ResearchDatasetBuilder:
         return list(unique.values()) + anonymous, duplicates
 
     @staticmethod
-    def _describe_column(name: str, rows: list[dict[str, Any]]) -> DatasetColumn:
+    def _describe_column(name: str, rows: list[dict[str, Any]], spec: ResearchSpec | None = None) -> DatasetColumn:
         values = [row.get(name) for row in rows if row.get(name) is not None]
         data_type = "number" if values and all(isinstance(value, (int, float)) for value in values) else "string"
+        derived_names = {"derived_ihc_subtype", "pcr_binary", "age_group", "brca_any_mutation"}
+        priority = set(ResearchDatasetBuilder._research_priority_columns(spec))
         if name in {"study_id", "patient_id", "sample_id"}:
             role = "标识符"
         elif name in {"source_id", "raw_characteristics"}:
             role = "审计信息"
-        elif name in {"pcr", "treatment_response", "os_status", "dfs_status"}:
+        elif name in {"pcr", "pcr_binary", "treatment_response", "response", "os_status", "dfs_status"}:
             role = "研究结局"
+        elif name in derived_names or name.endswith("_altered"):
+            role = "同队列派生"
+        elif spec is not None and name not in priority and name not in {
+            "disease",
+            "sample_type",
+            "sample_source",
+            "response_domain",
+        }:
+            role = "次要临床字段"
         else:
             role = "研究变量"
+        source_field = name
         if name.endswith("_mutation"):
             gene = name.removesuffix("_mutation").upper()
             label = f"{gene} 突变状态"
@@ -879,17 +1381,30 @@ class ResearchDatasetBuilder:
             gene = name.removesuffix("_cna").upper()
             label = f"{gene} 离散拷贝数"
             description = "cBioPortal 离散 CNA 值；不得直接等同于临床 IHC/FISH 状态。"
+        elif name.endswith("_altered"):
+            gene = name.removesuffix("_altered").upper()
+            label = f"{gene} 分子改变（同队列派生）"
+            description = "由同队列突变或离散拷贝数组合；CNA amplification 不得解释为 IHC 阳性。"
+            source_field = f"{gene.lower()}_mutation,{gene.lower()}_cna"
         else:
             label = CHINESE_LABELS.get(name, name.replace("_", " "))
             description = FIELD_DESCRIPTIONS.get(
                 name,
                 f"来自上游字段 {name}；用于分析前应在原研究数据字典中确认定义、单位和时间点。",
             )
+            if name == "derived_ihc_subtype":
+                source_field = "er_status,pr_status,her2_status"
+            elif name == "pcr_binary":
+                source_field = "pcr,treatment_response"
+            elif name == "age_group":
+                source_field = "age"
+            elif name == "brca_any_mutation":
+                source_field = "brca1_mutation,brca2_mutation"
         return DatasetColumn(
             name=name,
             label_zh=label,
             data_type=data_type,
             role=role,
-            source_field=name,
+            source_field=source_field,
             description=description,
         )

@@ -104,6 +104,8 @@ class ModelingDataset(ApiModel):
     sample_count: int = Field(ge=0)
     target_column: str | None = None
     class_distribution: dict[str, int] = Field(default_factory=dict)
+    dataset_role: str = "primary"
+    study_key: str | None = None
 
 
 class AnalysisReadinessReport(ApiModel):
@@ -115,6 +117,7 @@ class AnalysisReadinessReport(ApiModel):
     target_missing_rate: float | None = Field(default=None, ge=0, le=1)
     field_completeness_rate: float | None = Field(default=None, ge=0, le=1)
     target_match: bool = False
+    target_match_rate: float | None = Field(default=None, ge=0, le=1)
     requested_variable_coverage_rate: float | None = Field(default=None, ge=0, le=1)
     repeated_patient_count: int = Field(default=0, ge=0)
     duplicate_row_count: int = Field(default=0, ge=0)
@@ -132,7 +135,10 @@ class StudyVariable(ApiModel):
     role: str
     required: bool = False
     available: bool = False
+    priority: str = "secondary"
+    coverage_rate: float | None = Field(default=None, ge=0, le=1)
     matched_fields: list[str] = Field(default_factory=list)
+    companion_sources: list[str] = Field(default_factory=list)
     note: str
 
 
@@ -367,6 +373,44 @@ class ResearchTaskSpec(ApiModel):
     study_design: StudyDesignReport | None = None
 
 
+class PrioritizedField(ApiModel):
+    field_id: str
+    label: str
+    priority: str
+    reason: str
+    aliases: list[str] = Field(default_factory=list)
+
+
+class NamedCohort(ApiModel):
+    name: str
+    study_id: str = ""
+    project_id: str = ""
+    tool_name: str
+    role: str = "named_primary"
+
+
+class ResearchBrief(ApiModel):
+    research_type_id: str
+    research_type: str
+    primary_question: str
+    named_cohorts: list[NamedCohort] = Field(default_factory=list)
+    fields: list[PrioritizedField] = Field(default_factory=list)
+    search_strategy: str = ""
+    analysis_plan: str = ""
+    needs_clinical_outcome: bool = False
+    keywords: list[str] = Field(default_factory=list)
+
+
+class DataValueAssessment(ApiModel):
+    status: str
+    judgment: str
+    primary_coverage: float | None = Field(default=None, ge=0, le=1)
+    named_cohorts_hit: list[str] = Field(default_factory=list)
+    named_cohorts_missing: list[str] = Field(default_factory=list)
+    missing_primary_fields: list[str] = Field(default_factory=list)
+    next_step: str = ""
+
+
 class AgentTaskResult(ApiModel):
     task_id: str
     status: str
@@ -377,11 +421,14 @@ class AgentTaskResult(ApiModel):
     notice: str
     research_spec: ResearchSpec
     parsed_question: ParsedResearchQuestion | None = None
+    research_brief: ResearchBrief | None = None
+    value_assessment: DataValueAssessment | None = None
     plan: list[AgentPlanStep]
     tool_calls: list[AgentToolCall]
     candidate_sources: list[CandidateSource]
     source_items: list[SourceItem]
     modeling_dataset: ModelingDataset
+    source_datasets: list[ModelingDataset] = Field(default_factory=list)
     readiness: AnalysisReadinessReport
     study_design: StudyDesignReport | None = None
     cohort_construction: CohortConstructionReport | None = None
@@ -408,6 +455,17 @@ class CompetitionAblationRow(ApiModel):
     expected_effect: str
     observed_effect: str
     note: str
+    diagnostic_score: float | None = None
+    delta_from_full: float | None = None
+
+
+class CompetitionVariantScore(ApiModel):
+    variant_id: str
+    label: str
+    diagnostic_score: float | None = None
+    status: str
+    note: str
+    is_primary: bool = False
 
 
 class CompetitionRagLayer(ApiModel):
@@ -582,6 +640,7 @@ class CompetitionAlignmentReport(ApiModel):
     unified_evaluation: UnifiedEvaluationReport | None = None
     metrics: list[CompetitionMetric] = Field(default_factory=list)
     ablation_rows: list[CompetitionAblationRow] = Field(default_factory=list)
+    variant_scores: list[CompetitionVariantScore] = Field(default_factory=list)
     rag_layers: list[CompetitionRagLayer] = Field(default_factory=list)
     knowledge_graph: CompetitionGraphSummary
     rag_flow_nodes: list[CompetitionRagFlowNode] = Field(default_factory=list)

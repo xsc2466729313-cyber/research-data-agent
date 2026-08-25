@@ -111,9 +111,14 @@ class QualityGateBuilder:
             decision = "PASS"
         else:
             decision = "REVIEW"
+        match_text = (
+            f"结局匹配={readiness.target_match_rate:.1%}"
+            if readiness.target_match_rate is not None
+            else f"结局匹配={'是' if readiness.target_match else '否'}"
+        )
         evidence = (
             f"字段完整率={'未计算' if completeness is None else f'{completeness:.1%}'}；"
-            f"结局匹配={'是' if readiness.target_match else '否'}；"
+            f"{match_text}；"
             f"清洗 {readiness.cleaned_value_count} 处。"
         )
         return QualityGateLayer(

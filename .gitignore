@@ -1,4 +1,6 @@
 .env
+*.local.env
+evaluation/*.local.env
 .pytest_cache/
 .venv/
 __pycache__/

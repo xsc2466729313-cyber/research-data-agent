@@ -24,6 +24,7 @@ CBIOPORTAL_BREAST_STUDIES = (
     "brca_tcga_gdc",
     "brca_aurora_2023",
     "brca_mapk_hp_msk_2021",
+    "brca_mskcc_2019",
     "breast_alpelisib_2020",
 )
 

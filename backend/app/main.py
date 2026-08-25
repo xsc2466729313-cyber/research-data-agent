@@ -40,6 +40,7 @@ from backend.app.agent import (
 )
 from backend.app.export_service import DatasetExportFormat, MockDatasetExportService
 from backend.app.evaluation import EvaluationError, EvaluationService, GoldSetCsvLoader
+from backend.app.evaluation.overview import EvaluationOverview, build_evaluation_overview
 from backend.app.evaluation.models import (
     EvaluationRequest,
     EvaluationResult,
@@ -431,6 +432,16 @@ def get_research_task_report(
     return result.quality_gate_report
 
 
+@app.get("/api/agent/tasks/latest", response_model=AgentTaskResult)
+def get_latest_agent_task(
+    service: Annotated[ResearchAgentService, Depends(get_research_agent_service)],
+) -> AgentTaskResult:
+    result = service.latest()
+    if result is None:
+        raise HTTPException(status_code=404, detail="还没有已完成的科研任务，或服务已重启。")
+    return result
+
+
 @app.get("/api/agent/tasks/{task_id}", response_model=AgentTaskResult)
 def get_agent_task(
     task_id: str,
@@ -567,6 +578,19 @@ def run_normalization_integration(
         return service.run(payload)
     except IntegrationError as exc:
         raise HTTPException(status_code=exc.http_status, detail=exc.as_dict()) from exc
+
+
+@app.get("/api/evaluation/overview", response_model=EvaluationOverview)
+def get_evaluation_overview(
+    agent: Annotated[ResearchAgentService, Depends(get_research_agent_service)],
+    models: Annotated[ModelEvaluationService, Depends(get_model_evaluation_service)],
+) -> EvaluationOverview:
+    inspection = goldset_loader.inspect(GOLDSET_TEMPLATE_DIR)
+    return build_evaluation_overview(
+        latest_task=agent.latest(),
+        latest_model_test=models.latest(),
+        goldset_row_counts=inspection.row_counts,
+    )
 
 
 @app.get(

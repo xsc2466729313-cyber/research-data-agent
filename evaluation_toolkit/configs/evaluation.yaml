@@ -1,0 +1,96 @@
+project: breast-cancer-research-agent
+evaluation_version: v1
+
+# The production evaluator remains backend/app/evaluation. This toolkit
+# supplies the shared benchmark taxonomy, result schema, and reporting plan.
+local_adapter:
+  overview_endpoint: /api/evaluation/overview
+  history_endpoint: /api/evaluation/history
+  core_artifacts: data/output/evaluation
+  deepseek_artifacts: evaluation/results_deepseek
+  tri_ai_consensus: evaluation/goldset_tri_ai_consensus.json
+  model_consensus_snapshot: evaluation/goldset_model_consensus_snapshot.json
+
+ai_panel:
+  architecture: qwen_subject_deepseek_primary_glm_independent_review
+  roles:
+    subject_agent:
+      provider: qwen
+      responsibility: system_under_test
+      may_create_ground_truth: false
+    primary_annotator:
+      provider: deepseek
+      model: deepseek-chat
+      responsibility: goldset_initial_label_and_semantic_judge
+      may_create_ground_truth: false
+    independent_reviewer:
+      provider: glm
+      model: glm-5.2
+      responsibility: independent_review_and_disagreement_detection
+      may_create_ground_truth: false
+  consensus:
+    minimum_confidence: 0.90
+    require_model_agreement: true
+    require_official_source_verification: true
+    require_human_adjudication: true
+    approved_status: human_approved_only
+
+external_benchmarks:
+  cleaning:
+    primary_metric: cell_f1
+    datasets: [hospital, flights, beers]
+    optional_datasets: [rayyan, movies]
+    baselines: [holoclean, raha_baran, cocoon]
+    optional_baselines: [laed]
+  retrieval:
+    primary_metric: ndcg_at_10
+    auxiliary_metrics: [recall_at_100, mrr_at_10, latency_ms]
+    datasets: [beir_scifact, beir_nfcorpus]
+    baselines: [bm25, contriever_msmarco, bge_m3]
+  integration:
+    schema_matching:
+      primary_metric: f1
+      benchmark: valentine
+      baselines: [jaccard, coma, cupid]
+    entity_matching:
+      primary_metric: f1
+      datasets: [dblp_acm, walmart_amazon]
+      optional_datasets: [dirty_dblp_acm]
+      baselines: [fuzzy_rule, deepmatcher, ditto]
+
+domain_evaluation:
+  task_count_target: 30
+  task_source: paper_grounded
+  fixed_dimensions:
+    - research_relevance
+    - analytical_adequacy
+    - traceability_reliability
+    - reusability
+  item_scale: [0, 1, 2, 3, 4]
+  aggregate: geometric_mean
+  compare_variants:
+    - rule_keyword
+    - qwen_only
+    - single_source
+    - multi_source_no_gate
+    - full_agent
+
+quality_gate:
+  outputs: [PASS, REVIEW, REJECT]
+  components:
+    - source_authenticity
+    - integration_integrity
+    - traceability
+    - critical_conflict
+    - task_critical_requirements
+
+multi_ai_judge:
+  enabled_for_semantic_items_only: true
+  calibration_human_items: 50
+  disagreement_threshold_score: 1
+  required_metrics:
+    - weighted_cohen_kappa
+    - agreement_with_human
+    - coverage
+    - abstention_rate
+    - human_review_rate

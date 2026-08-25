@@ -12,6 +12,7 @@ from backend.app.agent.models import (
     CollectionSearchAction,
     StudyDesignReport,
 )
+from backend.app.agent.study_design import PROTOCOL_COVARIATES, VARIABLE_FIELD_ALIASES, covariate_fields_in_pack
 from backend.app.models import ResearchSpec
 
 
@@ -90,12 +91,15 @@ class CollectionAgent:
         round_number: int,
         attempted_calls: set[str],
         actions: list[str],
+        source_datasets: list[Any] | None = None,
     ) -> tuple[CollectionIteration, list[CollectionGap], list[CollectionGap]]:
         columns = {column.name for column in dataset.columns}
         critical: list[CollectionGap] = []
         recommended: list[CollectionGap] = []
         for variable in design.required_variables:
-            coverage = self._coverage(dataset, variable.matched_fields)
+            if not variable.required:
+                continue
+            coverage = self._coverage(dataset, self._coverage_fields(variable, dataset))
             missing = not variable.available or (coverage is not None and coverage < 0.8)
             if not missing:
                 continue
@@ -104,9 +108,11 @@ class CollectionAgent:
         for variable in design.required_variables:
             if variable.required:
                 continue
-            coverage = self._coverage(dataset, variable.matched_fields)
+            coverage = self._coverage(dataset, self._coverage_fields(variable, dataset))
             missing = not variable.available or (coverage is not None and coverage < 0.8)
             if missing:
+                if getattr(variable, "companion_sources", None):
+                    continue
                 recommended.append(
                     self._gap(variable, coverage, required=False, source_items=source_items)
                 )
@@ -117,6 +123,13 @@ class CollectionAgent:
             if gap.variable_id.endswith("_mutation") or gap.variable_id.endswith("_variants"):
                 gap.suggested_sources = SOURCE_RULES["mutation"]["sources"]
 
+        pack_fields = covariate_fields_in_pack(dataset, source_datasets)
+        if len(pack_fields) >= len(PROTOCOL_COVARIATES):
+            recommended = [
+                gap
+                for gap in recommended
+                if gap.variable_id not in pack_fields
+            ]
         quality_gate = (
             "PASS"
             if not critical
@@ -189,6 +202,7 @@ class CollectionAgent:
         round_number: int,
         max_rounds: int,
         cohort: Any | None = None,
+        source_datasets: list[Any] | None = None,
     ):
         return self.goal_loop.decide(
             spec=spec,
@@ -200,6 +214,7 @@ class CollectionAgent:
             round_number=round_number,
             max_rounds=max_rounds,
             cohort=cohort,
+            source_datasets=source_datasets,
         )
 
     def report(
@@ -243,6 +258,19 @@ class CollectionAgent:
             goals=list(goals or []),
             strategies_tried=list(strategies_tried or []),
         )
+
+    @staticmethod
+    def _coverage_fields(variable: Any, dataset: Any) -> list[str]:
+        fields = list(dict.fromkeys([
+            *list(variable.matched_fields or []),
+            *VARIABLE_FIELD_ALIASES.get(variable.variable_id, []),
+            variable.variable_id,
+        ]))
+        if variable.variable_id == "outcome":
+            target = getattr(dataset, "target_column", None)
+            if target:
+                fields.append(target)
+        return fields
 
     @staticmethod
     def _coverage(dataset: Any, fields: list[str]) -> float | None:

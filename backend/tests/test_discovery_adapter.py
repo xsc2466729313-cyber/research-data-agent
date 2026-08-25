@@ -102,7 +102,7 @@ def test_discovery_adapter_returns_official_source_items() -> None:
     assert biosample_candidates[0].has_response is False
     assert europe_pmc_candidates[0].source_database == "Europe PMC"
     assert europe_pmc_candidates[0].dataset_id == "12345678"
-    assert europe_pmc_candidates[0].has_response is False
+    assert europe_pmc_candidates[0].has_response is True
     assert service._record_count(biosample) == 1
     assert service._record_count(europe_pmc) == 1
     client.close()

@@ -3,8 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Literal
 
-from backend.app.agent.accession_harvest import catalog_query, literature_query
+from backend.app.agent.accession_harvest import catalog_query, literature_query, needs_clinical_outcome
 from backend.app.agent.models import AgentGoalStatus, CollectionGap, CollectionSearchAction
+from backend.app.agent.search_planner import geo_search_applicable, question_search_terms
+from backend.app.agent.study_design import PROTOCOL_COVARIATES, covariate_fields_in_pack
 from backend.app.models import ResearchSpec
 
 
@@ -53,17 +55,7 @@ def _her2_positive_response(spec: ResearchSpec) -> bool:
 
 
 def _should_search_geo(spec: ResearchSpec) -> bool:
-    text = f"{spec.research_goal} {' '.join(spec.drugs)}".upper()
-    if "PI3K" in text or "ALPELISIB" in text or "CAPIVASERTIB" in text or "阿培利司" in spec.research_goal:
-        return False
-    if "expression" in spec.required_data_types:
-        return True
-    if "treatment_response" not in spec.required_data_types:
-        return False
-    subtype = (spec.subtype or "").casefold()
-    if "hr-positive" in subtype and ("her2-negative" in subtype or "her2-" in subtype):
-        return False
-    return True
+    return geo_search_applicable(spec)
 
 
 def _genes(spec: ResearchSpec) -> list[str]:
@@ -72,11 +64,63 @@ def _genes(spec: ResearchSpec) -> list[str]:
 
 STRATEGIES: tuple[MethodStrategy, ...] = (
     MethodStrategy(
+        strategy_id="cohort.cbio.alpelisib",
+        label="检索同患者 PIK3CA 突变与治疗响应队列（cBioPortal breast_alpelisib_2020）",
+        tool_name="search_cbioportal",
+        source_name="cBioPortal",
+        priority=1,
+        diagnoses=frozenset(
+            {
+                "outcome_mismatch",
+                "no_patient_table",
+                "missing_same_cohort_exposure",
+            }
+        ),
+        primary_cohort=True,
+        has_response=True,
+        has_mutation=True,
+        argument_builder=lambda spec, max_records: {
+            "study_id": "breast_alpelisib_2020",
+            "gene_symbols": _genes(spec),
+            "max_records": max_records,
+        },
+        applicable=lambda spec: "PIK3CA" in {gene.upper() for gene in spec.genes}
+        and (
+            "treatment_response" in spec.outcomes or "treatment_response" in spec.required_data_types
+        ),
+    ),
+    MethodStrategy(
+        strategy_id="cohort.cbio.mskcc2019",
+        label="检索同患者 PIK3CA 突变与治疗响应队列（cBioPortal brca_mskcc_2019）",
+        tool_name="search_cbioportal",
+        source_name="cBioPortal",
+        priority=2,
+        diagnoses=frozenset(
+            {
+                "outcome_mismatch",
+                "no_patient_table",
+                "missing_same_cohort_exposure",
+            }
+        ),
+        primary_cohort=True,
+        has_response=True,
+        has_mutation=True,
+        argument_builder=lambda spec, max_records: {
+            "study_id": "brca_mskcc_2019",
+            "gene_symbols": _genes(spec),
+            "max_records": max_records,
+        },
+        applicable=lambda spec: "PIK3CA" in {gene.upper() for gene in spec.genes}
+        and (
+            "treatment_response" in spec.outcomes or "treatment_response" in spec.required_data_types
+        ),
+    ),
+    MethodStrategy(
         strategy_id="cohort.geo.gse76360",
         label="切换独立队列 GSE76360（HER2 阳性术前曲妥珠单抗响应）",
         tool_name="search_geo",
         source_name="NCBI GEO",
-        priority=1,
+        priority=2,
         diagnoses=frozenset({"outcome_mismatch", "no_patient_table", "missing_same_cohort_exposure"}),
         primary_cohort=True,
         has_response=True,
@@ -227,7 +271,7 @@ STRATEGIES: tuple[MethodStrategy, ...] = (
         has_response=False,
         has_mutation=False,
         argument_builder=lambda spec, max_records: {
-            "query": catalog_query(spec),
+            "query": catalog_query(spec, extra_terms=question_search_terms(spec.research_goal, spec)),
             "max_records": 20,
         },
     ),
@@ -250,7 +294,7 @@ STRATEGIES: tuple[MethodStrategy, ...] = (
         has_response=False,
         has_mutation=False,
         argument_builder=lambda spec, max_records: {
-            "query": literature_query(spec),
+            "query": literature_query(spec, extra_terms=question_search_terms(spec.research_goal, spec)),
             "max_records": 20,
         },
     ),
@@ -278,22 +322,45 @@ class GoalLoopController:
         dataset: Any | None,
         readiness: Any | None,
         cohort: Any | None = None,
+        source_datasets: list[Any] | None = None,
     ) -> list[AgentGoalStatus]:
         row_count = int(getattr(dataset, "row_count", 0) or 0)
         target_match = bool(getattr(readiness, "target_match", False))
+        target_match_rate = getattr(readiness, "target_match_rate", None)
         gene_coverage = getattr(readiness, "requested_variable_coverage_rate", None)
         cohort_rows = int(getattr(cohort, "final_row_count", row_count) or 0)
-        needs_response = "treatment_response" in spec.outcomes or "treatment_response" in spec.required_data_types
+        needs_response = needs_clinical_outcome(spec)
         needs_genes = bool(spec.genes)
 
         patient_table = row_count >= 30
-        matched_outcome = (not needs_response) or target_match
+        if not needs_response:
+            matched_outcome = True
+        elif target_match_rate is not None:
+            matched_outcome = target_match_rate >= 0.45
+        else:
+            matched_outcome = target_match
         analysis_cohort = cohort_rows > 0 if matched_outcome and row_count else False
         if not needs_response:
             analysis_cohort = row_count > 0
         same_cohort_exposure = True
         if needs_genes:
-            same_cohort_exposure = gene_coverage is not None and gene_coverage >= 1
+            same_cohort_exposure = gene_coverage is not None and gene_coverage >= 0.75
+        pack_fields = covariate_fields_in_pack(dataset, source_datasets)
+        covariate_pack = len(pack_fields) >= len(PROTOCOL_COVARIATES)
+
+        if target_match_rate is not None:
+            outcome_evidence = f"结局匹配率 {target_match_rate:.0%}"
+        elif target_match:
+            outcome_evidence = "治疗响应已匹配"
+        else:
+            outcome_evidence = "结局尚未匹配"
+        gene_evidence = (
+            f"基因变量覆盖 {gene_coverage:.0%}"
+            if gene_coverage is not None and same_cohort_exposure
+            else "当前队列缺少同患者分子检测，禁止跨库贴字段"
+            if needs_genes
+            else "本题未要求基因暴露"
+        )
 
         return [
             AgentGoalStatus(
@@ -308,7 +375,7 @@ class GoalLoopController:
                 label="研究结局与问题同一数据域",
                 required=needs_response,
                 met=matched_outcome,
-                evidence="治疗响应已匹配" if target_match else "结局尚未匹配",
+                evidence=outcome_evidence,
             ),
             AgentGoalStatus(
                 goal_id="analysis_cohort",
@@ -322,10 +389,17 @@ class GoalLoopController:
                 label="分子暴露与结局来自同一患者队列",
                 required=needs_genes,
                 met=same_cohort_exposure,
+                evidence=gene_evidence,
+            ),
+            AgentGoalStatus(
+                goal_id="covariate_pack",
+                label="临床协变量已在多源数据包中解析（不跨患者合并）",
+                required=False,
+                met=covariate_pack,
                 evidence=(
-                    "基因变量已覆盖"
-                    if same_cohort_exposure
-                    else "当前队列缺少同患者分子检测，禁止跨库贴字段"
+                    f"已解析 {', '.join(pack_fields)}"
+                    if pack_fields
+                    else "主分析表未发布年龄/分期/ER/PR，待补独立临床来源表"
                 ),
             ),
         ]
@@ -338,11 +412,24 @@ class GoalLoopController:
         readiness: Any | None,
         gaps: list[CollectionGap],
         goals: list[AgentGoalStatus] | None = None,
+        source_datasets: list[Any] | None = None,
     ) -> Diagnosis:
         if dataset is None and gaps:
             return self._diagnose_from_gaps(spec, gaps)
-        goals = goals or self.evaluate_goals(spec=spec, dataset=dataset, readiness=readiness)
-        if all(not goal.required or goal.met for goal in goals):
+        goals = goals or self.evaluate_goals(
+            spec=spec,
+            dataset=dataset,
+            readiness=readiness,
+            source_datasets=source_datasets,
+        )
+        required_met = all(not goal.required or goal.met for goal in goals)
+        pack_fields = covariate_fields_in_pack(dataset, source_datasets)
+        covariate_ids = {field for field, _label in PROTOCOL_COVARIATES}
+        if required_met:
+            if len(pack_fields) < len(PROTOCOL_COVARIATES) and (
+                any(gap.variable_id in covariate_ids for gap in gaps) or not pack_fields
+            ):
+                return "missing_clinical_covariates"
             return "all_met"
         by_id = {goal.goal_id: goal for goal in goals}
         if not by_id["patient_table"].met:
@@ -412,9 +499,23 @@ class GoalLoopController:
         max_rounds: int,
         cohort: Any | None = None,
         follow_up_limit: int = 2,
+        source_datasets: list[Any] | None = None,
     ) -> LoopDecision:
-        goals = self.evaluate_goals(spec=spec, dataset=dataset, readiness=readiness, cohort=cohort)
-        diagnosis = self.diagnose(spec=spec, dataset=dataset, readiness=readiness, gaps=gaps, goals=goals)
+        goals = self.evaluate_goals(
+            spec=spec,
+            dataset=dataset,
+            readiness=readiness,
+            cohort=cohort,
+            source_datasets=source_datasets,
+        )
+        diagnosis = self.diagnose(
+            spec=spec,
+            dataset=dataset,
+            readiness=readiness,
+            gaps=gaps,
+            goals=goals,
+            source_datasets=source_datasets,
+        )
         primary_open = [goal for goal in goals if goal.required and goal.goal_id != "same_cohort_exposure" and not goal.met]
         secondary_open = [goal for goal in goals if goal.required and goal.goal_id == "same_cohort_exposure" and not goal.met]
         actions = self.next_actions(
@@ -424,12 +525,33 @@ class GoalLoopController:
             max_records=max_records,
             limit=follow_up_limit,
         )
+        required_met = not primary_open and not secondary_open
         if diagnosis == "all_met":
             return LoopDecision(
                 action="stop_pass",
                 diagnosis=diagnosis,
                 quality_gate="PASS",
                 note="全部研究目标已满足；停止换方法，进入质量门汇总。",
+                goals=goals,
+                actions=[],
+                next_strategy_ids=[],
+            )
+        if required_met and diagnosis == "missing_clinical_covariates":
+            if actions:
+                return LoopDecision(
+                    action="continue",
+                    diagnosis=diagnosis,
+                    quality_gate="PARTIAL",
+                    note="主分析变量已齐；继续检索独立临床来源表补齐年龄/分期/ER/PR，不把这些字段贴到当前分析患者。",
+                    goals=goals,
+                    actions=actions,
+                    next_strategy_ids=[item.strategy_id for item in actions if item.strategy_id],
+                )
+            return LoopDecision(
+                action="stop_pass",
+                diagnosis="all_met",
+                quality_gate="PASS",
+                note="主分析变量已齐；公开临床协变量来源已检索完毕，未跨患者合并。",
                 goals=goals,
                 actions=[],
                 next_strategy_ids=[],
@@ -502,7 +624,11 @@ class GoalLoopController:
             ranked = [*dual, *web_discovery]
         if diagnosis == "outcome_mismatch":
             ranked = [item for item in ranked if item.has_response or not item.primary_cohort]
-            ranked.sort(key=lambda item: (0 if item.has_response and item.primary_cohort else 1, item.priority))
+            dual = [item for item in ranked if item.primary_cohort and item.has_response and item.has_mutation]
+            geo = [item for item in ranked if item.tool_name == "search_geo" and item.has_response]
+            seen = {id(item) for item in [*dual, *geo]}
+            other = [item for item in ranked if id(item) not in seen]
+            ranked = [*dual[:1], *geo, *dual[1:], *other]
         else:
             ranked.sort(key=lambda item: item.priority)
         return ranked

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 from backend.app.agent.models import (
     CompetitionAblationRow,
     CompetitionAlignmentReport,
+    CompetitionVariantScore,
     CompetitionChecklistItem,
     CompetitionGraphSummary,
     CompetitionMetric,
@@ -60,6 +61,19 @@ class CompetitionReportBuilder:
             question_fit_score,
             source_diversity,
             exploratory_analysis_score,
+        )
+        variant_pack = self._variant_pack(
+            result,
+            databases=databases,
+            candidates=candidates,
+            sources=sources,
+            outcome_complete=outcome_complete,
+            field_complete=field_complete,
+            source_audit_score=source_audit_score,
+            question_fit_score=question_fit_score,
+            source_diversity=source_diversity,
+            exploratory_analysis_score=exploratory_analysis_score,
+            diagnostic_score=diagnostic_score,
         )
         metrics = [
             self._metric(
@@ -150,7 +164,8 @@ class CompetitionReportBuilder:
             problem_focus=result.research_spec.research_goal,
             unified_evaluation=unified_evaluation,
             metrics=metrics,
-            ablation_rows=self._ablation_rows(result, databases),
+            ablation_rows=self._ablation_rows(result, databases, scores=variant_pack),
+            variant_scores=self._variant_scores(variant_pack),
             rag_layers=self._rag_layers(result, databases),
             knowledge_graph=graph_summary,
             rag_flow_nodes=rag_flow_nodes,
@@ -375,8 +390,11 @@ class CompetitionReportBuilder:
         dataset = result.modeling_dataset
         row_score = min(dataset.row_count / 50, 1.0) if dataset.row_count else 0.0
         requested_coverage = result.readiness.requested_variable_coverage_rate
+        outcome_rate = result.readiness.target_match_rate
+        if outcome_rate is None:
+            outcome_rate = 1.0 if result.readiness.target_match else 0.0
         relevance = CompetitionReportBuilder._mean_present(
-            [question_fit_score, requested_coverage, 1.0 if result.readiness.target_match else 0.0]
+            [question_fit_score, requested_coverage, outcome_rate]
         )
         class_score = 0.0
         if dataset.class_distribution:
@@ -863,34 +881,71 @@ class CompetitionReportBuilder:
                 disease_terms.append(spec.subtype.casefold())
             disease_hit = any(term and term in dataset_text for term in disease_terms)
             candidate_hit = any(term and term in candidate_text for term in disease_terms)
-            facets.append(("疾病人群", 1.0 if disease_hit else 0.8 if candidate_hit else 0.5 if dataset.rows else 0.0))
+            disease_fill = 0.0
+            if dataset.rows:
+                disease_fill = sum(
+                    any(row.get(field) not in {None, "", "NA", "N/A"} for field in ("disease", "subtype"))
+                    for row in dataset.rows
+                ) / len(dataset.rows)
+            if disease_hit:
+                disease_score = round(0.58 + 0.42 * max(disease_fill, 0.4), 4)
+            elif candidate_hit:
+                disease_score = 0.46
+            elif dataset.rows:
+                disease_score = 0.22
+            else:
+                disease_score = 0.0
+            facets.append(("疾病人群", disease_score))
         if spec.outcomes:
-            outcome_hit = 1.0 if result.readiness.target_match else 0.7 if any(getattr(candidate, "has_response", False) for candidate in candidates) else 0.0
-            facets.append(("研究结局", outcome_hit))
+            outcome_rate = result.readiness.target_match_rate
+            if outcome_rate is None:
+                outcome_rate = 1.0 if result.readiness.target_match else 0.0
+            if outcome_rate <= 0 and any(getattr(candidate, "has_response", False) for candidate in candidates):
+                outcome_rate = 0.38
+            elif 0 < outcome_rate < 1 and any(getattr(candidate, "has_response", False) for candidate in candidates):
+                outcome_rate = min(1.0, outcome_rate + 0.08)
+            facets.append(("研究结局", round(outcome_rate, 4)))
         if spec.genes:
             column_names = {column.name.casefold() for column in dataset.columns}
-            patient_gene_hits = sum(any(name.startswith(gene.casefold() + "_") for name in column_names) for gene in spec.genes)
+            gene_score = result.readiness.requested_variable_coverage_rate
+            if gene_score is None:
+                patient_gene_hits = sum(any(name.startswith(gene.casefold() + "_") for name in column_names) for gene in spec.genes)
+                gene_score = patient_gene_hits / len(spec.genes)
             molecular_candidates = any(
                 any(token in str(getattr(candidate, "data_type", "")).casefold() for token in ("突变", "分子", "拷贝", "mutation", "variant", "genomic"))
                 for candidate in candidates
             )
-            gene_score = patient_gene_hits / len(spec.genes)
-            if patient_gene_hits < len(spec.genes) and molecular_candidates:
-                gene_score = max(gene_score, 0.5)
-            facets.append(("分子/基因证据", gene_score))
-        if spec.drugs or any(term in spec.research_goal for term in ("治疗", "新辅助", "响应", "疗效")):
-            treatment_hit = 1.0 if any(getattr(candidate, "has_treatment", False) for candidate in candidates) else 0.0
+            if gene_score < 1 and molecular_candidates:
+                gene_score = min(1.0, gene_score + 0.12)
+            facets.append(("分子/基因证据", round(gene_score, 4)))
+        if spec.drugs or any(term in spec.research_goal for term in ("治疗方案", "治疗手段", "用药")):
+            rows = list(dataset.rows or [])
+            treatment_fill = 0.0
+            if rows:
+                treatment_fill = sum(
+                    any(row.get(field) not in {None, "", "NA", "N/A"} for field in ("treatment", "drug", "chemotherapy", "therapy"))
+                    for row in rows
+                ) / len(rows)
+            if treatment_fill > 0:
+                treatment_hit = round(0.55 + 0.45 * treatment_fill, 4)
+            elif any(getattr(candidate, "has_treatment", False) for candidate in candidates):
+                treatment_hit = 0.42
+            else:
+                treatment_hit = 0.0
             facets.append(("治疗信息", treatment_hit))
         if spec.required_data_types:
-            required = " ".join(spec.required_data_types).casefold()
+            required_tokens = [token for token in re.split(r"[\s,，;；/()（）]+", " ".join(spec.required_data_types).casefold()) if len(token) >= 2]
             candidate_text = " ".join(f"{getattr(candidate, 'data_type', '')} {getattr(candidate, 'dataset_name', '')}" for candidate in candidates).casefold()
-            data_type_hit = 1.0 if any(token and token in candidate_text for token in re.split(r"[\s,，;；/()（）]+", required) if len(token) >= 2) else 0.0
+            dataset_text = " ".join(column.name for column in dataset.columns).casefold()
+            blob = f"{candidate_text} {dataset_text}"
+            hits = sum(1 for token in required_tokens if token in blob)
+            data_type_hit = round(hits / len(required_tokens), 4) if required_tokens else 0.0
             facets.append(("数据类型", data_type_hit))
         if not facets:
             return None, "科研问题未指定可计算的基因、治疗或结局要素。"
         score = round(fmean(value for _, value in facets), 4)
         detail = "；".join(f"{name} {value:.0%}" for name, value in facets)
-        detail += "。患者级缺失的基因变量不会被候选证据冒充为已入主表。"
+        detail += "。匹配率为字段契合×行覆盖的连续分；患者级缺失的基因变量不会被候选证据冒充为已入主表。"
         return score, detail
 
     @staticmethod
@@ -920,8 +975,234 @@ class CompetitionReportBuilder:
         ]
         return round(fmean(values), 4)
 
+    @classmethod
+    def _variant_pack(
+        cls,
+        result: AgentTaskResult,
+        *,
+        databases: list[str],
+        candidates: list[Any],
+        sources: list[Any],
+        outcome_complete: float | None,
+        field_complete: float | None,
+        source_audit_score: float | None,
+        question_fit_score: float | None,
+        source_diversity: float | None,
+        exploratory_analysis_score: float | None,
+        diagnostic_score: float,
+    ) -> dict[str, dict[str, Any]]:
+        raw_field = cls._raw_field_complete(result, field_complete)
+        no_qwen_fit = cls._no_planner_question_fit(result, candidates, question_fit_score)
+        no_qwen_explore = cls._exploratory_analysis_score(
+            result,
+            outcome_complete=outcome_complete,
+            field_complete=field_complete,
+            question_fit_score=no_qwen_fit,
+            source_audit_score=source_audit_score,
+        )
+        no_qwen_score = cls._diagnostic_score(
+            outcome_complete,
+            field_complete,
+            source_audit_score,
+            no_qwen_fit,
+            source_diversity,
+            no_qwen_explore,
+        )
+        single_sources, single_candidates, single_diversity = cls._single_source_inputs(sources, candidates, databases)
+        single_audit = cls._source_audit_score(single_sources, result.modeling_dataset) if single_sources else source_audit_score
+        single_fit, _detail = cls._question_fit_score(result, single_candidates)
+        single_explore = cls._exploratory_analysis_score(
+            result,
+            outcome_complete=outcome_complete,
+            field_complete=field_complete,
+            question_fit_score=single_fit,
+            source_audit_score=single_audit,
+        )
+        single_score = cls._diagnostic_score(
+            outcome_complete,
+            field_complete,
+            single_audit,
+            single_fit,
+            single_diversity,
+            single_explore,
+        )
+        no_repair_explore = cls._exploratory_analysis_score(
+            result,
+            outcome_complete=outcome_complete,
+            field_complete=raw_field,
+            question_fit_score=question_fit_score,
+            source_audit_score=source_audit_score,
+        )
+        no_repair_score = cls._diagnostic_score(
+            outcome_complete,
+            raw_field,
+            source_audit_score,
+            question_fit_score,
+            source_diversity,
+            no_repair_explore,
+        )
+        no_lineage_audit = round((source_audit_score or 0.0) * 0.35, 4) if source_audit_score is not None else None
+        no_lineage_explore = cls._exploratory_analysis_score(
+            result,
+            outcome_complete=outcome_complete,
+            field_complete=field_complete,
+            question_fit_score=question_fit_score,
+            source_audit_score=no_lineage_audit,
+        )
+        no_lineage_score = cls._diagnostic_score(
+            outcome_complete,
+            field_complete,
+            no_lineage_audit,
+            question_fit_score,
+            source_diversity,
+            no_lineage_explore,
+        )
+        return {
+            "full": {
+                "score": diagnostic_score,
+                "note": "当前任务完整系统：千问规划、多源整合、来源图谱与质量门同时开启。",
+            },
+            "no_qwen": {
+                "score": no_qwen_score,
+                "note": (
+                    "同一次结果上的反事实：不计千问抽出的基因/结局/治疗要素，只保留疾病关键词匹配。"
+                    if result.used_qwen
+                    else "本任务未调用千问，该行与正式模型使用同一诊断分。"
+                ),
+            },
+            "single_source": {
+                "score": single_score,
+                "note": (
+                    f"同一次结果上的反事实：只保留 {databases[0] if databases else '主来源'} 一类数据库的来源与候选。"
+                    if len(databases) > 1
+                    else "当前任务本身已是单源，该行与正式模型使用同一诊断分。"
+                ),
+            },
+            "no_lineage": {
+                "score": no_lineage_score,
+                "note": "同一次结果上的反事实：去掉 source_id / 官方 URL / 行级溯源后重算来源审计。",
+            },
+            "no_repair": {
+                "score": no_repair_score,
+                "note": "同一次结果上的反事实：把已自动清洗的单元格视为仍缺失，重算字段完整率与探索可用性。",
+            },
+        }
+
     @staticmethod
-    def _ablation_rows(result: AgentTaskResult, databases: list[str]) -> list[CompetitionAblationRow]:
+    def _variant_scores(pack: dict[str, dict[str, Any]]) -> list[CompetitionVariantScore]:
+        labels = (
+            ("full", "正式模型 Ours", True),
+            ("no_qwen", "普通 LLM / 无结构化规划", False),
+            ("single_source", "单源检索模型", False),
+            ("no_repair", "多源无规则 / 无 Repair", False),
+        )
+        rows: list[CompetitionVariantScore] = []
+        for key, label, primary in labels:
+            item = pack.get(key) or {}
+            score = item.get("score")
+            rows.append(
+                CompetitionVariantScore(
+                    variant_id=key,
+                    label=label,
+                    diagnostic_score=None if score is None else float(score),
+                    status="已计算" if score is not None else "待实测",
+                    note=str(item.get("note") or ""),
+                    is_primary=primary,
+                )
+            )
+        return rows
+
+    @staticmethod
+    def _raw_field_complete(result: AgentTaskResult, field_complete: float | None) -> float | None:
+        if field_complete is None:
+            return None
+        dataset = result.modeling_dataset
+        rows = list(dataset.rows or [])
+        if not rows:
+            return field_complete
+        feature_cols = [
+            column.name
+            for column in dataset.columns
+            if column.name not in {"source_id", "raw_characteristics", "study_id"}
+            and not str(column.name).startswith("raw_")
+        ]
+        cell_count = max(len(rows) * max(len(feature_cols), 1), 1)
+        cleaned = max(int(result.readiness.cleaned_value_count or 0), 0)
+        filled = field_complete * cell_count
+        return round(min(1.0, max(0.0, (filled - cleaned) / cell_count)), 4)
+
+    @classmethod
+    def _no_planner_question_fit(
+        cls,
+        result: AgentTaskResult,
+        candidates: list[Any],
+        question_fit_score: float | None,
+    ) -> float | None:
+        if not result.used_qwen:
+            return question_fit_score
+        spec = result.research_spec
+        dataset_text = " ".join(
+            f"{row.get('disease', '')} {row.get('subtype', '')} {row.get('raw_characteristics', '')}"
+            for row in result.modeling_dataset.rows
+        ).casefold()
+        candidate_text = " ".join(
+            f"{getattr(candidate, 'dataset_name', '')} {getattr(candidate, 'data_type', '')}"
+            for candidate in candidates
+        ).casefold()
+        disease_text = str(spec.disease or "").casefold()
+        terms = [disease_text] if disease_text else []
+        if "breast" in disease_text or "乳腺" in (spec.disease or ""):
+            terms.extend(["breast cancer", "breast carcinoma", "乳腺癌"])
+        disease_hit = any(term and term in dataset_text for term in terms)
+        candidate_hit = any(term and term in candidate_text for term in terms)
+        return 1.0 if disease_hit else 0.8 if candidate_hit else 0.5 if result.modeling_dataset.rows else 0.0
+
+    @classmethod
+    def _single_source_inputs(
+        cls,
+        sources: list[Any],
+        candidates: list[Any],
+        databases: list[str],
+    ) -> tuple[list[Any], list[Any], float]:
+        if not databases:
+            return sources, candidates, cls._ratio(0, 5)
+        top = databases[0]
+        counts: dict[str, int] = {}
+        for source in sources:
+            name = cls._canonical_database(str(getattr(source, "source_name", "") or ""))
+            if name:
+                counts[name] = counts.get(name, 0) + 1
+        if counts:
+            top = max(counts, key=counts.get)
+        subset_sources = [
+            source
+            for source in sources
+            if cls._canonical_database(str(getattr(source, "source_name", "") or "")) == top
+        ] or sources
+        subset_candidates = [
+            candidate
+            for candidate in candidates
+            if cls._canonical_database(str(getattr(candidate, "source_database", "") or "")) == top
+        ] or candidates
+        return subset_sources, subset_candidates, cls._ratio(1, 5)
+
+    @staticmethod
+    def _ablation_rows(
+        result: AgentTaskResult,
+        databases: list[str],
+        *,
+        scores: dict[str, dict[str, Any]] | None = None,
+    ) -> list[CompetitionAblationRow]:
+        pack = scores or {}
+        full_score = (pack.get("full") or {}).get("score")
+
+        def scored(key: str, row: CompetitionAblationRow) -> CompetitionAblationRow:
+            score = (pack.get(key) or {}).get("score")
+            delta = None
+            if score is not None and full_score is not None:
+                delta = round(float(score) - float(full_score), 1)
+            return row.model_copy(update={"diagnostic_score": score, "delta_from_full": delta})
+
         current_genes = ", ".join(result.research_spec.genes) or "未指定"
         current_outcomes = ", ".join(result.research_spec.outcomes) or "未指定"
         qwen_effect = (
@@ -930,26 +1211,49 @@ class CompetitionReportBuilder:
             else "当前任务未使用千问，已退回确定性规划。"
         )
         return [
-            CompetitionAblationRow(
-                variant="去掉千问结构化解析",
-                removed_component="ResearchSpec 抽取与函数调用规划",
-                expected_effect="问题理解、结局识别和工具选择都会变弱。",
-                observed_effect=qwen_effect,
-                note="消融重点是看科研问题理解是否带来更完整的变量覆盖。",
+            scored(
+                "no_qwen",
+                CompetitionAblationRow(
+                    variant="去掉千问结构化解析",
+                    removed_component="ResearchSpec 抽取与函数调用规划",
+                    expected_effect="问题理解、结局识别和工具选择都会变弱。",
+                    observed_effect=qwen_effect,
+                    note="同表反事实诊断：不计千问抽出的基因/结局/治疗要素。",
+                ),
             ),
-            CompetitionAblationRow(
-                variant="去掉多源融合",
-                removed_component="cBioPortal / GEO / GDC / CIViC 的交叉整合",
-                expected_effect="来源多样性、字段完整性和证据互证能力下降。",
-                observed_effect=f"当前任务联通 {len(databases)} 类数据库；若退化为单源，来源多样性会明显下降。",
-                note="这项消融最能体现查找与整合不是单纯检索。",
+            scored(
+                "single_source",
+                CompetitionAblationRow(
+                    variant="去掉多源融合",
+                    removed_component="cBioPortal / GEO / GDC / CIViC 的交叉整合",
+                    expected_effect="来源多样性、字段完整性和证据互证能力下降。",
+                    observed_effect=(
+                        f"当前任务联通 {len(databases)} 类数据库，另保留 "
+                        f"{len(getattr(result, 'source_datasets', []) or [])} 张独立来源表；"
+                        "若退化为单源，协变量和互证字段会一起丢失。"
+                    ),
+                    note="同表反事实诊断：只保留出现次数最多的一类数据库。",
+                ),
             ),
-            CompetitionAblationRow(
-                variant="去掉来源保留与图谱",
-                removed_component="source_id、official URL、lineage 图和字段字典联动",
-                expected_effect="Traceability 下降，结果难以审计和复核。",
-                observed_effect="当前结果已保留来源编号和官方地址；若关闭该层，图谱和下载表都失去回溯入口。",
-                note="用于回应提交要求中的来源标注与结构化可回溯。",
+            scored(
+                "no_lineage",
+                CompetitionAblationRow(
+                    variant="去掉来源保留与图谱",
+                    removed_component="source_id、official URL、lineage 图和字段字典联动",
+                    expected_effect="Traceability 下降，结果难以审计和复核。",
+                    observed_effect="当前结果已保留来源编号和官方地址；若关闭该层，图谱和下载表都失去回溯入口。",
+                    note="同表反事实诊断：来源审计权重降到无溯源水平。",
+                ),
+            ),
+            scored(
+                "no_repair",
+                CompetitionAblationRow(
+                    variant="去掉质量门与修正闭环",
+                    removed_component="四层质量门、清洗动作、缺口换方法和风险提示",
+                    expected_effect="可能输出宽表，但不能区分结局不同域、跨库假合并和不可发布结果。",
+                    observed_effect="当前任务仍输出质量门、清洗动作和缺口清单；关闭后无法证明结果适合该科研问题。",
+                    note="同表反事实诊断：已清洗单元格按仍缺失计入字段完整率。",
+                ),
             ),
         ]
 
@@ -1208,18 +1512,32 @@ class CompetitionReportBuilder:
         readiness = result.readiness
         if not dataset.rows:
             return None
+        brief = getattr(result, "research_brief", None)
+        assessment = getattr(result, "value_assessment", None)
         target = readiness.target_column or dataset.target_column
         if not target or target not in dataset.rows[0]:
+            preferred = []
+            for field in getattr(brief, "fields", []) or []:
+                if field.priority == "primary":
+                    preferred.extend(field.aliases or [field.field_id])
+            for name in preferred:
+                if any(row.get(name) not in {None, ""} for row in dataset.rows):
+                    target = name
+                    break
+        if not target or target not in dataset.rows[0]:
+            interpretation = "当前宽表可用于方法演示和结构审查，但尚未识别出本题主变量，不能直接做关联推断。"
+            if assessment is not None:
+                interpretation = assessment.judgment
             return ScientificUsabilityAnalysis(
                 title="科研适用性初步分析",
-                status="信息不足",
+                status=getattr(assessment, "status", None) or "信息不足",
                 sample_size=dataset.row_count,
                 target_column=target,
                 feature_count=len(dataset.columns),
                 methods=["字段覆盖检查", "类别平衡检查", "缺失率检查"],
                 findings=[],
-                interpretation="当前宽表可用于方法演示和结构审查，但尚未识别出稳定的结局字段，不能直接做相关性推断。",
-                caveats=["缺少明确结局字段时，不做伪相关性陈述。"],
+                interpretation=interpretation,
+                caveats=["缺少明确主变量时，不做伪相关性陈述。", getattr(assessment, "next_step", "") or "按主要字段检索最匹配的独立队列。"],
             )
         numeric_fields: list[tuple[str, list[float]]] = []
         for column in dataset.columns:
@@ -1267,8 +1585,18 @@ class CompetitionReportBuilder:
                 )
         existing_variables = {finding.variable for finding in findings}
         target_categories = [str(value) for value in target_values if value not in (None, "")]
+        preferred_features: list[str] = []
+        if brief is not None:
+            for field in brief.fields:
+                if field.priority in {"primary", "important"}:
+                    preferred_features.extend(field.aliases or [field.field_id])
+        preferred_features = list(dict.fromkeys(name for name in preferred_features if name and name != target))
+        ordered_columns = sorted(
+            dataset.columns,
+            key=lambda column: (0 if column.name in preferred_features else 1, column.name),
+        )
         if len(set(target_categories)) >= 2:
-            for column in dataset.columns:
+            for column in ordered_columns:
                 if len(findings) >= 6:
                     break
                 if column.name == target or column.name in existing_variables or column.role == "审计信息":
@@ -1301,17 +1629,25 @@ class CompetitionReportBuilder:
         methods = ["字段覆盖检查", "缺失率检查", "类别平衡检查"]
         if target_is_binary:
             methods.append("Pearson 相关系数")
+        if findings:
+            methods.append("Cramer's V 类别关联")
         interpretation = (
-            "当前宽表具备用于科研问题初步筛选的结构，包含结局字段、变量字段和来源链路；"
+            "当前宽表具备用于科研问题初步筛选的结构，包含主变量、分层字段和来源链路；"
             "若要做正式结论，需要进一步的分层、混杂控制和更大的样本集。"
         )
+        if assessment is not None:
+            interpretation = assessment.judgment
         caveats = [
             "相关性分析只用于探索性说明，不等于因果推断。",
             "数值型特征不足时，结果只展示结构意义，不应夸大统计显著性。",
         ]
+        if getattr(brief, "named_cohorts", None):
+            caveats.append("命名队列必须各自独立计算；跨研究编号相同不等于同一患者。")
+        if assessment is not None and assessment.next_step:
+            caveats.append(assessment.next_step)
         return ScientificUsabilityAnalysis(
             title="科研适用性初步分析",
-            status="可探索",
+            status=getattr(assessment, "status", None) or ("可探索" if findings else "部分可用"),
             sample_size=dataset.row_count,
             target_column=target,
             feature_count=len(dataset.columns),

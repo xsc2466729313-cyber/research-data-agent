@@ -114,6 +114,17 @@ class AgentDatasetExportService:
             "columns": [column.model_dump(mode="json") for column in result.modeling_dataset.columns],
             "rows": result.modeling_dataset.rows,
             "row_count": result.modeling_dataset.row_count,
+            "source_datasets": [
+                {
+                    "name": item.name,
+                    "dataset_role": item.dataset_role,
+                    "study_key": item.study_key,
+                    "row_count": item.row_count,
+                    "columns": [column.model_dump(mode="json") for column in item.columns],
+                    "rows": item.rows,
+                }
+                for item in result.source_datasets
+            ],
         }
         return json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
 
@@ -166,6 +177,18 @@ class AgentDatasetExportService:
         data_sheet.freeze_panes = "A2"
         data_sheet.auto_filter.ref = data_sheet.dimensions
 
+        for index, companion in enumerate(result.source_datasets, start=1):
+            title = AgentDatasetExportService._sheet_title(f"来源{index}_{companion.study_key or companion.name}")
+            sheet = workbook.create_sheet(title)
+            headers = [column.name for column in companion.columns]
+            sheet.append(headers)
+            for row in companion.rows:
+                sheet.append([self._scalar(row.get(name)) for name in headers])
+            if headers:
+                self._style_table(sheet, len(headers))
+                sheet.freeze_panes = "A2"
+                sheet.auto_filter.ref = sheet.dimensions
+
         dictionary = workbook.create_sheet("字段字典")
         dictionary.append(["字段名", "中文标注", "数据类型", "科研用途", "来源字段", "说明"])
         for column in columns:
@@ -194,6 +217,10 @@ class AgentDatasetExportService:
             ("研究变量数", result.readiness.feature_count),
             ("研究结局字段", result.readiness.target_column or "未识别"),
             ("研究结局是否匹配", "是" if result.readiness.target_match else "否"),
+            (
+                "研究结局匹配率",
+                "未计算" if result.readiness.target_match_rate is None else f"{result.readiness.target_match_rate:.1%}",
+            ),
             (
                 "研究结局完整率",
                 "未计算" if result.readiness.target_missing_rate is None else f"{1 - result.readiness.target_missing_rate:.1%}",
@@ -478,7 +505,12 @@ class AgentDatasetExportService:
             for metric in report.metrics:
                 competition.append(["指标", f"{metric.name}｜{metric.display_value}｜{metric.target}｜{metric.detail}"])
             for row in report.ablation_rows:
-                competition.append(["消融", f"{row.variant}｜{row.removed_component}｜{row.expected_effect}｜{row.observed_effect}｜{row.note}"])
+                score = "未计算" if row.diagnostic_score is None else f"{row.diagnostic_score:.1f}"
+                delta = "" if row.delta_from_full is None else f"｜delta={row.delta_from_full:.1f}"
+                competition.append(["消融", f"{row.variant}｜{score}{delta}｜{row.removed_component}｜{row.expected_effect}｜{row.observed_effect}｜{row.note}"])
+            for row in report.variant_scores:
+                score = "未计算" if row.diagnostic_score is None else f"{row.diagnostic_score:.1f}"
+                competition.append(["对照变体", f"{row.label}｜{score}｜{row.status}｜{row.note}"])
             for layer in report.rag_layers:
                 competition.append(["混合RAG", f"{layer.layer}｜{layer.implementation}｜{layer.why_it_matters}｜{layer.observable_effect}"])
             for node in report.rag_flow_nodes:
@@ -524,6 +556,11 @@ class AgentDatasetExportService:
         output = io.BytesIO()
         workbook.save(output)
         return output.getvalue()
+
+    @staticmethod
+    def _sheet_title(name: str) -> str:
+        cleaned = "".join(ch if ch not in r"[]:*?/\ " else "_" for ch in str(name or "来源表"))
+        return cleaned[:31] or "来源表"
 
     @staticmethod
     def _style_table(sheet: Any, column_count: int) -> None:

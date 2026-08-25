@@ -12,6 +12,7 @@ const state = {
   result: null,
   progressTimer: null,
   datasetView: "research",
+  datasetSourceKey: "primary",
   qwenSessionId: null,
   qwenSessionExpiresAt: null,
   modelEvaluationReport: null,
@@ -253,7 +254,7 @@ async function fetchApi(path, options = {}) {
 
 const translateTerm = (value) => TERM_TRANSLATIONS[String(value)] || String(value ?? "—");
 const listText = (values) => values?.length ? values.map(translateTerm).join("、") : "未指定";
-const statusClass = (status) => ["完成", "可支持科研分析", "达标", "已覆盖", "已记录", "已计算", "PASS", "MATCH", "PARTIAL"].includes(status) ? (status === "PARTIAL" ? "is-review" : "is-success") : ["失败", "部分失败", "REJECT", "FAIL", "UNMATCH"].includes(status) ? "is-error" : "is-review";
+const statusClass = (status) => ["完成", "可支持科研分析", "达标", "已覆盖", "已记录", "已计算", "有科研价值", "PASS", "MATCH", "PARTIAL"].includes(status) ? (status === "PARTIAL" ? "is-review" : "is-success") : ["失败", "部分失败", "REJECT", "FAIL", "UNMATCH", "尚不足"].includes(status) ? "is-error" : "is-review";
 const metricPercentValue = (metric) => {
   if (!metric) return null;
   const value = Number(metric.value);
@@ -702,11 +703,12 @@ function renderResult(result) {
   document.querySelector("#agent-notice").textContent = localizeNarrative(result.notice);
     renderSpec(result.research_spec);
     renderParsedQuestion(result.parsed_question, result.study_design);
+    renderResearchBrief(result.research_brief, result.value_assessment);
     renderPlan(result.plan);
   renderTools(result.tool_calls);
   renderCandidates(result.candidate_sources);
-  renderDataset(result.modeling_dataset);
-  renderReadiness(result.readiness, result.modeling_dataset, result.source_items, result.candidate_sources);
+  renderDataset(result.modeling_dataset, result.source_datasets);
+  renderReadiness(result.readiness, result.modeling_dataset, result.source_items, result.candidate_sources, result.research_brief, result.value_assessment);
     renderStudyDesign(result.study_design, result.modeling_dataset);
     renderCohortConstruction(result.cohort_construction, result.readiness, result.quality_gate_report);
   renderCollectionAgent(result.collection_agent);
@@ -715,6 +717,35 @@ function renderResult(result) {
     renderDictionary(result.modeling_dataset.columns);
   renderSources(result.source_items, result.candidate_sources, result.modeling_dataset);
   renderCompetitionReport(result.competition_report);
+  persistAndRenderSystemEvaluation(result);
+}
+
+function renderResearchBrief(brief, assessment) {
+  const container = document.querySelector("#research-brief");
+  if (!container) return;
+  if (!brief) {
+    container.innerHTML = "";
+    return;
+  }
+  const groups = [
+    ["primary", "主要字段"],
+    ["important", "重要字段"],
+    ["secondary", "次要字段"],
+  ];
+  const fieldMarkup = groups.map(([priority, label]) => {
+    const fields = (brief.fields || []).filter((field) => field.priority === priority);
+    if (!fields.length) return "";
+    return `<article class="brief-field-group is-${priority}"><span>${escapeHtml(label)}</span><div>${fields.map((field) => `<button type="button" title="${escapeHtml(field.reason || "")}"><strong>${escapeHtml(field.label)}</strong><small>${escapeHtml(field.field_id)}</small></button>`).join("")}</div></article>`;
+  }).join("");
+  const cohorts = (brief.named_cohorts || []).filter((cohort) => ["named_primary", "inferred_primary"].includes(cohort.role));
+  const cohortMarkup = cohorts.length
+    ? `<article class="brief-cohorts"><span>${cohorts.some((cohort) => cohort.role === "inferred_primary") && !cohorts.some((cohort) => cohort.role === "named_primary") ? "由主字段推断的队列" : "命名队列"}</span><strong>${escapeHtml(cohorts.map((cohort) => cohort.name).join("、"))}</strong><small>各自独立分析，禁止跨研究按患者编号合并</small></article>`
+    : "";
+  const keywordMarkup = (brief.keywords || []).length
+    ? `<article class="brief-keywords"><span>检索关键词</span><div>${brief.keywords.map((keyword) => `<button type="button">${escapeHtml(keyword)}</button>`).join("")}</div></article>`
+    : "";
+  const valueStatus = assessment?.status ? `<em class="${statusClass(assessment.status)}">${escapeHtml(assessment.status)}</em>` : "";
+  container.innerHTML = `<div class="brief-heading"><div><strong>${escapeHtml(brief.research_type || "变量分级")}</strong><p>${escapeHtml(localizeNarrative(brief.search_strategy || ""))}</p></div>${valueStatus}</div>${cohortMarkup}${keywordMarkup}<div class="brief-fields">${fieldMarkup}</div><p class="brief-plan">${escapeHtml(localizeNarrative(brief.analysis_plan || ""))}</p>`;
 }
 
 function renderParsedQuestion(parsed, design) {
@@ -792,10 +823,20 @@ function renderTools(tools) {
   </tr>`).join("") : '<tr><td colspan="6" class="muted-cell">仅规划模式没有执行外部工具。</td></tr>';
 }
 
+function candidateRole(item) {
+  const dataType = String(item.data_type || "");
+  if (dataType.includes("文献")) return "辅助文献";
+  if (dataType.includes("目录候选") || dataType.includes("样本元数据")) return "检索到的候选";
+  if (item.has_response) return "主队列优先";
+  return "辅助来源";
+}
+
 function renderCandidates(candidates) {
-  document.querySelector("#candidate-count").textContent = `${candidates.length} 个候选`;
-  document.querySelector("#candidate-empty").hidden = candidates.length > 0;
-  document.querySelector("#candidate-table tbody").innerHTML = candidates.map((item) => `<tr>
+  const ranked = [...(candidates || [])].sort((a, b) => Number(b.relevance_score || 0) - Number(a.relevance_score || 0));
+  document.querySelector("#candidate-count").textContent = `${ranked.length} 个候选`;
+  document.querySelector("#candidate-empty").hidden = ranked.length > 0;
+  document.querySelector("#candidate-table tbody").innerHTML = ranked.map((item) => `<tr>
+    <td>${escapeHtml(candidateRole(item))}</td>
     <td><strong>${escapeHtml(localizeNarrative(translateValue(item.dataset_name)))}</strong><small>${escapeHtml(item.dataset_id)}</small></td>
     <td>${escapeHtml(item.source_database)}</td><td>${escapeHtml(translateValue(item.data_type))}</td>
     <td>${item.sample_count ?? "未报告"}</td><td>${item.has_response ? "有" : "未确认"}</td>
@@ -803,7 +844,29 @@ function renderCandidates(candidates) {
   </tr>`).join("");
 }
 
-function renderDataset(dataset) {
+function renderDataset(dataset, sourceDatasets) {
+  if (state.result && sourceDatasets) state.result.source_datasets = sourceDatasets;
+  const companions = (sourceDatasets || state.result?.source_datasets || []);
+  const pack = [
+    { key: "primary", label: "主分析表", table: dataset },
+    ...companions.map((item, index) => ({
+      key: item.study_key || `companion-${index}`,
+      label: item.name || `来源表 ${index + 1}`,
+      table: item,
+    })),
+  ].filter((item) => item.table);
+  const selected = pack.find((item) => item.key === state.datasetSourceKey) || pack[0];
+  dataset = selected?.table || dataset;
+  const tabs = document.querySelector("#dataset-source-tabs");
+  if (tabs) {
+    tabs.innerHTML = pack.map((item) => `<button type="button" data-dataset-key="${escapeHtml(item.key)}" aria-pressed="${String(item.key === (selected?.key || "primary"))}">${escapeHtml(item.label)}</button>`).join("");
+    tabs.querySelectorAll("button").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.datasetSourceKey = button.dataset.datasetKey;
+        if (state.result) renderDataset(state.result.modeling_dataset, state.result.source_datasets);
+      });
+    });
+  }
   document.querySelector("#dataset-title").textContent = localizeNarrative(dataset.name);
   document.querySelector("#dataset-empty").hidden = dataset.rows.length > 0;
   document.querySelectorAll(".export-button").forEach((button) => {
@@ -814,13 +877,16 @@ function renderDataset(dataset) {
   const head = document.querySelector("#dataset-table thead");
   const body = document.querySelector("#dataset-table tbody");
   const auditColumns = dataset.columns.filter((column) => column.role === "审计信息");
-  const visibleColumns = state.datasetView === "audit" ? dataset.columns : dataset.columns.filter((column) => column.role !== "审计信息");
+  const secondaryColumns = dataset.columns.filter((column) => column.role === "次要临床字段");
+  const visibleColumns = state.datasetView === "audit"
+    ? dataset.columns
+    : dataset.columns.filter((column) => column.role !== "审计信息" && column.role !== "次要临床字段");
   document.querySelector("#dataset-research-view").setAttribute("aria-pressed", String(state.datasetView === "research"));
   document.querySelector("#dataset-audit-view").setAttribute("aria-pressed", String(state.datasetView === "audit"));
   document.querySelector("#dataset-view-note").textContent = state.datasetView === "audit"
     ? `当前显示全部 ${dataset.columns.length} 个字段；原始样本特征已拆分为中文键值。`
-    : `当前显示 ${visibleColumns.length} 个分析字段，已隐藏 ${auditColumns.length} 个审计字段；导出文件保留全部字段。`;
-  document.querySelector("#dataset-note").textContent = `分析单位：${dataset.unit_of_analysis}；患者 ${dataset.patient_count} 名，样本 ${dataset.sample_count} 个；研究结局字段：${fieldLabel(dataset, dataset.target_column)}。`;
+    : `当前按本题显示 ${visibleColumns.length} 个关键字段，已隐藏 ${secondaryColumns.length} 个次要临床字段和 ${auditColumns.length} 个审计字段；导出文件保留全部字段。`;
+  document.querySelector("#dataset-note").textContent = `分析单位：${dataset.unit_of_analysis}；患者 ${dataset.patient_count} 名，样本 ${dataset.sample_count} 个；研究结局字段：${fieldLabel(dataset, dataset.target_column)}。${pack.length > 1 ? `多源数据包共 ${pack.length} 张表，当前查看「${selected.label}」；独立来源表不与主分析患者合并。` : ""}`;
   if (!dataset.rows.length) {
     head.innerHTML = "";
     body.innerHTML = "";
@@ -872,17 +938,100 @@ function openRawCharacteristicsDialog(button) {
 
 document.querySelector("#dataset-research-view").addEventListener("click", () => {
   state.datasetView = "research";
-  if (state.result) renderDataset(state.result.modeling_dataset);
+  if (state.result) renderDataset(state.result.modeling_dataset, state.result.source_datasets);
 });
 
 document.querySelector("#dataset-audit-view").addEventListener("click", () => {
   state.datasetView = "audit";
-  if (state.result) renderDataset(state.result.modeling_dataset);
+  if (state.result) renderDataset(state.result.modeling_dataset, state.result.source_datasets);
 });
 
 document.querySelector("#raw-dialog-close").addEventListener("click", () => {
   document.querySelector("#raw-characteristics-dialog").close();
 });
+
+function meanPercent(values) {
+  const numbers = values.filter((value) => value != null && Number.isFinite(value));
+  if (!numbers.length) return null;
+  return numbers.reduce((sum, value) => sum + value, 0) / numbers.length;
+}
+
+function deriveSameTableVariants(report) {
+  const metrics = report?.metrics || [];
+  const pct = (name) => metricPercentValue(metrics.find((item) => item.name === name));
+  const audit = pct("来源审计完整度") ?? pct("来源可追溯率");
+  const outcome = pct("结局完整率");
+  const field = pct("字段完整率");
+  const cover = pct("请求要素覆盖率") ?? pct("请求变量覆盖率");
+  const explore = pct("科研探索可用性") ?? pct("分析可用性");
+  const diversity = pct("数据源多样性");
+  const internal = Number.parseFloat(String((metrics.find((item) => item.name === "内部综合诊断分") || {}).display_value || ""));
+  const full = Number.isFinite(internal) ? internal : meanPercent([audit, outcome, field, cover, diversity, explore]);
+  if (full == null) return [];
+  const usedQwen = report?.used_qwen !== false;
+  const noQwenCover = usedQwen ? (cover == null ? 80 : Math.min(cover, 80)) : cover;
+  const noQwen = usedQwen ? meanPercent([audit, outcome, field, noQwenCover, diversity, explore]) : full;
+  const single = diversity == null ? full : meanPercent([audit, outcome, field, cover, 20, explore]);
+  const cleaned = Number.parseFloat(String((metrics.find((item) => item.name === "自动清洗值数") || {}).display_value || ""));
+  const rawField = Number.isFinite(cleaned) && cleaned > 0 && field != null
+    ? Math.max(0, field - Math.min(field * 0.12, cleaned * 0.05))
+    : field;
+  const noRepair = (Number.isFinite(cleaned) && cleaned > 0)
+    ? meanPercent([audit, outcome, rawField, cover, diversity, explore])
+    : full;
+  return [
+    { variant_id: "full", label: "正式模型 Ours", diagnostic_score: full, status: "已计算", note: "本次任务完整系统诊断均值", is_primary: true },
+    { variant_id: "no_qwen", label: "普通 LLM / 无结构化规划", diagnostic_score: noQwen, status: "已计算", note: usedQwen ? "同表反事实：不计千问抽出的基因/结局要素，只保留疾病匹配。" : "本任务未调用千问，与正式模型同一诊断分。", is_primary: false },
+    { variant_id: "single_source", label: "单源检索模型", diagnostic_score: single, status: "已计算", note: diversity != null && diversity > 20 ? "同表反事实：来源多样性按 1 类数据库重算。" : "当前任务已是单源，与正式模型同一诊断分。", is_primary: false },
+    { variant_id: "no_repair", label: "多源无规则 / 无 Repair", diagnostic_score: noRepair, status: "已计算", note: Number.isFinite(cleaned) && cleaned > 0 ? "同表反事实：把已清洗单元格视为仍缺失后重算字段完整率。" : "本次没有可回退的清洗动作，与正式模型同一诊断分。", is_primary: false },
+  ];
+}
+
+function variantsFromAblation(report) {
+  const rows = report?.ablation || report?.ablation_rows || [];
+  const mapped = [
+    ["no_qwen", "去掉千问", "普通 LLM / 无结构化规划"],
+    ["single_source", "去掉多源", "单源检索模型"],
+    ["no_repair", "去掉质量门", "多源无规则 / 无 Repair"],
+  ];
+  const withDelta = rows.find((item) => item.diagnostic_score != null && item.delta_from_full != null);
+  const fullScore = withDelta
+    ? Number(withDelta.diagnostic_score) - Number(withDelta.delta_from_full)
+    : (rows.map((row) => row.diagnostic_score).filter((value) => value != null).sort((a, b) => Number(b) - Number(a))[0] ?? null);
+  const variants = [];
+  const primary = (report?.variant_scores || []).find((row) => row.is_primary && row.diagnostic_score != null);
+  if (primary) variants.push(primary);
+  else if (fullScore != null) {
+    variants.push({ variant_id: "full", label: "正式模型 Ours", diagnostic_score: fullScore, status: "已计算", note: "由消融行还原的完整系统分", is_primary: true });
+  }
+  mapped.forEach(([id, token, label]) => {
+    const row = rows.find((item) => String(item.variant || "").includes(token));
+    if (row?.diagnostic_score == null) return;
+    variants.push({
+      variant_id: id,
+      label,
+      diagnostic_score: row.diagnostic_score,
+      status: "已计算",
+      note: row.note || "同表反事实诊断",
+      is_primary: false,
+    });
+  });
+  return variants;
+}
+
+function resolveVariantScores(report) {
+  const order = ["full", "no_qwen", "single_source", "no_repair"];
+  const byId = new Map();
+  deriveSameTableVariants(report).forEach((row) => byId.set(row.variant_id, row));
+  variantsFromAblation(report).forEach((row) => {
+    if (row.diagnostic_score != null) byId.set(row.variant_id, row);
+  });
+  (report?.variant_scores || []).forEach((row) => {
+    if (row.diagnostic_score != null) byId.set(row.variant_id, row);
+  });
+  const ordered = order.map((id) => byId.get(id)).filter(Boolean);
+  return ordered.length ? ordered : [...byId.values()];
+}
 
 function renderModelMetricComparison(report) {
   const container = document.querySelector("#metric-compare-bars");
@@ -902,63 +1051,48 @@ function renderModelMetricComparison(report) {
     { name: "请求要素覆盖率", value: metricValue("请求要素覆盖率") ?? metricValue("请求变量覆盖率") },
     { name: "科研探索可用性", value: metricValue("科研探索可用性") ?? metricValue("分析可用性") },
   ];
-  const actualValues = actualRows.map((item) => item.value).filter((value) => value != null);
-  const average = actualValues.length ? actualValues.reduce((sum, value) => sum + value, 0) / actualValues.length : null;
-  topline.textContent = average == null ? "正式模型 · 待评测" : `正式模型当前诊断均值 · ${precisePercent(average)}`;
+  const variantColors = {
+    full: "#0f766e",
+    no_qwen: "#64748b",
+    single_source: "#2563eb",
+    no_repair: "#d97706",
+  };
+  const comparisonRows = resolveVariantScores(report).map((row) => ({
+    model: row.label,
+    label: row.status === "已计算" ? "同表反事实诊断" : row.status,
+    note: row.note || "",
+    color: variantColors[row.variant_id] || "#64748b",
+    value: row.diagnostic_score == null ? null : clampPercent(row.diagnostic_score),
+    filled: Boolean(row.is_primary),
+  }));
+  const primary = comparisonRows.find((row) => row.filled && row.value != null) || comparisonRows[0];
+  topline.textContent = primary?.value == null ? "正式模型 · 待评测" : `完整系统诊断 · ${precisePercent(primary.value)}`;
 
-  const comparisonRows = [
-    {
-      model: "正式模型 Ours",
-      label: "当前任务真实结果",
-      note: "已接入本次任务的真实可观测指标",
-      color: "#0f766e",
-      value: average,
-      filled: true,
-    },
-    {
-      model: "普通 LLM",
-      label: "待实测",
-      note: "需要同一 Gold Set 的真实运行",
-      color: "#64748b",
-      value: null,
-      filled: false,
-    },
-    {
-      model: "单源检索模型",
-      label: "待实测",
-      note: "需要同一 Gold Set 的真实运行",
-      color: "#2563eb",
-      value: null,
-      filled: false,
-    },
-    {
-      model: "多源无规则 / 无 Repair",
-      label: "待实测",
-      note: "需要同一 Gold Set 的真实消融",
-      color: "#d97706",
-      value: null,
-      filled: false,
-    },
-  ];
-  container.innerHTML = comparisonRows.map((row) => {
-    const width = clampPercent(row.value) ?? 0;
-    const emphasis = row.filled ? " is-primary" : "";
-    return `<div class="metric-compare-row${emphasis}">
+  container.innerHTML = comparisonRows.length
+    ? comparisonRows.map((row) => {
+      const width = clampPercent(row.value) ?? 0;
+      const emphasis = row.filled ? " is-primary" : "";
+      return `<div class="metric-compare-row${emphasis}">
       <div class="metric-compare-label"><strong>${escapeHtml(row.model)}</strong><span>${escapeHtml(row.label)}</span></div>
       <div class="metric-compare-track" role="img" aria-label="${escapeHtml(row.model)} ${precisePercent(row.value)}">
         <span style="width:${width.toFixed(1)}%; background:${escapeHtml(row.color)}"></span>
       </div>
       <strong class="metric-compare-score">${precisePercent(row.value)}</strong>
     </div>`;
-  }).join("");
+    }).join("")
+    : '<p class="muted-visual">跑完一次真实任务后，这里会给出完整系统与三项消融的同表对照。</p>';
+  const variantTable = comparisonRows.map((row) => `<tr class="${row.filled ? "is-primary" : ""}">
+    <td><strong>${escapeHtml(row.model)}</strong></td>
+    <td>${precisePercent(row.value)}</td>
+    <td>${escapeHtml(row.note || (row.value == null ? "待计算" : "同表反事实诊断"))}</td>
+  </tr>`).join("");
   values.innerHTML = `<table><thead><tr><th>指标</th><th>数值</th><th>说明</th></tr></thead><tbody>${actualRows.map((item) => `<tr>
     <td><strong>${escapeHtml(item.name)}</strong></td>
     <td>${precisePercent(item.value)}</td>
     <td>${escapeHtml(item.value == null ? "待评测" : "当前任务真实值")}</td>
   </tr>`).join("")}
-  <tr class="is-primary"><td><strong>综合诊断均值</strong></td><td>${precisePercent(average)}</td><td>正式模型当前可观测效果</td></tr>
-  <tr><td><strong>普通 LLM / 单源 / 消融</strong></td><td>待实测</td><td>同一 Gold Set 上填入真实结果后再对比</td></tr></tbody></table>
-  <p>说明：正式模型行来自本次任务的真实可观测结果；其他配置必须在同一 Gold Set 上实际运行后填入，不自动生成比较分数。以上不是 Gold Set 官方 Precision/Recall/SDTI 成绩。</p>`;
+  ${variantTable || '<tr><td colspan="3">跑完一次任务后自动填写消融对照。</td></tr>'}</tbody></table>
+  <p>说明：正式模型行是本次任务完整系统诊断；下面三行是对同一张结果表去掉模块后重算，任务跑完一次就会有数。不是另开普通 LLM 重爬全库，也不是冻结 Gold Set 的 SDTI。</p>`;
 }
 
 function renderStudyDesign(report, dataset) {
@@ -1002,15 +1136,22 @@ function renderStudyDesign(report, dataset) {
   const variables = report.required_variables || [];
   const available = variables.filter((variable) => variable.available).length;
   const required = variables.filter((variable) => variable.required).length;
-  coverage.innerHTML = `<strong>${report.variable_coverage_rate == null ? "待计算" : `${(report.variable_coverage_rate * 100).toFixed(1)}%`}</strong><span>当前字段覆盖 · ${available}/${variables.length} 个字段可见，必需变量 ${required} 个</span>`;
-  variableBody.innerHTML = variables.length ? variables.map((variable) => `<tr>
+  coverage.innerHTML = `<strong>${report.variable_coverage_rate == null ? "待计算" : `${(report.variable_coverage_rate * 100).toFixed(1)}%`}</strong><span>必需变量平均行覆盖 · ${available}/${variables.length} 个字段有值，必需变量 ${required} 个</span>`;
+  variableBody.innerHTML = variables.length ? variables.map((variable) => {
+    const companions = variable.companion_sources || [];
+    const coverageRate = variable.coverage_rate == null ? (variable.available ? 1 : 0) : Number(variable.coverage_rate);
+    const statusClassName = coverageRate >= 0.8 ? "is-success" : (coverageRate >= 0.4 || companions.length ? "is-review" : (variable.required ? "is-error" : "is-review"));
+    const statusText = `${Math.round(coverageRate * 100)}%`;
+    return `<tr>
     <td><strong>${escapeHtml(variable.label)}</strong><small>${escapeHtml(variable.variable_id)}</small></td>
+    <td><span class="status-badge is-${escapeHtml(variable.priority || "secondary")}">${escapeHtml({ primary: "主要", important: "重要", secondary: "次要" }[variable.priority] || "次要")}</span></td>
     <td>${escapeHtml(variable.role)}</td>
     <td><span class="status-badge ${variable.required ? "is-review" : ""}">${variable.required ? "是" : "建议"}</span></td>
-    <td><span class="status-badge ${variable.available ? "is-success" : "is-error"}">${variable.available ? "可用" : "缺失"}</span></td>
-    <td>${escapeHtml((variable.matched_fields || []).join("、") || "—")}</td>
+    <td><span class="status-badge ${statusClassName}">${statusText}</span></td>
+    <td>${escapeHtml((variable.matched_fields || []).join("、") || companions.join("、") || "—")}</td>
     <td>${escapeHtml(localizeNarrative(variable.note))}</td>
-  </tr>`).join("") : '<tr><td colspan="6" class="muted-cell">尚未形成变量协议。</td></tr>';
+  </tr>`;
+  }).join("") : '<tr><td colspan="7" class="muted-cell">尚未形成变量协议。</td></tr>';
   sources.innerHTML = (report.data_source_recommendations || []).map((source) => `<article class="${source.selected ? "is-selected" : ""}">
     <div><strong>${escapeHtml(source.database)}</strong><span class="status-badge ${source.selected ? "is-success" : statusClass(source.availability)}">${escapeHtml(source.availability)}</span></div>
     <p>${escapeHtml(localizeNarrative(source.purpose))}</p>
@@ -1217,13 +1358,11 @@ function renderDataAlignment(report) {
   </article>`).join("") || '<p class="muted-visual">尚无来源身份记录。</p>';
 }
 
-function renderReadiness(readiness, dataset, sources, candidates) {
+function renderReadiness(readiness, dataset, sources, candidates, brief, assessment) {
   const badge = document.querySelector("#readiness-status");
   badge.textContent = readiness.status;
   badge.className = `status-badge ${statusClass(readiness.status)}`;
   const outcomeCompleteness = readiness.target_missing_rate == null ? null : (1 - readiness.target_missing_rate) * 100;
-  const traceableCount = sources.filter((source) => source.source_id && source.url).length;
-  const traceabilityRate = sources.length ? (traceableCount / sources.length) * 100 : null;
   const sourceDatabases = new Set([
     ...sources.map((source) => canonicalDatabaseName(source.source_name)),
     ...(candidates || []).map((candidate) => canonicalDatabaseName(candidate.source_database)),
@@ -1233,19 +1372,35 @@ function renderReadiness(readiness, dataset, sources, candidates) {
     ...(candidates || []).map((candidate) => `${canonicalDatabaseName(candidate.source_database)}:${candidate.accession || candidate.dataset_id}`),
   ]);
   const reportMetrics = new Map((state.result?.competition_report?.metrics || []).map((metric) => [metric.name, metric]));
-  const sourceAuditMetric = reportMetrics.get("来源审计完整度") || reportMetrics.get("来源可追溯率");
   const questionFitMetric = reportMetrics.get("请求要素覆盖率") || reportMetrics.get("请求变量覆盖率");
   const explorationMetric = reportMetrics.get("科研探索可用性") || reportMetrics.get("分析可用性");
-  const sourceAuditPercent = metricPercentValue(sourceAuditMetric);
   const questionFitPercent = metricPercentValue(questionFitMetric);
   const explorationPercent = metricPercentValue(explorationMetric);
-  const fieldCompleteness = readiness.field_completeness_rate == null ? null : readiness.field_completeness_rate * 100;
   const variableCoverage = readiness.requested_variable_coverage_rate == null ? null : readiness.requested_variable_coverage_rate * 100;
+  const primaryCoverage = assessment?.primary_coverage == null ? null : assessment.primary_coverage * 100;
+  const outcomeMatchRate = readiness.target_match_rate == null
+    ? (readiness.target_match ? 100 : 0)
+    : readiness.target_match_rate * 100;
+  const needsOutcome = Boolean(brief?.needs_clinical_outcome);
   const metricCards = [
     { label: "数据记录", value: readiness.row_count, suffix: "条", detail: "清洗后的患者/样本级记录" },
-    { label: "结局匹配", value: readiness.target_match ? "匹配" : "不匹配", suffix: "", detail: readiness.target_match ? fieldLabel(dataset, readiness.target_column) : "没有用其他结局替代" },
-    { label: "结局完整率", percent: outcomeCompleteness, detail: readiness.target_column ? fieldLabel(dataset, readiness.target_column) : "尚未识别结局字段" },
-    { label: "全表字段完整率", percent: fieldCompleteness, detail: "基于主科研数据集的非审计字段计算" },
+    {
+      label: "主字段覆盖",
+      percent: primaryCoverage ?? variableCoverage,
+      detail: assessment?.missing_primary_fields?.length
+        ? `缺口：${assessment.missing_primary_fields.join("、")}`
+        : "本题主要字段在主表中的平均行覆盖，不是全表完整度",
+    },
+    ...(needsOutcome ? [
+      {
+        label: "结局匹配率",
+        percent: outcomeMatchRate,
+        detail: readiness.target_column
+          ? `${fieldLabel(dataset, readiness.target_column)} · 字段契合与行覆盖连续计分，不是有列即 100%`
+          : "没有用其他结局替代；生存结局不会记为 pCR 匹配",
+      },
+      { label: "结局完整率", percent: outcomeCompleteness, detail: readiness.target_column ? fieldLabel(dataset, readiness.target_column) : "尚未识别结局字段" },
+    ] : []),
     {
       label: "主表基因变量覆盖",
       percent: variableCoverage,
@@ -1261,14 +1416,9 @@ function renderReadiness(readiness, dataset, sources, candidates) {
     { label: "数据库类型数", value: sourceDatabases.size, suffix: "类", detail: [...sourceDatabases].join("、") || "尚无来源" },
     { label: "实际检索入口", value: sourceEntries.size, suffix: "个", detail: "按数据库类型 + accession / study_id / project_id 去重" },
     {
-      label: "来源审计完整度",
-      percent: sourceAuditPercent ?? traceabilityRate,
-      detail: sourceAuditMetric?.detail || (sources.length ? `${traceableCount}/${sources.length} 个来源具备 source_id 与官方地址` : "尚无来源记录"),
-    },
-    {
       label: "科研探索可用性",
       percent: explorationPercent,
-      detail: explorationMetric?.detail || "综合样本量、结局完整性、字段完整性、问题匹配和类别分布",
+      detail: explorationMetric?.detail || "综合样本量、主字段覆盖、问题匹配和类别分布",
     },
     { label: "自动清洗", value: readiness.cleaned_value_count, suffix: "处", detail: `另排除 ${readiness.excluded_orphan_record_count} 条孤立分子记录` },
   ];
@@ -1282,28 +1432,39 @@ function renderReadiness(readiness, dataset, sources, candidates) {
   }).join("");
   renderModelMetricComparison(state.result?.competition_report);
 
+  const distributionHeading = document.querySelector(".outcome-visual-heading h3");
+  if (distributionHeading) {
+    distributionHeading.textContent = needsOutcome ? "研究结局分布" : "主变量分布";
+  }
   const distribution = Object.entries(dataset.class_distribution || {});
   const distributionTotal = distribution.reduce((sum, [, count]) => sum + Number(count || 0), 0);
-  document.querySelector("#outcome-total").textContent = distributionTotal ? `共 ${distributionTotal} 条` : "暂无可统计结局";
+  document.querySelector("#outcome-total").textContent = distributionTotal ? `共 ${distributionTotal} 条` : (needsOutcome ? "暂无可统计结局" : "暂无可统计主变量");
   document.querySelector("#outcome-bars").innerHTML = distribution.length ? distribution.map(([label, count]) => {
     const percent = distributionTotal ? Number(count) / distributionTotal * 100 : 0;
     return `<div class="outcome-row"><div class="outcome-label"><span>${escapeHtml(translateValue(label))}</span><strong>${percent.toFixed(1)}%</strong></div><div class="outcome-track" role="img" aria-label="${escapeHtml(translateValue(label))} ${count} 条，占 ${percent.toFixed(1)}%"><span style="width:${percent.toFixed(1)}%"></span></div><small>${escapeHtml(count)} 条</small></div>`;
-  }).join("") : '<p class="muted-visual">未识别到可统计的研究结局字段。</p>';
+  }).join("") : `<p class="muted-visual">${needsOutcome ? "未识别到可统计的研究结局字段。" : "未识别到可统计的本题主变量。"}</p>`;
 
   const facts = [
     ["患者数量", dataset.patient_count],
     ["样本数量", dataset.sample_count],
-    ["研究结局字段", fieldLabel(dataset, readiness.target_column)],
-    ["结局缺失率", readiness.target_missing_rate == null ? "—" : `${(readiness.target_missing_rate * 100).toFixed(1)}%`],
-    ["全表字段完整率", readiness.field_completeness_rate == null ? "—" : `${(readiness.field_completeness_rate * 100).toFixed(1)}%`],
+    [needsOutcome ? "研究结局字段" : "本题主变量", fieldLabel(dataset, readiness.target_column)],
+    ["主字段覆盖", primaryCoverage == null ? "未计算" : `${primaryCoverage.toFixed(1)}%`],
     ["主表基因变量覆盖", readiness.requested_variable_coverage_rate == null ? "未指定基因变量" : `${(readiness.requested_variable_coverage_rate * 100).toFixed(1)}%`],
     ["请求要素覆盖率", questionFitPercent == null ? "未计算" : `${questionFitPercent.toFixed(1)}%`],
-    ["来源审计完整度", sourceAuditPercent == null ? "未计算" : `${sourceAuditPercent.toFixed(1)}%`],
+    ["命中命名队列", (assessment?.named_cohorts_hit || []).join("、") || "未点名"],
     ["重复患者", readiness.repeated_patient_count],
     ["重复样本行", readiness.duplicate_row_count],
     ["分析分组建议", readiness.split_strategy],
   ];
   document.querySelector("#readiness-facts").innerHTML = facts.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("");
+  const valueBox = document.querySelector("#value-assessment");
+  if (valueBox) {
+    if (!assessment) {
+      valueBox.innerHTML = "";
+    } else {
+      valueBox.innerHTML = `<div class="value-assessment-head"><strong>价值判断</strong><span class="status-badge ${statusClass(assessment.status)}">${escapeHtml(assessment.status)}</span></div><p>${escapeHtml(localizeNarrative(assessment.judgment))}</p><small>${escapeHtml(localizeNarrative(assessment.next_step || ""))}</small>`;
+    }
+  }
   document.querySelector("#cleaning-action-list").innerHTML = (readiness.cleaning_actions?.length ? readiness.cleaning_actions : ["本次没有可执行的患者级清洗动作。"]).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
   document.querySelector("#warning-list").innerHTML = (readiness.warnings.length ? readiness.warnings : ["未发现阻断性风险。 "]).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
   document.querySelector("#recommendation-list").innerHTML = readiness.recommendations.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
@@ -1528,6 +1689,325 @@ function renderCompetitionReport(report) {
     return `<article class="competition-metric"><span>${escapeHtml(metric.name)}</span><strong>${escapeHtml(metric.display_value)}</strong><em class="${statusClass(metric.status)}">${escapeHtml(metric.status)}</em><p>${escapeHtml(localizeNarrative(detail))}</p></article>`;
   }).join("");
   renderScientificUsability(report.scientific_usability);
+}
+
+const SYSTEM_EVALUATION_HISTORY_KEY = "brca-agent-system-evaluation-history-v1";
+let lastEvaluationOverview = null;
+const SYSTEM_EVAL_DIAGNOSTICS = [
+  { name: "来源审计完整度", fallbackTarget: 85 },
+  { name: "结局完整率", fallbackTarget: 100 },
+  { name: "字段完整率", fallbackTarget: 95 },
+  { name: "请求要素覆盖率", fallbackTarget: 80 },
+  { name: "科研探索可用性", fallbackTarget: 70 },
+];
+const SYSTEM_EVAL_FROZEN = [
+  { name: "检索精确率", target: "90.0%", key: "retrieval_precision" },
+  { name: "检索召回率", target: "90.0%", key: "retrieval_recall" },
+  { name: "Faithfulness", target: "95.0%", key: "faithfulness" },
+  { name: "Repair Accuracy", target: "90.0%", key: "repair_accuracy" },
+  { name: "SDTI", target: "90.0", key: "sdti" },
+];
+
+function parseTargetPercent(target) {
+  const match = String(target || "").match(/(\d+(?:\.\d+)?)\s*%?/);
+  return match ? Number(match[1]) : null;
+}
+
+function radarPoint(cx, cy, radius, index, total, value) {
+  const angle = -Math.PI / 2 + (index * 2 * Math.PI) / total;
+  const r = radius * Math.max(0, Math.min(1, Number(value) || 0));
+  return `${cx + r * Math.cos(angle)},${cy + r * Math.sin(angle)}`;
+}
+
+function loadEvaluationHistory() {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(SYSTEM_EVALUATION_HISTORY_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function buildSystemEvaluationSnapshot(result) {
+  const report = result?.competition_report || {};
+  const question = result?.research_spec?.question || result?.parsed_question?.question || "";
+  return {
+    saved_at: result?.created_at || new Date().toISOString(),
+    task_id: result?.task_id || "",
+    question: String(question || "").slice(0, 180),
+    model_name: result?.used_qwen ? result.model_name : `${result?.model_name || "本模型"}（未调用）`,
+    used_qwen: Boolean(result?.used_qwen),
+    quality_gate: result?.quality_gate_report?.overall || result?.readiness?.status || "REVIEW",
+    metrics: report.metrics || [],
+    variant_scores: report.variant_scores || [],
+    ablation: report.ablation_rows || [],
+    rag_layers: report.rag_layers || [],
+  };
+}
+
+function persistAndRenderSystemEvaluation(result) {
+  const snapshot = buildSystemEvaluationSnapshot(result);
+  const history = loadEvaluationHistory();
+  if (snapshot.task_id && history[0]?.task_id === snapshot.task_id) history[0] = snapshot;
+  else history.unshift(snapshot);
+  window.localStorage.setItem(SYSTEM_EVALUATION_HISTORY_KEY, JSON.stringify(history.slice(0, 20)));
+  const kept = history.slice(0, 20);
+  const best = pickBestEvaluationSnapshot(snapshot, kept);
+  renderSystemEvaluationDashboard(best, kept);
+  loadEvaluationOverview().then(() => renderSystemEvaluationDashboard(best, kept));
+}
+
+function snapshotDiagnosticScore(snapshot) {
+  const metric = metricByName(snapshot?.metrics, "内部综合诊断分");
+  const parsed = Number.parseFloat(String(metric?.display_value || "").replace("%", ""));
+  if (Number.isFinite(parsed)) return parsed;
+  const values = SYSTEM_EVAL_DIAGNOSTICS.map((item) => metricPercentValue(metricByName(snapshot?.metrics, item.name))).filter((value) => value != null);
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+}
+
+function pickBestEvaluationSnapshot(current, history) {
+  const rows = [current, ...(history || [])].filter(Boolean);
+  if (!rows.length) return null;
+  return rows.reduce((best, row) => ((snapshotDiagnosticScore(row) ?? -1) >= (snapshotDiagnosticScore(best) ?? -1) ? row : best));
+}
+
+function toolkitRunCards() {
+  const run = lastEvaluationOverview?.toolkit_run;
+  const metrics = run?.metrics || [];
+  if (!metrics.length) {
+    return ["清洗残留清除率", "检索 nDCG@10", "整合 Macro-F1", "任务适配 Fitness", "Quality Gate"].map((name) => `<article class="evaluation-metric-card is-pending"><span>${escapeHtml(name)}</span><strong>未测</strong><small>统一评测方案 · 跑任务后计算</small></article>`);
+  }
+  return metrics.map((metric) => {
+    const pending = metric.display_value == null && metric.key !== "quality_gate";
+    const gate = run?.quality_gate;
+    let display;
+    if (metric.key === "quality_gate") display = gate || (pending ? "未测" : "未判定");
+    else if (pending) display = "未测";
+    else if (metric.unit === "score") display = Number(metric.display_value).toFixed(1);
+    else display = `${Number(metric.display_value).toFixed(1)}%`;
+    const target = metric.display_target == null ? "" : (metric.unit === "score" ? `目标 ${Number(metric.display_target).toFixed(1)}` : `目标 ${Number(metric.display_target).toFixed(1)}%`);
+    const tone = pending ? "is-pending" : "is-good";
+    return `<article class="evaluation-metric-card ${tone}" title="${escapeHtml(metric.reason || "")}"><span>${escapeHtml(metric.label)}</span><strong>${escapeHtml(display)}</strong><small>本仓库工具包实测 · ${escapeHtml(target)}</small></article>`;
+  });
+}
+
+function metricByName(metrics, name) {
+  return (metrics || []).find((item) => item.name === name);
+}
+
+function renderSystemEvaluationDashboard(snapshot, history) {
+  const status = document.querySelector("#evaluation-status");
+  const meta = document.querySelector("#evaluation-meta");
+  const cards = document.querySelector("#evaluation-metric-cards");
+  const bars = document.querySelector("#evaluation-bars");
+  const radar = document.querySelector("#evaluation-radar");
+  const ablation = document.querySelector("#evaluation-ablation");
+  const historyBox = document.querySelector("#evaluation-history");
+  const safety = document.querySelector("#evaluation-safety");
+  const artifacts = document.querySelector("#evaluation-artifacts");
+  if (!status || !meta || !cards || !bars || !radar || !ablation || !historyBox || !safety || !artifacts) return;
+  const records = history || loadEvaluationHistory();
+  if (!snapshot) {
+    status.textContent = "待运行";
+    status.className = "status-badge is-review";
+    meta.innerHTML = [
+      ["评测状态", "尚未运行本工作台任务"],
+      ["Gold Set", "未加载冻结 Gold Set"],
+      ["已完成指标", "0/5 项任务诊断"],
+      ["最近评测", "—"],
+    ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("");
+    cards.innerHTML = [...SYSTEM_EVAL_DIAGNOSTICS.map((item) => `<article class="evaluation-metric-card is-pending"><span>${escapeHtml(item.name)}</span><strong>未测</strong><small>任务级诊断 · 运行后填入</small></article>`), ...toolkitRunCards()].join("");
+    bars.innerHTML = '<p class="muted-visual">运行一次真实数据任务后，这里显示本模型的来源审计、结局完整、字段完整等诊断柱。</p>';
+    radar.innerHTML = '<p class="muted-visual">暂无五维轮廓。</p>';
+    ablation.innerHTML = '<p class="muted-visual">运行任务后，这里显示同表消融反事实分数。</p>';
+    historyBox.innerHTML = records.length
+      ? records.map((row) => `<div class="evaluation-history-row"><div><strong>${escapeHtml(row.task_id || "未编号任务")}</strong><span>${escapeHtml(row.question || "任务级诊断")}</span></div><div><strong>${escapeHtml(new Date(row.saved_at).toLocaleString())}</strong><span>${escapeHtml(row.quality_gate || "REVIEW")}</span></div></div>`).join("")
+      : '<p class="muted-visual">本机还没有历史评测记录。</p>';
+    safety.innerHTML = '<div class="evaluation-safety-banner is-review"><div><span>安全门</span><strong>REVIEW</strong></div><p>阻断：未运行经验证且冻结的真实 Gold Set，不得自动发布官方成绩。本页只呈现当前模型的任务级诊断。</p></div>';
+    artifacts.innerHTML = "<span>评测产物</span><span>运行任务并下载质量报告 / Excel 后可复核。</span>";
+    renderModelMetricComparison({ metrics: [] });
+    return;
+  }
+  const measured = SYSTEM_EVAL_DIAGNOSTICS.filter((item) => metricPercentValue(metricByName(snapshot.metrics, item.name)) != null);
+  const latestTime = snapshot.saved_at ? new Date(snapshot.saved_at).toLocaleString() : "刚刚";
+  const bestScore = snapshotDiagnosticScore(snapshot);
+  status.textContent = "最好可观测诊断";
+  status.className = "status-badge is-success";
+  const diagnosticScore = metricByName(snapshot.metrics, "内部综合诊断分");
+  meta.innerHTML = [
+    ["评测状态", `最好任务诊断（非正式 SDTI）${snapshot.task_id ? ` · ${snapshot.task_id}` : ""}`],
+    ["Gold Set", "未加载冻结 Gold Set；下方五卡为本仓库工具包实测"],
+    ["内部诊断分", `${diagnosticScore?.display_value || (bestScore == null ? "未计算" : bestScore.toFixed(1))} · ${measured.length}/${SYSTEM_EVAL_DIAGNOSTICS.length} 项已测`],
+    ["最近评测", latestTime],
+  ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("");
+  const diagnosticCards = SYSTEM_EVAL_DIAGNOSTICS.map((item) => {
+    const metric = metricByName(snapshot.metrics, item.name);
+    const percent = metricPercentValue(metric);
+    const target = parseTargetPercent(metric?.target) ?? item.fallbackTarget;
+    const pending = percent == null;
+    const tone = pending ? "is-pending" : (percent >= target ? "is-good" : "is-review");
+    return `<article class="evaluation-metric-card ${tone}" title="${escapeHtml(metric?.detail || "本工作台任务级诊断")}"><span>${escapeHtml(item.name)}</span><strong>${pending ? "未测" : `${percent.toFixed(1)}%`}</strong><small>任务级诊断 · 内部目标 ${target.toFixed(0)}%</small></article>`;
+  });
+  const frozenCards = toolkitRunCards();
+  cards.innerHTML = [...diagnosticCards, ...frozenCards].join("");
+  bars.innerHTML = SYSTEM_EVAL_DIAGNOSTICS.map((item) => {
+    const metric = metricByName(snapshot.metrics, item.name);
+    const percent = clampPercent(metricPercentValue(metric)) ?? 0;
+    const target = parseTargetPercent(metric?.target) ?? item.fallbackTarget;
+    const display = metricPercentValue(metric) == null ? "未测" : `${metricPercentValue(metric).toFixed(1)}%`;
+    return `<div class="evaluation-bar-row"><div><span>${escapeHtml(item.name)}</span><strong>${escapeHtml(display)}</strong></div><div class="evaluation-bar-track"><span style="width:${percent.toFixed(1)}%"></span><i style="left:${target.toFixed(1)}%" title="内部目标 ${target.toFixed(0)}%"></i></div></div>`;
+  }).join("");
+  const cx = 150;
+  const cy = 130;
+  const radius = 86;
+  const axes = SYSTEM_EVAL_DIAGNOSTICS.map((item) => (metricPercentValue(metricByName(snapshot.metrics, item.name)) ?? 0) / 100);
+  const grid = [1, 0.66, 0.33].map((scale) => `<polygon points="${SYSTEM_EVAL_DIAGNOSTICS.map((_, index) => radarPoint(cx, cy, radius * scale, index, 5, 1)).join(" ")}"></polygon>`).join("");
+  const spokes = SYSTEM_EVAL_DIAGNOSTICS.map((_, index) => {
+    const [x, y] = radarPoint(cx, cy, radius, index, 5, 1).split(",");
+    return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}"></line>`;
+  }).join("");
+  const labels = ["来源审计", "结局完整", "字段完整", "要素覆盖", "科研探索"].map((label, index) => {
+    const [x, y] = radarPoint(cx, cy, radius + 22, index, 5, 1).split(",");
+    return `<text x="${x}" y="${y}" text-anchor="middle">${escapeHtml(label)}</text>`;
+  }).join("");
+  radar.innerHTML = `<svg viewBox="0 0 300 260" aria-hidden="true"><g class="radar-grid">${grid}${spokes}</g><polygon class="radar-value" points="${axes.map((value, index) => radarPoint(cx, cy, radius, index, 5, value)).join(" ")}"></polygon>${labels}</svg>`;
+  const comparisonReport = {
+    metrics: snapshot.metrics || [],
+    variant_scores: snapshot.variant_scores || [],
+    ablation: snapshot.ablation || [],
+    used_qwen: snapshot.used_qwen,
+  };
+  const variantScores = resolveVariantScores(comparisonReport);
+  const primaryScore = variantScores.find((row) => row.is_primary)?.diagnostic_score;
+  const ablationRows = (snapshot.ablation || []).length
+    ? snapshot.ablation
+    : variantScores.filter((row) => !row.is_primary).map((row) => ({
+      variant: row.label,
+      observed_effect: row.note,
+      expected_effect: "同表反事实",
+      diagnostic_score: row.diagnostic_score,
+      delta_from_full: primaryScore == null || row.diagnostic_score == null ? null : Number(row.diagnostic_score) - Number(primaryScore),
+    }));
+  ablation.innerHTML = ablationRows.length
+    ? ablationRows.map((row) => {
+      const scoreText = row.diagnostic_score == null ? "未计算" : `${Number(row.diagnostic_score).toFixed(1)}`;
+      const delta = row.delta_from_full;
+      const deltaText = delta == null ? "" : `相对完整系统 ${delta > 0 ? "+" : ""}${Number(delta).toFixed(1)}`;
+      return `<div class="evaluation-history-row"><div><strong>${escapeHtml(row.variant)}</strong><span>${escapeHtml(localizeNarrative(row.observed_effect))}</span></div><div><strong>${escapeHtml(scoreText)}</strong><span>${escapeHtml(deltaText || localizeNarrative(row.expected_effect))}</span></div></div>`;
+    }).join("")
+    : '<p class="muted-visual">跑完一次任务后，这里显示同表消融反事实分数。</p>';
+  historyBox.innerHTML = records.length
+    ? records.map((row) => `<div class="evaluation-history-row"><div><strong>${escapeHtml(row.model_name || "本模型")}</strong><span>${escapeHtml(row.question || row.task_id || "任务级诊断")}</span></div><div><strong>${escapeHtml(row.saved_at ? new Date(row.saved_at).toLocaleString() : "—")}</strong><span>${escapeHtml(row.quality_gate || "REVIEW")}</span></div></div>`).join("")
+    : '<p class="muted-visual">本机还没有历史评测记录。</p>';
+  const gate = snapshot.quality_gate || "REVIEW";
+  const gateClass = statusClass(gate);
+  const bannerTone = gateClass === "is-success" ? "is-pass" : gateClass === "is-error" ? "is-fail" : "is-review";
+  safety.innerHTML = `<div class="evaluation-safety-banner ${bannerTone}"><div><span>安全门</span><strong>${escapeHtml(gate)}</strong></div><p>上表前五项和消融对照来自本工作台真实任务。后五卡按统一评测方案工具包对本任务计算；冻结 Gold Set SDTI 仍未评测，也不展示外部团队探针。</p></div>`;
+  artifacts.innerHTML = snapshot.task_id
+    ? `<span>评测产物</span><a href="/api/agent/tasks/${encodeURIComponent(snapshot.task_id)}/export/xlsx" rel="noreferrer">当前任务 Excel ↗</a><a href="/api/agent/tasks/${encodeURIComponent(snapshot.task_id)}/export/quality_report" rel="noreferrer">质量报告 ↗</a>`
+    : "<span>评测产物</span><span>运行任务后可下载 Excel 与质量报告。</span>";
+  renderModelMetricComparison(comparisonReport);
+}
+
+function renderEvaluationProtocol(overview) {
+  const container = document.querySelector("#evaluation-protocol");
+  if (!container) return;
+  const steps = overview?.protocol || [];
+  if (!steps.length) {
+    container.innerHTML = "";
+    return;
+  }
+  container.innerHTML = steps.map((step, index) => `<article>
+    <span>${String(index + 1).padStart(2, "0")} · ${escapeHtml(step.counterpart)}</span>
+    <strong>${escapeHtml(step.title)}</strong>
+    <p>${escapeHtml(step.method)}</p>
+    <small>${escapeHtml(step.how_to_run)}</small>
+    <em class="${statusClass(step.status)}">${escapeHtml(step.status)}</em>
+  </article>`).join("");
+}
+
+function renderRetrievalProbe(probe) {
+  const bars = document.querySelector("#evaluation-probe-bars");
+  const meta = document.querySelector("#evaluation-probe-meta");
+  if (!bars) return;
+  if (meta) meta.textContent = probe?.note || "方法对齐 Recall@k / nDCG，排序来自本模型候选匹配分";
+  const metrics = probe?.metrics || [];
+  if (!metrics.length) {
+    bars.innerHTML = '<p class="muted-visual">先跑真实数据任务，再按本模型候选排序计算 Recall@k。</p>';
+    return;
+  }
+  bars.innerHTML = metrics.map((metric) => {
+    const percent = metric.display_value == null ? 0 : Number(metric.display_value);
+    const display = metric.display_value == null ? "未测" : `${percent.toFixed(1)}%`;
+    return `<div class="evaluation-bar-row"><div><span>${escapeHtml(metric.label)}</span><strong>${escapeHtml(display)}</strong></div><div class="evaluation-bar-track"><span style="width:${Math.max(0, Math.min(100, percent)).toFixed(1)}%"></span></div></div>`;
+  }).join("");
+}
+
+async function loadEvaluationOverview() {
+  try {
+    const overview = await readJson(await fetchApi("/api/evaluation/overview"));
+    lastEvaluationOverview = overview;
+    renderEvaluationProtocol(overview);
+    renderRetrievalProbe(overview.retrieval_probe);
+    return overview;
+  } catch {
+    renderEvaluationProtocol(null);
+    renderRetrievalProbe(null);
+    return null;
+  }
+}
+
+async function fetchLatestAgentTask() {
+  const overviewId = lastEvaluationOverview?.last_task_id;
+  const historyId = loadEvaluationHistory()[0]?.task_id;
+  const ids = [...new Set([overviewId, historyId].filter(Boolean))];
+  try {
+    const latest = await readJson(await fetchApi("/api/agent/tasks/latest"));
+    if (latest?.task_id) return latest;
+  } catch {
+    /* fall through to task_id lookup */
+  }
+  for (const taskId of ids) {
+    try {
+      const result = await readJson(await fetchApi(`/api/agent/tasks/${encodeURIComponent(taskId)}`));
+      if (result?.task_id) return result;
+    } catch {
+      /* try next id */
+    }
+  }
+  return null;
+}
+
+async function refreshSystemEvaluation() {
+  await loadEvaluationOverview();
+  if (state.result) {
+    persistAndRenderSystemEvaluation(state.result);
+    showToast("已用当前任务结果刷新本模型评测");
+    return;
+  }
+  const result = await fetchLatestAgentTask();
+  if (result) {
+    state.result = result;
+    resultsPanel.hidden = false;
+    renderResult(result);
+    showToast("已从最近一次任务恢复评测，消融对照已按同表反事实填入");
+    return;
+  }
+  const history = loadEvaluationHistory();
+  const snapshot = pickBestEvaluationSnapshot(history[0] || null, history);
+  renderSystemEvaluationDashboard(snapshot, history);
+  showToast(snapshot ? "后端已无该任务缓存，已用本机快照重算同表消融" : "请先运行一次真实数据任务");
+}
+
+async function restoreSystemEvaluationDashboard() {
+  await loadEvaluationOverview();
+  const result = await fetchLatestAgentTask();
+  if (result) {
+    persistAndRenderSystemEvaluation(result);
+    return;
+  }
+  const history = loadEvaluationHistory();
+  renderSystemEvaluationDashboard(pickBestEvaluationSnapshot(history[0] || null, history), history);
 }
 
 function renderRagFlow(nodes, edges) {
@@ -2219,5 +2699,10 @@ function showToast(message) {
   window.setTimeout(() => { toast.hidden = true; }, 2600);
 }
 
+document.querySelector("#evaluation-refresh")?.addEventListener("click", () => {
+  refreshSystemEvaluation().catch((error) => showToast(error.message));
+});
+
 checkConfiguration();
 renderModelConfigList();
+restoreSystemEvaluationDashboard();

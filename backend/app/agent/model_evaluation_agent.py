@@ -243,6 +243,11 @@ class ModelEvaluationService:
     def get(self, report_id: str) -> ModelComparisonReport | None:
         return self._reports.get(report_id)
 
+    def latest(self) -> ModelComparisonReport | None:
+        if not self._reports:
+            return None
+        return max(self._reports.values(), key=lambda item: item.created_at)
+
     def export_xlsx(self, report_id: str) -> bytes:
         report = self._reports.get(report_id)
         if report is None:
