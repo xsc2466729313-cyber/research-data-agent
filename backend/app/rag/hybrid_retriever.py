@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import re
+
 from backend.app.rag.embedding import EmbeddingBackend
 from backend.app.rag.graph_store import ScientificGraphStore
 from backend.app.rag.models import EvidenceQueryRequest, RetrievalHit
 from backend.app.rag.text_features import retrieval_tokens
 from backend.app.rag.vector_store import VectorStore
+from backend.app.retrieval.bm25 import BM25Retriever
 
 
 _SECTION_SCORES = {
@@ -34,6 +37,7 @@ class HybridRetriever:
         self.store = store
         self.embedding = embedding
         self.graph = graph
+        self._bm25 = BM25Retriever([chunk.text for chunk in store.chunks()])
 
     def retrieve(self, request: EvidenceQueryRequest) -> list[RetrievalHit]:
         query_embedding = self.embedding.embed_query(request.query)
@@ -44,11 +48,21 @@ class HybridRetriever:
         related_papers = self.graph.related_paper_ids(request.field_id)
         candidates = []
         requested_sections = {section.casefold() for section in request.sections}
-        for chunk in self.store.chunks():
+        chunks = self.store.chunks()
+        if len(self._bm25.documents) != len(chunks):
+            self._bm25 = BM25Retriever([chunk.text for chunk in chunks])
+        lexical_scores = [self._bm25.score(request.query, index) for index, _chunk in enumerate(chunks)]
+        max_lexical = max(lexical_scores, default=0.0)
+        for index, chunk in enumerate(chunks):
             if requested_sections and chunk.section.casefold() not in requested_sections:
                 continue
             semantic_score = semantic.get(chunk.chunk_id, (chunk, 0.0))[1]
-            lexical_score = self._lexical_score(request.query, chunk.text)
+            lexical_score = lexical_scores[index] / max_lexical if max_lexical else self._lexical_score(request.query, chunk.text)
+            # Character-level Chinese tokenization can create accidental BM25 hits;
+            # retain the deterministic overlap fallback for Chinese-only queries.
+            non_ascii_ratio = sum(ord(char) > 127 for char in request.query) / max(1, len(request.query))
+            if not re.search(r"[A-Za-z]", request.query) or non_ascii_ratio > 0.35:
+                lexical_score = self._lexical_score(request.query, chunk.text)
             section_score = _SECTION_SCORES.get(chunk.section, 0.35)
             graph_score = 1.0 if chunk.paper_id in related_papers else 0.0
             combined = (
