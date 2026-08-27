@@ -57,12 +57,12 @@ capability_layers:
     question: "Can the agent decide whether two records refer to the same real-world entity?"
     benchmarks:
       - id: deepmatcher_dblp_acm
-        status: planned
+        status: runnable
         source_id: github:anhaidgroup/deepmatcher
         source_url: https://github.com/anhaidgroup/deepmatcher/blob/master/Datasets.md
         metrics: [entity_precision, entity_recall, entity_f1]
       - id: deepmatcher_walmart_amazon
-        status: planned
+        status: runnable
         source_id: github:anhaidgroup/deepmatcher
         source_url: https://github.com/anhaidgroup/deepmatcher/blob/master/Datasets.md
         metrics: [entity_precision, entity_recall, entity_f1]
@@ -71,7 +71,7 @@ capability_layers:
     question: "Can the agent find and repair wrong cells without damaging correct data?"
     benchmarks:
       - id: raha_baran
-        status: planned
+        status: partially_runnable
         source_id: github:BigDaMa/raha
         source_url: https://github.com/BigDaMa/raha
         metrics: [cell_precision, cell_recall, cell_f1, repair_accuracy]
