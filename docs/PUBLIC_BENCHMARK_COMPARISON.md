@@ -89,7 +89,7 @@ Valentine 已固定到 commit 5d5163f04da304985bd51a476ccf7653de3979c3，结果�
 本次报告引用的最终运行产物为：
 
 - 检索：`20260827T082234Z_beir_scifact`、`20260827T082239Z_beir_nfcorpus`
-- 字段对齐：`20260827T105112Z_valentine_education_covid_meals`、`20260827T105112Z_valentine_capital_projects`
+- 字段对齐：`20260827T105442Z_valentine_education_covid_meals`、`20260827T105442Z_valentine_capital_projects`
 - 实体匹配：`20260827T103717Z_deepmatcher_dblp_acm`、`20260827T103717Z_deepmatcher_walmart_amazon`
 - 数据清洗：`20260827T103716Z_holoclean_hospital`
 
