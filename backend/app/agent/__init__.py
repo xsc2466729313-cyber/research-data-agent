@@ -38,6 +38,7 @@ from backend.app.agent.competition_report import CompetitionReportBuilder
 from backend.app.agent.study_design import StudyDesignBuilder
 from backend.app.agent.api_check import ApiCheckRequest, ApiCheckResult, ApiCheckService
 from backend.app.agent.collection_agent import CollectionAgent
+from backend.app.agent.quality_agent import QualityAgent, QualityAgentReport, QualityStatus
 from backend.app.agent.model_evaluation_agent import (
     ModelComparisonReport,
     ModelEvaluationGenerateRequest,
@@ -63,6 +64,9 @@ __all__ = [
     "ApiCheckResult",
     "ApiCheckService",
     "CollectionAgent",
+    "QualityAgent",
+    "QualityAgentReport",
+    "QualityStatus",
     "CohortConstructionReport",
     "CohortFilterStep",
     "CompetitionAlignmentReport",
