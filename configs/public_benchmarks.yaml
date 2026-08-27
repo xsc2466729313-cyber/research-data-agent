@@ -47,11 +47,15 @@ capability_layers:
     question: "Can the agent align columns that mean the same thing even when their names and formats differ?"
     benchmarks:
       - id: valentine
-        status: planned
+        status: runnable
         source_id: github:delftdata/valentine
-        source_url: https://github.com/delftdata/valentine
+        source_url: https://github.com/delftdata/valentine/tree/5d5163f04da304985bd51a476ccf7653de3979c3/experiments/data
+        pinned_commit: 5d5163f04da304985bd51a476ccf7653de3979c3
         metrics: [schema_precision, schema_recall, schema_f1, runtime_ms]
-        baselines: [jaccard, coma, cupid]
+        datasets: [valentine_education_covid_meals, valentine_capital_projects]
+        methods: [exact_normalized_name, token_jaccard, project_schema_rule_v1]
+        split_policy: "Use the official ground_truth.json matches only for final scoring; do not tune on them."
+        baselines: [exact_normalized_name, token_jaccard]
 
   entity_integration:
     question: "Can the agent decide whether two records refer to the same real-world entity?"

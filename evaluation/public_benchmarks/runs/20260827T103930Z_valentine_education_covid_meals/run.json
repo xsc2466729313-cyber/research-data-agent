@@ -1,0 +1,68 @@
+{
+  "evaluation_id": "20260827T103930Z_valentine_education_covid_meals",
+  "evaluation_version": "public-schema-v1",
+  "layer": "external_benchmarks",
+  "stage": "schema_integration",
+  "dataset": {
+    "dataset_id": "valentine_education_covid_meals",
+    "source_id": "github:delftdata/valentine",
+    "source_url": "https://github.com/delftdata/valentine/tree/5d5163f04da304985bd51a476ccf7653de3979c3/experiments/data/Education__COVID-19_Free_Meals_Locations",
+    "source_commit": "5d5163f04da304985bd51a476ccf7653de3979c3",
+    "source_file_url": "https://raw.githubusercontent.com/delftdata/valentine/5d5163f04da304985bd51a476ccf7653de3979c3/experiments/data/Education__COVID-19_Free_Meals_Locations/source_table.csv",
+    "target_file_url": "https://raw.githubusercontent.com/delftdata/valentine/5d5163f04da304985bd51a476ccf7653de3979c3/experiments/data/Education__COVID-19_Free_Meals_Locations/target_table.csv",
+    "ground_truth_url": "https://raw.githubusercontent.com/delftdata/valentine/5d5163f04da304985bd51a476ccf7653de3979c3/experiments/data/Education__COVID-19_Free_Meals_Locations/ground_truth.json",
+    "source_table_sha256": "971cf15d40c884931d89c817fb0f57cf430384c1ca0b15362b8f4b6c5da0a383",
+    "target_table_sha256": "2d33db4a5c1427bb2ff6da526c69b39ab407748ef4bc951bc34ce76fe9e04c49",
+    "ground_truth_sha256": "edfb3a7c198039c8d544122264b9877b1566373d628141f37812991fdb2a7ade"
+  },
+  "split": "official_ground_truth_matches",
+  "code_revision": "6783c0afa7dae69050081ed03431aa23f72d84a4",
+  "created_at": "2026-08-27T10:39:30.798819+00:00",
+  "methods": [
+    "exact_normalized_name",
+    "token_jaccard",
+    "project_schema_rule_v1"
+  ],
+  "results": {
+    "exact_normalized_name": {
+      "precision": 1.0,
+      "recall": 0.4,
+      "f1": 0.5714285714285715,
+      "true_positive": 2,
+      "false_positive": 0,
+      "false_negative": 3,
+      "predicted_count": 2,
+      "gold_count": 5,
+      "source_column_count": 7,
+      "target_column_count": 9,
+      "runtime_ms": 0.14910000027157366
+    },
+    "token_jaccard": {
+      "precision": 1.0,
+      "recall": 0.4,
+      "f1": 0.5714285714285715,
+      "true_positive": 2,
+      "false_positive": 0,
+      "false_negative": 3,
+      "predicted_count": 2,
+      "gold_count": 5,
+      "source_column_count": 7,
+      "target_column_count": 9,
+      "runtime_ms": 0.13039999976172112
+    },
+    "project_schema_rule_v1": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "true_positive": 5,
+      "false_positive": 0,
+      "false_negative": 0,
+      "predicted_count": 5,
+      "gold_count": 5,
+      "source_column_count": 7,
+      "target_column_count": 9,
+      "runtime_ms": 2.427699997497257
+    }
+  },
+  "scope_notice": "Generic schema matching scores on Valentine public tables; not a clinical canonical-schema, patient identity, or SDTI score."
+}

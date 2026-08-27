@@ -10,12 +10,12 @@
 
 | 能力层 | 希望回答的问题 | 公开评测 | 主要指标 | 当前状态 |
 |---|---|---|---|---|
-| 问题解析 | 能否把宽泛医学问题拆成研究人群、干预/暴露、对照和结局 | EBM-NLP | PICO 跨度 Precision、Recall、F1 | 待接入 |
-| 工具规划 | 能否选对工具、填对参数并完成多步调用 | BFCL V4 | 函数调用准确率、多轮成功率 | 待接入 |
+| 问题解析 | 能否把宽泛医学问题拆成研究人群、干预/暴露、对照和结局 | EBM-NLP | PICO 跨度 Precision、Recall、F1 | 待运行 |
+| 工具规划 | 能否选对工具、填对参数并完成多步调用 | BFCL V4 | 函数调用准确率、多轮成功率 | 待运行 |
 | 数据检索 | 能否找到与查询真正相关的科学/医学文档 | BEIR SciFact、NFCorpus | nDCG@10、Recall@100、MRR@10 | 已运行 |
-| 字段对齐 | 不同数据表中同义字段能否正确对齐 | Valentine | Schema Precision、Recall、F1 | 待接入 |
-| 实体合并 | 两条记录是否指向同一对象 | DeepMatcher 数据集 | Entity Precision、Recall、F1 | 待接入 |
-| 数据清洗 | 能否发现错值并正确修复，同时不破坏正确值 | Raha/Baran | Cell Precision、Recall、F1、修复正确率 | 待接入 |
+| 字段对齐 | 不同数据表中同义字段能否正确对齐 | Valentine（2 个固定任务） | Schema Precision、Recall、F1 | 已运行 |
+| 实体合并 | 两条记录是否指向同一对象 | DeepMatcher DBLP-ACM、Walmart-Amazon | Entity Precision、Recall、F1 | 已运行 |
+| 数据清洗 | 能否发现错值并正确修复，同时不破坏正确值 | HoloClean Hospital（Raha/Baran 兼容性待处理） | Cell Precision、Recall、F1、修复正确率 | 部分运行 |
 | 端到端科研执行 | 能否完成“理解任务—获取数据—分析—输出可验证结果” | ScienceAgentBench | 可执行率、结果匹配、来源完整性 | 待受控下载 |
 
 这个架构中，公开数据集的标注是计分依据；BM25、Ditto、Raha 等方法只是对照组。不会用其他模型的预测结果代替标准答案。
@@ -64,7 +64,7 @@
 
 1. 检索层：增加 BGE-M3/医学嵌入模型和重排对照，在现有两个测试集上重跑。
 2. 问题解析层：接入 EBM-NLP，将 Agent 输出的研究人群、暴露/干预和结局与专业标注比较。
-3. 数据整合层：接入 Valentine 和 DeepMatcher 数据集，分开测试“字段是否同义”和“记录是否同一对象”。
+3. 数据整合层：已接入 Valentine 和 DeepMatcher 数据集，分开测试“字段是否同义”和“记录是否同一对象”；结果见 `docs/PUBLIC_BENCHMARK_COMPARISON.md`。
 4. 清洗层：用 Raha/Baran 的 dirty-clean 数据对计算错误检测 F1 和修复正确率。
 5. 端到端层：在数据授权和运行环境准备完成后运行 ScienceAgentBench verified 版本。
 
@@ -74,6 +74,9 @@ Kaggle 的 MLE-bench Lite 约需 158 GB，当前本机空间不足，应放在�
 
 ```powershell
 python scripts/run_public_retrieval_benchmark.py --download
+python scripts/run_public_schema_benchmark.py --download
+python scripts/run_public_entity_benchmark.py --download
+python scripts/run_public_cleaning_benchmark.py --download
 ```
 
 每次运行会在 `evaluation/public_benchmarks/runs/` 生成 `run.json`、`unified_results.csv` 和 `REPORT.md`。公开数据本身保存在 `data/benchmarks/` 且不提交到 GitHub，但其哈希和真实来源会被保留在运行记录中。

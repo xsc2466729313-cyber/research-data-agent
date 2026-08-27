@@ -14,7 +14,7 @@
 - **Guided Research Planning Workspace**：从宽泛 Topic 进入 Literature Evidence、候选科研问题、Research Blueprint 和 Source Plan。
 - **Planning RAG / Scientific KG MVP**：对 Europe PMC 开放全文进行结构化切片，支持词法、语义、章节和图谱混合检索。
 - **Source Broker MVP**：按 Research Contract 选择 Dataset、Resource、字段覆盖、最小来源组合和 JoinPolicy。
-- **分层公开评测**：已运行 BEIR 检索、DeepMatcher 实体匹配和 HoloClean 数据清洗测试；结果只代表对应能力层，不代表完整 Agent 或临床有效性。
+- **分层公开评测**：已运行 BEIR 检索、Valentine 字段对齐、DeepMatcher 实体匹配和 HoloClean 数据清洗测试；结果只代表对应能力层，不代表完整 Agent 或临床有效性。
 
 详细设计入口：
 
@@ -173,16 +173,19 @@ GET    /api/agent/tasks/{task_id}/export/xlsx
 |---|---|---|---|
 | 科学检索 | BEIR SciFact | 哈希-词法混合检索 | nDCG@10 `0.4070`；BM25 `0.6040` |
 | 医学检索 | BEIR NFCorpus | 哈希-词法混合检索 | nDCG@10 `0.2493`；BM25 `0.2899` |
+| 字段对齐 | Valentine Education COVID Meals | 字段名/值形态规则 | F1 `1.0000`；精确字段名 `0.5714` |
+| 字段对齐 | Valentine Capital Projects | 字段名/值形态规则 | F1 `0.6667`；精确字段名 `0.7500` |
 | 实体匹配 | DBLP-ACM | 保守规则 | F1 `0.9163` |
 | 实体匹配压力测试 | Walmart-Amazon | 保守规则 | F1 `0.4453`，Recall `0.3161` |
 | 数据清洗 | HoloClean Hospital | 共识规则 | Cell F1 `0.0000`，未自动修复 |
 
-这些结果说明：当前离线检索仍未超过 BM25；实体匹配规则不能直接迁移为患者身份合并能力；保守清洗策略避免误改，但尚未具备通用自动修复能力。EBM-NLP、BFCL、Valentine、正式 Raha/Baran 和端到端 ScienceAgentBench 仍需独立接入或受控下载。
+这些结果说明：当前离线检索仍未超过 BM25；字段对齐规则在一个 Valentine 子任务上超过字段名基线，但在另一个子任务上低于字段名基线，仍不能视为稳定的通用字段语义映射能力；实体匹配规则不能直接迁移为患者身份合并能力；保守清洗策略避免误改，但尚未具备通用自动修复能力。EBM-NLP、BFCL、完整 Valentine 套件、正式 Raha/Baran 和端到端 ScienceAgentBench 仍需独立接入或受控下载。
 
 复现入口：
 
 ```powershell
 python scripts/run_public_retrieval_benchmark.py --download
+python scripts/run_public_schema_benchmark.py --download
 python scripts/run_public_entity_benchmark.py --download
 python scripts/run_public_cleaning_benchmark.py --download
 ```
