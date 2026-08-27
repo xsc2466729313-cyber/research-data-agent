@@ -1,0 +1,101 @@
+version: "1.0"
+name: layered_public_benchmark_registry
+principle: "Public labels are ground truth; published models are comparison baselines only."
+
+capability_layers:
+  problem_understanding:
+    question: "Can the agent turn a broad medical question into explicit population, intervention/exposure, comparator and outcome elements?"
+    benchmarks:
+      - id: ebm_nlp
+        status: planned
+        source_id: github:bepnye/EBM-NLP
+        source_url: https://github.com/bepnye/EBM-NLP
+        labels: "PICO spans; professional annotations are used for the held-out test set."
+        metrics: [span_precision, span_recall, span_f1, required_field_coverage]
+        split_policy: "Use the upstream train/dev/test separation; never tune on professional test labels."
+
+  tool_planning:
+    question: "Can the agent select the right tool, fill its arguments, and finish multi-step calls?"
+    benchmarks:
+      - id: bfcl_v4
+        status: planned
+        source_id: official:berkeley-function-calling-leaderboard
+        source_url: https://gorilla.cs.berkeley.edu/leaderboard
+        labels: "Versioned executable function-call checks."
+        metrics: [overall_accuracy, ast_accuracy, executable_accuracy, multi_turn_success]
+        split_policy: "Pin the BFCL release and report category scores, not only one average."
+
+  data_retrieval:
+    question: "Can the retrieval layer find the documents judged relevant to a scientific or medical query?"
+    benchmarks:
+      - id: beir_scifact
+        status: runnable
+        source_id: beir:scifact
+        source_url: https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scifact.zip
+        documentation_url: https://github.com/beir-cellar/beir/wiki/Datasets-available
+        metrics: [ndcg_at_10, recall_at_100, mrr_at_10, mean_latency_ms]
+        split_policy: test
+      - id: beir_nfcorpus
+        status: runnable
+        source_id: beir:nfcorpus
+        source_url: https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/nfcorpus.zip
+        documentation_url: https://github.com/beir-cellar/beir/wiki/Datasets-available
+        metrics: [ndcg_at_10, recall_at_100, mrr_at_10, mean_latency_ms]
+        split_policy: test
+
+  schema_integration:
+    question: "Can the agent align columns that mean the same thing even when their names and formats differ?"
+    benchmarks:
+      - id: valentine
+        status: planned
+        source_id: github:delftdata/valentine
+        source_url: https://github.com/delftdata/valentine
+        metrics: [schema_precision, schema_recall, schema_f1, runtime_ms]
+        baselines: [jaccard, coma, cupid]
+
+  entity_integration:
+    question: "Can the agent decide whether two records refer to the same real-world entity?"
+    benchmarks:
+      - id: deepmatcher_dblp_acm
+        status: planned
+        source_id: github:anhaidgroup/deepmatcher
+        source_url: https://github.com/anhaidgroup/deepmatcher/blob/master/Datasets.md
+        metrics: [entity_precision, entity_recall, entity_f1]
+      - id: deepmatcher_walmart_amazon
+        status: planned
+        source_id: github:anhaidgroup/deepmatcher
+        source_url: https://github.com/anhaidgroup/deepmatcher/blob/master/Datasets.md
+        metrics: [entity_precision, entity_recall, entity_f1]
+
+  data_cleaning:
+    question: "Can the agent find and repair wrong cells without damaging correct data?"
+    benchmarks:
+      - id: raha_baran
+        status: planned
+        source_id: github:BigDaMa/raha
+        source_url: https://github.com/BigDaMa/raha
+        metrics: [cell_precision, cell_recall, cell_f1, repair_accuracy]
+        datasets: [hospital, flights, beers]
+
+  end_to_end_scientific_execution:
+    question: "Can the complete agent understand a scientific task, obtain data, write analysis code and produce a verifiable answer?"
+    benchmarks:
+      - id: scienceagentbench_verified
+        status: planned_restricted_download
+        source_id: github:OSU-NLP-Group/ScienceAgentBench
+        source_url: https://github.com/OSU-NLP-Group/ScienceAgentBench
+        metrics: [valid_execution_rate, result_match, code_quality, provenance_completeness]
+        note: "Use the verified release and obey its non-redistribution/data-access terms."
+      - id: mle_bench_lite
+        status: deferred_insufficient_local_storage
+        source_id: github:openai/mle-bench
+        source_url: https://github.com/openai/mle-bench
+        metrics: [any_medal_percent, competition_score, valid_submission_rate]
+        note: "Even the Lite set is about 158 GB; run on a remote benchmark machine, not this local 10 GB workspace."
+
+reporting_rules:
+  - "Never merge layer scores into one number unless weights are frozen before evaluation."
+  - "Keep train/development data separate from the held-out test split."
+  - "Record source_id, source_url, dataset digest, code revision, method and runtime."
+  - "A retrieval-layer score is not a full-agent score and must be labelled accordingly."
+  - "Do not report an unexecuted model or paper score as this project's result."

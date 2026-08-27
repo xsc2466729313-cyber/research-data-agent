@@ -6,6 +6,7 @@ evaluation/*.local.env
 __pycache__/
 *.py[cod]
 data/cache/
+data/benchmarks/
 data/output/
 output/
 evaluation/smoke_results*/
