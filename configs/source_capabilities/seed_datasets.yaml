@@ -1,0 +1,182 @@
+version: "0.1"
+status: seed_profiles_require_runtime_verification
+
+sources:
+  - source_id: cbioportal
+    source_name: cBioPortal
+    source_kind: public_cancer_genomics_portal
+    source_url: https://www.cbioportal.org/
+    domains: [oncology, breast_cancer]
+    access_modes: [OPEN_API]
+    structuredness: 0.95
+    authority: 0.90
+    traceability: 0.90
+    cost: 0.05
+    supports_api: true
+    supports_patient_level: true
+    supports_sample_level: true
+
+  - source_id: ncbi_geo
+    source_name: NCBI GEO
+    source_kind: public_functional_genomics_repository
+    source_url: https://www.ncbi.nlm.nih.gov/geo/
+    domains: [biomedicine, oncology, breast_cancer]
+    access_modes: [OPEN_API, MANUAL_DOWNLOAD]
+    structuredness: 0.72
+    authority: 0.95
+    traceability: 0.95
+    cost: 0.10
+    supports_api: true
+    supports_patient_level: false
+    supports_sample_level: true
+
+  - source_id: gdc
+    source_name: NCI Genomic Data Commons
+    source_kind: public_cancer_genomics_repository
+    source_url: https://portal.gdc.cancer.gov/
+    domains: [oncology, breast_cancer]
+    access_modes: [OPEN_API, CONTROLLED_ACCESS]
+    structuredness: 0.95
+    authority: 0.98
+    traceability: 0.98
+    cost: 0.10
+    supports_api: true
+    supports_patient_level: true
+    supports_sample_level: true
+
+datasets:
+  - dataset_id: cbioportal:brca_metabric
+    source_id: cbioportal
+    accession: brca_metabric
+    title: METABRIC Breast Cancer Study
+    source_url: https://www.cbioportal.org/study/summary?id=brca_metabric
+    declared_granularity: [patient, sample]
+    field_hints: [study_id, patient_id, sample_id, source_id, disease, mutation, survival, os_status, dfs_status, er_status, pr_status, her2_status, intclust, subtype, age, stage]
+    access_mode: OPEN_API
+    legacy_tool: search_cbioportal
+    legacy_arg_key: study_id
+    legacy_needles: []
+    resources:
+      - resource_id: cbioportal:brca_metabric:api
+        resource_type: REST_API
+        url: https://www.cbioportal.org/api
+        expected_format: JSON
+
+  - dataset_id: cbioportal:brca_tcga_pan_can_atlas_2018
+    source_id: cbioportal
+    accession: brca_tcga_pan_can_atlas_2018
+    title: TCGA Pan-Cancer Atlas Breast Cancer
+    source_url: https://www.cbioportal.org/study/summary?id=brca_tcga_pan_can_atlas_2018
+    declared_granularity: [patient, sample]
+    field_hints: [study_id, patient_id, sample_id, source_id, disease, mutation, survival, os_status, er_status, pr_status, her2_status, subtype, age, stage]
+    access_mode: OPEN_API
+    legacy_tool: search_cbioportal
+    legacy_arg_key: study_id
+    legacy_needles: []
+    resources:
+      - resource_id: cbioportal:brca_tcga_pan_can_atlas_2018:api
+        resource_type: REST_API
+        url: https://www.cbioportal.org/api
+        expected_format: JSON
+
+  - dataset_id: cbioportal:brca_tcga
+    source_id: cbioportal
+    accession: brca_tcga
+    title: TCGA Breast Cancer
+    source_url: https://www.cbioportal.org/study/summary?id=brca_tcga
+    declared_granularity: [patient, sample]
+    field_hints: [study_id, patient_id, sample_id, source_id, disease, mutation, survival, os_status, er_status, her2_status, subtype]
+    access_mode: OPEN_API
+    legacy_tool: search_cbioportal
+    legacy_arg_key: study_id
+    legacy_needles: []
+    resources:
+      - resource_id: cbioportal:brca_tcga:api
+        resource_type: REST_API
+        url: https://www.cbioportal.org/api
+        expected_format: JSON
+
+  - dataset_id: cbioportal:breast_alpelisib_2020
+    source_id: cbioportal
+    accession: breast_alpelisib_2020
+    title: Breast Alpelisib 2020
+    source_url: https://www.cbioportal.org/study/summary?id=breast_alpelisib_2020
+    declared_granularity: [patient, sample]
+    field_hints: [study_id, patient_id, sample_id, source_id, disease, mutation, pik3ca_mutation, treatment_response]
+    access_mode: OPEN_API
+    legacy_tool: search_cbioportal
+    legacy_arg_key: study_id
+    legacy_needles: [treatment_response]
+    resources:
+      - resource_id: cbioportal:breast_alpelisib_2020:api
+        resource_type: REST_API
+        url: https://www.cbioportal.org/api
+        expected_format: JSON
+
+  - dataset_id: cbioportal:brca_mskcc_2019
+    source_id: cbioportal
+    accession: brca_mskcc_2019
+    title: MSKCC Breast Cancer 2019
+    source_url: https://www.cbioportal.org/study/summary?id=brca_mskcc_2019
+    declared_granularity: [patient, sample]
+    field_hints: [study_id, patient_id, sample_id, source_id, disease, mutation, treatment_response]
+    access_mode: OPEN_API
+    legacy_tool: search_cbioportal
+    legacy_arg_key: study_id
+    legacy_needles: [treatment_response]
+    resources:
+      - resource_id: cbioportal:brca_mskcc_2019:api
+        resource_type: REST_API
+        url: https://www.cbioportal.org/api
+        expected_format: JSON
+
+  - dataset_id: geo:GSE25066
+    source_id: ncbi_geo
+    accession: GSE25066
+    title: GEO Series GSE25066
+    source_url: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE25066
+    declared_granularity: [sample, observation]
+    field_hints: [study_id, sample_id, source_id, disease, gene_expression, pcr, treatment_response, er_status, her2_status, subtype]
+    access_mode: OPEN_API
+    legacy_tool: search_geo
+    legacy_arg_key: accession
+    legacy_needles: [pcr, treatment_response]
+    resources:
+      - resource_id: geo:GSE25066:series_matrix
+        resource_type: SERIES_MATRIX
+        url: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE25066
+        expected_format: TXT_GZ
+
+  - dataset_id: geo:GSE76360
+    source_id: ncbi_geo
+    accession: GSE76360
+    title: GEO Series GSE76360
+    source_url: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE76360
+    declared_granularity: [patient, sample, observation]
+    field_hints: [study_id, patient_id, sample_id, source_id, disease, gene_expression, treatment_response, pcr, her2_status]
+    access_mode: OPEN_API
+    legacy_tool: search_geo
+    legacy_arg_key: accession
+    legacy_needles: [pcr, treatment_response]
+    resources:
+      - resource_id: geo:GSE76360:series_matrix
+        resource_type: SERIES_MATRIX
+        url: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE76360
+        expected_format: TXT_GZ
+
+  - dataset_id: gdc:TCGA-BRCA
+    source_id: gdc
+    accession: TCGA-BRCA
+    title: GDC TCGA Breast Cancer Project
+    source_url: https://portal.gdc.cancer.gov/projects/TCGA-BRCA
+    declared_granularity: [patient, sample]
+    field_hints: [study_id, patient_id, sample_id, source_id, disease, mutation, survival, os_status, er_status, her2_status, subtype, age, stage]
+    access_mode: OPEN_API
+    legacy_tool: search_gdc
+    legacy_arg_key: project_id
+    legacy_needles: []
+    resources:
+      - resource_id: gdc:TCGA-BRCA:files_api
+        resource_type: REST_API
+        url: https://api.gdc.cancer.gov/files
+        expected_format: JSON

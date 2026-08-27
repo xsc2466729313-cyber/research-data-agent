@@ -325,6 +325,11 @@ function localizeNarrative(value) {
     epirubicin: "表柔比星",
     cyclophosphamide: "环磷酰胺",
     "HER2-positive breast cancer": "HER2 阳性乳腺癌",
+    "breast cancer patients receiving neoadjuvant treatment": "接受新辅助治疗的乳腺癌患者",
+    "ER/PR/HER2 receptor subtype": "ER、PR、HER2 受体亚型",
+    "Odds Ratio": "优势比（OR）",
+    "95% Confidence Interval": "95% 置信区间",
+    "p-value": "P 值",
     "breast carcinoma": "乳腺癌",
     "pathological complete response (pCR)": "病理完全缓解（pCR）",
     "pathological complete response": "病理完全缓解（pCR）",
@@ -2706,3 +2711,515 @@ document.querySelector("#evaluation-refresh")?.addEventListener("click", () => {
 checkConfiguration();
 renderModelConfigList();
 restoreSystemEvaluationDashboard();
+
+// Guided research-planning workspace. This keeps the planning flow separate from
+// the legacy advanced workbench while using the same audited backend APIs.
+const plannerState = {
+  topic: null,
+  scan: null,
+  candidates: [],
+  contract: null,
+  sourcePlanning: null,
+  recent: [],
+  busy: false,
+};
+
+const plannerStageOrder = ["topic", "literature", "questions", "contract", "sources"];
+const plannerStageCopy = {
+  topic: [10, "理解研究意图…"],
+  literature: [38, "查找真实论文和公开数据线索…"],
+  questions: [64, "把宽泛方向整理成具体研究问题…"],
+  contract: [82, "确定研究对象、指标和所需字段…"],
+  sources: [96, "检查公开数据是否能够支持研究…"],
+};
+
+const plannerResearchTypeLabels = {
+  association: "差异与关联分析",
+  classification_prediction: "疗效预测",
+  survival: "生存分析",
+  comparative_effectiveness: "疗效比较",
+};
+
+function plannerElement(selector) {
+  return document.querySelector(selector);
+}
+
+function safePlannerUrl(value) {
+  try {
+    const url = new URL(String(value || ""), window.location.origin);
+    return ["http:", "https:"].includes(url.protocol) ? url.href : "";
+  } catch {
+    return "";
+  }
+}
+
+function plannerText(value, fallback = "—") {
+  const text = String(value ?? "").trim();
+  return text || fallback;
+}
+
+function plannerPercent(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? `${Math.round(Math.max(0, Math.min(1, number)) * 100)}%` : "待核验";
+}
+
+function plannerResearchType(value) {
+  return plannerResearchTypeLabels[String(value || "")] || plannerText(value, "探索性研究");
+}
+
+function plannerPlanStatus(status) {
+  if (status === "READY") return "数据准备条件较完整";
+  if (status === "PARTIAL") return "部分字段还需要补充";
+  if (status === "NEEDS_REVIEW") return "已找到数据，正式采集前需要核验";
+  return plannerText(status, "等待检查");
+}
+
+function setPlannerStage(stage, { completedThrough = null } = {}) {
+  const activeIndex = plannerStageOrder.indexOf(stage);
+  const completedIndex = completedThrough == null ? activeIndex - 1 : plannerStageOrder.indexOf(completedThrough);
+  document.querySelectorAll("[data-planner-stage]").forEach((button) => {
+    const index = plannerStageOrder.indexOf(button.dataset.plannerStage);
+    button.classList.toggle("is-active", index === activeIndex);
+    button.classList.toggle("is-complete", index <= completedIndex);
+  });
+  document.querySelectorAll("[data-planner-step]").forEach((item) => {
+    const index = plannerStageOrder.indexOf(item.dataset.plannerStep);
+    item.classList.toggle("is-active", index === activeIndex);
+    item.classList.toggle("is-complete", index <= completedIndex);
+  });
+  const [percent, copy] = plannerStageCopy[stage] || [10, "正在处理…"];
+  if (plannerElement("#planner-progress-percent")) plannerElement("#planner-progress-percent").textContent = `${percent}%`;
+  if (plannerElement("#planner-progress-bar")) plannerElement("#planner-progress-bar").style.width = `${percent}%`;
+  if (plannerElement("#planner-progress-title")) plannerElement("#planner-progress-title").textContent = copy;
+}
+
+function switchPlannerTab(tab) {
+  document.querySelectorAll("[data-planner-tab]").forEach((button) => {
+    const active = button.dataset.plannerTab === tab;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-selected", String(active));
+  });
+  document.querySelectorAll("[data-planner-panel]").forEach((panel) => {
+    panel.classList.toggle("is-active", panel.dataset.plannerPanel === tab);
+  });
+}
+
+function plannerEmpty(icon, title, copy) {
+  return `<div class="planner-empty"><span>${escapeHtml(icon)}</span><strong>${escapeHtml(title)}</strong><p>${escapeHtml(copy)}</p></div>`;
+}
+
+function renderPlannerRecent() {
+  const list = plannerElement("#planner-recent-list");
+  const count = plannerElement("#planner-recent-count");
+  if (!list || !count) return;
+  count.textContent = String(plannerState.recent.length);
+  if (!plannerState.recent.length) {
+    list.innerHTML = "<p>尚未开始研究</p>";
+    return;
+  }
+  list.innerHTML = plannerState.recent.slice(0, 4).map((item, index) => (
+    `<button type="button" data-planner-recent="${index}" title="${escapeHtml(item.topic)}">${escapeHtml(item.topic)}</button>`
+  )).join("");
+}
+
+function renderPlannerEvidence(scan) {
+  const panel = plannerElement("#planner-panel-evidence");
+  if (!panel) return;
+  const papers = scan?.papers || [];
+  if (!papers.length) {
+    const warning = scan?.warnings?.[0] || "当前检索未返回论文，请检查文献 Provider 配置后重试。";
+    panel.innerHTML = `<div class="planner-status-note is-error">${escapeHtml(warning)}</div>${plannerEmpty("≡", "没有可展示的论文", "系统不会伪造论文或数据集；未取得真实来源时会明确标注。")}`;
+    return;
+  }
+  const warnings = scan.warnings?.length
+    ? `<div class="planner-status-note">${scan.warnings.map((item) => escapeHtml(item)).join("<br>")}</div>`
+    : "";
+  panel.innerHTML = `
+    <div class="planner-panel-heading"><span>研究依据</span><h3>已找到 ${papers.length} 篇相关论文</h3><p>这里解释系统为什么建议当前研究问题；每篇论文都保留真实来源链接。</p></div>
+    ${warnings}
+    <div class="planner-evidence-list">${papers.map((paper, index) => {
+      const url = safePlannerUrl(paper.source_url);
+      const accessions = paper.dataset_accessions || [];
+      const sectionNames = Object.keys(paper.sections || {});
+      return `<article class="planner-evidence-card">
+        <header><span>${escapeHtml(plannerText(paper.provider))} · ${escapeHtml(plannerText(paper.source_id))}</span><span>${escapeHtml(plannerText(paper.publication_year, `#${index + 1}`))}</span></header>
+        <h4>${escapeHtml(plannerText(paper.title))}</h4>
+        <p>${escapeHtml(plannerText(paper.journal, paper.fulltext_available ? "可获取全文" : "摘要级证据"))}</p>
+        <div class="planner-mini-meta">
+          ${paper.fulltext_available ? "<span>Full text</span>" : "<span>Abstract</span>"}
+          ${sectionNames.slice(0, 3).map((name) => `<span>${escapeHtml(name)}</span>`).join("")}
+          ${accessions.slice(0, 3).map((item) => `<span>${escapeHtml(item)}</span>`).join("")}
+        </div>
+        ${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">查看真实来源 ↗</a>` : ""}
+      </article>`;
+    }).join("")}</div>`;
+}
+
+function renderPlannerQuestions(payload) {
+  const list = plannerElement("#planner-question-list");
+  const summary = plannerElement("#planner-result-summary");
+  if (!list || !summary) return;
+  const candidates = payload?.candidates || [];
+  summary.textContent = "系统会自动采用证据最充分的一项";
+  if (!candidates.length) {
+    list.innerHTML = `<div class="planner-error">没有生成候选科研问题。系统不会用预置 benchmark 答案替代真实规划结果。</div>`;
+    return;
+  }
+  const alternatives = candidates.slice(1);
+  list.innerHTML = alternatives.length ? `<details class="planner-alternatives"><summary>研究问题已由系统自动确定；如有需要，可查看另外 ${alternatives.length} 个研究角度</summary><div class="planner-alternative-list">${alternatives.map((candidate) => `
+      <article class="planner-alternative" data-planner-candidate-card="${escapeHtml(candidate.candidate_id)}">
+        <div><strong>${escapeHtml(plannerText(candidate.question))}</strong><small>${escapeHtml(plannerResearchType(candidate.research_type))} · ${candidate.literature_evidence?.length || 0} 条论文依据</small></div>
+        <button type="button" data-planner-select="${escapeHtml(candidate.candidate_id)}">改用这个方向</button>
+      </article>`).join("")}</div></details>` : "";
+}
+
+function renderPlannerContract(contract) {
+  const panel = plannerElement("#planner-panel-contract");
+  if (!panel || !contract) return;
+  const groups = [
+    ["必须收集", contract.required_fields || []],
+    ["建议收集", contract.recommended_fields || []],
+    ["可选补充", contract.optional_fields || []],
+  ];
+  const statusClassName = contract.validation_status === "READY_FOR_SOURCE_PLANNING" ? "is-success" : "";
+  panel.innerHTML = `
+    <div class="planner-panel-heading"><span>研究方案</span><h3>这项研究准备怎么做</h3><p>${escapeHtml(plannerText(contract.research_question))}</p></div>
+    <div class="planner-status-note ${statusClassName}">${contract.validation_status === "READY_FOR_SOURCE_PLANNING" ? "研究对象、结果指标和必要字段已经明确" : "当前方案仍有内容需要人工确认"}${contract.validation_warnings?.length ? `<br>${contract.validation_warnings.map((item) => escapeHtml(item)).join("<br>")}` : ""}</div>
+    <div class="planner-contract-stack">
+      ${groups.map(([label, fields]) => `<section class="planner-contract-block"><strong>${label} · ${fields.length}</strong><div class="planner-field-chips">${fields.length ? fields.map((field) => `<span title="${escapeHtml(plannerText(field.reason))}">${escapeHtml(plannerText(field.label, field.field_id))}</span>`).join("") : "<span>无</span>"}</div></section>`).join("")}
+      <section class="planner-contract-block"><strong>观察指标 · ${contract.metric_requirements?.length || 0}</strong>${(contract.metric_requirements || []).map((metric) => `<p>${escapeHtml(localizeNarrative(plannerText(metric.label)))}</p>`).join("") || "<p>尚无指标要求</p>"}</section>
+      <section class="planner-contract-block"><strong>分析计划</strong>${(contract.analysis_plan || []).map((item) => `<p>${escapeHtml(localizeNarrative(item))}</p>`).join("") || "<p>尚未生成</p>"}</section>
+    </div>`;
+}
+
+function selectedDatasetCoverage(datasetId, planning) {
+  const cells = (planning?.coverage_matrix?.cells || []).filter((cell) => cell.dataset_id === datasetId && cell.priority === "required");
+  if (!cells.length) return 0;
+  return cells.reduce((sum, cell) => sum + Number(cell.coverage || 0), 0) / cells.length;
+}
+
+function renderPlannerSources(planning) {
+  const panel = plannerElement("#planner-panel-sources");
+  if (!panel || !planning) return;
+  const plan = planning.source_plan || {};
+  const candidates = planning.dataset_candidates || [];
+  const selected = (plan.selected_dataset_ids || []).map((id) => candidates.find((item) => item.dataset_id === id)).filter(Boolean);
+  const statusClassName = plan.status === "READY" ? "is-success" : "";
+  panel.innerHTML = `
+    <div class="planner-panel-heading"><span>数据准备</span><h3>已找到 ${selected.length} 个优先数据集</h3><p>系统优先使用一个信息完整的队列，避免把无法确认是同一患者的数据拼在一起。</p></div>
+    <div class="planner-status-note ${statusClassName}">${escapeHtml(plannerPlanStatus(plan.status))} · 必要字段预计覆盖 ${plannerPercent(plan.required_field_coverage)}</div>
+    <div class="planner-source-list">${selected.map((dataset) => {
+      const coverage = selectedDatasetCoverage(dataset.dataset_id, planning);
+      const url = safePlannerUrl(dataset.source_url);
+      return `<article class="planner-source-card">
+        <header><span>${escapeHtml(plannerText(dataset.source_id))}</span><span>${escapeHtml(plannerText(dataset.access_mode))}</span></header>
+        <h4>${escapeHtml(plannerText(dataset.title))}</h4>
+        <p>${escapeHtml(plannerText(dataset.accession, dataset.dataset_id))} · 正式采集前会再次核验字段和访问状态</p>
+        <div class="planner-coverage" title="Required 字段预计覆盖 ${plannerPercent(coverage)}"><i style="width:${Math.round(coverage * 100)}%"></i></div>
+        ${url ? `<p><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">查看数据源 ↗</a></p>` : ""}
+      </article>`;
+    }).join("") || plannerEmpty("◇", "没有选中数据集", "没有数据源满足当前字段与公开访问约束。")}</div>
+    ${(plan.join_policies || []).length ? `<section class="planner-contract-block" style="margin-top:.6rem"><strong>数据合并安全提示</strong>${plan.join_policies.map((policy) => `<p>${escapeHtml(policy.reason)}</p>`).join("")}</section>` : ""}
+    ${(plan.fallback_dataset_ids || []).length ? `<section class="planner-contract-block" style="margin-top:.6rem"><strong>备用数据集</strong><p>${plan.fallback_dataset_ids.map((item) => escapeHtml(item)).join("、")}</p></section>` : ""}
+    ${(plan.warnings || []).length ? `<div class="planner-status-note" style="margin-top:.6rem">${plan.warnings.map((item) => escapeHtml(item)).join("<br>")}</div>` : ""}`;
+}
+
+function renderPlannerFlowSummary() {
+  const container = plannerElement("#planner-flow-summary");
+  const contract = plannerState.contract;
+  const planning = plannerState.sourcePlanning;
+  if (!container || !contract || !planning) return;
+  const plan = planning.source_plan || {};
+  const candidates = planning.dataset_candidates || [];
+  const selected = (plan.selected_dataset_ids || []).map((id) => candidates.find((item) => item.dataset_id === id)).filter(Boolean);
+  const primaryDataset = selected[0];
+  const paperCount = plannerState.scan?.papers?.length || 0;
+  container.innerHTML = `
+    <article class="planner-flow-hero">
+      <span class="planner-flow-check">✓</span>
+      <div><small>研究规划已自动完成</small><h3>${escapeHtml(plannerText(contract.research_question))}</h3><p>系统根据 ${paperCount} 篇真实论文和公开数据可用性，自动明确了研究问题、研究方案和数据准备路径。你不需要在多个候选项之间做技术选择。</p></div>
+    </article>
+    <div class="planner-plan-grid">
+      <article class="planner-plan-item"><span>研究对象</span><strong>${escapeHtml(localizeNarrative(plannerText(contract.population, "乳腺癌研究人群")))}</strong></article>
+      <article class="planner-plan-item"><span>比较或影响因素</span><strong>${escapeHtml(localizeNarrative(plannerText(contract.exposure, "待从数据中确认")))}</strong></article>
+      <article class="planner-plan-item"><span>主要观察结果</span><strong>${escapeHtml(localizeNarrative(plannerText(contract.outcome, "治疗响应或预后")))}</strong></article>
+      <article class="planner-plan-item"><span>研究方法</span><strong>${escapeHtml(plannerResearchType(contract.research_type))}</strong></article>
+      <article class="planner-plan-item"><span>论文依据</span><strong>${paperCount} 篇真实来源</strong></article>
+      <article class="planner-plan-item"><span>数据准备情况</span><strong>${primaryDataset ? `${escapeHtml(plannerText(primaryDataset.accession, primaryDataset.title))} · ` : ""}${escapeHtml(plannerPlanStatus(plan.status))}</strong></article>
+    </div>
+    <div id="planner-build-status"></div>
+    <div class="planner-next-action">
+      <div><strong>下一步：生成可分析的科研数据集</strong><small>系统将按上面的研究方案采集、标准化、对齐并执行质量检查。这个步骤可能需要几十秒。</small></div>
+      <button id="planner-build-dataset" type="button">开始生成数据集 →</button>
+    </div>`;
+}
+
+async function downloadPlannerArtifact(taskId, format, button) {
+  if (!taskId) return;
+  const original = button?.textContent;
+  if (button) {
+    button.disabled = true;
+    button.textContent = "正在准备…";
+  }
+  try {
+    const response = await fetchApi(`/api/agent/tasks/${encodeURIComponent(taskId)}/export/${format}`);
+    if (!response.ok) throw new Error(`下载失败（HTTP ${response.status}）`);
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${taskId}-科研数据集.${format === "quality_report" ? "json" : format}`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = original;
+    }
+  }
+}
+
+async function runPlannerDatasetBuild(button) {
+  if (!plannerState.contract || plannerState.busy) return;
+  const status = plannerElement("#planner-build-status");
+  plannerState.busy = true;
+  button.disabled = true;
+  button.textContent = "正在生成…";
+  plannerElement("#question").value = plannerState.contract.research_question;
+  if (status) status.innerHTML = `<div class="planner-build-status"><strong>正在生成科研数据集</strong><p>系统正在检索公开数据库、统一字段、检查患者/样本关联并运行质量门。你可以留在当前页面等待。</p></div>`;
+  try {
+    const result = await runResearchTask(buildAgentTaskPayload());
+    state.result = result;
+    renderResult(result);
+    const dataset = result.modeling_dataset || {};
+    if (status) status.innerHTML = `<div class="planner-build-status is-success"><strong>科研数据集已经生成</strong><p>${escapeHtml(localizeNarrative(result.summary_zh || "数据采集、标准化与质量检查已完成。"))}<br>${Number(dataset.row_count || 0).toLocaleString()} 行 × ${(dataset.columns || []).length} 列 · 任务编号 ${escapeHtml(result.task_id)}</p><div class="planner-output-actions"><button type="button" data-planner-download="xlsx" data-task-id="${escapeHtml(result.task_id)}">下载 Excel</button><button type="button" data-planner-download="csv" data-task-id="${escapeHtml(result.task_id)}">下载 CSV</button><button type="button" data-planner-technical-result>查看完整质量与溯源结果</button></div></div>`;
+    button.textContent = "已生成";
+    showToast("科研数据集已生成");
+  } catch (error) {
+    if (status) status.innerHTML = `<div class="planner-error"><strong>数据集生成没有完成</strong><br>${escapeHtml(error.message)}<br>已有研究规划仍然保留，可以稍后重试。</div>`;
+    button.disabled = false;
+    button.textContent = "重新生成数据集 →";
+  } finally {
+    plannerState.busy = false;
+  }
+}
+
+async function startPlannerResearch(topicText) {
+  const topic = String(topicText || "").trim();
+  if (topic.length < 2 || plannerState.busy) return;
+  plannerState.busy = true;
+  plannerState.topic = null;
+  plannerState.scan = null;
+  plannerState.candidates = [];
+  plannerState.contract = null;
+  plannerState.sourcePlanning = null;
+  plannerElement("#planner-flow-summary").innerHTML = "";
+  plannerElement("#planner-submit").disabled = true;
+  plannerElement("#planner-welcome").hidden = true;
+  plannerElement("#planner-results").hidden = true;
+  plannerElement("#planner-result-title").textContent = "正在为你整理研究方案";
+  plannerElement("#planner-result-summary").textContent = "";
+  plannerElement("#planner-progress").hidden = false;
+  plannerElement("#planner-header-title").textContent = topic;
+  plannerElement("#planner-header-subtitle").textContent = "正在自动查找依据、明确问题并制定研究方案";
+  plannerElement("#planner-panel-evidence").innerHTML = plannerEmpty("…", "正在查找研究依据", "这里只展示带真实来源链接的论文记录。 ");
+  plannerElement("#planner-panel-contract").innerHTML = plannerEmpty("◈", "正在等待研究问题明确", "系统会自动确定研究对象、影响因素、结果指标和所需字段。 ");
+  plannerElement("#planner-panel-sources").innerHTML = plannerEmpty("◇", "正在等待研究方案", "方案明确后，系统会检查哪些公开数据可以支持这项研究。 ");
+  switchPlannerTab("evidence");
+  setPlannerStage("topic");
+  try {
+    const created = await readJson(await fetchApi("/api/research/topics", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topic }),
+    }));
+    plannerState.topic = created;
+    setPlannerStage("literature", { completedThrough: "topic" });
+    const scanned = await readJson(await fetchApi(`/api/research/topics/${encodeURIComponent(created.topic_id)}/literature-scan`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ max_records: 10 }),
+    }));
+    plannerState.scan = scanned.scan;
+    renderPlannerEvidence(scanned.scan);
+    setPlannerStage("questions", { completedThrough: "literature" });
+    const candidatePayload = await readJson(await fetchApi(`/api/research/topics/${encodeURIComponent(created.topic_id)}/question-candidates`));
+    plannerState.candidates = candidatePayload.candidates || [];
+    renderPlannerQuestions(candidatePayload);
+    plannerState.recent = [{ topic, topicId: created.topic_id }, ...plannerState.recent.filter((item) => item.topic !== topic)].slice(0, 4);
+    renderPlannerRecent();
+    const recommended = plannerState.candidates[0];
+    if (!recommended) throw new Error("没有形成可继续研究的问题。请换一个更具体的研究方向后重试。");
+    plannerState.busy = false;
+    await selectPlannerQuestion(recommended.candidate_id, null, { automatic: true });
+  } catch (error) {
+    plannerElement("#planner-progress").hidden = true;
+    plannerElement("#planner-results").hidden = false;
+    plannerElement("#planner-question-list").innerHTML = `<div class="planner-error"><strong>本次规划未完成</strong><br>${escapeHtml(error.message)}<br>没有生成或伪造替代结果。</div>`;
+    plannerElement("#planner-result-summary").textContent = "请检查后端与 Provider 配置";
+    plannerElement("#planner-header-subtitle").textContent = "规划失败，可修改研究方向后重试";
+  } finally {
+    plannerState.busy = false;
+    plannerElement("#planner-submit").disabled = false;
+  }
+}
+
+async function selectPlannerQuestion(candidateId, button, { automatic = false } = {}) {
+  if (plannerState.busy && !automatic) return;
+  plannerState.busy = true;
+  document.querySelectorAll("[data-planner-select]").forEach((item) => { item.disabled = true; });
+  if (button) button.textContent = "正在调整研究方案…";
+  setPlannerStage("contract", { completedThrough: "questions" });
+  plannerElement("#planner-panel-contract").innerHTML = plannerEmpty("…", "正在制定研究方案", "根据研究问题确定对象、指标和需要收集的数据字段。 ");
+  try {
+    const contract = await readJson(await fetchApi(`/api/research/questions/${encodeURIComponent(candidateId)}/select`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    }));
+    plannerState.contract = contract;
+    renderPlannerContract(contract);
+    if (plannerState.candidates[0]?.candidate_id !== candidateId) {
+      const selectedCandidate = plannerState.candidates.find((item) => item.candidate_id === candidateId);
+      if (selectedCandidate) {
+        const reordered = [selectedCandidate, ...plannerState.candidates.filter((item) => item.candidate_id !== candidateId)];
+        renderPlannerQuestions({ candidates: reordered });
+      }
+    }
+    document.querySelectorAll("[data-planner-candidate-card]").forEach((card) => card.classList.toggle("is-selected", card.dataset.plannerCandidateCard === candidateId));
+    if (button) button.textContent = "正在采用";
+    plannerElement("#planner-header-title").textContent = contract.research_question;
+    plannerElement("#planner-header-subtitle").textContent = "研究问题已经明确，正在检查公开数据可用性";
+    setPlannerStage("sources", { completedThrough: "contract" });
+    plannerElement("#planner-panel-sources").innerHTML = plannerEmpty("…", "正在准备数据", "评估字段覆盖、访问方式和不同队列之间的数据合并风险。 ");
+    const planning = await readJson(await fetchApi(`/api/research/contracts/${encodeURIComponent(contract.contract_id)}/source-plan`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ max_selected_datasets: 3, public_data_only: true }),
+    }));
+    plannerState.sourcePlanning = planning;
+    renderPlannerSources(planning);
+    renderPlannerFlowSummary();
+    plannerElement("#planner-progress").hidden = true;
+    plannerElement("#planner-results").hidden = false;
+    plannerElement("#planner-result-title").textContent = "研究方案已经准备好了";
+    plannerElement("#planner-result-summary").textContent = "5 个步骤已自动完成";
+    plannerElement("#planner-header-subtitle").textContent = "下一步可以直接生成可分析的科研数据集";
+    setPlannerStage("sources", { completedThrough: "sources" });
+    switchPlannerTab("contract");
+    if (button) button.textContent = "已采用";
+    showToast("研究规划已自动完成");
+  } catch (error) {
+    const target = plannerState.contract ? plannerElement("#planner-panel-sources") : plannerElement("#planner-panel-contract");
+    target.innerHTML = `<div class="planner-error"><strong>阶段未完成</strong><br>${escapeHtml(error.message)}<br>系统未生成替代性虚假结果。</div>`;
+    plannerElement("#planner-header-subtitle").textContent = "当前阶段需要处理后重试";
+    plannerElement("#planner-progress").hidden = true;
+    plannerElement("#planner-results").hidden = false;
+    plannerElement("#planner-result-title").textContent = "研究规划暂未完成";
+    plannerElement("#planner-question-list").insertAdjacentHTML("afterbegin", `<div class="planner-error">${escapeHtml(error.message)}</div>`);
+  } finally {
+    plannerState.busy = false;
+    document.querySelectorAll("[data-planner-select]").forEach((item) => {
+      if (item.dataset.plannerSelect !== candidateId || !plannerState.contract) item.disabled = false;
+    });
+  }
+}
+
+function resetPlannerWorkspace() {
+  plannerState.topic = null;
+  plannerState.scan = null;
+  plannerState.candidates = [];
+  plannerState.contract = null;
+  plannerState.sourcePlanning = null;
+  plannerElement("#planner-topic").value = "";
+  plannerElement("#planner-welcome").hidden = false;
+  plannerElement("#planner-progress").hidden = true;
+  plannerElement("#planner-results").hidden = true;
+  plannerElement("#planner-result-title").textContent = "正在为你整理研究方案";
+  plannerElement("#planner-result-summary").textContent = "";
+  plannerElement("#planner-header-title").textContent = "新研究";
+  plannerElement("#planner-flow-summary").innerHTML = "";
+  plannerElement("#planner-header-subtitle").textContent = "从一个想法开始，系统会自动完成研究规划";
+  plannerElement("#planner-panel-evidence").innerHTML = plannerEmpty("≡", "还没有研究依据", "开始研究后，系统找到的真实论文和来源链接会显示在这里。 ");
+  plannerElement("#planner-panel-contract").innerHTML = plannerEmpty("◈", "还没有研究方案", "系统会自动明确研究对象、影响因素、结果指标和需要的字段。 ");
+  plannerElement("#planner-panel-sources").innerHTML = plannerEmpty("◇", "还没有检查数据", "研究方案形成后，系统会说明哪些公开数据可以使用。 ");
+  setPlannerStage("topic");
+  switchPlannerTab("evidence");
+  plannerElement("#planner-topic").focus();
+}
+
+async function checkPlannerHealth() {
+  const dot = plannerElement("#planner-health-dot");
+  const label = plannerElement("#planner-health-label");
+  try {
+    const response = await fetchApi("/health");
+    if (!response.ok) throw new Error("offline");
+    dot?.classList.add("is-online");
+    if (label) label.textContent = "服务已连接";
+  } catch {
+    dot?.classList.remove("is-online");
+    if (label) label.textContent = "服务未连接";
+  }
+}
+
+function initPlanningWorkspace() {
+  const form = plannerElement("#planner-form");
+  if (!form) return;
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    startPlannerResearch(plannerElement("#planner-topic").value);
+  });
+  plannerElement("#planner-topic")?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      form.requestSubmit();
+    }
+  });
+  document.querySelectorAll("[data-planner-example]").forEach((button) => button.addEventListener("click", () => {
+    plannerElement("#planner-topic").value = button.dataset.plannerExample;
+    startPlannerResearch(button.dataset.plannerExample);
+  }));
+  document.querySelectorAll("[data-planner-tab]").forEach((button) => button.addEventListener("click", () => switchPlannerTab(button.dataset.plannerTab)));
+  plannerElement("#planner-question-list")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-planner-select]");
+    if (button) selectPlannerQuestion(button.dataset.plannerSelect, button);
+  });
+  plannerElement("#planner-flow-summary")?.addEventListener("click", (event) => {
+    const buildButton = event.target.closest("#planner-build-dataset");
+    if (buildButton) {
+      runPlannerDatasetBuild(buildButton);
+      return;
+    }
+    const downloadButton = event.target.closest("[data-planner-download]");
+    if (downloadButton) {
+      downloadPlannerArtifact(downloadButton.dataset.taskId, downloadButton.dataset.plannerDownload, downloadButton);
+      return;
+    }
+    if (event.target.closest("[data-planner-technical-result]")) {
+      document.body.classList.add("is-advanced-workbench");
+      resultsPanel.hidden = false;
+      resultsPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  });
+  plannerElement("#planner-new")?.addEventListener("click", resetPlannerWorkspace);
+  plannerElement("#planner-open-advanced")?.addEventListener("click", () => {
+    document.body.classList.add("is-advanced-workbench");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  plannerElement("#advanced-back-planner")?.addEventListener("click", () => {
+    document.body.classList.remove("is-advanced-workbench");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  plannerElement("#advanced-return-planner")?.addEventListener("click", () => {
+    document.body.classList.remove("is-advanced-workbench");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  renderPlannerRecent();
+  checkPlannerHealth();
+}
+
+initPlanningWorkspace();

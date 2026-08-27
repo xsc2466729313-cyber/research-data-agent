@@ -109,7 +109,7 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "模型、横向结果与分层结果" not in response.text
     assert "study-design" in response.text
     assert "cohort-construction" in response.text
-    assert "模型评价中心" not in response.text.split("</header>", 1)[1]
+    assert "模型评价中心" not in response.text.split('<main id="main-content">', 1)[1]
     assert "比赛对齐" not in response.text
     assert "API · 开发者入口" not in response.text
     evaluation_page = client.get("/model-evaluation.html")
@@ -227,6 +227,36 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "$valueColumns" in qwen_bootstrap
     assert "默认业务空间-apiKey-" not in qwen_bootstrap
     assert "DASHSCOPE_API_KEY" in qwen_bootstrap
+
+
+def test_frontend_guided_planner_is_primary_and_wires_real_planning_apis() -> None:
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert 'id="planning-workspace"' in response.text
+    assert 'id="planner-form"' in response.text
+    assert "告诉我你想研究的方向" in response.text
+    assert "哪些因素会影响乳腺癌新辅助治疗的疗效？" in response.text
+    assert "哪些生物标志物可以预测乳腺癌患者的治疗效果？" in response.text
+    assert "公开数据中有哪些乳腺癌队列适合开展疗效预测研究？" in response.text
+    assert "研究依据" in response.text
+    assert "研究方案" in response.text
+    assert "数据准备" in response.text
+    assert "开始完整规划" in response.text
+
+    script = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    assert 'fetchApi("/api/research/topics"' in script
+    assert "/literature-scan" in script
+    assert "/question-candidates" in script
+    assert "/api/research/questions/" in script
+    assert "/source-plan" in script
+    assert "renderPlannerEvidence" in script
+    assert "renderPlannerContract" in script
+    assert "renderPlannerSources" in script
+    assert "renderPlannerFlowSummary" in script
+    assert "runPlannerDatasetBuild" in script
+    assert "系统会自动采用证据最充分的一项" in script
+    assert "系统未生成替代性虚假结果" in script
 
 
 def test_gdc_adapter_api_returns_registered_official_sources(tmp_path: Path) -> None:

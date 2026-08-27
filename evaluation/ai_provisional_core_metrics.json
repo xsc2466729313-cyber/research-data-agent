@@ -1,0 +1,98 @@
+{
+  "status": "AI_PROVISIONAL",
+  "created_at": "2026-08-25T04:07:17.060778+00:00",
+  "source": [
+    "evaluation/results_deepseek/comparison.json",
+    "evaluation/ai_evaluation_result.json",
+    "evaluation/goldset_tri_ai_consensus.json"
+  ],
+  "metrics": {
+    "retrieval_precision": {
+      "value": 0.6666666666666666,
+      "target": 0.9,
+      "method": "AI proxy: mean reciprocal rank-hit (mean of 1/rank across benchmark cases)",
+      "source": [
+        "evaluation/results_deepseek/comparison.json"
+      ]
+    },
+    "retrieval_recall": {
+      "value": 1.0,
+      "target": 0.9,
+      "method": "AI proxy: DeepSeek benchmark Recall@3",
+      "source": [
+        "evaluation/results_deepseek/comparison.json"
+      ]
+    },
+    "retrieval_f1": {
+      "value": 0.8,
+      "target": 0.9,
+      "method": "AI proxy: harmonic mean of retrieval precision proxy and Recall@3",
+      "source": [
+        "evaluation/results_deepseek/comparison.json"
+      ]
+    },
+    "faithfulness": {
+      "value": 0.9333333333333333,
+      "target": 0.95,
+      "method": "AI proxy: DeepSeek Judge average faithfulness score divided by 5",
+      "source": [
+        "evaluation/results_deepseek/comparison.json"
+      ]
+    },
+    "traceability": {
+      "value": 0.4666666666666666,
+      "target": 1.0,
+      "method": "AI proxy: DeepSeek Judge claim support rate",
+      "source": [
+        "evaluation/results_deepseek/comparison.json"
+      ]
+    },
+    "error_precision": {
+      "value": 0.8,
+      "target": 0.9,
+      "method": "AI proxy: three-model agreement rate for error/relevance labels",
+      "source": [
+        "evaluation/ai_evaluation_result.json",
+        "evaluation/goldset_tri_ai_consensus.json"
+      ]
+    },
+    "error_recall": {
+      "value": 1.0,
+      "target": 0.9,
+      "method": "AI proxy: verified-source coverage used as detected-error coverage",
+      "source": [
+        "evaluation/ai_evaluation_result.json",
+        "evaluation/goldset_tri_ai_consensus.json"
+      ]
+    },
+    "error_f1": {
+      "value": 0.888888888888889,
+      "target": 0.9,
+      "method": "AI proxy: harmonic mean of agreement and verified-source coverage",
+      "source": [
+        "evaluation/ai_evaluation_result.json",
+        "evaluation/goldset_tri_ai_consensus.json"
+      ]
+    },
+    "repair_accuracy": {
+      "value": 0.4,
+      "target": 0.9,
+      "method": "AI proxy: 1 minus three-model human-review-required rate",
+      "source": [
+        "evaluation/ai_evaluation_result.json",
+        "evaluation/goldset_tri_ai_consensus.json"
+      ]
+    },
+    "sdti": {
+      "value": 65.8579491886859,
+      "target": 90.0,
+      "method": "AI proxy: geometric mean of retrieval F1, faithfulness, traceability, error F1 and repair accuracy (0-100)",
+      "source": [
+        "evaluation/results_deepseek/comparison.json",
+        "evaluation/ai_evaluation_result.json",
+        "evaluation/goldset_tri_ai_consensus.json"
+      ]
+    }
+  },
+  "notice": "AI 辅助代理值，仅用于开发查看；不是冻结 Gold Set 正式指标。"
+}

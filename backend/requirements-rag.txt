@@ -1,0 +1,5 @@
+# Optional Phase 2 production RAG backends. The default memory + hashing path
+# remains dependency-free beyond backend/requirements.txt.
+chromadb>=1.0,<2.0
+networkx>=3.4,<4.0
+sentence-transformers>=5.0,<6.0

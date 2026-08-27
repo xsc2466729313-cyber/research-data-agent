@@ -1,0 +1,29 @@
+{
+  "evaluation_mode": "AI_EVALUATED",
+  "status": "AI_EVALUATED",
+  "created_at": "2026-08-24T12:52:08.577791+00:00",
+  "architecture": {
+    "subject_agent": "Qwen",
+    "primary_annotator": "DeepSeek",
+    "independent_reviewer": "GLM-5.2"
+  },
+  "case_count": 5,
+  "metrics": {
+    "ai_agreement_rate": 0.8,
+    "source_verified_rate": 1.0,
+    "consensus_candidate_rate": 0.4,
+    "human_review_required_rate": 0.6,
+    "deepseek_mean_confidence": 0.94,
+    "glm_mean_confidence": 0.804
+  },
+  "counts": {
+    "agreements": 4,
+    "source_verified": 5,
+    "consensus_candidates": 2,
+    "human_review_required": 3,
+    "unresolved_sources": 1
+  },
+  "formal_goldset": false,
+  "official_metrics_allowed": false,
+  "notice": "这是三 AI 机器评测结果，不是人工冻结 Gold Set，不用于正式 SDTI 或发布成绩。"
+}

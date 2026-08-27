@@ -6,6 +6,7 @@ from typing import Any
 from backend.app.agent.accession_harvest import asks_pcr, asks_survival, catalog_query, literature_query, needs_clinical_outcome
 from backend.app.agent.models import ResearchBrief
 from backend.app.models import ResearchSpec
+from backend.app.source_broker.source_catalog import seed_legacy_study_profiles
 
 _STOPWORDS = {
     "the",
@@ -48,119 +49,9 @@ _STOPWORDS = {
 _TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z0-9_+/.-]{1,}")
 _CJK_RE = re.compile(r"[\u4e00-\u9fff]{2,}")
 
-# Same-cohort field coverage for ranking public studies. Never used to splice patients.
-_STUDY_PROFILES: tuple[dict[str, Any], ...] = (
-    {
-        "name": "METABRIC",
-        "tool": "search_cbioportal",
-        "arg_key": "study_id",
-        "arg_value": "brca_metabric",
-        "fields": frozenset(
-            {
-                "mutation",
-                "survival",
-                "os_status",
-                "dfs_status",
-                "er_status",
-                "pr_status",
-                "her2_status",
-                "intclust",
-                "subtype",
-                "age",
-                "stage",
-                "disease",
-            }
-        ),
-    },
-    {
-        "name": "TCGA Pan-Cancer BRCA",
-        "tool": "search_cbioportal",
-        "arg_key": "study_id",
-        "arg_value": "brca_tcga_pan_can_atlas_2018",
-        "fields": frozenset(
-            {
-                "mutation",
-                "survival",
-                "os_status",
-                "er_status",
-                "pr_status",
-                "her2_status",
-                "subtype",
-                "age",
-                "stage",
-                "disease",
-            }
-        ),
-    },
-    {
-        "name": "TCGA BRCA",
-        "tool": "search_cbioportal",
-        "arg_key": "study_id",
-        "arg_value": "brca_tcga",
-        "fields": frozenset(
-            {
-                "mutation",
-                "survival",
-                "os_status",
-                "er_status",
-                "her2_status",
-                "subtype",
-                "disease",
-            }
-        ),
-    },
-    {
-        "name": "Alpelisib 2020",
-        "tool": "search_cbioportal",
-        "arg_key": "study_id",
-        "arg_value": "breast_alpelisib_2020",
-        "fields": frozenset({"mutation", "treatment_response", "pik3ca_mutation", "disease"}),
-        "needles": frozenset({"treatment_response"}),
-    },
-    {
-        "name": "MSKCC 2019",
-        "tool": "search_cbioportal",
-        "arg_key": "study_id",
-        "arg_value": "brca_mskcc_2019",
-        "fields": frozenset({"mutation", "treatment_response", "disease"}),
-        "needles": frozenset({"treatment_response"}),
-    },
-    {
-        "name": "GSE25066",
-        "tool": "search_geo",
-        "arg_key": "accession",
-        "arg_value": "GSE25066",
-        "fields": frozenset({"pcr", "treatment_response", "er_status", "her2_status", "subtype", "disease"}),
-        "needles": frozenset({"pcr", "treatment_response"}),
-    },
-    {
-        "name": "GSE76360",
-        "tool": "search_geo",
-        "arg_key": "accession",
-        "arg_value": "GSE76360",
-        "fields": frozenset({"treatment_response", "pcr", "her2_status", "disease"}),
-        "needles": frozenset({"treatment_response", "pcr"}),
-    },
-    {
-        "name": "GDC TCGA-BRCA",
-        "tool": "search_gdc",
-        "arg_key": "project_id",
-        "arg_value": "TCGA-BRCA",
-        "fields": frozenset(
-            {
-                "mutation",
-                "survival",
-                "os_status",
-                "er_status",
-                "her2_status",
-                "subtype",
-                "age",
-                "stage",
-                "disease",
-            }
-        ),
-    },
-)
+# Legacy planner compatibility. The actual seed profiles now live in the
+# versioned Source Broker catalog and remain pre-acquisition hints only.
+_STUDY_PROFILES: tuple[dict[str, Any], ...] = seed_legacy_study_profiles()
 
 
 def geo_search_applicable(spec: ResearchSpec) -> bool:

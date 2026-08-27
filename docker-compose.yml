@@ -5,6 +5,8 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+      args:
+        INSTALL_RAG_EXTRAS: ${INSTALL_RAG_EXTRAS:-0}
     environment:
       APP_ENV: ${APP_ENV:-development}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
@@ -15,6 +17,10 @@ services:
       QWEN_MODEL: ${QWEN_MODEL:-qwen-plus}
       QWEN_WORKSPACE_ID: ${QWEN_WORKSPACE_ID:-}
       QWEN_TIMEOUT_SECONDS: ${QWEN_TIMEOUT_SECONDS:-120}
+      RAG_VECTOR_BACKEND: ${RAG_VECTOR_BACKEND:-memory}
+      RAG_EMBEDDING_BACKEND: ${RAG_EMBEDDING_BACKEND:-hashing}
+      RAG_CHROMA_PATH: ${RAG_CHROMA_PATH:-/workspace/data/cache/planning_rag}
+      RAG_BGE_MODEL: ${RAG_BGE_MODEL:-BAAI/bge-small-zh-v1.5}
     ports:
       - "8000:8000"
     healthcheck:
@@ -35,6 +41,7 @@ services:
       - civic_cache:/workspace/data/cache/civic
       - evaluation_output:/workspace/data/output/evaluation
       - agent_output:/workspace/data/output/agent
+      - planning_rag_cache:/workspace/data/cache/planning_rag
 
   frontend:
     build:
@@ -54,3 +61,4 @@ volumes:
   civic_cache:
   evaluation_output:
   agent_output:
+  planning_rag_cache:

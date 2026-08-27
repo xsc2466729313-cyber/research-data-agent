@@ -19,6 +19,7 @@ from backend.app.agent.models import (
 )
 from backend.app.agent.search_planner import FieldDrivenSearchPlanner, infer_cohorts_from_fields, question_search_terms
 from backend.app.models import ResearchSpec
+from backend.app.research_planning.models import FieldRequirement, ResearchContract
 
 _REPRODUCIBILITY_MARKERS = (
     "可重复",
@@ -144,7 +145,15 @@ _NAMED_COHORTS: tuple[dict[str, Any], ...] = (
 class ResearchBriefBuilder:
     """Deterministic first agent: freeze primary fields, then search named cohorts."""
 
-    def build(self, question: str, spec: ResearchSpec) -> ResearchBrief:
+    def build(
+        self,
+        question: str,
+        spec: ResearchSpec,
+        *,
+        contract: ResearchContract | None = None,
+    ) -> ResearchBrief:
+        if contract is not None:
+            return self.build_from_contract(contract)
         text = question or spec.research_goal or ""
         needs_outcome = question_asks_clinical_outcome(text)
         type_id, type_label = self._research_type(text, spec, needs_outcome)
@@ -183,6 +192,81 @@ class ResearchBriefBuilder:
         )
         brief.search_strategy = FieldDrivenSearchPlanner().strategy_text(spec, brief)
         return brief
+
+    def build_from_contract(self, contract: ResearchContract) -> ResearchBrief:
+        """Bridge the new planning IR into the existing deterministic pipeline.
+
+        This does not reinterpret the natural-language question and does not
+        alter the frozen Canonical Schema. Required/Recommended/Optional are
+        mapped onto the existing primary/important/secondary vocabulary.
+        """
+
+        priority_map = {
+            "required": "primary",
+            "recommended": "important",
+            "optional": "secondary",
+        }
+        requirements = [
+            *contract.required_fields,
+            *contract.recommended_fields,
+            *contract.optional_fields,
+        ]
+        fields = [
+            PrioritizedField(
+                field_id=requirement.field_id,
+                label=requirement.label,
+                priority=priority_map[requirement.priority.value],
+                reason=requirement.reason,
+                aliases=list(dict.fromkeys([requirement.canonical_name, *requirement.aliases])),
+            )
+            for requirement in self._deduplicate_contract_fields(requirements)
+        ]
+        type_labels = {
+            "association": "关联分析",
+            "subgroup_association": "分层/异质性分析",
+            "classification_prediction": "分类预测",
+            "survival_analysis": "预后/生存分析",
+        }
+        outcome_text = contract.outcome.casefold()
+        needs_outcome = any(
+            token in outcome_text
+            for token in ("response", "pcr", "survival", "缓解", "生存")
+        )
+        keywords = list(
+            dict.fromkeys(
+                [
+                    contract.topic,
+                    contract.exposure,
+                    contract.outcome,
+                    *[field.label for field in fields if field.priority == "primary"],
+                ]
+            )
+        )[:16]
+        return ResearchBrief(
+            research_type_id=contract.research_type,
+            research_type=type_labels.get(contract.research_type, contract.research_type),
+            primary_question=contract.research_question,
+            named_cohorts=[],
+            fields=fields,
+            search_strategy=(
+                f"按 Research Contract {contract.contract_id} 的 Required 字段优先检索；"
+                "Recommended 字段用于补充，Optional 字段不阻断主目标。"
+            ),
+            analysis_plan=" ".join(contract.analysis_plan),
+            needs_clinical_outcome=needs_outcome,
+            keywords=keywords,
+        )
+
+    @staticmethod
+    def _deduplicate_contract_fields(requirements: list[FieldRequirement]) -> list[FieldRequirement]:
+        output: list[FieldRequirement] = []
+        seen: set[str] = set()
+        for requirement in requirements:
+            if requirement.field_id in seen:
+                continue
+            seen.add(requirement.field_id)
+            output.append(requirement)
+        return output
 
     def assess(
         self,

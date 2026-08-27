@@ -66,6 +66,28 @@ from backend.app.goldset.models import (
     SourceVerificationResult,
 )
 from backend.app.models import MockPipelineResult, ResearchQuestion
+from backend.app.literature import LiteratureScanRequest
+from backend.app.rag import (
+    EvidenceQueryRequest,
+    EvidenceQueryResponse,
+    RAGEvaluationRequest,
+    RAGEvaluationResult,
+    RAGIndexNotFoundError,
+    RAGIndexReport,
+    RAGIndexRequest,
+    ScientificGraphSnapshot,
+)
+from backend.app.research_planning import (
+    LiteratureScanResponse,
+    QuestionCandidateList,
+    QuestionSelectionRequest,
+    ResearchContract,
+    ResearchPlanningNotFoundError,
+    ResearchPlanningService,
+    ResearchTopic,
+    TopicCreateRequest,
+)
+from backend.app.source_broker.models import SourcePlanningResult, SourcePlanRequest
 from backend.app.integration import IntegrationError, NormalizationIntegrationPipeline
 from backend.app.integration.models import (
     NormalizationIntegrationRequest,
@@ -137,6 +159,7 @@ goldset_curation_service = GoldSetCurationService()
 repair_loop_service = RepairLoopService()
 mock_export_service = MockDatasetExportService()
 research_agent_service = ResearchAgentService()
+research_planning_service = ResearchPlanningService()
 qwen_session_registry = QwenSessionRegistry()
 agent_export_service = AgentDatasetExportService()
 api_check_service = ApiCheckService()
@@ -182,6 +205,10 @@ def get_repair_loop_service() -> RepairLoopService:
 
 def get_research_agent_service() -> ResearchAgentService:
     return research_agent_service
+
+
+def get_research_planning_service() -> ResearchPlanningService:
+    return research_planning_service
 
 
 def get_qwen_session_registry() -> QwenSessionRegistry:
@@ -380,6 +407,156 @@ def run_agent_task(
                 "请重启后端后强制刷新；若持续失败，请提供该请求编号。"
             ),
         ) from exc
+
+
+@app.post("/api/research/topics", response_model=ResearchTopic)
+def create_research_topic(
+    payload: TopicCreateRequest,
+    service: Annotated[ResearchPlanningService, Depends(get_research_planning_service)],
+) -> ResearchTopic:
+    return service.create_topic(payload)
+
+
+@app.post(
+    "/api/research/topics/{topic_id}/literature-scan",
+    response_model=LiteratureScanResponse,
+)
+def scan_research_topic_literature(
+    topic_id: str,
+    payload: LiteratureScanRequest,
+    service: Annotated[ResearchPlanningService, Depends(get_research_planning_service)],
+) -> LiteratureScanResponse:
+    try:
+        return service.scan_literature(topic_id, payload)
+    except ResearchPlanningNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.get(
+    "/api/research/topics/{topic_id}/question-candidates",
+    response_model=QuestionCandidateList,
+)
+def get_research_question_candidates(
+    topic_id: str,
+    service: Annotated[ResearchPlanningService, Depends(get_research_planning_service)],
+) -> QuestionCandidateList:
+    try:
+        return service.question_candidates(topic_id)
+    except ResearchPlanningNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/api/research/questions/{candidate_id}/select", response_model=ResearchContract)
+def select_research_question(
+    candidate_id: str,
+    payload: QuestionSelectionRequest,
+    service: Annotated[ResearchPlanningService, Depends(get_research_planning_service)],
+) -> ResearchContract:
+    try:
+        return service.select_question(candidate_id, payload)
+    except ResearchPlanningNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.get("/api/research/contracts/{contract_id}", response_model=ResearchContract)
+def get_research_contract(
+    contract_id: str,
+    service: Annotated[ResearchPlanningService, Depends(get_research_planning_service)],
+) -> ResearchContract:
+    try:
+        return service.get_contract(contract_id)
+    except ResearchPlanningNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post(
+    "/api/research/contracts/{contract_id}/source-plan",
+    response_model=SourcePlanningResult,
+)
+def create_research_source_plan(
+    contract_id: str,
+    payload: SourcePlanRequest,
+    service: Annotated[ResearchPlanningService, Depends(get_research_planning_service)],
+) -> SourcePlanningResult:
+    try:
+        return service.plan_sources(contract_id, payload)
+    except ResearchPlanningNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.get(
+    "/api/research/source-plans/{source_plan_id}",
+    response_model=SourcePlanningResult,
+)
+def get_research_source_plan(
+    source_plan_id: str,
+    service: Annotated[ResearchPlanningService, Depends(get_research_planning_service)],
+) -> SourcePlanningResult:
+    try:
+        return service.get_source_plan(source_plan_id)
+    except ResearchPlanningNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post(
+    "/api/research/topics/{topic_id}/rag-index",
+    response_model=RAGIndexReport,
+)
+def build_research_planning_rag(
+    topic_id: str,
+    payload: RAGIndexRequest,
+    service: Annotated[ResearchPlanningService, Depends(get_research_planning_service)],
+) -> RAGIndexReport:
+    try:
+        return service.build_rag_index(topic_id, payload)
+    except (ResearchPlanningNotFoundError, RAGIndexNotFoundError) as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post(
+    "/api/research/topics/{topic_id}/evidence-query",
+    response_model=EvidenceQueryResponse,
+)
+def query_research_evidence(
+    topic_id: str,
+    payload: EvidenceQueryRequest,
+    service: Annotated[ResearchPlanningService, Depends(get_research_planning_service)],
+) -> EvidenceQueryResponse:
+    try:
+        return service.query_evidence(topic_id, payload)
+    except (ResearchPlanningNotFoundError, RAGIndexNotFoundError) as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.get(
+    "/api/research/topics/{topic_id}/knowledge-graph",
+    response_model=ScientificGraphSnapshot,
+)
+def get_research_knowledge_graph(
+    topic_id: str,
+    service: Annotated[ResearchPlanningService, Depends(get_research_planning_service)],
+) -> ScientificGraphSnapshot:
+    try:
+        return service.knowledge_graph(topic_id)
+    except (ResearchPlanningNotFoundError, RAGIndexNotFoundError) as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post(
+    "/api/research/topics/{topic_id}/rag-evaluate",
+    response_model=RAGEvaluationResult,
+)
+def evaluate_research_planning_rag(
+    topic_id: str,
+    payload: RAGEvaluationRequest,
+    service: Annotated[ResearchPlanningService, Depends(get_research_planning_service)],
+) -> RAGEvaluationResult:
+    try:
+        return service.evaluate_rag(topic_id, payload)
+    except (ResearchPlanningNotFoundError, RAGIndexNotFoundError) as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @app.post("/api/research/task", response_model=ResearchTaskCreated)

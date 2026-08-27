@@ -1,0 +1,4 @@
+﻿case_id,difficulty,rank,latency_ms,task_id,judge_error
+brca-her2-response-001,medium,1,19993.7469999968,agent-4e3365979fd1,
+brca-erbb2-clinical-002,easy,2,15341.794899999513,agent-54a83c065bd4,
+brca-treatment-evidence-003,hard,2,14006.366099998559,agent-12dc19072ba3,

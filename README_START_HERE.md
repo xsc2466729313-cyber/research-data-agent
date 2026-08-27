@@ -68,3 +68,13 @@
 在阶段 00–10 骨架之上，当前主产品已经重构为 **v2 千问科研数据 Agent**：前端调用 `/api/agent/tasks`，由千问结构化解析科研问题并通过函数调用选择真实 Adapter；系统以临床样本锚定 cBioPortal 队列，防止分子孤立记录制造高缺失率，并可下载解析 GSE76360 Series Matrix，生成 50 名 HER2 阳性患者的基线治疗响应队列。页面提供中文数据值与字段字典、真实清洗记录、结局/变量匹配指标、点线式数据溯源以及 CSV/Parquet/Excel 导出。阶段 00 Mock 接口只作历史回归测试，不再是前端主链。详见 `docs/QWEN_RESEARCH_AGENT.md`。
 
 评价体系已增设 **统一评价体系 v2**：在冻结 SDTI 外层新增外部 Benchmark、模型/系统变体横向对比、Quality Gate 消融、Task-Adaptive Fitness 和分层对比。详见 `docs/UNIFIED_EVALUATION_SYSTEM_V2.md`、`configs/evaluation_system_v2.yaml` 与 `data/evaluation_templates/unified_results_template.csv`。这些扩展不生成虚假成绩；所有数值必须来自真实运行产物和可追溯来源。
+
+当前进一步升级已完成 **Research Planning Phase 1 / Literature Layer Phase 2**：允许输入宽泛研究方向，通过可替换 Literature Provider 形成带论文 Evidence 的候选科研问题与 Research Contract，并兼容现有 `ResearchBriefBuilder`。详见 `docs/RESEARCH_PLANNING_PHASE1.md`。
+
+系统现已进入并完成总方案 **Phase 3 Planning RAG / Scientific KG MVP**：Europe PMC 开放全文结构化切片，可替换 ChromaDB + BGE 后端，默认可离线回归，支持语义/词法/章节/图谱混合检索、字段级 Evidence 查询、科研知识图谱和冻结 Gold Set RAG 评测。详见 `docs/PLANNING_RAG_PHASE3.md`。
+
+根据《Scientific Data Agent 终局完整设计包》，当前进一步完成 **Phase 4 Source Broker MVP**：将 Source、Dataset、Resource 分层，以 Research Contract 生成 DatasetCandidate、Field Coverage Matrix、最小来源组合、JoinPolicy 和 fallback。所有 seed capability 都标记为采集前待验证，多 cohort 无 crosswalk 时明确禁止患者级横向 Join。详见 `docs/SOURCE_BROKER_PHASE4.md`。
+
+前端现已升级为 **Guided Research Planning Workspace**：默认首页从宽泛 Topic 出发，依次展示真实论文 Evidence、候选科研问题、Research Blueprint 和 Source Plan；原完整数据工作台保留为“高级数据工作台”。详见 `docs/FRONTEND_PLANNING_WORKSPACE.md`。
+
+模型评价、架构选择和答辩说明见 `docs/MODEL_EVALUATION_AND_SELECTION_REPORT.md`。该报告明确区分任务级诊断、AI Judge 探针、冻结 Gold Set 正式指标和未完成的横向模型实验，不使用代理分数冒充正式 SDTI。

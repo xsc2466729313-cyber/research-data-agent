@@ -1,0 +1,160 @@
+{
+  "metadata": {
+    "benchmark": "evaluation\\retrieval_gold.template.jsonl",
+    "generation_model": "qwen-plus",
+    "judge_model": "deepseek-chat",
+    "judge_status": "configured",
+    "cases_requested": 3
+  },
+  "summary": {
+    "cases": 3,
+    "judge_model": "deepseek-chat",
+    "metrics": {
+      "recall@1": 0.3333333333333333,
+      "recall@3": 1.0,
+      "recall@5": 1.0,
+      "mrr@3": 0.6666666666666666,
+      "ndcg@3": 0.7539531690476383,
+      "recall@3_easy": 1.0,
+      "recall@3_hard": 1.0,
+      "recall@3_medium": 1.0,
+      "avg_latency_ms": 16447.302666664957,
+      "judge_valid_rate": 1.0,
+      "avg_faithfulness": 4.666666666666667,
+      "avg_relevance": 4.0,
+      "avg_completeness": 2.3333333333333335,
+      "avg_retrieval_quality": 3.3333333333333335,
+      "avg_overall": 3.3333333333333335,
+      "avg_claim_support_rate": 0.4666666666666666
+    }
+  },
+  "details": [
+    {
+      "case_id": "brca-her2-response-001",
+      "difficulty": "medium",
+      "query": "研究HER2阳性乳腺癌中PIK3CA突变与新辅助治疗响应的关系，并整理患者级科研数据集",
+      "expected_sources": [
+        "brca_metabric",
+        "GSE76360"
+      ],
+      "rank": 1,
+      "latency_ms": 19993.7469999968,
+      "task_id": "agent-4e3365979fd1",
+      "judge_scores": {
+        "faithfulness": {
+          "score": 5,
+          "reason": "摘要与检索计划、工具调用和数据集概况一致，未发现虚构或矛盾内容。"
+        },
+        "relevance": {
+          "score": 3,
+          "reason": "检索到的队列（METABRIC、TCGA、GEO）与乳腺癌相关，但METABRIC和TCGA缺乏新辅助治疗响应数据，GEO队列未包含PIK3CA突变信息，整体与核心研究问题部分相关。"
+        },
+        "completeness": {
+          "score": 2,
+          "reason": "检索计划覆盖了多个数据库，但未获取到同时包含PIK3CA突变和新辅助治疗响应的患者级数据，关键变量缺失，无法回答研究问题。"
+        },
+        "retrieval_quality": {
+          "score": 3,
+          "reason": "工具调用成功且来源真实，但检索策略未能命中关键数据集，导致数据覆盖不足。"
+        },
+        "overall": 3,
+        "claim_support_rate": 0.0,
+        "missing_evidence": [
+          "PIK3CA突变数据",
+          "新辅助治疗响应数据（pCR/RCB）",
+          "HER2阳性亚型患者队列"
+        ],
+        "unsupported_claims": [
+          "研究变量待补充",
+          "当前队列不能单独回答完整基因假设"
+        ]
+      }
+    },
+    {
+      "case_id": "brca-erbb2-clinical-002",
+      "difficulty": "easy",
+      "query": "整理乳腺癌患者的ERBB2相关临床特征、突变信息和样本级证据",
+      "expected_sources": [
+        "brca_metabric",
+        "TCGA-BRCA"
+      ],
+      "rank": 2,
+      "latency_ms": 15341.794899999513,
+      "task_id": "agent-54a83c065bd4",
+      "judge_scores": {
+        "faithfulness": {
+          "score": 4,
+          "reason": "检索计划与执行基本一致，工具调用和来源登记真实，但部分数据未实际下载（GDC文件仅发现未获取），且总结中未提及这些限制。"
+        },
+        "relevance": {
+          "score": 4,
+          "reason": "数据来源与乳腺癌ERBB2高度相关，但数据集缺少突变注释和样本级证据字段，与问题部分不匹配。"
+        },
+        "completeness": {
+          "score": 2,
+          "reason": "仅30个样本，缺少ERBB2突变信息、ISH结果、肿瘤纯度、Ki67等关键字段，证据未与样本整合，完整性不足。"
+        },
+        "retrieval_quality": {
+          "score": 3,
+          "reason": "检索了多个权威数据库，但GDC文件未实际获取，cBioPortal记录数受限，且未提供突变数据，检索质量中等。"
+        },
+        "overall": 3,
+        "claim_support_rate": 0.6,
+        "missing_evidence": [
+          "ERBB2突变注释（如变异类型、基因组坐标、等位基因频率）",
+          "ERBB2 ISH结果",
+          "肿瘤纯度（tumor_purity）",
+          "Ki67指数",
+          "样本级证据（如evidence_level、evidence_source）",
+          "完整的肿瘤分级（tumor_grade）"
+        ],
+        "unsupported_claims": [
+          "数据集包含ERBB2突变信息（实际未提供）",
+          "样本级证据已整合（实际未拼接）"
+        ]
+      }
+    },
+    {
+      "case_id": "brca-treatment-evidence-003",
+      "difficulty": "hard",
+      "query": "检索乳腺癌中PIK3CA变异与治疗证据，并区分患者队列和医学知识证据",
+      "expected_sources": [
+        "brca_metabric",
+        "CIViC"
+      ],
+      "rank": 2,
+      "latency_ms": 14006.366099998559,
+      "task_id": "agent-12dc19072ba3",
+      "judge_scores": {
+        "faithfulness": {
+          "score": 5,
+          "reason": "检索计划、工具调用和摘要均围绕乳腺癌PIK3CA变异与治疗证据，未引入外部事实，忠实于给定信息。"
+        },
+        "relevance": {
+          "score": 5,
+          "reason": "所有检索均针对乳腺癌PIK3CA变异，cBioPortal和GDC提供患者队列，CIViC提供治疗证据，高度相关。"
+        },
+        "completeness": {
+          "score": 3,
+          "reason": "检索覆盖了患者队列和医学知识，但未获取治疗响应数据，且患者数不足，存在缺失证据。"
+        },
+        "retrieval_quality": {
+          "score": 4,
+          "reason": "使用了三个权威数据库，来源真实，但部分数据未下载（GDC文件），且cBioPortal记录数受限。"
+        },
+        "overall": 4,
+        "claim_support_rate": 0.8,
+        "missing_evidence": [
+          "治疗响应数据（如best_response、PFS、OS）",
+          "治疗方案和线数（therapy_agent、therapy_line）",
+          "疗效评估方法（response_assessment_method）",
+          "足够的患者队列（当前仅28例）"
+        ],
+        "unsupported_claims": [
+          "所有样本均携带PIK3CA变异（可能因筛选导致，但未明确说明）",
+          "CIViC证据涵盖指南引用和PMID（摘要未提供具体内容）"
+        ]
+      }
+    }
+  ]
+}

@@ -5,16 +5,108 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="千问驱动的乳腺癌科研数据智能体：从科研问题、真实数据库工具调用到可阅读、可追溯的科研数据集。" />
     <title>千问乳腺癌科研数据智能体</title>
-    <link rel="stylesheet" href="/styles.css?v=20260826-8" />
+    <link rel="stylesheet" href="/styles.css?v=20260827-4" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">跳至正文</a>
+    <section id="planning-workspace" class="planner-app" aria-label="科研规划工作台">
+      <aside class="planner-sidebar">
+        <a class="planner-brand" href="#planning-workspace">
+          <span class="planner-brand-mark">SDA</span>
+          <span><strong>科研数据助手</strong><small>从研究想法到数据结果</small></span>
+        </a>
+        <button id="planner-new" class="planner-new-button" type="button"><span>＋</span>新建研究</button>
+        <nav class="planner-stage-nav" aria-label="科研规划阶段">
+          <button class="is-active" type="button" data-planner-stage="topic"><b>01</b><span><strong>提出方向</strong><small>告诉我你想研究什么</small></span></button>
+          <button type="button" data-planner-stage="literature"><b>02</b><span><strong>查找依据</strong><small>检索真实论文与线索</small></span></button>
+          <button type="button" data-planner-stage="questions"><b>03</b><span><strong>明确问题</strong><small>形成具体研究目标</small></span></button>
+          <button type="button" data-planner-stage="contract"><b>04</b><span><strong>制定方案</strong><small>确定对象、指标与字段</small></span></button>
+          <button type="button" data-planner-stage="sources"><b>05</b><span><strong>准备数据</strong><small>检查公开数据是否够用</small></span></button>
+        </nav>
+        <section class="planner-recent">
+          <div><strong>当前研究</strong><span id="planner-recent-count">0</span></div>
+          <div id="planner-recent-list" class="planner-recent-list">
+            <p>尚未开始研究</p>
+          </div>
+        </section>
+        <div class="planner-sidebar-foot">
+          <span id="planner-health-dot"></span>
+          <div><strong id="planner-health-label">正在连接</strong><small>文献检索 · 研究规划 · 数据准备</small></div>
+        </div>
+      </aside>
+
+      <section class="planner-center">
+        <header class="planner-header">
+          <div><strong id="planner-header-title">新研究</strong><small id="planner-header-subtitle">从一个想法开始，系统会自动完成研究规划</small></div>
+          <button id="planner-open-advanced" type="button">查看技术详情 <span>↘</span></button>
+        </header>
+
+        <div id="planner-scroll" class="planner-scroll">
+          <section id="planner-welcome" class="planner-welcome">
+            <span class="planner-orbit" aria-hidden="true">✦</span>
+            <p class="planner-kicker">从研究想法，到可以开始的数据工作</p>
+            <h1>告诉我你想研究的方向</h1>
+            <p>只需要一句稍微宽泛的描述。系统会自动查找论文、明确研究问题、制定研究方案，并检查公开数据是否可用。</p>
+            <div class="planner-prompt-grid" aria-label="研究方向示例">
+              <button type="button" data-planner-example="哪些因素会影响乳腺癌新辅助治疗的疗效？"><strong>新辅助治疗疗效</strong><span>哪些因素会影响乳腺癌新辅助治疗的疗效？</span><small>点击后自动完成研究规划</small></button>
+              <button type="button" data-planner-example="哪些生物标志物可以预测乳腺癌患者的治疗效果？"><strong>生物标志物</strong><span>哪些生物标志物可以预测乳腺癌患者的治疗效果？</span><small>点击后自动完成研究规划</small></button>
+              <button type="button" data-planner-example="不同乳腺癌分子亚型的治疗响应是否存在差异？"><strong>分子亚型差异</strong><span>不同乳腺癌分子亚型的治疗响应是否存在差异？</span><small>点击后自动完成研究规划</small></button>
+              <button type="button" data-planner-example="乳腺癌患者的预后主要受到哪些临床和分子因素影响？"><strong>乳腺癌预后</strong><span>乳腺癌患者的预后主要受到哪些临床和分子因素影响？</span><small>点击后自动完成研究规划</small></button>
+              <button type="button" data-planner-example="基因突变与乳腺癌治疗响应之间有什么关系？"><strong>基因突变与响应</strong><span>基因突变与乳腺癌治疗响应之间有什么关系？</span><small>点击后自动完成研究规划</small></button>
+              <button type="button" data-planner-example="公开数据中有哪些乳腺癌队列适合开展疗效预测研究？"><strong>公开数据队列</strong><span>公开数据中有哪些乳腺癌队列适合开展疗效预测研究？</span><small>点击后自动完成研究规划</small></button>
+            </div>
+          </section>
+
+          <section id="planner-progress" class="planner-progress" hidden aria-live="polite">
+            <div class="planner-progress-head"><div><span>正在自动完成研究规划</span><strong id="planner-progress-title">理解研究意图…</strong></div><b id="planner-progress-percent">10%</b></div>
+            <div class="planner-progress-track"><i id="planner-progress-bar"></i></div>
+            <ol>
+              <li data-planner-step="topic">理解方向</li><li data-planner-step="literature">查找依据</li><li data-planner-step="questions">明确问题</li><li data-planner-step="contract">制定方案</li><li data-planner-step="sources">准备数据</li>
+            </ol>
+          </section>
+
+          <section id="planner-results" class="planner-results" hidden>
+            <div class="planner-result-heading"><div><span>一条龙研究规划</span><h2 id="planner-result-title">正在为你整理研究方案</h2></div><p id="planner-result-summary"></p></div>
+            <div id="planner-flow-summary" class="planner-flow-summary"></div>
+            <div id="planner-question-list" class="planner-question-list"></div>
+          </section>
+        </div>
+
+        <form id="planner-form" class="planner-composer">
+          <textarea id="planner-topic" rows="2" required placeholder="输入一个稍宽泛的研究方向，例如：哪些因素会影响乳腺癌新辅助治疗的疗效？"></textarea>
+          <div>
+            <span class="planner-scope-chip">◎ 公开数据</span>
+            <span class="planner-scope-chip">◇ 论文依据</span>
+            <small>Ctrl + Enter 开始</small>
+            <button id="planner-submit" type="submit">开始完整规划 <span>↑</span></button>
+          </div>
+        </form>
+      </section>
+
+      <aside class="planner-right">
+        <div class="planner-tabs" role="tablist" aria-label="科研规划详情">
+          <button class="is-active" type="button" data-planner-tab="evidence">研究依据</button>
+          <button type="button" data-planner-tab="contract">研究方案</button>
+          <button type="button" data-planner-tab="sources">数据准备</button>
+        </div>
+        <div id="planner-panel-evidence" class="planner-right-panel is-active" data-planner-panel="evidence">
+          <div class="planner-empty"><span>≡</span><strong>还没有研究依据</strong><p>开始研究后，相关论文、研究方法和公开数据编号会显示在这里。</p></div>
+        </div>
+        <div id="planner-panel-contract" class="planner-right-panel" data-planner-panel="contract">
+          <div class="planner-empty"><span>◈</span><strong>尚未生成 Research Blueprint</strong><p>选择候选问题后，系统会列出 Required、Recommended 和 Optional 字段。</p></div>
+        </div>
+        <div id="planner-panel-sources" class="planner-right-panel" data-planner-panel="sources">
+          <div class="planner-empty"><span>◇</span><strong>尚未生成 Source Plan</strong><p>数据源规划会展示单 cohort 覆盖率、fallback 和安全 Join Policy。</p></div>
+        </div>
+      </aside>
+    </section>
     <header class="topbar">
-      <a class="brand" href="#main-content">
+      <a id="advanced-back-planner" class="brand" href="#planning-workspace">
         <span class="brand-mark">BRCA</span>
         <span><strong>乳腺癌科研数据智能体</strong><small>千问驱动 · 可追溯分析矩阵</small></span>
       </a>
       <nav aria-label="页面导航">
+        <a id="advanced-return-planner" href="#planning-workspace">← 返回研究向导</a>
         <a href="#main-content">工作台</a>
         <a href="#task-entry">研究问题</a>
         <a href="#study-design">研究方案</a>
@@ -485,6 +577,6 @@
     <div id="toast" class="toast" hidden role="status" aria-live="polite"></div>
     <footer><span>千问科研数据智能体</span><span>模型负责规划；规则负责安全边界；数据须真实可追溯</span></footer>
     <!-- 输入你真正想研究的问题 规划与真实检索入口 先明确研究需要什么数据 每一步筛选都能解释清楚 患者编号能不能安全对上 -->
-    <script src="/app.js?v=20260826-8" defer></script>
+    <script src="/app.js?v=20260827-4" defer></script>
   </body>
 </html>

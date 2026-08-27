@@ -1,0 +1,287 @@
+{
+  "architecture": {
+    "subject_agent": "Qwen",
+    "primary_annotator": "DeepSeek",
+    "independent_reviewer": "GLM-5.2",
+    "ground_truth_authority": "human_adjudication"
+  },
+  "status": "pending_human_adjudication",
+  "created_at": "2026-08-24T12:27:39.791332+00:00",
+  "notice": "三 AI 结果只产生候选和 review queue；只有人工裁决后的行才能进入冻结 Gold Set。",
+  "rows": [
+    {
+      "question_id": "brca-her2-response-001",
+      "research_question": "研究HER2阳性乳腺癌中PIK3CA突变与新辅助治疗响应的关系，并整理患者级科研数据集",
+      "dataset_id": "brca_metabric",
+      "source": {
+        "source_id": "cbioportal:brca_metabric",
+        "source_database": "cbioportal",
+        "accession": "brca_metabric",
+        "url": "https://www.cbioportal.org/study/summary?id=brca_metabric"
+      },
+      "qwen_role": "subject_agent_not_ground_truth",
+      "deepseek": {
+        "label": "relevant",
+        "confidence": 0.95,
+        "rationale": "该数据源为METABRIC乳腺癌数据集，包含乳腺癌患者的临床和基因组数据，包括PIK3CA突变信息，且包含HER2状态和新辅助治疗响应数据，可直接用于研究HER2阳性乳腺癌中PIK3CA突变与新辅助治疗响应的关系。",
+        "evidence_needed": [
+          "确认数据集中包含HER2阳性患者亚组",
+          "确认数据集中包含新辅助治疗响应数据",
+          "确认数据集中包含PIK3CA突变数据"
+        ]
+      },
+      "glm": {
+        "label": "not_relevant",
+        "confidence": 0.75,
+        "rationale": "METABRIC数据集确实包含乳腺癌患者的基因组数据（含PIK3CA突变）和HER2状态信息，但该数据集主要基于手术切除标本的回顾性分子分型研究，其临床注释中通常不包含新辅助治疗响应数据（如pCR、RCB等评估指标）。METABRIC的治疗信息仅限于基本治疗类型分类，缺乏新辅助治疗响应这一研究问题所必需的核心变量。DeepSeek初标rationale中声称'包含新辅助治疗响应数据'缺乏依据，属于未经确认的假设。",
+        "evidence_needed": [
+          "METABRIC数据集中是否存在新辅助治疗响应相关字段（如pCR、RCB、Miller-Payne分级等）",
+          "METABRIC中接受新辅助治疗的患者数量及比例",
+          "METABRIC临床注释字段的具体列表，确认治疗响应评估变量的有无"
+        ]
+      },
+      "source_verification": {
+        "verification_id": "source-verification:82ea9775970f092e630212a2",
+        "source": {
+          "source_id": "cbioportal:brca_metabric",
+          "source_database": "cbioportal",
+          "accession": "brca_metabric",
+          "url": "https://www.cbioportal.org/study/summary?id=brca_metabric"
+        },
+        "status": "verified",
+        "method": "live_official_http_v1",
+        "checked_at": "2026-08-24T12:13:15.676307Z",
+        "checked_url": "https://www.cbioportal.org/study/summary?id=brca_metabric",
+        "http_status": 200,
+        "response_sha256": "9c9b7762ed638c986eaa704ecb5e886e9f4adfcfed519748525ae114886c86e0",
+        "content_truncated": false,
+        "reason": "Accession was found in a successful response from an allowlisted official host."
+      },
+      "consensus_label": null,
+      "status": "human_review_required",
+      "reasons": [
+        "model_disagreement",
+        "glm_confidence_below_0.90"
+      ]
+    },
+    {
+      "question_id": "brca-her2-response-001",
+      "research_question": "研究HER2阳性乳腺癌中PIK3CA突变与新辅助治疗响应的关系，并整理患者级科研数据集",
+      "dataset_id": "GSE76360",
+      "source": {
+        "source_id": "geo:GSE76360",
+        "source_database": "geo",
+        "accession": "GSE76360",
+        "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE76360"
+      },
+      "qwen_role": "subject_agent_not_ground_truth",
+      "deepseek": {
+        "label": "not_relevant",
+        "confidence": 0.9,
+        "rationale": "GSE76360的元数据未提及HER2阳性乳腺癌、PIK3CA突变或新辅助治疗，且未提供患者级临床数据，因此与科研问题不直接相关。",
+        "evidence_needed": [
+          "GSE76360的详细样本信息",
+          "GSE76360的临床数据字段"
+        ]
+      },
+      "glm": {
+        "label": "not_relevant",
+        "confidence": 0.55,
+        "rationale": "输入仅提供了GSE76360的ID和URL，未包含该数据集的实际元数据或样本描述。研究问题要求同时满足HER2阳性乳腺癌、PIK3CA突变状态、新辅助治疗响应及患者级数据等多个条件，门槛较高。在无法从输入中确认该数据集包含上述任何关键要素的情况下，倾向于判断为不相关，但置信度较低，因为未实际访问数据集页面验证其内容。",
+        "evidence_needed": [
+          "GSE76360的Series概述和实验设计描述",
+          "样本类型及疾病类型（是否为乳腺癌）",
+          "是否包含HER2状态注释",
+          "是否包含PIK3CA突变或基因组变异数据",
+          "是否包含新辅助治疗及疗效响应信息",
+          "是否提供患者级临床元数据"
+        ]
+      },
+      "source_verification": {
+        "verification_id": "source-verification:fab74a671b3d8d0956e55198",
+        "source": {
+          "source_id": "geo:GSE76360",
+          "source_database": "geo",
+          "accession": "GSE76360",
+          "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE76360"
+        },
+        "status": "verified",
+        "method": "live_official_http_v1",
+        "checked_at": "2026-08-24T12:13:17.954589Z",
+        "checked_url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE76360",
+        "http_status": 200,
+        "response_sha256": "87987e5ed8337611cdd40030cb8e65e7b0d065801c939c3f6404d951259ff440",
+        "content_truncated": false,
+        "reason": "Accession was found in a successful response from an allowlisted official host."
+      },
+      "consensus_label": null,
+      "status": "human_review_required",
+      "reasons": [
+        "glm_confidence_below_0.90"
+      ]
+    },
+    {
+      "question_id": "brca-erbb2-clinical-002",
+      "research_question": "整理乳腺癌患者的ERBB2相关临床特征、突变信息和样本级证据",
+      "dataset_id": "brca_metabric",
+      "source": {
+        "source_id": "cbioportal:brca_metabric",
+        "source_database": "cbioportal",
+        "accession": "brca_metabric",
+        "url": "https://www.cbioportal.org/study/summary?id=brca_metabric"
+      },
+      "qwen_role": "subject_agent_not_ground_truth",
+      "deepseek": {
+        "label": "relevant",
+        "confidence": 0.95,
+        "rationale": "该数据源为cBioPortal的乳腺癌METABRIC研究，包含ERBB2（HER2）的临床特征、突变和样本级数据，直接匹配科研问题对ERBB2相关临床特征、突变信息和样本级证据的需求。",
+        "evidence_needed": []
+      },
+      "glm": {
+        "label": "relevant",
+        "confidence": 0.92,
+        "rationale": "cBioPortal的brca_metabric（METABRIC）研究是乳腺癌大规模基因组学数据集，包含约2000例原发性乳腺癌患者的临床特征、体细胞突变、拷贝数变异和mRNA表达等样本级数据。ERBB2（HER2）是乳腺癌核心基因之一，METABRIC数据集中明确包含ERBB2基因的突变、扩增/缺失（CNA）及相应的HER2临床状态等信息，能够直接支撑科研问题中对ERBB2相关临床特征、突变信息和样本级证据的整理需求。",
+        "evidence_needed": [
+          "确认brca_metabric数据集中ERBB2基因的突变数据列是否存在及覆盖样本数",
+          "确认临床数据表中是否包含HER2/ERBB2状态字段（如IHC状态、扩增状态）",
+          "确认拷贝数变异数据中ERBB2扩增事件的样本级记录",
+          "确认cBioPortal页面上该study的基因列表中包含ERBB2条目"
+        ]
+      },
+      "source_verification": {
+        "verification_id": "source-verification:82ea9775970f092e630212a2",
+        "source": {
+          "source_id": "cbioportal:brca_metabric",
+          "source_database": "cbioportal",
+          "accession": "brca_metabric",
+          "url": "https://www.cbioportal.org/study/summary?id=brca_metabric"
+        },
+        "status": "verified",
+        "method": "live_official_http_v1",
+        "checked_at": "2026-08-24T12:13:20.512134Z",
+        "checked_url": "https://www.cbioportal.org/study/summary?id=brca_metabric",
+        "http_status": 200,
+        "response_sha256": "9c9b7762ed638c986eaa704ecb5e886e9f4adfcfed519748525ae114886c86e0",
+        "content_truncated": false,
+        "reason": "Accession was found in a successful response from an allowlisted official host."
+      },
+      "consensus_label": "relevant",
+      "status": "candidate_pending_human",
+      "reasons": []
+    },
+    {
+      "question_id": "brca-erbb2-clinical-002",
+      "research_question": "整理乳腺癌患者的ERBB2相关临床特征、突变信息和样本级证据",
+      "dataset_id": "brca_tcga",
+      "source": {
+        "source_id": "cbioportal:brca_tcga",
+        "source_database": "cbioportal",
+        "accession": "brca_tcga",
+        "url": "https://www.cbioportal.org/study/summary?id=brca_tcga"
+      },
+      "qwen_role": "subject_agent_not_ground_truth",
+      "deepseek": {
+        "label": "relevant",
+        "confidence": 0.95,
+        "rationale": "该数据源为TCGA乳腺癌研究（brca_tcga），包含ERBB2（HER2）相关的临床特征、突变信息和样本级数据，直接匹配研究问题中关于ERBB2的临床特征、突变和样本级证据的需求。",
+        "evidence_needed": []
+      },
+      "glm": {
+        "label": "relevant",
+        "confidence": 0.95,
+        "rationale": "cBioPortal的TCGA乳腺癌(brca_tcga)数据集包含乳腺癌患者的临床特征（包括HER2/ERBB2状态）、基因突变数据（包括ERBB2基因突变）以及样本级别的组学数据，直接满足研究问题中关于ERBB2相关临床特征、突变信息和样本级证据的需求。",
+        "evidence_needed": [
+          "TCGA brca_tcga数据集的临床数据字段中是否包含HER2/ERBB2状态",
+          "TCGA brca_tcga数据集的突变数据中是否包含ERBB2基因的突变记录",
+          "cBioPortal是否提供该数据集的样本级数据下载或查询接口"
+        ]
+      },
+      "source_verification": {
+        "verification_id": "source-verification:7bc3450bc26622984e0a6d46",
+        "source": {
+          "source_id": "cbioportal:brca_tcga",
+          "source_database": "cbioportal",
+          "accession": "brca_tcga",
+          "url": "https://www.cbioportal.org/study/summary?id=brca_tcga"
+        },
+        "status": "verified",
+        "method": "live_official_http_v1",
+        "checked_at": "2026-08-24T12:13:21.791996Z",
+        "checked_url": "https://www.cbioportal.org/study/summary?id=brca_tcga",
+        "http_status": 200,
+        "response_sha256": "9c9b7762ed638c986eaa704ecb5e886e9f4adfcfed519748525ae114886c86e0",
+        "content_truncated": false,
+        "reason": "Accession was found in a successful response from an allowlisted official host."
+      },
+      "consensus_label": "relevant",
+      "status": "candidate_pending_human",
+      "reasons": []
+    },
+    {
+      "question_id": "brca-treatment-evidence-003",
+      "research_question": "检索乳腺癌中PIK3CA变异与治疗证据，并区分患者队列和医学知识证据",
+      "dataset_id": "brca_metabric",
+      "source": {
+        "source_id": "cbioportal:brca_metabric",
+        "source_database": "cbioportal",
+        "accession": "brca_metabric",
+        "url": "https://www.cbioportal.org/study/summary?id=brca_metabric"
+      },
+      "qwen_role": "subject_agent_not_ground_truth",
+      "deepseek": {
+        "label": "relevant",
+        "confidence": 0.95,
+        "rationale": "该数据源为cBioPortal的乳腺癌METABRIC队列，包含PIK3CA变异数据及临床信息，可直接用于乳腺癌中PIK3CA变异与治疗证据的患者队列分析，符合研究问题中区分患者队列证据的需求。",
+        "evidence_needed": [
+          "PIK3CA变异数据",
+          "治疗相关临床数据"
+        ]
+      },
+      "glm": {
+        "label": "relevant",
+        "confidence": 0.85,
+        "rationale": "METABRIC是大型乳腺癌基因组队列，包含PIK3CA突变数据和临床信息（含治疗类型、生存结局等），可作为研究问题中'患者队列证据'的来源。但需注意其治疗信息相对基础（主要为化疗/放疗/激素治疗的大类标注），适合基因组-临床关联分析，对深入的治疗疗效证据支持有限。DeepSeek初标方向基本正确，但其rationale未指出治疗数据深度的局限。",
+        "evidence_needed": [
+          "METABRIC数据集中PIK3CA变异的具体注释字段及覆盖率",
+          "METABRIC临床数据中治疗相关字段的完整性与详细程度",
+          "是否有针对PIK3CA变异与治疗响应/生存结局的已发表分析"
+        ]
+      },
+      "source_verification": {
+        "verification_id": "source-verification:82ea9775970f092e630212a2",
+        "source": {
+          "source_id": "cbioportal:brca_metabric",
+          "source_database": "cbioportal",
+          "accession": "brca_metabric",
+          "url": "https://www.cbioportal.org/study/summary?id=brca_metabric"
+        },
+        "status": "verified",
+        "method": "live_official_http_v1",
+        "checked_at": "2026-08-24T12:13:22.992398Z",
+        "checked_url": "https://www.cbioportal.org/study/summary?id=brca_metabric",
+        "http_status": 200,
+        "response_sha256": "9c9b7762ed638c986eaa704ecb5e886e9f4adfcfed519748525ae114886c86e0",
+        "content_truncated": false,
+        "reason": "Accession was found in a successful response from an allowlisted official host."
+      },
+      "consensus_label": null,
+      "status": "human_review_required",
+      "reasons": [
+        "glm_confidence_below_0.90"
+      ]
+    }
+  ],
+  "summary": {
+    "total": 5,
+    "candidate_pending_human": 2,
+    "human_review_required": 3,
+    "unresolved_sources": 1
+  },
+  "unresolved_sources": [
+    {
+      "question_id": "brca-treatment-evidence-003",
+      "dataset_id": "CIViC",
+      "reason": "No verified source mapping was configured; human mapping required."
+    }
+  ]
+}

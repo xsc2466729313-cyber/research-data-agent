@@ -6,7 +6,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /workspace
 
 COPY backend/requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir -r /tmp/requirements.txt
+COPY backend/requirements-rag.txt /tmp/requirements-rag.txt
+ARG INSTALL_RAG_EXTRAS=0
+RUN pip install --no-cache-dir -r /tmp/requirements.txt && \
+    if [ "$INSTALL_RAG_EXTRAS" = "1" ]; then \
+        pip install --no-cache-dir -r /tmp/requirements-rag.txt; \
+    fi
 
 COPY pyproject.toml /workspace/pyproject.toml
 COPY backend /workspace/backend

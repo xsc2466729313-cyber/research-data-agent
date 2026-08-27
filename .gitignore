@@ -7,6 +7,8 @@ __pycache__/
 *.py[cod]
 data/cache/
 data/output/
+output/
+evaluation/smoke_results*/
 .codex_spreadsheet_tmp/
 node_modules/
 *.log
