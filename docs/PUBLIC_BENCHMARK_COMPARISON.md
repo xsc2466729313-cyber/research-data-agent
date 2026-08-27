@@ -85,3 +85,12 @@ Valentine 已固定到 commit 5d5163f04da304985bd51a476ccf7653de3979c3，结果�
 - python scripts/run_public_cleaning_benchmark.py --download
 
 每次运行的 run.json 保存数据来源、SHA-256、执行代码版本和原始计数。数据文件不提交到 Git；评测结果和报告可提交，以便审查与复跑。
+
+本次报告引用的最终运行产物为：
+
+- 检索：`20260827T082234Z_beir_scifact`、`20260827T082239Z_beir_nfcorpus`
+- 字段对齐：`20260827T105112Z_valentine_education_covid_meals`、`20260827T105112Z_valentine_capital_projects`
+- 实体匹配：`20260827T103717Z_deepmatcher_dblp_acm`、`20260827T103717Z_deepmatcher_walmart_amazon`
+- 数据清洗：`20260827T103716Z_holoclean_hospital`
+
+每个目录内的 `run.json` 和 `REPORT.md` 是对应分数的直接证据；`unified_results.csv` 用于横向汇总。运行耗时受本机状态影响，只作为参考，不用于跨机器性能排名。
