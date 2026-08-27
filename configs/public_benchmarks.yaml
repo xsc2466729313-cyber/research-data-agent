@@ -7,7 +7,7 @@ capability_layers:
     question: "Can the agent turn a broad medical question into explicit population, intervention/exposure, comparator and outcome elements?"
     benchmarks:
       - id: ebm_nlp
-        status: planned
+        status: runnable
         source_id: github:bepnye/EBM-NLP
         source_url: https://github.com/bepnye/EBM-NLP
         labels: "PICO spans; professional annotations are used for the held-out test set."
@@ -42,6 +42,34 @@ capability_layers:
         documentation_url: https://github.com/beir-cellar/beir/wiki/Datasets-available
         metrics: [ndcg_at_10, recall_at_100, mrr_at_10, mean_latency_ms]
         split_policy: test
+      - id: beir_scidocs
+        status: runnable
+        source_id: beir:scidocs
+        source_url: https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scidocs.zip
+        documentation_url: https://github.com/beir-cellar/beir/wiki/Datasets-available
+        metrics: [ndcg_at_10, recall_at_100, mrr_at_10, mean_latency_ms]
+        split_policy: test
+      - id: beir_arguana
+        status: runnable
+        source_id: beir:arguana
+        source_url: https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/arguana.zip
+        documentation_url: https://github.com/beir-cellar/beir/wiki/Datasets-available
+        metrics: [ndcg_at_10, recall_at_100, mrr_at_10, mean_latency_ms]
+        split_policy: test
+      - id: beir_fiqa
+        status: runnable
+        source_id: beir:fiqa
+        source_url: https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/fiqa.zip
+        documentation_url: https://github.com/beir-cellar/beir/wiki/Datasets-available
+        metrics: [ndcg_at_10, recall_at_100, mrr_at_10, mean_latency_ms]
+        split_policy: test
+      - id: beir_trec_covid
+        status: runnable
+        source_id: beir:trec-covid
+        source_url: https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/trec-covid.zip
+        documentation_url: https://github.com/beir-cellar/beir/wiki/Datasets-available
+        metrics: [ndcg_at_10, recall_at_100, mrr_at_10, mean_latency_ms]
+        split_policy: test
 
   schema_integration:
     question: "Can the agent align columns that mean the same thing even when their names and formats differ?"
@@ -52,8 +80,8 @@ capability_layers:
         source_url: https://github.com/delftdata/valentine/tree/5d5163f04da304985bd51a476ccf7653de3979c3/experiments/data
         pinned_commit: 5d5163f04da304985bd51a476ccf7653de3979c3
         metrics: [schema_precision, schema_recall, schema_f1, runtime_ms]
-        datasets: [valentine_education_covid_meals, valentine_capital_projects]
-        methods: [exact_normalized_name, token_jaccard, project_schema_rule_v1]
+        datasets: [valentine_education_covid_meals, valentine_capital_projects, valentine_dcm_street_centerline, valentine_dpr_athletic_facilities, valentine_dsny_disposal_assignments, valentine_energy_benchmarking, valentine_housing_maintenance, valentine_public_art_inventory, valentine_street_resurfacing, valentine_swim_for_life]
+        methods: [exact_normalized_name, token_jaccard, project_schema_rule_v1, project_schema_profile_v2]
         split_policy: "Use the official ground_truth.json matches only for final scoring; do not tune on them."
         baselines: [exact_normalized_name, token_jaccard]
 
@@ -70,6 +98,21 @@ capability_layers:
         source_id: github:anhaidgroup/deepmatcher
         source_url: https://github.com/anhaidgroup/deepmatcher/blob/master/Datasets.md
         metrics: [entity_precision, entity_recall, entity_f1]
+      - id: deepmatcher_beer_ratebeer
+        status: runnable
+        source_id: github:anhaidgroup/deepmatcher
+        source_url: https://github.com/anhaidgroup/deepmatcher/blob/master/Datasets.md
+        metrics: [entity_precision, entity_recall, entity_f1]
+      - id: deepmatcher_fodors_zagats
+        status: runnable
+        source_id: github:anhaidgroup/deepmatcher
+        source_url: https://github.com/anhaidgroup/deepmatcher/blob/master/Datasets.md
+        metrics: [entity_precision, entity_recall, entity_f1]
+      - id: deepmatcher_amazon_google
+        status: runnable
+        source_id: github:anhaidgroup/deepmatcher
+        source_url: https://github.com/anhaidgroup/deepmatcher/blob/master/Datasets.md
+        metrics: [entity_precision, entity_recall, entity_f1]
 
   data_cleaning:
     question: "Can the agent find and repair wrong cells without damaging correct data?"
@@ -79,7 +122,7 @@ capability_layers:
         source_id: github:BigDaMa/raha
         source_url: https://github.com/BigDaMa/raha
         metrics: [cell_precision, cell_recall, cell_f1, repair_accuracy]
-        datasets: [hospital, flights, beers]
+        datasets: [hospital, flights, beers, movies_1, rayyan, tax]
 
   end_to_end_scientific_execution:
     question: "Can the complete agent understand a scientific task, obtain data, write analysis code and produce a verifiable answer?"

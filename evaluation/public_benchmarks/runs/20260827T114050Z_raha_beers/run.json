@@ -1,0 +1,75 @@
+{
+  "evaluation_id": "20260827T114050Z_raha_beers",
+  "evaluation_version": "public-cleaning-v1",
+  "layer": "external_benchmarks",
+  "stage": "cleaning",
+  "dataset": {
+    "dataset_id": "raha_beers",
+    "source_id": "github:BigDaMa/raha",
+    "source_url": "https://github.com/BigDaMa/raha/tree/master/datasets/beers",
+    "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+    "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de"
+  },
+  "split": "aligned_dirty_clean",
+  "code_revision": "88c9cc09e9d931534cb55466e6bad9648066c7a0",
+  "created_at": "2026-08-27T11:40:50.797323+00:00",
+  "results": {
+    "no_repair": {
+      "cell_precision": 0.0,
+      "cell_recall": 0.0,
+      "cell_f1": 0.0,
+      "repair_accuracy": 0.0,
+      "true_positive": 0,
+      "false_positive": 0,
+      "false_negative": 4362,
+      "correct_repairs": 0,
+      "automatic_repairs": 0,
+      "dirty_cell_count": 4362,
+      "total_cell_count": 26510,
+      "mean_latency_ms": 1.729913238577913e-05
+    },
+    "column_mode": {
+      "cell_precision": 0.0,
+      "cell_recall": 0.0,
+      "cell_f1": 0.0,
+      "repair_accuracy": 0.0,
+      "true_positive": 0,
+      "false_positive": 2567,
+      "false_negative": 4362,
+      "correct_repairs": 0,
+      "automatic_repairs": 2656,
+      "dirty_cell_count": 4362,
+      "total_cell_count": 26510,
+      "mean_latency_ms": 0.0006129196529639484
+    },
+    "project_portability_consensus_clean_v1": {
+      "cell_precision": 0.0,
+      "cell_recall": 0.0,
+      "cell_f1": 0.0,
+      "repair_accuracy": 0.0,
+      "true_positive": 0,
+      "false_positive": 0,
+      "false_negative": 4362,
+      "correct_repairs": 0,
+      "automatic_repairs": 0,
+      "dirty_cell_count": 4362,
+      "total_cell_count": 26510,
+      "mean_latency_ms": 1.1078838137296735e-05
+    },
+    "project_format_profile_v2": {
+      "cell_precision": 0.9997632015155103,
+      "cell_recall": 0.9679046309032554,
+      "cell_f1": 0.9835760046592894,
+      "repair_accuracy": 0.9997632015155103,
+      "true_positive": 4222,
+      "false_positive": 1,
+      "false_negative": 140,
+      "correct_repairs": 4222,
+      "automatic_repairs": 4223,
+      "dirty_cell_count": 4362,
+      "total_cell_count": 26510,
+      "mean_latency_ms": 0.0030086382497244305
+    }
+  },
+  "scope_notice": "These are generic cell error detection/repair scores, not medical data quality or SDTI scores."
+}

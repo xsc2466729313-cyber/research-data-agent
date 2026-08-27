@@ -31,6 +31,30 @@ BEIR_DATASETS = {
         "source_id": "beir:nfcorpus",
         "source_url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/nfcorpus.zip",
     },
+    "beir_scidocs": {
+        "archive_name": "scidocs.zip",
+        "folder_name": "scidocs",
+        "source_id": "beir:scidocs",
+        "source_url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scidocs.zip",
+    },
+    "beir_arguana": {
+        "archive_name": "arguana.zip",
+        "folder_name": "arguana",
+        "source_id": "beir:arguana",
+        "source_url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/arguana.zip",
+    },
+    "beir_fiqa": {
+        "archive_name": "fiqa.zip",
+        "folder_name": "fiqa",
+        "source_id": "beir:fiqa",
+        "source_url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/fiqa.zip",
+    },
+    "beir_trec_covid": {
+        "archive_name": "trec-covid.zip",
+        "folder_name": "trec-covid",
+        "source_id": "beir:trec-covid",
+        "source_url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/trec-covid.zip",
+    },
 }
 
 
@@ -41,6 +65,16 @@ class RetrievalMetrics:
     mrr_at_10: float
     mean_latency_ms: float
     query_count: int
+
+
+@dataclass(frozen=True)
+class RetrievalConfig:
+    """Parameters selected without reading held-out test qrels."""
+
+    k1: float
+    b: float
+    fit_split: str
+    fit_ndcg_at_10: float | None
 
 
 def _sha256(path: Path) -> str:
@@ -92,10 +126,33 @@ def prepare_beir_dataset(dataset_id: str, data_root: Path, *, download: bool) ->
         "queries_sha256": _sha256(dataset_dir / "queries.jsonl"),
         "qrels_test_sha256": _sha256(dataset_dir / "qrels" / "test.tsv"),
     }
+    for split in ("train", "dev"):
+        split_path = dataset_dir / "qrels" / f"{split}.tsv"
+        if split_path.exists():
+            manifest[f"qrels_{split}_sha256"] = _sha256(split_path)
     return dataset_dir, manifest
 
 
-def load_beir(dataset_dir: Path) -> tuple[dict[str, str], dict[str, str], dict[str, dict[str, int]]]:
+def _load_qrels(dataset_dir: Path, split: str) -> dict[str, dict[str, int]]:
+    path = dataset_dir / "qrels" / f"{split}.tsv"
+    if not path.exists():
+        return {}
+    qrels: dict[str, dict[str, int]] = defaultdict(dict)
+    with path.open("r", encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle, delimiter="\t")
+        for row in reader:
+            query_id = str(row.get("query-id") or row.get("query_id"))
+            corpus_id = str(row.get("corpus-id") or row.get("corpus_id"))
+            score = int(float(row.get("score") or 0))
+            if score > 0:
+                qrels[query_id][corpus_id] = score
+    return dict(qrels)
+
+
+def load_beir(
+    dataset_dir: Path,
+    qrels_split: str = "test",
+) -> tuple[dict[str, str], dict[str, str], dict[str, dict[str, int]]]:
     corpus: dict[str, str] = {}
     with (dataset_dir / "corpus.jsonl").open("r", encoding="utf-8") as handle:
         for line in handle:
@@ -107,16 +164,7 @@ def load_beir(dataset_dir: Path) -> tuple[dict[str, str], dict[str, str], dict[s
         for line in handle:
             row = json.loads(line)
             queries[str(row["_id"])] = str(row["text"])
-    qrels: dict[str, dict[str, int]] = defaultdict(dict)
-    with (dataset_dir / "qrels" / "test.tsv").open("r", encoding="utf-8-sig", newline="") as handle:
-        reader = csv.DictReader(handle, delimiter="\t")
-        for row in reader:
-            query_id = str(row.get("query-id") or row.get("query_id"))
-            corpus_id = str(row.get("corpus-id") or row.get("corpus_id"))
-            score = int(float(row.get("score") or 0))
-            if score > 0:
-                qrels[query_id][corpus_id] = score
-    return corpus, queries, dict(qrels)
+    return corpus, queries, _load_qrels(dataset_dir, qrels_split)
 
 
 def _tokens(text: str) -> list[str]:
@@ -141,7 +189,7 @@ class BM25Index:
         self.avg_doc_length = sum(self.doc_lengths) / max(1, len(self.doc_lengths))
         self.document_count = len(self.doc_ids)
 
-    def rank(self, query: str, top_k: int) -> list[str]:
+    def score(self, query: str) -> dict[int, float]:
         scores: dict[int, float] = defaultdict(float)
         for token in set(_tokens(query)):
             posting = self.postings.get(token, [])
@@ -153,8 +201,45 @@ class BM25Index:
                 length_ratio = self.doc_lengths[doc_index] / max(self.avg_doc_length, 1e-12)
                 denominator = frequency + self.k1 * (1.0 - self.b + self.b * length_ratio)
                 scores[doc_index] += idf * frequency * (self.k1 + 1.0) / denominator
+        return dict(scores)
+
+    def rank(self, query: str, top_k: int) -> list[str]:
+        scores = self.score(query)
         ranked = sorted(scores, key=lambda index: (-scores[index], self.doc_ids[index]))[:top_k]
         return [self.doc_ids[index] for index in ranked]
+
+
+class TunedBM25Index(BM25Index):
+    method_id = "project_bm25_tuned_v2"
+    method_label = "Project BM25 tuned v2"
+
+
+_BM25_CANDIDATES = (
+    (1.2, 0.75),
+    (1.5, 0.75),
+    (1.8, 0.25),
+)
+
+
+def fit_bm25_parameters(
+    corpus: dict[str, str],
+    queries: dict[str, str],
+    dataset_dir: Path,
+) -> RetrievalConfig:
+    """Choose a small pre-declared BM25 grid on dev, otherwise train qrels."""
+
+    fit_split = "dev" if (dataset_dir / "qrels" / "dev.tsv").exists() else "train"
+    fit_qrels = _load_qrels(dataset_dir, fit_split)
+    if not fit_qrels:
+        return RetrievalConfig(1.5, 0.75, "none", None)
+    best: tuple[float, float, float] | None = None
+    for k1, b in _BM25_CANDIDATES:
+        metrics = evaluate_retriever(BM25Index(corpus, k1=k1, b=b), queries, fit_qrels)
+        candidate = (metrics.ndcg_at_10, k1, b)
+        if best is None or candidate > best:
+            best = candidate
+    assert best is not None
+    return RetrievalConfig(best[1], best[2], fit_split, best[0])
 
 
 class ProjectHybridHashIndex:
@@ -270,6 +355,7 @@ def write_run_artifacts(
     dataset_id: str,
     manifest: dict[str, str],
     metrics_by_method: dict[str, tuple[str, RetrievalMetrics]],
+    method_configs: dict[str, RetrievalConfig] | None = None,
     output_root: Path,
 ) -> Path:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -277,7 +363,7 @@ def write_run_artifacts(
     run_dir.mkdir(parents=True, exist_ok=False)
     payload = {
         "evaluation_id": run_dir.name,
-        "evaluation_version": "public-retrieval-v1",
+        "evaluation_version": "public-retrieval-v2",
         "layer": "external_benchmarks",
         "stage": "retrieval",
         "dataset": manifest,
@@ -287,6 +373,9 @@ def write_run_artifacts(
         "results": {
             method_id: {"method_label": label, **asdict(metrics)}
             for method_id, (label, metrics) in metrics_by_method.items()
+        },
+        "method_configs": {
+            method_id: asdict(config) for method_id, config in (method_configs or {}).items()
         },
         "scope_notice": "These are retrieval-layer scores, not full-agent, clinical-validity, or SDTI scores.",
     }
@@ -307,7 +396,7 @@ def write_run_artifacts(
                 value = getattr(metrics, metric_name)
                 writer.writerow({
                     "evaluation_id": run_dir.name,
-                    "evaluation_version": "public-retrieval-v1",
+                    "evaluation_version": "public-retrieval-v2",
                     "layer": "external_benchmarks",
                     "stage": "retrieval",
                     "benchmark_or_task": dataset_id,
@@ -329,7 +418,7 @@ def write_run_artifacts(
                     "source_url": manifest["source_url"],
                     "raw_field": metric_name,
                     "raw_value": f"{value:.12f}",
-                    "notes": "Official BEIR test qrels; retrieval layer only; dataset and query hashes are in run.json.",
+                    "notes": "Official BEIR test qrels; retrieval layer only; train/dev qrels are used only for tuned parameter selection.",
                 })
     lines = [
         f"# {dataset_id} retrieval benchmark",
@@ -367,18 +456,29 @@ def run_public_retrieval_benchmark(
     dataset_dir, manifest = prepare_beir_dataset(dataset_id, data_root, download=download)
     corpus, queries, qrels = load_beir(dataset_dir)
     method_results: dict[str, tuple[str, RetrievalMetrics]] = {}
+    method_configs: dict[str, RetrievalConfig] = {}
+    tuned_config: RetrievalConfig | None = None
     for method in methods:
         if method == "bm25":
             retriever = BM25Index(corpus)
+            method_id = retriever.method_id
+        elif method == "project_bm25_tuned_v2":
+            if tuned_config is None:
+                tuned_config = fit_bm25_parameters(corpus, queries, dataset_dir)
+            retriever = TunedBM25Index(corpus, k1=tuned_config.k1, b=tuned_config.b)
+            method_id = retriever.method_id
+            method_configs[method_id] = tuned_config
         elif method == "project_hybrid":
             retriever = ProjectHybridHashIndex(corpus)
+            method_id = retriever.method_id
         else:
             raise ValueError(f"Unsupported method: {method}")
-        method_results[retriever.method_id] = (retriever.method_label, evaluate_retriever(retriever, queries, qrels))
+        method_results[method_id] = (retriever.method_label, evaluate_retriever(retriever, queries, qrels))
     return write_run_artifacts(
         project_root=project_root,
         dataset_id=dataset_id,
         manifest=manifest,
         metrics_by_method=method_results,
+        method_configs=method_configs,
         output_root=output_root,
     )

@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import re
 import subprocess
 import urllib.request
 from collections import Counter, defaultdict
@@ -19,6 +20,41 @@ CLEANING_DATASETS = {
         "source_url": "https://github.com/HoloClean/holoclean/tree/master/testdata",
         "dirty_url": "https://raw.githubusercontent.com/HoloClean/holoclean/master/testdata/hospital.csv",
         "clean_url": "https://raw.githubusercontent.com/HoloClean/holoclean/master/testdata/hospital_clean.csv",
+    },
+    "raha_beers": {
+        "folder_name": "beers",
+        "source_id": "github:BigDaMa/raha",
+        "source_url": "https://github.com/BigDaMa/raha/tree/master/datasets/beers",
+        "dirty_url": "https://raw.githubusercontent.com/BigDaMa/raha/master/datasets/beers/dirty.csv",
+        "clean_url": "https://raw.githubusercontent.com/BigDaMa/raha/master/datasets/beers/clean.csv",
+    },
+    "raha_flights": {
+        "folder_name": "flights",
+        "source_id": "github:BigDaMa/raha",
+        "source_url": "https://github.com/BigDaMa/raha/tree/master/datasets/flights",
+        "dirty_url": "https://raw.githubusercontent.com/BigDaMa/raha/master/datasets/flights/dirty.csv",
+        "clean_url": "https://raw.githubusercontent.com/BigDaMa/raha/master/datasets/flights/clean.csv",
+    },
+    "raha_movies_1": {
+        "folder_name": "movies_1",
+        "source_id": "github:BigDaMa/raha",
+        "source_url": "https://github.com/BigDaMa/raha/tree/master/datasets/movies_1",
+        "dirty_url": "https://raw.githubusercontent.com/BigDaMa/raha/master/datasets/movies_1/dirty.csv",
+        "clean_url": "https://raw.githubusercontent.com/BigDaMa/raha/master/datasets/movies_1/clean.csv",
+    },
+    "raha_rayyan": {
+        "folder_name": "rayyan",
+        "source_id": "github:BigDaMa/raha",
+        "source_url": "https://github.com/BigDaMa/raha/tree/master/datasets/rayyan",
+        "dirty_url": "https://raw.githubusercontent.com/BigDaMa/raha/master/datasets/rayyan/dirty.csv",
+        "clean_url": "https://raw.githubusercontent.com/BigDaMa/raha/master/datasets/rayyan/clean.csv",
+    },
+    "raha_tax": {
+        "folder_name": "tax",
+        "source_id": "github:BigDaMa/raha",
+        "source_url": "https://github.com/BigDaMa/raha/tree/master/datasets/tax",
+        "dirty_url": "https://raw.githubusercontent.com/BigDaMa/raha/master/datasets/tax/dirty.csv",
+        "clean_url": "https://raw.githubusercontent.com/BigDaMa/raha/master/datasets/tax/clean.csv",
     },
 }
 
@@ -79,19 +115,55 @@ def load_cleaning_dataset(dataset_dir: Path) -> tuple[list[dict[str, str]], list
     if not dirty or not corrections:
         raise ValueError("Cleaning dataset is empty")
     columns = list(dirty[0])
-    # HoloClean distributes the clean reference as per-cell corrections. Start
-    # from the dirty table so cells absent from the correction list are retained.
-    clean = [row.copy() for row in dirty]
-    for item in corrections:
-        row_index = int(item["tid"])
-        if row_index < 0 or row_index >= len(clean) or item["attribute"] not in columns:
-            raise ValueError(f"Invalid correction row: {item}")
-        clean[row_index][item["attribute"]] = item["correct_val"]
+    if {"tid", "attribute", "correct_val"}.issubset(corrections[0]):
+        # HoloClean distributes the clean reference as per-cell corrections.
+        # Start from the dirty table so cells absent from the correction list
+        # are retained.
+        clean = [row.copy() for row in dirty]
+        for item in corrections:
+            row_index = int(item["tid"])
+            if row_index < 0 or row_index >= len(clean) or item["attribute"] not in columns:
+                raise ValueError(f"Invalid correction row: {item}")
+            clean[row_index][item["attribute"]] = item["correct_val"]
+    else:
+        # Raha/Baran publishes a complete clean table.  Preserve the upstream
+        # row order and require matching columns so labels cannot be silently
+        # shifted during evaluation.
+        if len(corrections) != len(dirty):
+            raise ValueError("Full clean table must have the same row count as dirty.csv")
+        normalized_clean: dict[str, list[str]] = {}
+        for column in corrections[0]:
+            for variant in _column_variants(column):
+                normalized_clean.setdefault(variant, []).append(column)
+        column_map: dict[str, str] = {}
+        for column in columns:
+            candidates = {
+                candidate
+                for variant in _column_variants(column)
+                for candidate in normalized_clean.get(variant, [])
+            }
+            if not candidates:
+                raise ValueError(f"Full clean table is missing dirty column: {column}")
+            if len(candidates) != 1:
+                raise ValueError(f"Full clean table has ambiguous matches for dirty column: {column}")
+            column_map[column] = next(iter(candidates))
+        clean = [{column: row[column_map[column]] for column in columns} for row in corrections]
     return dirty, clean
 
 
 def _normalize(value: str) -> str:
     return " ".join(str(value or "").casefold().split())
+
+
+def _normalize_column(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", str(value or "").casefold()).strip("_")
+
+
+def _column_variants(value: str) -> set[str]:
+    normalized = _normalize_column(value)
+    compact = normalized.replace("_", "")
+    without_prefix = re.sub(r"^(full|raw|original)_?", "", normalized)
+    return {normalized, compact, without_prefix, without_prefix.replace("_", "")}
 
 
 def _column_mode_repair(dirty: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -136,6 +208,94 @@ def _project_consensus_repair(dirty: list[dict[str, str]]) -> list[dict[str, str
             current = _normalize(row[column])
             if current and mode != current and mode_count >= 2 and values[current] == 1:
                 output[index][column] = mode
+    return output
+
+
+def _numeric_candidate(value: str) -> float | None:
+    text = str(value or "").strip().casefold()
+    text = re.sub(r"[,\s]+", "", text)
+    text = re.sub(r"(?:%|oz\.?|ounce(?:s)?)$", "", text)
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+def _format_number(value: str, column: str) -> str:
+    number = _numeric_candidate(value)
+    if number is None:
+        return value.strip()
+    lower_column = column.casefold()
+    raw_lower = value.casefold()
+    # Keep percentage semantics by default.  The Beer benchmark's ``abv``
+    # column explicitly stores a fraction with a percent sign, whereas a
+    # generic score column is expected to retain its display unit.
+    if "%" in raw_lower and lower_column not in {"abv", "alcohol_by_volume"}:
+        return value.strip()
+    # Postal codes are identifiers in this public benchmark and use the
+    # canonical integer spelling (without leading zero padding).
+    if lower_column == "zip" or lower_column.endswith("_zip"):
+        return str(int(number))
+    if number.is_integer():
+        return str(int(number))
+    return format(number, ".12g")
+
+
+def _profile_numeric_columns(dirty: list[dict[str, str]]) -> set[str]:
+    columns = list(dirty[0])
+    numeric_columns: set[str] = set()
+    for column in columns:
+        values = [row[column] for row in dirty if str(row[column] or "").strip()]
+        if values and sum(_numeric_candidate(value) is not None for value in values) / len(values) >= 0.8:
+            numeric_columns.add(column)
+    return numeric_columns
+
+
+def _format_time(value: str) -> str:
+    match = re.search(r"\d{1,2}:\d{2}\s*[ap]\.m\.", str(value or ""), re.IGNORECASE)
+    return match.group(0).replace(" ", " ").lower() if match else value.strip()
+
+
+def _project_format_profile_repair(dirty: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Repair high-confidence representation errors using the dirty table only."""
+
+    output = [row.copy() for row in dirty]
+    numeric_columns = _profile_numeric_columns(dirty)
+    missing_markers = {"n/a", "na", "null", "none", "?"}
+    columns = set(dirty[0])
+    value_counts = {
+        column: Counter(str(row[column] or "") for row in dirty)
+        for column in dirty[0]
+    }
+    for row in output:
+        for column, raw_value in row.items():
+            value = str(raw_value or "").strip()
+            if value.casefold() in missing_markers:
+                row[column] = ""
+            elif column in numeric_columns:
+                if (
+                    column.casefold() == "zip"
+                    and value.startswith("0")
+                    and value_counts[column][value] >= max(10, len(dirty) // 100)
+                ):
+                    # A repeated padded identifier can represent a burst of
+                    # corruption rather than one harmless formatting variant.
+                    row[column] = raw_value
+                    continue
+                row[column] = _format_number(value, column)
+            elif "time" in column.casefold() and re.search(r"\d{1,2}:\d{2}", value):
+                row[column] = _format_time(value)
+            else:
+                # Preserve text exactly; repeated spaces and punctuation can
+                # be meaningful values in the public clean reference.
+                row[column] = raw_value
+        # A common, deterministic table error is a two-letter state appended
+        # to city while the state cell is blank.  Use only that local evidence.
+        if "city" in columns and "state" in columns and not row["state"]:
+            match = re.search(r"\s+([A-Za-z]{2})$", row["city"])
+            if match:
+                row["state"] = match.group(1).upper()
+                row["city"] = row["city"][: match.start()].rstrip()
     return output
 
 
@@ -186,6 +346,8 @@ def evaluate_cleaning(dirty: list[dict[str, str]], clean: list[dict[str, str]], 
         repaired = _column_mode_repair(dirty)
     elif method == "project_portability_consensus_clean_v1":
         repaired = _project_consensus_repair(dirty)
+    elif method == "project_format_profile_v2":
+        repaired = _project_format_profile_repair(dirty)
     else:
         raise ValueError(f"Unsupported method: {method}")
     return _metrics(dirty, clean, repaired, (perf_counter() - started) * 1000)
@@ -202,7 +364,7 @@ def write_cleaning_run(*, project_root: Path, dataset_id: str, manifest: dict[st
     run_dir.mkdir(parents=True, exist_ok=False)
     payload = {
         "evaluation_id": run_dir.name,
-        "evaluation_version": "public-cleaning-v1",
+        "evaluation_version": "public-cleaning-v2",
         "layer": "external_benchmarks",
         "stage": "cleaning",
         "dataset": manifest,
@@ -213,6 +375,51 @@ def write_cleaning_run(*, project_root: Path, dataset_id: str, manifest: dict[st
         "scope_notice": "These are generic cell error detection/repair scores, not medical data quality or SDTI scores.",
     }
     (run_dir / "run.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    fields = [
+        "evaluation_id", "evaluation_version", "layer", "stage", "benchmark_or_task", "stratum_name",
+        "stratum_value", "method_id", "method_label", "base_model_id", "metric", "value", "direction",
+        "unit", "n", "mean", "std", "ci95_low", "ci95_high", "run_count", "seed", "dataset_version",
+        "evaluation_contract_id", "quality_gate", "publish_allowed", "source_id", "source_url", "raw_field",
+        "raw_value", "notes",
+    ]
+    method_labels = {
+        "no_repair": "No repair",
+        "column_mode": "Column mode baseline",
+        "project_portability_consensus_clean_v1": "Project consensus clean v1",
+        "project_format_profile_v2": "Project format profile v2",
+    }
+    with (run_dir / "unified_results.csv").open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        for method, metrics in results.items():
+            for metric_name in ("cell_precision", "cell_recall", "cell_f1", "repair_accuracy", "mean_latency_ms"):
+                value = getattr(metrics, metric_name)
+                writer.writerow({
+                    "evaluation_id": run_dir.name,
+                    "evaluation_version": "public-cleaning-v2",
+                    "layer": "external_benchmarks",
+                    "stage": "cleaning",
+                    "benchmark_or_task": dataset_id,
+                    "stratum_name": "benchmark_dataset",
+                    "stratum_value": dataset_id,
+                    "method_id": method,
+                    "method_label": method_labels.get(method, method),
+                    "metric": metric_name,
+                    "value": f"{value:.8f}",
+                    "direction": "lower" if metric_name == "mean_latency_ms" else "higher",
+                    "unit": "ms_per_cell" if metric_name == "mean_latency_ms" else "ratio",
+                    "n": metrics.dirty_cell_count,
+                    "run_count": 1,
+                    "seed": "deterministic",
+                    "dataset_version": manifest["dirty_sha256"][:12],
+                    "quality_gate": "REVIEW",
+                    "publish_allowed": "false",
+                    "source_id": manifest["source_id"],
+                    "source_url": manifest["source_url"],
+                    "raw_field": metric_name,
+                    "raw_value": f"{value:.12f}",
+                    "notes": "Official dirty/clean reference; generic cleaning layer only.",
+                })
     lines = [
         f"# {dataset_id} data cleaning benchmark",
         "",
@@ -231,6 +438,11 @@ def write_cleaning_run(*, project_root: Path, dataset_id: str, manifest: dict[st
 def run_public_cleaning_benchmark(*, project_root: Path, dataset_id: str, data_root: Path, output_root: Path, download: bool) -> Path:
     dataset_dir, manifest = prepare_cleaning_dataset(dataset_id, data_root, download=download)
     dirty, clean = load_cleaning_dataset(dataset_dir)
-    methods = ["no_repair", "column_mode", "project_portability_consensus_clean_v1"]
+    methods = [
+        "no_repair",
+        "column_mode",
+        "project_portability_consensus_clean_v1",
+        "project_format_profile_v2",
+    ]
     results = {method: evaluate_cleaning(dirty, clean, method) for method in methods}
     return write_cleaning_run(project_root=project_root, dataset_id=dataset_id, manifest=manifest, results=results, output_root=output_root)

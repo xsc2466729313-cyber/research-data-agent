@@ -1,0 +1,75 @@
+{
+  "evaluation_id": "20260827T124113Z_holoclean_hospital",
+  "evaluation_version": "public-cleaning-v2",
+  "layer": "external_benchmarks",
+  "stage": "cleaning",
+  "dataset": {
+    "dataset_id": "holoclean_hospital",
+    "source_id": "github:HoloClean/holoclean",
+    "source_url": "https://github.com/HoloClean/holoclean/tree/master/testdata",
+    "dirty_sha256": "bbb2f60e9e7bbda68b1115b3bbb9a0d70587a9d33384a2373e4d447789fd619a",
+    "clean_sha256": "5dc89f7701abae92af81308ae9cbeea584c39cba288fdffe3324397e15f8ca2c"
+  },
+  "split": "aligned_dirty_clean",
+  "code_revision": "88c9cc09e9d931534cb55466e6bad9648066c7a0",
+  "created_at": "2026-08-27T12:41:13.369539+00:00",
+  "results": {
+    "no_repair": {
+      "cell_precision": 0.0,
+      "cell_recall": 0.0,
+      "cell_f1": 0.0,
+      "repair_accuracy": 0.0,
+      "true_positive": 0,
+      "false_positive": 0,
+      "false_negative": 509,
+      "correct_repairs": 0,
+      "automatic_repairs": 0,
+      "dirty_cell_count": 509,
+      "total_cell_count": 19000,
+      "mean_latency_ms": 1.1905263243917083e-05
+    },
+    "column_mode": {
+      "cell_precision": 0.11374407582938388,
+      "cell_recall": 0.047151277013752456,
+      "cell_f1": 0.06666666666666667,
+      "repair_accuracy": 0.045283018867924525,
+      "true_positive": 24,
+      "false_positive": 187,
+      "false_negative": 485,
+      "correct_repairs": 24,
+      "automatic_repairs": 530,
+      "dirty_cell_count": 509,
+      "total_cell_count": 19000,
+      "mean_latency_ms": 0.0007621947368438429
+    },
+    "project_portability_consensus_clean_v1": {
+      "cell_precision": 0.0,
+      "cell_recall": 0.0,
+      "cell_f1": 0.0,
+      "repair_accuracy": 0.0,
+      "true_positive": 0,
+      "false_positive": 0,
+      "false_negative": 509,
+      "correct_repairs": 0,
+      "automatic_repairs": 0,
+      "dirty_cell_count": 509,
+      "total_cell_count": 19000,
+      "mean_latency_ms": 0.004368315789562123
+    },
+    "project_format_profile_v2": {
+      "cell_precision": 0.0,
+      "cell_recall": 0.0,
+      "cell_f1": 0.0,
+      "repair_accuracy": 0.0,
+      "true_positive": 0,
+      "false_positive": 0,
+      "false_negative": 509,
+      "correct_repairs": 0,
+      "automatic_repairs": 0,
+      "dirty_cell_count": 509,
+      "total_cell_count": 19000,
+      "mean_latency_ms": 0.002220342105398518
+    }
+  },
+  "scope_notice": "These are generic cell error detection/repair scores, not medical data quality or SDTI scores."
+}

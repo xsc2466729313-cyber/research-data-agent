@@ -17,25 +17,25 @@ evaluation_layers:
       cleaning:
         primary_metric: cell_f1
         auxiliary_metrics: [cell_precision, cell_recall, repair_accuracy, latency_ms]
-        datasets: [hospital, flights, beers]
-        optional_datasets: [rayyan, movies]
-        baselines: [holoclean, raha_baran, cocoon]
+        datasets: [hospital, flights, beers, movies_1, rayyan, tax]
+        optional_datasets: []
+        baselines: [no_repair, column_mode, project_portability_consensus_clean_v1, project_format_profile_v2, holoclean, raha_baran, cocoon]
       retrieval:
         primary_metric: ndcg_at_10
         auxiliary_metrics: [recall_at_100, mrr_at_10, latency_ms]
-        datasets: [beir_scifact, beir_nfcorpus]
-        baselines: [bm25, contriever_msmarco, bge_m3]
+        datasets: [beir_scifact, beir_nfcorpus, beir_scidocs, beir_arguana, beir_fiqa, beir_trec_covid]
+        baselines: [bm25, project_bm25_tuned_v2, contriever_msmarco, bge_m3]
       schema_matching:
         primary_metric: schema_f1
         auxiliary_metrics: [schema_precision, schema_recall, runtime_ms]
         datasets: [valentine]
-        baselines: [jaccard, coma, cupid]
+        baselines: [jaccard, coma, cupid, project_schema_profile_v2]
       entity_matching:
         primary_metric: entity_f1
         auxiliary_metrics: [entity_precision, entity_recall, runtime_ms]
-        datasets: [dblp_acm, walmart_amazon]
+        datasets: [deepmatcher_dblp_acm, deepmatcher_walmart_amazon, deepmatcher_beer_ratebeer, deepmatcher_fodors_zagats, deepmatcher_amazon_google]
         optional_datasets: [dirty_dblp_acm]
-        baselines: [fuzzy_rule, deepmatcher, ditto]
+        baselines: [exact_title, title_jaccard, project_portability_rule_v1, project_learned_entity_v2, fuzzy_rule, deepmatcher, ditto]
 
   frozen_goldset_sdti:
     purpose: "Compute the project core metrics and SDTI only when a validated, frozen Gold Set is supplied."

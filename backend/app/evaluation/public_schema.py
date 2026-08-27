@@ -13,12 +13,20 @@ import hashlib
 import json
 import re
 import subprocess
+import sys
 import time
 import urllib.request
+from urllib.parse import quote
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, Mapping, Sequence
+
+
+try:
+    csv.field_size_limit(sys.maxsize)
+except OverflowError:
+    csv.field_size_limit(2**31 - 1)
 
 
 VALENTINE_COMMIT = "5d5163f04da304985bd51a476ccf7653de3979c3"
@@ -27,9 +35,9 @@ VALENTINE_DATA_ROOT_URL = (
     f"https://raw.githubusercontent.com/delftdata/valentine/{VALENTINE_COMMIT}/experiments/data"
 )
 
-# The education pair is small enough for an offline smoke run.  Capital Projects
-# is included as a second, less ambiguous task; the other official tasks can be
-# selected by extending this registry without changing the evaluator.
+# The registry keeps the complete set of official tasks present at the pinned
+# Valentine commit.  Each task is scored independently so easy and difficult
+# table pairs cannot be hidden by one aggregate number.
 SCHEMA_DATASETS: dict[str, dict[str, object]] = {
     "valentine_education_covid_meals": {
         "folder_name": "Education__COVID-19_Free_Meals_Locations",
@@ -45,6 +53,70 @@ SCHEMA_DATASETS: dict[str, dict[str, object]] = {
         "source_url": (
             f"{VALENTINE_REPOSITORY_URL}/tree/{VALENTINE_COMMIT}/experiments/data/"
             "City_Government__Capital_Projects"
+        ),
+    },
+    "valentine_dcm_street_centerline": {
+        "folder_name": "City_Government__DCM_StreetCenterLine",
+        "source_id": "github:delftdata/valentine",
+        "source_url": (
+            f"{VALENTINE_REPOSITORY_URL}/tree/{VALENTINE_COMMIT}/experiments/data/"
+            "City_Government__DCM_StreetCenterLine"
+        ),
+    },
+    "valentine_dpr_athletic_facilities": {
+        "folder_name": "City_Government__DPR_AthleticFacilities_001",
+        "source_id": "github:delftdata/valentine",
+        "source_url": (
+            f"{VALENTINE_REPOSITORY_URL}/tree/{VALENTINE_COMMIT}/experiments/data/"
+            "City_Government__DPR_AthleticFacilities_001"
+        ),
+    },
+    "valentine_dsny_disposal_assignments": {
+        "folder_name": "City_Government__DSNY_Districts_With_Disposal_Vendor_Assignments",
+        "source_id": "github:delftdata/valentine",
+        "source_url": (
+            f"{VALENTINE_REPOSITORY_URL}/tree/{VALENTINE_COMMIT}/experiments/data/"
+            "City_Government__DSNY_Districts_With_Disposal_Vendor_Assignments"
+        ),
+    },
+    "valentine_energy_benchmarking": {
+        "folder_name": "City_Government__NYC_Municipal_Building_Energy_Benchmarking_Results",
+        "source_id": "github:delftdata/valentine",
+        "source_url": (
+            f"{VALENTINE_REPOSITORY_URL}/tree/{VALENTINE_COMMIT}/experiments/data/"
+            "City_Government__NYC_Municipal_Building_Energy_Benchmarking_Results"
+        ),
+    },
+    "valentine_swim_for_life": {
+        "folder_name": "Recreation__Swim_for_Life__2016_to_2020",
+        "source_id": "github:delftdata/valentine",
+        "source_url": (
+            f"{VALENTINE_REPOSITORY_URL}/tree/{VALENTINE_COMMIT}/experiments/data/"
+            "Recreation__Swim_for_Life__2016_to_2020"
+        ),
+    },
+    "valentine_street_resurfacing": {
+        "folder_name": "Transportation__DOT_In-house_Street_Resurfacing_Projects",
+        "source_id": "github:delftdata/valentine",
+        "source_url": (
+            f"{VALENTINE_REPOSITORY_URL}/tree/{VALENTINE_COMMIT}/experiments/data/"
+            "Transportation__DOT_In-house_Street_Resurfacing_Projects"
+        ),
+    },
+    "valentine_housing_maintenance": {
+        "folder_name": "Housing_&_Development__Housing_Maintenance_Code_Complaints_and_Problems",
+        "source_id": "github:delftdata/valentine",
+        "source_url": (
+            f"{VALENTINE_REPOSITORY_URL}/tree/{VALENTINE_COMMIT}/experiments/data/"
+            "Housing_&_Development__Housing_Maintenance_Code_Complaints_and_Problems"
+        ),
+    },
+    "valentine_public_art_inventory": {
+        "folder_name": "Housing_&_Development__Public_Design_Commission_Outdoor_Public_Art_Invent",
+        "source_id": "github:delftdata/valentine",
+        "source_url": (
+            f"{VALENTINE_REPOSITORY_URL}/tree/{VALENTINE_COMMIT}/experiments/data/"
+            "Housing_&_Development__Public_Design_Commission_Outdoor_Public_Art_Invent"
         ),
     },
 }
@@ -104,7 +176,7 @@ def prepare_schema_dataset(
     dataset_dir = data_root / folder_name
     dataset_dir.mkdir(parents=True, exist_ok=True)
     files = {name: dataset_dir / name for name in ("source_table.csv", "target_table.csv", "ground_truth.json")}
-    base_url = f"{VALENTINE_DATA_ROOT_URL}/{folder_name}"
+    base_url = f"{VALENTINE_DATA_ROOT_URL}/{quote(folder_name, safe='_-.')}"
     if any(not path.exists() for path in files.values()):
         if not download:
             raise FileNotFoundError(
@@ -299,6 +371,16 @@ def _value_compatibility(left: Sequence[str], right: Sequence[str]) -> float:
     return 0.25
 
 
+def _value_overlap_profile(left: Sequence[str], right: Sequence[str]) -> float:
+    """Weak value-set evidence for copied identifiers/categories."""
+    left_values = {_normalize(value) for value in left if _normalize(value)}
+    right_values = {_normalize(value) for value in right if _normalize(value)}
+    if not left_values or not right_values:
+        return 0.0
+    overlap = len(left_values & right_values) / min(len(left_values), len(right_values))
+    return overlap * min(1.0, min(len(left_values), len(right_values)) / 4.0)
+
+
 def _schema_score(
     source: str,
     target: str,
@@ -309,6 +391,19 @@ def _schema_score(
     alias = _alias_similarity(source, target)
     compatibility = _value_compatibility(source_samples.get(source, ()), target_samples.get(target, ()))
     return 0.50 * lexical + 0.35 * alias + 0.15 * compatibility
+
+
+def _schema_profile_score(
+    source: str,
+    target: str,
+    source_samples: Mapping[str, Sequence[str]],
+    target_samples: Mapping[str, Sequence[str]],
+) -> float:
+    lexical = _jaccard(source, target)
+    alias = _alias_similarity(source, target)
+    compatibility = _value_compatibility(source_samples.get(source, ()), target_samples.get(target, ()))
+    overlap = _value_overlap_profile(source_samples.get(source, ()), target_samples.get(target, ()))
+    return 0.25 * lexical + 0.15 * alias + 0.10 * compatibility + 0.50 * overlap
 
 
 def predict_schema_matches(
@@ -336,6 +431,9 @@ def predict_schema_matches(
     elif method == "project_schema_rule_v1":
         threshold = 0.40
         score_fn = lambda source, target: _schema_score(source, target, source_samples, target_samples)
+    elif method == "project_schema_profile_v2":
+        threshold = 0.40
+        score_fn = lambda source, target: _schema_profile_score(source, target, source_samples, target_samples)
     else:
         raise ValueError(f"Unsupported method: {method}")
 
@@ -451,6 +549,7 @@ def write_schema_run(
         "exact_normalized_name": "Exact normalized name",
         "token_jaccard": "Token Jaccard",
         "project_schema_rule_v1": "Project schema rule v1",
+        "project_schema_profile_v2": "Project schema value-profile v2",
     }
     with (run_dir / "unified_results.csv").open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
@@ -524,7 +623,7 @@ def run_public_schema_benchmark(
     dataset_id: str,
     data_root: Path,
     output_root: Path,
-    methods: Iterable[str] = ("exact_normalized_name", "token_jaccard", "project_schema_rule_v1"),
+    methods: Iterable[str] = ("exact_normalized_name", "token_jaccard", "project_schema_rule_v1", "project_schema_profile_v2"),
     download: bool,
 ) -> Path:
     dataset_dir, manifest = prepare_schema_dataset(dataset_id, data_root, download=download)

@@ -1,0 +1,61 @@
+{
+  "evaluation_id": "20260827T113412Z_raha_flights",
+  "evaluation_version": "public-cleaning-v1",
+  "layer": "external_benchmarks",
+  "stage": "cleaning",
+  "dataset": {
+    "dataset_id": "raha_flights",
+    "source_id": "github:BigDaMa/raha",
+    "source_url": "https://github.com/BigDaMa/raha/tree/master/datasets/flights",
+    "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+    "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b"
+  },
+  "split": "aligned_dirty_clean",
+  "code_revision": "88c9cc09e9d931534cb55466e6bad9648066c7a0",
+  "created_at": "2026-08-27T11:34:12.152941+00:00",
+  "results": {
+    "no_repair": {
+      "cell_precision": 0.0,
+      "cell_recall": 0.0,
+      "cell_f1": 0.0,
+      "repair_accuracy": 0.0,
+      "true_positive": 0,
+      "false_positive": 0,
+      "false_negative": 4920,
+      "correct_repairs": 0,
+      "automatic_repairs": 0,
+      "dirty_cell_count": 4920,
+      "total_cell_count": 16632,
+      "mean_latency_ms": 4.0548340451434174e-05
+    },
+    "column_mode": {
+      "cell_precision": 0.0,
+      "cell_recall": 0.0,
+      "cell_f1": 0.0,
+      "repair_accuracy": 0.0,
+      "true_positive": 0,
+      "false_positive": 10,
+      "false_negative": 4920,
+      "correct_repairs": 0,
+      "automatic_repairs": 234,
+      "dirty_cell_count": 4920,
+      "total_cell_count": 16632,
+      "mean_latency_ms": 0.0013917207790406603
+    },
+    "project_portability_consensus_clean_v1": {
+      "cell_precision": 0.0,
+      "cell_recall": 0.0,
+      "cell_f1": 0.0,
+      "repair_accuracy": 0.0,
+      "true_positive": 0,
+      "false_positive": 0,
+      "false_negative": 4920,
+      "correct_repairs": 0,
+      "automatic_repairs": 0,
+      "dirty_cell_count": 4920,
+      "total_cell_count": 16632,
+      "mean_latency_ms": 0.00016022126034716963
+    }
+  },
+  "scope_notice": "These are generic cell error detection/repair scores, not medical data quality or SDTI scores."
+}

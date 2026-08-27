@@ -1,0 +1,231 @@
+{
+  "evaluation_id": "20260827T121611Z_ebm_nlp_2_00",
+  "evaluation_version": "public-problem-understanding-v1",
+  "layer": "external_benchmarks",
+  "stage": "problem_understanding",
+  "dataset": {
+    "dataset_id": "ebm_nlp_2_00",
+    "source_id": "github:bepnye/EBM-NLP",
+    "source_url": "https://github.com/bepnye/EBM-NLP",
+    "archive_url": "https://github.com/bepnye/EBM-NLP/raw/master/ebm_nlp_2_00.tar.gz",
+    "archive_sha256": "b7357503911ba9f708d04e24c1ab3fe9e0a79833910e53e2472ed21214a44e3f",
+    "train_sha256": "2889e00f2f03f0a195ce38c3532947f02da0a9cfe69fd7fa398149a707fc4eef",
+    "train_count": "4670",
+    "test_gold_participants_sha256": "b8dbb68316fbf6fa65e1d8f56a34f303dc8222f8d68a7d5988be598f04109203",
+    "test_gold_participants_count": "189",
+    "test_gold_interventions_sha256": "7f80d686336dde6d57083f21d2e3c233218e0aa606f7f86a9edc20c6272ecb9a",
+    "test_gold_interventions_count": "188",
+    "test_gold_outcomes_sha256": "5781060f1c4b0d7d70f37a70461b536177034166f0fa4cec96c096d980c11dca",
+    "test_gold_outcomes_count": "190"
+  },
+  "split": "professional_test_gold",
+  "code_revision": "88c9cc09e9d931534cb55466e6bad9648066c7a0",
+  "created_at": "2026-08-27T12:16:11.724962+00:00",
+  "method_configs": {
+    "token_lexicon_v1": {
+      "participants": {
+        "threshold": 0.5,
+        "min_count": 2,
+        "fit_documents": 4792,
+        "fit_split": "train"
+      },
+      "interventions": {
+        "threshold": 0.5,
+        "min_count": 2,
+        "fit_documents": 4782,
+        "fit_split": "train"
+      },
+      "outcomes": {
+        "threshold": 0.5,
+        "min_count": 2,
+        "fit_documents": 4670,
+        "fit_split": "train"
+      }
+    },
+    "project_pico_lexicon_v2": {
+      "participants": {
+        "threshold": 0.3,
+        "min_count": 1,
+        "fit_documents": 4792,
+        "fit_split": "train_internal_dev"
+      },
+      "interventions": {
+        "threshold": 0.3,
+        "min_count": 1,
+        "fit_documents": 4782,
+        "fit_split": "train_internal_dev"
+      },
+      "outcomes": {
+        "threshold": 0.3,
+        "min_count": 1,
+        "fit_documents": 4670,
+        "fit_split": "train_internal_dev"
+      }
+    }
+  },
+  "results": {
+    "zero_prediction": {
+      "participants": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "true_positive": 0,
+        "false_positive": 0,
+        "false_negative": 4841,
+        "token_count": 51462,
+        "positive_count": 4841,
+        "predicted_positive_count": 0,
+        "document_count": 189,
+        "mean_latency_ms": 3.6939877890409318e-06
+      },
+      "interventions": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "true_positive": 0,
+        "false_positive": 0,
+        "false_negative": 3773,
+        "token_count": 51238,
+        "positive_count": 3773,
+        "predicted_positive_count": 0,
+        "document_count": 188,
+        "mean_latency_ms": 4.539599504966603e-06
+      },
+      "outcomes": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "true_positive": 0,
+        "false_positive": 0,
+        "false_negative": 8090,
+        "token_count": 51577,
+        "positive_count": 8090,
+        "predicted_positive_count": 0,
+        "document_count": 190,
+        "mean_latency_ms": 4.647420341018276e-06
+      },
+      "macro": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "true_positive": 0,
+        "false_positive": 0,
+        "false_negative": 16704,
+        "token_count": 154277,
+        "positive_count": 16704,
+        "predicted_positive_count": 0,
+        "document_count": 567,
+        "mean_latency_ms": 4.29366921167527e-06
+      }
+    },
+    "token_lexicon_v1": {
+      "participants": {
+        "precision": 0.5862068965517241,
+        "recall": 0.29146870481305515,
+        "f1": 0.3893487858719646,
+        "true_positive": 1411,
+        "false_positive": 996,
+        "false_negative": 3430,
+        "token_count": 51462,
+        "positive_count": 4841,
+        "predicted_positive_count": 2407,
+        "document_count": 189,
+        "mean_latency_ms": 0.0010105864521496777
+      },
+      "interventions": {
+        "precision": 0.6775203506574827,
+        "recall": 0.28677445003975616,
+        "f1": 0.4029795158286778,
+        "true_positive": 1082,
+        "false_positive": 515,
+        "false_negative": 2691,
+        "token_count": 51238,
+        "positive_count": 3773,
+        "predicted_positive_count": 1597,
+        "document_count": 188,
+        "mean_latency_ms": 0.0009905773058685606
+      },
+      "outcomes": {
+        "precision": 0.7213114754098361,
+        "recall": 0.2284301606922126,
+        "f1": 0.34697709350356737,
+        "true_positive": 1848,
+        "false_positive": 714,
+        "false_negative": 6242,
+        "token_count": 51577,
+        "positive_count": 8090,
+        "predicted_positive_count": 2562,
+        "document_count": 190,
+        "mean_latency_ms": 0.0009407041898771867
+      },
+      "macro": {
+        "precision": 0.6616795742063476,
+        "recall": 0.26889110518167464,
+        "f1": 0.37976846506806994,
+        "true_positive": 4341,
+        "false_positive": 2225,
+        "false_negative": 12363,
+        "token_count": 154277,
+        "positive_count": 16704,
+        "predicted_positive_count": 6566,
+        "document_count": 567,
+        "mean_latency_ms": 0.000980622649298475
+      }
+    },
+    "project_pico_lexicon_v2": {
+      "participants": {
+        "precision": 0.4434934837580237,
+        "recall": 0.4709770708531295,
+        "f1": 0.4568222801041875,
+        "true_positive": 2280,
+        "false_positive": 2861,
+        "false_negative": 2561,
+        "token_count": 51462,
+        "positive_count": 4841,
+        "predicted_positive_count": 5141,
+        "document_count": 189,
+        "mean_latency_ms": 0.0009639112354481578
+      },
+      "interventions": {
+        "precision": 0.5122532334921716,
+        "recall": 0.39888682745825604,
+        "f1": 0.4485173595589331,
+        "true_positive": 1505,
+        "false_positive": 1433,
+        "false_negative": 2268,
+        "token_count": 51238,
+        "positive_count": 3773,
+        "predicted_positive_count": 2938,
+        "document_count": 188,
+        "mean_latency_ms": 0.0009787852765420118
+      },
+      "outcomes": {
+        "precision": 0.6195550570200037,
+        "recall": 0.4096415327564895,
+        "f1": 0.49319145769774536,
+        "true_positive": 3314,
+        "false_positive": 2035,
+        "false_negative": 4776,
+        "token_count": 51577,
+        "positive_count": 8090,
+        "predicted_positive_count": 5349,
+        "document_count": 190,
+        "mean_latency_ms": 0.000964672237610625
+      },
+      "macro": {
+        "precision": 0.5251005914233996,
+        "recall": 0.42650181035595836,
+        "f1": 0.466177032453622,
+        "true_positive": 7099,
+        "false_positive": 6329,
+        "false_negative": 9605,
+        "token_count": 154277,
+        "positive_count": 16704,
+        "predicted_positive_count": 13428,
+        "document_count": 567,
+        "mean_latency_ms": 0.0009691229165335983
+      }
+    }
+  },
+  "scope_notice": "PICO token-span diagnostic only; not a clinical or breast-cancer Gold Set score."
+}

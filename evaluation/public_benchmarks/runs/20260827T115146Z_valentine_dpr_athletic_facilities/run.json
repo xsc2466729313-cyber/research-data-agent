@@ -1,0 +1,68 @@
+{
+  "evaluation_id": "20260827T115146Z_valentine_dpr_athletic_facilities",
+  "evaluation_version": "public-schema-v1",
+  "layer": "external_benchmarks",
+  "stage": "schema_integration",
+  "dataset": {
+    "dataset_id": "valentine_dpr_athletic_facilities",
+    "source_id": "github:delftdata/valentine",
+    "source_url": "https://github.com/delftdata/valentine/tree/5d5163f04da304985bd51a476ccf7653de3979c3/experiments/data/City_Government__DPR_AthleticFacilities_001",
+    "source_commit": "5d5163f04da304985bd51a476ccf7653de3979c3",
+    "source_file_url": "https://raw.githubusercontent.com/delftdata/valentine/5d5163f04da304985bd51a476ccf7653de3979c3/experiments/data/City_Government__DPR_AthleticFacilities_001/source_table.csv",
+    "target_file_url": "https://raw.githubusercontent.com/delftdata/valentine/5d5163f04da304985bd51a476ccf7653de3979c3/experiments/data/City_Government__DPR_AthleticFacilities_001/target_table.csv",
+    "ground_truth_url": "https://raw.githubusercontent.com/delftdata/valentine/5d5163f04da304985bd51a476ccf7653de3979c3/experiments/data/City_Government__DPR_AthleticFacilities_001/ground_truth.json",
+    "source_table_sha256": "ac27b06dc7200eaf55e39017b9bd671194df035ad73734e189e161c5fe31f3d9",
+    "target_table_sha256": "5b844c1088cb9585ff21bbb8005f8f188e5174124ed64d37c31bcf12e414b206",
+    "ground_truth_sha256": "74c485a39beed8bb0a6b8b8389382ebffe5d45cee329a7a6f4e5cd564e164bae"
+  },
+  "split": "official_ground_truth_matches",
+  "code_revision": "88c9cc09e9d931534cb55466e6bad9648066c7a0",
+  "created_at": "2026-08-27T11:51:46.477979+00:00",
+  "methods": [
+    "exact_normalized_name",
+    "token_jaccard",
+    "project_schema_rule_v1"
+  ],
+  "results": {
+    "exact_normalized_name": {
+      "precision": 1.0,
+      "recall": 0.3,
+      "f1": 0.4615384615384615,
+      "true_positive": 3,
+      "false_positive": 0,
+      "false_negative": 7,
+      "predicted_count": 3,
+      "gold_count": 10,
+      "source_column_count": 30,
+      "target_column_count": 25,
+      "runtime_ms": 2.307500002643792
+    },
+    "token_jaccard": {
+      "precision": 1.0,
+      "recall": 0.7,
+      "f1": 0.8235294117647058,
+      "true_positive": 7,
+      "false_positive": 0,
+      "false_negative": 3,
+      "predicted_count": 7,
+      "gold_count": 10,
+      "source_column_count": 30,
+      "target_column_count": 25,
+      "runtime_ms": 3.800399997999193
+    },
+    "project_schema_rule_v1": {
+      "precision": 0.7777777777777778,
+      "recall": 0.7,
+      "f1": 0.7368421052631577,
+      "true_positive": 7,
+      "false_positive": 2,
+      "false_negative": 3,
+      "predicted_count": 9,
+      "gold_count": 10,
+      "source_column_count": 30,
+      "target_column_count": 25,
+      "runtime_ms": 79.04899999994086
+    }
+  },
+  "scope_notice": "Generic schema matching scores on Valentine public tables; not a clinical canonical-schema, patient identity, or SDTI score."
+}

@@ -1,0 +1,54 @@
+{
+  "evaluation_id": "20260827T103717Z_deepmatcher_walmart_amazon",
+  "evaluation_version": "public-entity-v1",
+  "layer": "external_benchmarks",
+  "stage": "entity_matching",
+  "dataset": {
+    "dataset_id": "deepmatcher_walmart_amazon",
+    "source_id": "github:anhaidgroup/deepmatcher",
+    "source_url": "https://github.com/anhaidgroup/deepmatcher/blob/master/Datasets.md",
+    "archive_sha256": "d6604b0562c2ef3afec8186d7b43e8bdd82d68325bb98b75bbd01f468d4aa57e",
+    "table_a_sha256": "29046fe92f842041117d803094ee028c30510d8844d90008c0fefeef8af5c119",
+    "table_b_sha256": "922963a71b42c3964c261d5e5bae98a82b46761c81a68b7cb16d962cb81fe169",
+    "test_sha256": "ad23487a5c7f9e719e9b7cbea38b07d05940466b4bf040cd1cbc8fb251a53883"
+  },
+  "split": "test",
+  "code_revision": "6783c0afa7dae69050081ed03431aa23f72d84a4",
+  "created_at": "2026-08-27T10:37:17.582747+00:00",
+  "results": {
+    "exact_title": {
+      "precision": 1.0,
+      "recall": 0.046632124352331605,
+      "f1": 0.08910891089108912,
+      "true_positive": 9,
+      "false_positive": 0,
+      "false_negative": 184,
+      "pair_count": 2049,
+      "positive_count": 193,
+      "mean_latency_ms": 0.0063634944406617345
+    },
+    "title_jaccard": {
+      "precision": 0.8461538461538461,
+      "recall": 0.17098445595854922,
+      "f1": 0.2844827586206896,
+      "true_positive": 33,
+      "false_positive": 6,
+      "false_negative": 160,
+      "pair_count": 2049,
+      "positive_count": 193,
+      "mean_latency_ms": 0.0071841874149219595
+    },
+    "project_portability_rule_v1": {
+      "precision": 0.7530864197530864,
+      "recall": 0.3160621761658031,
+      "f1": 0.44525547445255476,
+      "true_positive": 61,
+      "false_positive": 20,
+      "false_negative": 132,
+      "pair_count": 2049,
+      "positive_count": 193,
+      "mean_latency_ms": 0.022099023925573096
+    }
+  },
+  "scope_notice": "These are generic entity-matching layer scores, not patient identity or clinical validity scores."
+}

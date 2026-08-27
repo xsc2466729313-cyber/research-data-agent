@@ -10,6 +10,7 @@ from backend.app.evaluation.public_retrieval import (
     BM25Index,
     ProjectHybridHashIndex,
     evaluate_retriever,
+    fit_bm25_parameters,
     load_beir,
 )
 
@@ -48,6 +49,20 @@ def test_load_beir_preserves_official_ids_and_graded_qrels(tmp_path: Path) -> No
     assert corpus == {"d1": "Title Body"}
     assert queries == {"q1": "Question"}
     assert qrels == {"q1": {"d1": 2}}
+
+
+def test_fit_bm25_reads_development_qrels_only(tmp_path: Path) -> None:
+    (tmp_path / "qrels").mkdir()
+    (tmp_path / "qrels" / "dev.tsv").write_text(
+        "query-id\tcorpus-id\tscore\nq1\td1\t1\n", encoding="utf-8"
+    )
+    config = fit_bm25_parameters(
+        {"d1": "breast cancer", "d2": "weather"},
+        {"q1": "breast"},
+        tmp_path,
+    )
+    assert config.fit_split == "dev"
+    assert config.fit_ndcg_at_10 == pytest.approx(1.0)
 
 
 def test_evaluation_uses_graded_ndcg() -> None:

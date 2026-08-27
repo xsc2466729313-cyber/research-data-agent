@@ -36,6 +36,21 @@ def test_schema_metrics_count_false_positives_and_negatives() -> None:
     assert result.f1 == pytest.approx(2 / 3)
 
 
+def test_value_profile_uses_value_overlap_for_renamed_columns() -> None:
+    source = ["source_code", "city"]
+    target = ["target_code", "town"]
+    source_samples = {"source_code": ["A", "B", "C", "D"], "city": ["Paris", "Berlin"]}
+    target_samples = {"target_code": ["A", "B", "C", "D"], "town": ["Paris", "Berlin"]}
+    predicted = predict_schema_matches(
+        source,
+        target,
+        "project_schema_profile_v2",
+        source_samples=source_samples,
+        target_samples=target_samples,
+    )
+    assert ("source_code", "target_code") in predicted
+
+
 def test_load_schema_task_uses_matches_not_overlap_cols(tmp_path: Path) -> None:
     task = tmp_path / "task"
     task.mkdir()
@@ -54,4 +69,3 @@ def test_load_schema_task_uses_matches_not_overlap_cols(tmp_path: Path) -> None:
 def test_prepare_schema_dataset_requires_download_when_missing(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError, match="--download"):
         prepare_schema_dataset("valentine_education_covid_meals", tmp_path, download=False)
-

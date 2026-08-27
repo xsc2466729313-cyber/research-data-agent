@@ -1,0 +1,82 @@
+{
+  "evaluation_id": "20260827T132343Z_valentine_housing_maintenance",
+  "evaluation_version": "public-schema-v1",
+  "layer": "external_benchmarks",
+  "stage": "schema_integration",
+  "dataset": {
+    "dataset_id": "valentine_housing_maintenance",
+    "source_id": "github:delftdata/valentine",
+    "source_url": "https://github.com/delftdata/valentine/tree/5d5163f04da304985bd51a476ccf7653de3979c3/experiments/data/Housing_&_Development__Housing_Maintenance_Code_Complaints_and_Problems",
+    "source_commit": "5d5163f04da304985bd51a476ccf7653de3979c3",
+    "source_file_url": "https://raw.githubusercontent.com/delftdata/valentine/5d5163f04da304985bd51a476ccf7653de3979c3/experiments/data/Housing_%26_Development__Housing_Maintenance_Code_Complaints_and_Problems/source_table.csv",
+    "target_file_url": "https://raw.githubusercontent.com/delftdata/valentine/5d5163f04da304985bd51a476ccf7653de3979c3/experiments/data/Housing_%26_Development__Housing_Maintenance_Code_Complaints_and_Problems/target_table.csv",
+    "ground_truth_url": "https://raw.githubusercontent.com/delftdata/valentine/5d5163f04da304985bd51a476ccf7653de3979c3/experiments/data/Housing_%26_Development__Housing_Maintenance_Code_Complaints_and_Problems/ground_truth.json",
+    "source_table_sha256": "4fb95b9209d91433f7d1dc07433b7b459025dff2abbb6da85c35075d63ed824a",
+    "target_table_sha256": "873db19234ba05fd6eca261517bfb71d233f1fb13fc080efa4774e5e71d655d4",
+    "ground_truth_sha256": "71b6c7cc43c7ee7771f3c5fdfacba35351da8c0e2e739401f3d2ae5dfc37134b"
+  },
+  "split": "official_ground_truth_matches",
+  "code_revision": "88c9cc09e9d931534cb55466e6bad9648066c7a0",
+  "created_at": "2026-08-27T13:23:43.708776+00:00",
+  "methods": [
+    "exact_normalized_name",
+    "token_jaccard",
+    "project_schema_rule_v1",
+    "project_schema_profile_v2"
+  ],
+  "results": {
+    "exact_normalized_name": {
+      "precision": 1.0,
+      "recall": 0.6666666666666666,
+      "f1": 0.8,
+      "true_positive": 8,
+      "false_positive": 0,
+      "false_negative": 4,
+      "predicted_count": 8,
+      "gold_count": 12,
+      "source_column_count": 21,
+      "target_column_count": 24,
+      "runtime_ms": 0.7422999988193624
+    },
+    "token_jaccard": {
+      "precision": 0.8,
+      "recall": 0.6666666666666666,
+      "f1": 0.7272727272727272,
+      "true_positive": 8,
+      "false_positive": 2,
+      "false_negative": 4,
+      "predicted_count": 10,
+      "gold_count": 12,
+      "source_column_count": 21,
+      "target_column_count": 24,
+      "runtime_ms": 1.1592000009841286
+    },
+    "project_schema_rule_v1": {
+      "precision": 0.7272727272727273,
+      "recall": 0.6666666666666666,
+      "f1": 0.6956521739130435,
+      "true_positive": 8,
+      "false_positive": 3,
+      "false_negative": 4,
+      "predicted_count": 11,
+      "gold_count": 12,
+      "source_column_count": 21,
+      "target_column_count": 24,
+      "runtime_ms": 24.065999998128973
+    },
+    "project_schema_profile_v2": {
+      "precision": 1.0,
+      "recall": 0.75,
+      "f1": 0.8571428571428571,
+      "true_positive": 9,
+      "false_positive": 0,
+      "false_negative": 3,
+      "predicted_count": 9,
+      "gold_count": 12,
+      "source_column_count": 21,
+      "target_column_count": 24,
+      "runtime_ms": 83.81329999974696
+    }
+  },
+  "scope_notice": "Generic schema matching scores on Valentine public tables; not a clinical canonical-schema, patient identity, or SDTI score."
+}

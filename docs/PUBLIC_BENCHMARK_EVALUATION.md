@@ -1,82 +1,35 @@
-# 科研数据 Agent 分层公开评测方案与首次结果
+# 科研数据 Agent 分层公开评测报告（v2）
 
-## 1. 需要解决的问题
+## 评测目的
 
-对一个科研数据 Agent 只做端到端打分，无法说明问题出在哪里。最终答案不好，可能是问题理解错了，也可能是文献没找到、字段对齐错了，或者同一对象被重复合并。如果这些能力混在一起，一个总分既不能指导优化，也不能证明系统真正可靠。
+端到端总分无法定位问题。本项目将能力拆为问题解析、数据检索、字段对齐、实体匹配和数据清洗五层，分别使用带公开标签的数据集计分。公开基准只诊断通用数据能力，不替代乳腺癌 Gold Set，也不产生正式 SDTI。
 
-因此，本方案不直接追求一个“看起来很高”的总分，而是将系统分为问题解析、工具规划、数据检索、字段对齐、实体合并、数据清洗和端到端科研执行七层。每层使用已有标准答案的公开测试集单独计分。
+## 当前最好成绩
 
-## 2. 评测架构
+| 能力层 | 官方数据 | 项目方法 | 主指标 | 成绩 |
+|---|---|---|---|---:|
+| 问题解析 | EBM-NLP professional test | PICO context v3 | 宏平均 span F1 | 0.4900 |
+| 检索 | BEIR 5 个任务 | tuned BM25 v2 | nDCG@10 宏平均 | 0.3147 |
+| 字段对齐 | Valentine 10 个任务 | value-profile v2 | Schema F1 宏平均 | 0.8451 |
+| 实体匹配 | DeepMatcher 5 个任务 | learned rule v2 | Entity F1 宏平均 | 0.7408 |
+| 数据清洗 | Raha/HoloClean 6 个任务 | format-profile v2 | Cell F1 宏平均 | 0.4856 |
 
-| 能力层 | 希望回答的问题 | 公开评测 | 主要指标 | 当前状态 |
-|---|---|---|---|---|
-| 问题解析 | 能否把宽泛医学问题拆成研究人群、干预/暴露、对照和结局 | EBM-NLP | PICO 跨度 Precision、Recall、F1 | 待运行 |
-| 工具规划 | 能否选对工具、填对参数并完成多步调用 | BFCL V4 | 函数调用准确率、多轮成功率 | 待运行 |
-| 数据检索 | 能否找到与查询真正相关的科学/医学文档 | BEIR SciFact、NFCorpus | nDCG@10、Recall@100、MRR@10 | 已运行 |
-| 字段对齐 | 不同数据表中同义字段能否正确对齐 | Valentine（2 个固定任务） | Schema Precision、Recall、F1 | 已运行 |
-| 实体合并 | 两条记录是否指向同一对象 | DeepMatcher DBLP-ACM、Walmart-Amazon | Entity Precision、Recall、F1 | 已运行 |
-| 数据清洗 | 能否发现错值并正确修复，同时不破坏正确值 | HoloClean Hospital（Raha/Baran 兼容性待处理） | Cell Precision、Recall、F1、修复正确率 | 部分运行 |
-| 端到端科研执行 | 能否完成“理解任务—获取数据—分析—输出可验证结果” | ScienceAgentBench | 可执行率、结果匹配、来源完整性 | 待受控下载 |
+宏平均只是跨任务诊断，不能把不同层的分数相加或冒充一个总分。每个任务的完整指标和证据见 `docs/PUBLIC_BENCHMARK_COMPARISON.md` 与 `evaluation/public_benchmarks/runs/*/run.json`。
 
-这个架构中，公开数据集的标注是计分依据；BM25、Ditto、Raha 等方法只是对照组。不会用其他模型的预测结果代替标准答案。
+## 关键对比
 
-## 3. 首次严格测试
+- PICO context v3 相比词典 v2：宏 F1 `0.4662 → 0.4900`；Participants `0.4568 → 0.5230`，Interventions 基本不变。
+- tuned BM25 在 SciFact、NFCorpus、SciDocs、ArguAna、FiQA 的 nDCG@10 为 `0.6044/0.2902/0.1490/0.3067/0.2230`；哈希混合在 SciFact/ArguAna 仅 `0.4070/0.0708`。
+- value-profile v2 在 Public Art Inventory `0.3333 → 0.8889`、Capital Projects `0.6667 → 1.0000`；DPR 和 DSNY 仍为 `0.5882/0.5333`。
+- learned entity v2 在 DBLP-ACM `0.9602`、Beer-RateBeer `0.8125`，但 Walmart-Amazon `0.4939`。
+- format-profile v2 在 Beers/Movies-1/Tax 为 `0.9837/0.8916/0.9868`；Flights `0.0515`，Hospital 和 Rayyan 为 `0.0000`。
 
-### 3.1 数据与对照
+## 数据划分与可信性
 
-首次实验只测试“数据检索层”，使用 BEIR 官方的测试划分和 qrels 标注：
+DeepMatcher 使用官方 train/valid/test；EBM-NLP 使用训练 crowd labels 和独立 professional test gold；BEIR 调参只读取 dev/train qrels；Valentine 使用固定 commit 的官方 ground truth；Raha/HoloClean 使用官方 dirty/clean 对照表。所有运行产物记录 source_id、真实 URL、SHA-256 和代码版本。未完成的 TREC-COVID 下载没有被计入成绩。
 
-- SciFact：300 个测试查询，测试科学主张与证据文档的匹配。
-- NFCorpus：323 个测试查询，测试医学信息检索。
-- 对照方法：同一份数据上的本地 BM25。
-- 被测方法：项目当前的 `hashing-lexical-v1` 混合检索公式。
+## 失败解释与下一步
 
-数据文件和测试标注均记录 SHA-256，实验产物记录代码提交号。这些约束用来防止更换数据或代码后仍沿用旧成绩。
+检索层应接入科学/医学文本嵌入和重排；问题解析需要序列标注以识别短语边界；字段对齐需要缩写词典、冲突检测和 review 队列；实体匹配需要字符级/字段级深度模型，并对低置信度样本保持 unresolved；清洗层应把检测和修复分开，对缺失值和语义错误交由证据复核。
 
-### 3.2 指标
-
-`nDCG@10` 同时看“有没有找对”和“正确文档是否排在前面”，是主指标。`Recall@100` 表示前 100 条结果找回了多少应找到的文档。`MRR@10` 关心第一个正确结果出现得有多早。
-
-用人话说：一个好的检索器不仅要“找得到”，还要把最有用的文档尽量放在前几条。
-
-## 4. 结果
-
-| 数据集 | 方法 | nDCG@10 | Recall@100 | MRR@10 | 平均检索耗时/查询 |
-|---|---|---:|---:|---:|---:|
-| SciFact | BM25 对照 | 0.6040 | 0.8279 | 0.5689 | 6.54 ms |
-| SciFact | 项目当前混合检索 | 0.4070 | 0.7007 | 0.3833 | 18.19 ms |
-| NFCorpus | BM25 对照 | 0.2899 | 0.2209 | 0.5020 | 2.45 ms |
-| NFCorpus | 项目当前混合检索 | 0.2493 | 0.1937 | 0.4417 | 5.18 ms |
-
-两个数据集上，当前混合检索均没有超过 BM25。SciFact 上的 nDCG@10 低 0.1970，NFCorpus 上低 0.0405。同时，当前方法在这次单机运行中的查询耗时也更高；耗时受机器状态影响，因此只作运行参考，不作为此次模型好坏的主要结论。
-
-## 5. 结果分析
-
-这一结果表明的并不是“整个 Agent 不行”，而是当前检索层的哈希表示没有形成足够强的语义匹配能力。它在英文公开测试上增加了计算，却没有弥补关键词匹配的损失。这区分了两种解释：问题不在“语义检索这个方向错了”，而在“当前的哈希近似不是足够强的语义模型”。
-
-因此，下一步不应只是微调 0.55/0.30 的排序权重，而应在相同测试集和相同指标下接入正式的科学/医学文本嵌入模型，再与 BM25 组成可控的混合排序。只有当 nDCG@10 和 Recall@100 在 SciFact 与 NFCorpus 上都稳定改善，才能说检索层真正升级。
-
-## 6. 为什么不直接使用其他模型的成绩
-
-其他论文或 GitHub 项目的公开成绩可以告诉我们“目前大致能做到什么程度”，但不能代表本项目的成绩。运行环境、数据版本、分词、参数和测试脚本不同，都会造成不公平的比较。本方案因而要求：同一份数据、同一份标注、同一个指标脚本和同一台运行环境下做对照。
-
-## 7. 下一阶段
-
-1. 检索层：增加 BGE-M3/医学嵌入模型和重排对照，在现有两个测试集上重跑。
-2. 问题解析层：接入 EBM-NLP，将 Agent 输出的研究人群、暴露/干预和结局与专业标注比较。
-3. 数据整合层：已接入 Valentine 和 DeepMatcher 数据集，分开测试“字段是否同义”和“记录是否同一对象”；结果见 `docs/PUBLIC_BENCHMARK_COMPARISON.md`。
-4. 清洗层：用 Raha/Baran 的 dirty-clean 数据对计算错误检测 F1 和修复正确率。
-5. 端到端层：在数据授权和运行环境准备完成后运行 ScienceAgentBench verified 版本。
-
-Kaggle 的 MLE-bench Lite 约需 158 GB，当前本机空间不足，应放在远程评测机上，不应为了“看起来完整”而在本地强行下载。
-
-## 8. 复现方式
-
-```powershell
-python scripts/run_public_retrieval_benchmark.py --download
-python scripts/run_public_schema_benchmark.py --download
-python scripts/run_public_entity_benchmark.py --download
-python scripts/run_public_cleaning_benchmark.py --download
-```
-
-每次运行会在 `evaluation/public_benchmarks/runs/` 生成 `run.json`、`unified_results.csv` 和 `REPORT.md`。公开数据本身保存在 `data/benchmarks/` 且不提交到 GitHub，但其哈希和真实来源会被保留在运行记录中。
+项目正式 SDTI 仍按冻结文件 `docs/06_评测指标与SDTI.md` 执行；在验证后的乳腺癌 Gold Set 提供前，不发布 SDTI 数值。

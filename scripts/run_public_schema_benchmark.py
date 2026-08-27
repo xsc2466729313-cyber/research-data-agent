@@ -14,7 +14,7 @@ from backend.app.evaluation.public_schema import SCHEMA_DATASETS, run_public_sch
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run public Valentine schema matching benchmarks.")
     parser.add_argument("--dataset", action="append", choices=sorted(SCHEMA_DATASETS))
-    parser.add_argument("--method", action="append", choices=["exact_normalized_name", "token_jaccard", "project_schema_rule_v1"])
+    parser.add_argument("--method", action="append", choices=["exact_normalized_name", "token_jaccard", "project_schema_rule_v1", "project_schema_profile_v2"])
     parser.add_argument("--download", action="store_true")
     parser.add_argument("--data-root", type=Path, default=PROJECT_ROOT / "data" / "benchmarks" / "schema")
     parser.add_argument("--output-root", type=Path, default=PROJECT_ROOT / "evaluation" / "public_benchmarks" / "runs")
@@ -25,11 +25,10 @@ def main() -> None:
             dataset_id=dataset_id,
             data_root=args.data_root,
             output_root=args.output_root,
-            methods=args.method or ("exact_normalized_name", "token_jaccard", "project_schema_rule_v1"),
+            methods=args.method or ("exact_normalized_name", "token_jaccard", "project_schema_rule_v1", "project_schema_profile_v2"),
             download=args.download,
         ))
 
 
 if __name__ == "__main__":
     main()
-

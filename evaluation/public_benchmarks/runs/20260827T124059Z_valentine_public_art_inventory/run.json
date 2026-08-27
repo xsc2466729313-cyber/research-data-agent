@@ -1,0 +1,68 @@
+{
+  "evaluation_id": "20260827T124059Z_valentine_public_art_inventory",
+  "evaluation_version": "public-schema-v1",
+  "layer": "external_benchmarks",
+  "stage": "schema_integration",
+  "dataset": {
+    "dataset_id": "valentine_public_art_inventory",
+    "source_id": "github:delftdata/valentine",
+    "source_url": "https://github.com/delftdata/valentine/tree/5d5163f04da304985bd51a476ccf7653de3979c3/experiments/data/Housing_&_Development__Public_Design_Commission_Outdoor_Public_Art_Invent",
+    "source_commit": "5d5163f04da304985bd51a476ccf7653de3979c3",
+    "source_file_url": "https://raw.githubusercontent.com/delftdata/valentine/5d5163f04da304985bd51a476ccf7653de3979c3/experiments/data/Housing_%26_Development__Public_Design_Commission_Outdoor_Public_Art_Invent/source_table.csv",
+    "target_file_url": "https://raw.githubusercontent.com/delftdata/valentine/5d5163f04da304985bd51a476ccf7653de3979c3/experiments/data/Housing_%26_Development__Public_Design_Commission_Outdoor_Public_Art_Invent/target_table.csv",
+    "ground_truth_url": "https://raw.githubusercontent.com/delftdata/valentine/5d5163f04da304985bd51a476ccf7653de3979c3/experiments/data/Housing_%26_Development__Public_Design_Commission_Outdoor_Public_Art_Invent/ground_truth.json",
+    "source_table_sha256": "86bbb09d72cfbcc9fc1713acf1663be3a8d6364a69ae5f4146c99517df73e2a8",
+    "target_table_sha256": "de3418d5d4d950a8045c8044ca57e1934f20051a105a1c92c6951b4f51f3f596",
+    "ground_truth_sha256": "233e18480f71b7fb9268820823eb1e3fd9e7ccc9250f694f9582ce2a8580414d"
+  },
+  "split": "official_ground_truth_matches",
+  "code_revision": "88c9cc09e9d931534cb55466e6bad9648066c7a0",
+  "created_at": "2026-08-27T12:40:59.082334+00:00",
+  "methods": [
+    "exact_normalized_name",
+    "token_jaccard",
+    "project_schema_rule_v1"
+  ],
+  "results": {
+    "exact_normalized_name": {
+      "precision": 1.0,
+      "recall": 0.13333333333333333,
+      "f1": 0.23529411764705882,
+      "true_positive": 2,
+      "false_positive": 0,
+      "false_negative": 13,
+      "predicted_count": 2,
+      "gold_count": 15,
+      "source_column_count": 24,
+      "target_column_count": 34,
+      "runtime_ms": 1.2059000000590459
+    },
+    "token_jaccard": {
+      "precision": 1.0,
+      "recall": 0.2,
+      "f1": 0.33333333333333337,
+      "true_positive": 3,
+      "false_positive": 0,
+      "false_negative": 12,
+      "predicted_count": 3,
+      "gold_count": 15,
+      "source_column_count": 24,
+      "target_column_count": 34,
+      "runtime_ms": 1.8281000011484139
+    },
+    "project_schema_rule_v1": {
+      "precision": 0.4444444444444444,
+      "recall": 0.26666666666666666,
+      "f1": 0.33333333333333337,
+      "true_positive": 4,
+      "false_positive": 5,
+      "false_negative": 11,
+      "predicted_count": 9,
+      "gold_count": 15,
+      "source_column_count": 24,
+      "target_column_count": 34,
+      "runtime_ms": 39.87750000305823
+    }
+  },
+  "scope_notice": "Generic schema matching scores on Valentine public tables; not a clinical canonical-schema, patient identity, or SDTI score."
+}
