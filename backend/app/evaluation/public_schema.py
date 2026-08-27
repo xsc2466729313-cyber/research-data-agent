@@ -436,12 +436,22 @@ def write_schema_run(
         ),
     }
     (run_dir / "run.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    # Keep the same column contract as data/evaluation_templates/
+    # unified_results_template.csv so this layer can be merged with the other
+    # public benchmark outputs without a bespoke adapter.
     fields = [
         "evaluation_id", "evaluation_version", "layer", "stage", "benchmark_or_task",
-        "stratum_name", "stratum_value", "method_id", "metric", "value", "direction", "unit",
-        "n", "run_count", "seed", "dataset_version", "source_id", "source_url", "raw_field",
+        "stratum_name", "stratum_value", "method_id", "method_label", "base_model_id",
+        "metric", "value", "direction", "unit", "n", "mean", "std", "ci95_low",
+        "ci95_high", "run_count", "seed", "dataset_version", "evaluation_contract_id",
+        "quality_gate", "publish_allowed", "source_id", "source_url", "raw_field",
         "raw_value", "notes",
     ]
+    method_labels = {
+        "exact_normalized_name": "Exact normalized name",
+        "token_jaccard": "Token Jaccard",
+        "project_schema_rule_v1": "Project schema rule v1",
+    }
     with (run_dir / "unified_results.csv").open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
@@ -457,14 +467,23 @@ def write_schema_run(
                     "stratum_name": "benchmark_dataset",
                     "stratum_value": dataset_id,
                     "method_id": method,
+                    "method_label": method_labels.get(method, method),
+                    "base_model_id": "",
                     "metric": f"schema_{metric_name}" if metric_name != "runtime_ms" else metric_name,
                     "value": f"{value:.8f}",
                     "direction": "lower" if metric_name == "runtime_ms" else "higher",
                     "unit": "ms" if metric_name == "runtime_ms" else "ratio",
                     "n": metrics.gold_count,
+                    "mean": "",
+                    "std": "",
+                    "ci95_low": "",
+                    "ci95_high": "",
                     "run_count": 1,
                     "seed": "deterministic",
                     "dataset_version": manifest["ground_truth_sha256"][:12],
+                    "evaluation_contract_id": "",
+                    "quality_gate": "REVIEW",
+                    "publish_allowed": "false",
                     "source_id": manifest["source_id"],
                     "source_url": manifest["source_url"],
                     "raw_field": metric_name,
