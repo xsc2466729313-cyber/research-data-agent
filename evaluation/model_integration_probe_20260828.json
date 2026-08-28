@@ -1,0 +1,16 @@
+{
+  "artifact_type": "model_integration_probe",
+  "created_at": "2026-08-28T15:48:42.149041+00:00",
+  "credential_notice": "Credentials are read from local .env only and are never written to this artifact.",
+  "provider": "千问",
+  "model": "qwen-plus",
+  "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+  "reachable": true,
+  "authenticated": true,
+  "model_available": true,
+  "function_calling_available": true,
+  "agent_ready": true,
+  "status": "已通过",
+  "message": "网络可达、鉴权成功、模型可用，结构化 Agent 探测通过。",
+  "checked_at": "2026-08-28T15:48:36.705873Z"
+}

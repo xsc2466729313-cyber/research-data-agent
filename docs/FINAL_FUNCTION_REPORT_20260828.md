@@ -21,6 +21,25 @@
 | POST | `/api/v2/research/plan` | topic 或研究问题 | PICO/PECO、Evidence Pack、变量和 Source Plan |
 | POST | `/api/v2/governance/decide` | proposal、证据和医学语义 | `AUTO` / `REVIEW` / `REJECT` |
 
+## 不重复输入本地凭据
+
+服务读取项目根目录、被 Git 忽略的 `.env`。复制 `.env.example` 后填入 `DASHSCOPE_API_KEY`、`QWEN_BASE_URL` 和 `QWEN_MODEL`，再以 `python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000` 启动；同一台本机的前端和 API 请求会复用服务配置，不需逐任务提交 Key。
+
+不希望写入 `.env` 时，先调用 `POST /api/agent/qwen-sessions`。该端点在内存创建会话并返回 `session_id`；后续 `/api/agent/tasks` 或闭环请求只传该 ID。会话最长保留两小时，重启后失效，Key 不进入任务结果、日志或 GitHub。
+
+```json
+{
+  "question": "整理乳腺癌患者的 ERBB2 相关临床特征、突变信息和样本级证据",
+  "use_qwen": true,
+  "allow_deterministic_fallback": true,
+  "data_mode": "live",
+  "max_sources": 3,
+  "max_records": 500
+}
+```
+
+生产部署请经 HTTPS 反向代理暴露服务；默认仅绑定本机 `127.0.0.1`。完整端口、Docker 前端地址、GitHub 缺失数据恢复与安全边界见 `docs/FINAL_DELIVERY_INDEX_20260828.md`。
+
 ## 不会随 GitHub 一起提交的内容
 
 - API Key、业务空间凭据和 `.env`；

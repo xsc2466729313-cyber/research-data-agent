@@ -35,7 +35,8 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=None)
     parser.add_argument("--plan-cache", type=Path, default=None, help="JSON mapping raw query or query_id to RetrievalQueryPlan")
     args = parser.parse_args()
-    plan_cache = json.loads(args.plan_cache.read_text(encoding="utf-8")) if args.plan_cache else {}
+    raw_cache = json.loads(args.plan_cache.read_text(encoding="utf-8")) if args.plan_cache else {}
+    plan_cache = raw_cache.get("entries", raw_cache) if isinstance(raw_cache, dict) else {}
     output: dict[str, object] = {
         "artifact_type": "query_understanding_ablation",
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -57,19 +58,29 @@ def main() -> None:
         planners = {"query": plan_cache}
 
         def planner(query: str):
-            return planners["query"].get(query) or {"keyword_query": query, "paraphrase_query": query, "evidence_query": query}
+            record = planners["query"].get(query)
+            if not record:
+                raise KeyError("Missing Qwen plan for query")
+            if isinstance(record, dict) and record.get("status") != "VALID":
+                raise ValueError("Qwen plan is not validated")
+            return record.get("plan") if isinstance(record, dict) else record
 
         indexes = {
             "A_raw": base,
             "B_rules": QueryUnderstandingIndex(base, "rules"),
         }
-        if plan_cache:
+        required_queries = [queries[query_id] for query_id in qrels if query_id in queries]
+        complete_plan_cache = bool(plan_cache) and all(
+            isinstance(plan_cache.get(query), dict) and plan_cache[query].get("status") == "VALID"
+            for query in required_queries
+        )
+        if complete_plan_cache:
             indexes.update({
                 "C_qwen_single": QueryUnderstandingIndex(base, "qwen_single", planner=planner),
                 "D_qwen_multi": QueryUnderstandingIndex(base, "qwen_multi_validated", planner=planner),
                 "E_rules_qwen": QueryUnderstandingIndex(base, "rules_qwen", planner=planner),
             })
-        dataset_results: dict[str, object] = {"manifest": manifest, "bm25_config": {"k1": config.k1, "b": config.b}, "results": {}}
+        dataset_results: dict[str, object] = {"manifest": manifest, "bm25_config": {"k1": config.k1, "b": config.b}, "qwen_plan_cache_complete": complete_plan_cache, "results": {}}
         for method_id, index in indexes.items():
             dataset_results["results"][method_id] = {
                 "status": "EVALUATED",

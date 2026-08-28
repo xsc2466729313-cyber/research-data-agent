@@ -1,0 +1,310 @@
+{
+  "artifact_type": "qwen_query_plan_cache",
+  "created_at": "2026-08-28T15:55:20.327543+00:00",
+  "model_id": "qwen-plus",
+  "prompt_version": "qwen-query-plan-v1",
+  "schema_version": "retrieval-query-plan-v1",
+  "no_qrels_notice": "Only queries.jsonl was read; qrels and corpus were not loaded during plan generation.",
+  "credential_notice": "Credentials are read locally and never written to this artifact.",
+  "datasets": [
+    {
+      "dataset_id": "beir_scifact",
+      "source_id": "beir:scifact",
+      "source_url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scifact.zip",
+      "queries_sha256": "8ff84a7c903f722981cd8d595c022660140c51867b27608a6d4910db86080313",
+      "query_count_planned": 5
+    }
+  ],
+  "entries": {
+    "0-dimensional biomaterials lack inductive properties.": {
+      "cache_key": "48a4e59df6a8047778705e6d9cc6c9a5a34124e59c9c49aba4901d5c8c53649f",
+      "dataset_id": "beir_scifact",
+      "query_id": "0",
+      "status": "FALLBACK",
+      "plan": {
+        "intent": "retrieve_information",
+        "key_concepts": [
+          "0-dimensional biomaterials",
+          "inductive properties"
+        ],
+        "entities": [
+          "0-dimensional biomaterials"
+        ],
+        "constraints": [
+          "lack inductive properties"
+        ],
+        "must_keep_terms": [
+          "0-dimensional biomaterials",
+          "lack",
+          "inductive properties"
+        ],
+        "keyword_query": "0-dimensional biomaterials lack inductive properties",
+        "paraphrase_query": "Do 0-dimensional biomaterials possess inductive properties?",
+        "evidence_query": "What evidence supports or refutes the claim that 0-dimensional biomaterials lack inductive properties?"
+      },
+      "validation": {
+        "valid": false,
+        "accepted_queries": [
+          "0-dimensional biomaterials lack inductive properties."
+        ],
+        "rejected_queries": [
+          "0-dimensional biomaterials lack inductive properties",
+          "Do 0-dimensional biomaterials possess inductive properties?",
+          "What evidence supports or refutes the claim that 0-dimensional biomaterials lack inductive properties?"
+        ],
+        "protected_terms": [
+          "0",
+          "dimensional",
+          "biomaterials",
+          "lack",
+          "inductive",
+          "properties.",
+          "0-dimensional biomaterials",
+          "inductive properties"
+        ],
+        "reasons": [
+          "query dropped because protected terms are missing: properties.",
+          "query dropped because protected terms are missing: lack,properties.",
+          "query dropped because protected terms are missing: properties.",
+          "all generated queries were invalid; original query retained"
+        ],
+        "fallback_used": true
+      },
+      "error": null
+    },
+    "0-dimensional biomaterials show inductive properties.": {
+      "cache_key": "1cbdb2a959b3f0f4627512c258f3bfd044fd918390643da4d7ece0b5e08025c0",
+      "dataset_id": "beir_scifact",
+      "query_id": "1",
+      "status": "VALID",
+      "plan": {
+        "intent": "retrieve_information",
+        "key_concepts": [
+          "0-dimensional biomaterials",
+          "inductive properties"
+        ],
+        "entities": [
+          "0-dimensional biomaterials"
+        ],
+        "constraints": [],
+        "must_keep_terms": [
+          "0-dimensional",
+          "biomaterials",
+          "inductive properties"
+        ],
+        "keyword_query": "0-dimensional biomaterials inductive properties",
+        "paraphrase_query": "What inductive properties do 0-dimensional biomaterials exhibit?",
+        "evidence_query": "Provide evidence that 0-dimensional biomaterials show inductive properties."
+      },
+      "validation": {
+        "valid": true,
+        "accepted_queries": [
+          "Provide evidence that 0-dimensional biomaterials show inductive properties."
+        ],
+        "rejected_queries": [
+          "0-dimensional biomaterials inductive properties",
+          "What inductive properties do 0-dimensional biomaterials exhibit?"
+        ],
+        "protected_terms": [
+          "0",
+          "dimensional",
+          "biomaterials",
+          "show",
+          "inductive",
+          "properties.",
+          "0-dimensional",
+          "inductive properties"
+        ],
+        "reasons": [
+          "query dropped because protected terms are missing: show,properties.",
+          "query dropped because protected terms are missing: show,properties."
+        ],
+        "fallback_used": false
+      },
+      "error": null
+    },
+    "4-PBA treatment decreases endoplasmic reticulum stress in response to general endoplasmic reticulum stress markers.": {
+      "cache_key": "edccf958d908278f9a678de9546b89743a469403b00fa76504ef613566872fc9",
+      "dataset_id": "beir_scifact",
+      "query_id": "10",
+      "status": "FALLBACK",
+      "plan": {
+        "intent": "investigate effect of 4-PBA on endoplasmic reticulum stress markers",
+        "key_concepts": [
+          "4-PBA treatment",
+          "endoplasmic reticulum stress",
+          "ER stress markers"
+        ],
+        "entities": [
+          "4-PBA"
+        ],
+        "constraints": [
+          "decreases",
+          "in response to",
+          "general endoplasmic reticulum stress markers"
+        ],
+        "must_keep_terms": [
+          "4-PBA",
+          "decreases",
+          "endoplasmic reticulum stress",
+          "general endoplasmic reticulum stress markers"
+        ],
+        "keyword_query": "4-PBA decreases endoplasmic reticulum stress general endoplasmic reticulum stress markers",
+        "paraphrase_query": "Does 4-PBA treatment reduce endoplasmic reticulum stress as measured by general endoplasmic reticulum stress markers?",
+        "evidence_query": "Evidence that 4-PBA treatment decreases endoplasmic reticulum stress in response to general endoplasmic reticulum stress markers"
+      },
+      "validation": {
+        "valid": false,
+        "accepted_queries": [
+          "4-PBA treatment decreases endoplasmic reticulum stress in response to general endoplasmic reticulum stress markers."
+        ],
+        "rejected_queries": [
+          "4-PBA decreases endoplasmic reticulum stress general endoplasmic reticulum stress markers",
+          "Does 4-PBA treatment reduce endoplasmic reticulum stress as measured by general endoplasmic reticulum stress markers?",
+          "Evidence that 4-PBA treatment decreases endoplasmic reticulum stress in response to general endoplasmic reticulum stress markers"
+        ],
+        "protected_terms": [
+          "4",
+          "PBA",
+          "treatment",
+          "decreases",
+          "endoplasmic",
+          "reticulum",
+          "stress",
+          "in",
+          "response",
+          "to",
+          "general",
+          "markers.",
+          "4-PBA",
+          "endoplasmic reticulum stress",
+          "general endoplasmic reticulum stress markers"
+        ],
+        "reasons": [
+          "query dropped because protected terms are missing: treatment,in,response,to,markers.",
+          "query dropped because protected terms are missing: decreases,in,response,to,markers.",
+          "query dropped because protected terms are missing: markers.",
+          "all generated queries were invalid; original query retained"
+        ],
+        "fallback_used": true
+      },
+      "error": null
+    },
+    "All hematopoietic stem cells segregate their chromosomes randomly.": {
+      "cache_key": "bd97791ee4b89952285a396b2795168bccd511ac66e3e71ef9315eaa25cdddd3",
+      "dataset_id": "beir_scifact",
+      "query_id": "100",
+      "status": "FALLBACK",
+      "plan": {
+        "intent": "verify",
+        "key_concepts": [
+          "hematopoietic stem cells",
+          "chromosome segregation",
+          "randomness"
+        ],
+        "entities": [
+          "hematopoietic stem cells"
+        ],
+        "constraints": [
+          "All hematopoietic stem cells"
+        ],
+        "must_keep_terms": [
+          "All hematopoietic stem cells",
+          "segregate",
+          "chromosomes",
+          "randomly"
+        ],
+        "keyword_query": "hematopoietic stem cells chromosome segregation random",
+        "paraphrase_query": "Do all hematopoietic stem cells segregate their chromosomes in a random manner?",
+        "evidence_query": "Evidence that all hematopoietic stem cells segregate chromosomes randomly"
+      },
+      "validation": {
+        "valid": false,
+        "accepted_queries": [
+          "All hematopoietic stem cells segregate their chromosomes randomly."
+        ],
+        "rejected_queries": [
+          "hematopoietic stem cells chromosome segregation random",
+          "Do all hematopoietic stem cells segregate their chromosomes in a random manner?",
+          "Evidence that all hematopoietic stem cells segregate chromosomes randomly"
+        ],
+        "protected_terms": [
+          "All",
+          "hematopoietic",
+          "stem",
+          "cells",
+          "segregate",
+          "their",
+          "chromosomes",
+          "randomly.",
+          "All hematopoietic stem cells",
+          "randomly"
+        ],
+        "reasons": [
+          "query dropped because protected terms are missing: All,segregate,their,chromosomes,randomly.,All hematopoietic stem cells",
+          "query dropped because protected terms are missing: randomly.,randomly",
+          "query dropped because protected terms are missing: their,randomly.",
+          "all generated queries were invalid; original query retained"
+        ],
+        "fallback_used": true
+      },
+      "error": null
+    },
+    "Pyridostatin stabilizes the G - quadruplex in the telomeric region.": {
+      "cache_key": "806a1d28b2bac606ed91561a84b2f4520fac21fb4d11ff83fb08acd43ff8a809",
+      "dataset_id": "beir_scifact",
+      "query_id": "1000",
+      "status": "VALID",
+      "plan": {
+        "intent": "retrieve_stabilization_effect",
+        "key_concepts": [
+          "Pyridostatin",
+          "G-quadruplex",
+          "telomeric region"
+        ],
+        "entities": [
+          "Pyridostatin",
+          "G-quadruplex",
+          "telomeric region"
+        ],
+        "constraints": [],
+        "must_keep_terms": [
+          "Pyridostatin",
+          "stabilizes",
+          "G-quadruplex",
+          "telomeric region"
+        ],
+        "keyword_query": "Pyridostatin G-quadruplex telomeric region stabilization",
+        "paraphrase_query": "Pyridostatin stabilizes the G-quadruplex structure in the telomeric region.",
+        "evidence_query": "What evidence supports that Pyridostatin stabilizes the G-quadruplex in the telomeric region?"
+      },
+      "validation": {
+        "valid": true,
+        "accepted_queries": [
+          "Pyridostatin stabilizes the G-quadruplex structure in the telomeric region."
+        ],
+        "rejected_queries": [
+          "Pyridostatin G-quadruplex telomeric region stabilization",
+          "What evidence supports that Pyridostatin stabilizes the G-quadruplex in the telomeric region?"
+        ],
+        "protected_terms": [
+          "Pyridostatin",
+          "stabilizes",
+          "the",
+          "quadruplex",
+          "in",
+          "telomeric",
+          "region.",
+          "G-quadruplex",
+          "telomeric region"
+        ],
+        "reasons": [
+          "query dropped because protected terms are missing: stabilizes,the,region.",
+          "query dropped because protected terms are missing: region."
+        ],
+        "fallback_used": false
+      },
+      "error": null
+    }
+  }
+}

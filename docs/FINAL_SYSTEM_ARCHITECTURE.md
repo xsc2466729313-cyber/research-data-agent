@@ -47,7 +47,7 @@ flowchart LR
 
 ## 本地绑定与数据持久化
 
-- 前端：`http://127.0.0.1:8000/`；Swagger：`http://127.0.0.1:8000/docs`；健康检查：`GET /health`。
+- 原生本地启动时，前端：`http://127.0.0.1:8000/`；Swagger：`http://127.0.0.1:8000/docs`；健康检查：`GET /health`。Docker 启动时，Nginx 前端默认是 `http://127.0.0.1:8888/`，后端 API 仍为 `http://127.0.0.1:8000`。
 - 模型凭据优先放在本机 `.env`（该文件已被 Git 忽略），或通过 `POST /api/agent/qwen-sessions` 建立最长 2 小时的内存会话。浏览器后续只携带 `session_id`，不重复输入 API Key。
 - 公开评测语料放在被忽略的 `data/benchmarks/`；运行目录放在被忽略的 `evaluation/public_benchmarks/runs/`。仓库只提交脚本、数据哈希、汇总 Markdown/JSON 和小型 smoke 产物。
 - API Key、CSV 凭据、患者级下载文件、缓存和服务器日志不进入 GitHub。重新部署后通过 `.env.example`、脚本参数和 API 文档恢复连接。
