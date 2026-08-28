@@ -164,6 +164,7 @@ class CrossEncoderBenchmarkIndex:
         *,
         model_name: str,
         rerank_k: int = 10,
+        batch_size: int = 64,
         model: Any | None = None,
     ) -> None:
         started = time.perf_counter()
@@ -173,6 +174,7 @@ class CrossEncoderBenchmarkIndex:
         self.by_id = dict(zip(self.doc_ids, self.documents))
         self.model_name = model_name
         self.rerank_k = rerank_k
+        self.batch_size = batch_size
         if model is None:
             from sentence_transformers import CrossEncoder
 
@@ -186,7 +188,40 @@ class CrossEncoderBenchmarkIndex:
     def rank(self, query: str, top_k: int) -> list[str]:
         candidates = self.hybrid.rank(query, max(top_k, 100))
         head = candidates[: self.rerank_k]
-        raw = self.model.predict([(query, self.by_id[doc_id]) for doc_id in head], show_progress_bar=False)
+        raw = self.model.predict(
+            [(query, self.by_id[doc_id]) for doc_id in head],
+            batch_size=self.batch_size,
+            show_progress_bar=False,
+        )
         scored = sorted(zip(head, [float(item) for item in raw]), key=lambda item: (-item[1], item[0]))
         reranked_ids = [item[0] for item in scored]
         return (reranked_ids + candidates[self.rerank_k :])[:top_k]
+
+    def rank_many(self, queries: list[str], top_k: int) -> list[list[str]]:
+        """Rerank candidate heads in bounded batches to avoid one model call per query."""
+        candidates_by_query = self.hybrid.rank_many(queries, max(top_k, 100))
+        pairs: list[tuple[str, str]] = []
+        locations: list[tuple[int, str]] = []
+        for query_index, (query, candidates) in enumerate(zip(queries, candidates_by_query)):
+            for doc_id in candidates[: self.rerank_k]:
+                pairs.append((query, self.by_id[doc_id]))
+                locations.append((query_index, doc_id))
+
+        scores_by_query: list[dict[str, float]] = [dict() for _ in queries]
+        for start in range(0, len(pairs), self.batch_size):
+            raw_scores = self.model.predict(
+                pairs[start : start + self.batch_size],
+                batch_size=self.batch_size,
+                show_progress_bar=False,
+            )
+            for (query_index, doc_id), score in zip(
+                locations[start : start + self.batch_size], raw_scores
+            ):
+                scores_by_query[query_index][doc_id] = float(score)
+
+        rankings: list[list[str]] = []
+        for candidates, scores in zip(candidates_by_query, scores_by_query):
+            head = candidates[: self.rerank_k]
+            reranked_head = sorted(head, key=lambda doc_id: (-scores[doc_id], doc_id))
+            rankings.append((reranked_head + candidates[self.rerank_k :])[:top_k])
+        return rankings

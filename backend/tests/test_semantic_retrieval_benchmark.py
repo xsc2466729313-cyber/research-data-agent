@@ -21,7 +21,11 @@ class FakeEmbeddingModel:
 
 
 class FakeCrossEncoder:
+    def __init__(self):
+        self.calls: list[int] = []
+
     def predict(self, pairs, **kwargs):
+        self.calls.append(len(pairs))
         return np.asarray([3.0 if "HER2" in document else -3.0 for _, document in pairs])
 
 
@@ -41,10 +45,15 @@ def test_semantic_hybrid_and_reranker_share_frozen_corpus_without_test_tuning(tm
         query_instruction="",
     )
     hybrid = HybridSemanticBenchmarkIndex(BM25Index(corpus), semantic)
-    reranked = CrossEncoderBenchmarkIndex(hybrid, model_name="fake-cross", model=FakeCrossEncoder())
+    fake_cross_encoder = FakeCrossEncoder()
+    reranked = CrossEncoderBenchmarkIndex(hybrid, model_name="fake-cross", model=fake_cross_encoder, batch_size=1)
     for index in (semantic, hybrid, reranked):
         metrics = evaluate_retriever(index, queries, qrels)  # type: ignore[arg-type]
         assert metrics.ndcg_at_10 == 1.0
         assert metrics.estimated_cost_usd == 0.0
         assert metrics.qwen_invocation_rate == 0.0
     assert (tmp_path / "vectors.npy").exists()
+    expected = reranked.rank("HER2 response", 2)
+    calls_before_batch = len(fake_cross_encoder.calls)
+    assert reranked.rank_many(["HER2 response", "HER2 response"], 2) == [expected, expected]
+    assert fake_cross_encoder.calls[calls_before_batch:] == [1] * 6
