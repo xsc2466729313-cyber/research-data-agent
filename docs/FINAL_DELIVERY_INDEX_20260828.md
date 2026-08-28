@@ -11,6 +11,7 @@
 | `docs/FINAL_SYSTEM_ARCHITECTURE.md` | 模块边界、数据流、医学安全与部署接口 | 已实现 |
 | `docs/FINAL_DESIGN_REPORT_20260828.md` | 模型整合策略、职责分离和技术取舍 | 已实现 / 有运行证据 |
 | `docs/FINAL_FUNCTION_REPORT_20260828.md` | 前端主路径、端点、最小请求和本地绑定 | 已实现 |
+| `docs/FINAL_INTEGRATED_REPORT_20260829.md` | 分层整合的设计、功能、公开评测、闭环、模型和对比说明 | 真实产物汇总，明确证据边界 |
 | `evaluation/FINAL_EVALUATION_REPORT_20260828.md` | 检索横向对比、查询理解消融、闭环和模型状态 | 真实产物，分层说明 |
 | `evaluation/PUBLIC_BENCHMARK_STRATIFIED_REPORT_20260828.md` | BEIR 逐数据集指标 | 真实重跑；FiQA 未纳入本轮宏平均 |
 

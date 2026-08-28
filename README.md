@@ -29,6 +29,7 @@
 - [最终设计报告](docs/FINAL_DESIGN_REPORT_20260828.md)
 - [最终功能与 API 报告](docs/FINAL_FUNCTION_REPORT_20260828.md)
 - [最终评测报告](evaluation/FINAL_EVALUATION_REPORT_20260828.md)
+- [综合设计、功能与评测报告](docs/FINAL_INTEGRATED_REPORT_20260829.md)
 - [最终交付索引、端口与数据恢复](docs/FINAL_DELIVERY_INDEX_20260828.md)
 
 ## 端到端工作流
