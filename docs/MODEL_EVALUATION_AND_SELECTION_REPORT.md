@@ -233,7 +233,7 @@ $$
 
 第一个问题是：完整科研数据智能体是否比简化方案更可靠？
 
-第二个问题是：在同一套完整系统中，Qwen-plus、DeepSeek 和 GLM 哪一个更适合负责语言理解和任务安排？
+第二个问题是：在同一套完整系统中，只把中间智能体从 Qwen-plus 替换为 DeepSeek 时，语言理解、任务规划和工具选择指标发生什么变化？
 
 如果同时更换架构和大模型，就无法判断性能变化到底来自哪里。
 
@@ -253,7 +253,7 @@ $$
 
 ### 4.3 大模型对照
 
-比较 Qwen-plus、DeepSeek 和 GLM 时，需要固定以下条件：
+比较 Qwen 对照组和 DeepSeek 替换实验组时，需要固定以下条件，并统一由 Qwen 作辅助评审：
 
 - 使用同一批人工标准答案；
 - 使用相同的数据源和访问权限；
@@ -436,5 +436,5 @@ DeepSeek、GLM 等模型还没有在相同条件下完成正式对照。因此�
 - [冻结评测指标与 SDTI](06_评测指标与SDTI.md)
 - [统一评价体系 V2](UNIFIED_EVALUATION_SYSTEM_V2.md)
 - [评价配置](../configs/evaluation_system_v2.yaml)
-- [小样本模型评审结果](../evaluation/results_deepseek/comparison.json)
+- [历史 DeepSeek Judge 小样本产物（已停用，不用于当前比较）](../evaluation/results_deepseek/comparison.json)
 - [三模型候选评审](../evaluation/ai_evaluation_result.json)

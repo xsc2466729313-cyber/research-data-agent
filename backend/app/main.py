@@ -258,6 +258,11 @@ def resolve_qwen_session_client(
         return None
     client = registry.get(payload.qwen_session_id)
     if client is not None:
+        if client.settings.provider != "qwen":
+            raise HTTPException(
+                status_code=422,
+                detail="在线科研任务与两轮闭环仅支持千问会话；DeepSeek 仅可由独立消融脚本替换中间智能体进行对比，不进入生产主链。",
+            )
         return client
     if payload.allow_deterministic_fallback or not payload.use_qwen:
         logger.warning("Ignoring stale Qwen session id because fallback is allowed")

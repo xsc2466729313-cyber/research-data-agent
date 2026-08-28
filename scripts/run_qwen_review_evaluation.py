@@ -12,11 +12,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from backend.app.agent.evaluator import DeepSeekJudge, evaluate_task, load_cases, write_reports
+from backend.app.agent.evaluator import QwenJudge, evaluate_task, load_cases, write_reports
 
 
-def load_local_deepseek_config(path: Path) -> None:
-    """Load local-only Key/endpoint settings without overriding shell variables."""
+def load_local_qwen_config(path: Path) -> None:
+    """Load local-only Qwen settings without overriding shell variables."""
     if not path.is_file():
         return
     for raw_line in path.read_text(encoding="utf-8").splitlines():
@@ -25,7 +25,7 @@ def load_local_deepseek_config(path: Path) -> None:
             continue
         key, value = line.split("=", 1)
         key = key.strip()
-        if key in {"DEEPSEEK_API_KEY", "DEEPSEEK_BASE_URL", "DEEPSEEK_MODEL"}:
+        if key in {"DASHSCOPE_API_KEY", "QWEN_BASE_URL", "QWEN_MODEL"}:
             os.environ.setdefault(key, value.strip())
 
 
@@ -46,15 +46,15 @@ def read_credentials(path: Path) -> dict[str, str]:
 
 
 def main() -> int:
-    load_local_deepseek_config(PROJECT_ROOT / "evaluation" / "deepseek.local.env")
-    parser = argparse.ArgumentParser(description="Run breast-cancer Agent retrieval metrics and DeepSeek Judge")
+    load_local_qwen_config(PROJECT_ROOT / ".env")
+    parser = argparse.ArgumentParser(description="Run breast-cancer Agent retrieval metrics with Qwen review")
     parser.add_argument("--benchmark", type=Path, default=Path("evaluation/retrieval_gold.template.jsonl"))
-    parser.add_argument("--output", type=Path, default=Path("evaluation/results_deepseek"))
+    parser.add_argument("--output", type=Path, default=Path("evaluation/results_qwen_review"))
     parser.add_argument("--local-url", default="http://127.0.0.1:8000")
     parser.add_argument("--qwen-csv", type=Path, default=None)
-    parser.add_argument("--deepseek-api-key", default=os.getenv("DEEPSEEK_API_KEY", ""))
-    parser.add_argument("--deepseek-base-url", default=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1"))
-    parser.add_argument("--deepseek-model", default=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"))
+    parser.add_argument("--qwen-review-api-key", default=os.getenv("DASHSCOPE_API_KEY", ""))
+    parser.add_argument("--qwen-review-base-url", default=os.getenv("QWEN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"))
+    parser.add_argument("--qwen-review-model", default=os.getenv("QWEN_MODEL", "qwen-plus"))
     parser.add_argument("--max-cases", type=int, default=30)
     parser.add_argument("--max-sources", type=int, default=3)
     parser.add_argument("--allow-provisional", action="store_true")
@@ -65,19 +65,21 @@ def main() -> int:
     cases = cases[: max(0, args.max_cases)]
     if not cases:
         raise SystemExit("没有可评测病例；请审核 Gold Set，或临时使用 --allow-provisional。")
-    if not args.skip_judge and not args.deepseek_api_key.strip():
-        raise SystemExit("缺少 DeepSeek API Key。请设置 DEEPSEEK_API_KEY 或传入 --deepseek-api-key。")
+    if not args.skip_judge and not args.qwen_review_api_key.strip():
+        raise SystemExit("缺少千问 API Key。请设置 DASHSCOPE_API_KEY 或传入 --qwen-review-api-key。")
 
-    judge = None if args.skip_judge else DeepSeekJudge(
-        args.deepseek_api_key,
-        base_url=args.deepseek_base_url,
-        model=args.deepseek_model,
+    judge = None if args.skip_judge else QwenJudge(
+        args.qwen_review_api_key,
+        base_url=args.qwen_review_base_url,
+        model=args.qwen_review_model,
     )
     qwen_session_id: str | None = None
     metadata = {
         "benchmark": str(args.benchmark),
         "generation_model": "qwen-session-or-deterministic-fallback",
-        "judge_model": None if judge is None else args.deepseek_model,
+        "generation_provider": "qwen-or-deterministic-fallback",
+        "judge_model": None if judge is None else args.qwen_review_model,
+        "judge_provider": None if judge is None else "qwen",
         "judge_status": "skipped" if judge is None else "configured",
         "cases_requested": len(cases),
     }

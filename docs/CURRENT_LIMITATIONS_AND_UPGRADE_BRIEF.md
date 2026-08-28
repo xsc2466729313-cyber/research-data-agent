@@ -94,7 +94,7 @@ EBM-NLP 测的是从医学摘要中找出 Participants、Interventions、Outcome
 
 ### 6. 后端模型与 Agent 评测
 
-- 目前没有 Qwen-plus、DeepSeek、GLM 在同一数据、同一提示、同一工具、同一安全规则下的重复对照。
+- 目前没有在同一数据、同一提示、同一工具、同一安全规则下完成“Qwen 中间智能体对照组 vs DeepSeek 替换实验组”的重复消融。
 - 最近任务 `used_qwen=false`，因此当前运行结果不能作为 Qwen-plus 的实测成绩。
 - 没有 20 至 50 个固定的乳腺癌科研问题和人工标准答案集。
 - 没有完成 Qwen Alone、Qwen+RAG、Full Agent 的端到端对比。
@@ -139,7 +139,7 @@ EBM-NLP 测的是从医学摘要中找出 Participants、Interventions、Outcome
 8. 如何建立患者/样本实体匹配 Gold Set，并正式报告 False Merge Rate？
 9. 如何把清洗拆成 Error Detection、Repair Candidate 和 Human Review 三个可测模块？
 10. 如何在保证医学安全的前提下提高缺失值和语义错误处理能力？
-11. 如何设计 Qwen-plus、DeepSeek、GLM 的同条件多次重复端到端实验？
+11. 如何设计 Qwen 中间智能体与 DeepSeek 替换实验组的同条件多次重复消融，并统一由 Qwen 辅助评审？
 12. 如何建立 20 至 50 个乳腺癌科研问题的 Gold Set，并最终计算正式 SDTI？
 
 ## 七、建议的下一阶段验收条件

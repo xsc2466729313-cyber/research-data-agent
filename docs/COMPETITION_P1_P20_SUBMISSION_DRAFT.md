@@ -28,7 +28,7 @@ flowchart LR
   F --> B
 ```
 
-千问是比赛主链的基座模型。DeepSeek 可以通过同一兼容会话接口作为外部对照，不替代比赛要求的千问主链。
+千问是比赛主链的基座模型，生产 Agent 与两轮闭环均固定使用千问。DeepSeek 只在独立消融中替换中间规划/工具选择智能体，绝不进入生产会话。
 
 ## P5 模型与职责边界
 
@@ -82,28 +82,28 @@ Qwen-plus 负责研究问题结构化、函数调用工具选择和数据层总�
 
 ## P15 模型对比：当前真实状态
 
-此前没有完成 Qwen-vs-DeepSeek 同条件端到端比较。此前的 `comparison.json` 是 DeepSeek Judge 小样本审阅，不是中间规划模型排名；Qwen 探测只证明连接、鉴权、函数调用和结构化输出可用。
+此前没有完成“将中间智能体从 Qwen 替换为 DeepSeek”的同条件消融。历史 `comparison.json` 是旧的 DeepSeek Judge 小样本审阅，不是中间智能体替换实验；Qwen 探测只证明连接、鉴权、函数调用和结构化输出可用。
 
-现已修复 provider 审计：结果使用 `used_model` 和实际 `model_provider`，DeepSeek 不再被写成千问。新增 `scripts/run_model_comparison.py`，固定题集、数据模式、来源上限、记录上限、轮数和重复次数，分别创建 Qwen/DeepSeek 临时会话，校验返回 provider，不匹配则标记 `invalid_audit`。
+现已新增 `scripts/run_planner_replacement_ablation.py`：生产路径固定 Qwen；独立消融路径只替换中间规划/工具选择智能体为 DeepSeek。两种输出使用相同题集、预算和轮数，并统一由 Qwen 评审。
 
 运行前必须由用户轮换已暴露的 DeepSeek Key，并将新密钥放入本地忽略文件：
 
 ```powershell
-python scripts/run_model_comparison.py --repeats 3 --data-mode live
+python scripts/run_planner_replacement_ablation.py --repeats 3 --data-mode live --allow-provisional
 ```
 
-在真实凭据和冻结题集运行前，Qwen/DeepSeek 的质量排名、失败率和任务级均值仍是 `NOT_EVALUATED`。运行器只写入不含密钥的 `comparison.json`、`runs.csv` 和 `comparison.md`。
+在真实凭据和冻结题集运行前，替换中间智能体后的指标变化仍是 `NOT_EVALUATED`。运行器只写入不含密钥的消融结果；Qwen 评审分只作辅助诊断，不替代人工 Gold Set。
 
 ## P16 对照组、实验组、外部方法的区分
 
 - 对照组：本项目重跑的 BM25、Jaccard、无结构化规划等基线。
 - 实验组：本项目 BGE、字段对齐 V2、实体关联 V2 和完整 Agent。
-- 外部方法：Contriever、BGE-M3、Ditto、DeepSeek、GLM 等，只有在同题集、同预算、同脚本、至少三次重复后才可排名。本轮没有可比外部成绩，不填宣传数字。
+- 外部模型消融：DeepSeek 只替换中间规划/工具选择智能体；必须在同题集、同预算、同脚本、至少三次重复后报告相对变化。本轮没有可比结果，不填宣传数字。
 
 ## P17 当前缺点与风险
 
 1. 正式乳腺癌 Gold Set、Error Gold Set 尚未冻结，无法给出正式 SDTI。
-2. Qwen-vs-DeepSeek 同条件重复实验尚待新凭据和可用服务完成。
+2. DeepSeek 替换中间智能体的同条件重复消融尚待新凭据和冻结题集完成。
 3. 研究相关性和分析充分性受关键结局、分子变量覆盖限制；质量门可能保持 `REVIEW`。
 4. PDF 表格/图像 OCR、用户上传文件的完整生产链尚未达到可宣称状态。
 5. 公开 benchmark 与乳腺癌患者身份、临床疗效并不等价；V2Plus 仍是候选安全层，尚未在独立乳腺癌 validation 集切换默认。
@@ -111,11 +111,11 @@ python scripts/run_model_comparison.py --repeats 3 --data-mode live
 ## P18 复现与 API
 
 - 后端：`http://127.0.0.1:8000`；Swagger：`/docs`；健康检查：`GET /health`。
-- 创建临时模型会话：`POST /api/agent/qwen-sessions`，字段含 `provider`、`api_key`、`base_url`、`model`；返回 `session_id`，密钥只在进程内存保存。
+- 创建生产临时会话：`POST /api/agent/qwen-sessions`，使用 Qwen 的 `api_key`、`base_url`、`model`；返回 `session_id`，密钥只在进程内存保存。DeepSeek 不允许用于生产会话。
 - 执行任务：`POST /api/agent/tasks`，提交 `question`、`qwen_session_id`、`data_mode`、`max_sources`、`max_records` 等。
 - 两轮闭环：`POST /api/v2/agent/closed-loop`；查询：`GET /api/v2/agent/closed-loop/{loop_id}`。
 
-本机可在 `.env` 中配置 Qwen，在 `evaluation/deepseek.local.env` 中配置 DeepSeek；这些文件已加入 `.gitignore`，不提交 GitHub。
+本机可在 `.env` 中配置 Qwen，在 `evaluation/deepseek.local.env` 中配置仅供独立消融的 DeepSeek；这些文件已加入 `.gitignore`，不提交 GitHub。
 
 ## P19 GitHub 可恢复内容
 
@@ -123,4 +123,4 @@ GitHub 保留代码、配置模板、官方来源 URL、脚本、测试、无密
 
 ## P20 结论与证据边界
 
-项目已经形成“科研问题 → 多源查找 → 解析整合 → 来源审计 → 医学安全 → 两轮闭环 → 可下载输出”的可运行链路。**本项目在公开检索、字段对齐和实体关联任务上有可复现实测结果**；Qwen 已完成真实接入探测。**正式乳腺癌质量指标和 Qwen-vs-DeepSeek 排名尚未完成**，这是当前最重要的补测项。提交时应把已完成能力、对照关系和未完成边界同时展示，避免把模块分数写成临床结论。
+项目已经形成“科研问题 → 多源查找 → 解析整合 → 来源审计 → 医学安全 → 两轮闭环 → 可下载输出”的可运行链路。**本项目在公开检索、字段对齐和实体关联任务上有可复现实测结果**；Qwen 已完成真实接入探测。**正式乳腺癌质量指标和 DeepSeek 中间智能体替换消融尚未完成**，这是当前最重要的补测项。提交时应把已完成能力、对照关系和未完成边界同时展示，避免把模块分数写成临床结论。

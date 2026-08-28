@@ -30,7 +30,7 @@ class AgentTaskRequest(ApiModel):
 
 
 class QwenSessionRequest(ApiModel):
-    provider: Literal["qwen", "deepseek", "openai_compatible"] = "qwen"
+    provider: Literal["qwen"] = "qwen"
     api_key: SecretStr = Field(min_length=10, max_length=500)
     base_url: str = Field(
         default="https://dashscope.aliyuncs.com/compatible-mode/v1",
@@ -417,8 +417,8 @@ class AgentTaskResult(ApiModel):
     agent_mode: str
     model_provider: str
     model_name: str
-    # ``used_qwen`` is retained for API compatibility. New consumers should
-    # read ``used_model`` together with ``model_provider`` instead.
+    # Production uses Qwen. This neutral marker exists so the isolated
+    # planner-replacement ablation can record its actual experimental model.
     used_model: bool = False
     used_qwen: bool
     notice: str

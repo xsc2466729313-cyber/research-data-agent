@@ -81,6 +81,8 @@ Fitness = 100 * geometric_mean(relevance, adequacy, traceability, reusability)
 
 ## 3. 模型对比设计
 
+当前模型替换实验的边界为：生产 Agent、前端和两轮闭环固定使用千问；Qwen 是中间智能体对照组，DeepSeek 只在隔离实验中替换问题解析、规划和工具选择环节；两组的数据层总结与辅助评审统一由 Qwen 完成。不得把 DeepSeek 接入生产任务接口，也不得使用 DeepSeek 作评审器。
+
 模型对比要同时回答两个问题：
 
 1. 基座模型能力差异带来了什么变化？

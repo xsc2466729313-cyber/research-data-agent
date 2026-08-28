@@ -51,7 +51,7 @@
   -> 生成 checksum 并冻结
 ```
 
-当前 DeepSeek 可以作为初标模型，但在用户完成密钥轮换并仅在本地忽略的环境变量中配置后才可调用。没有独立第二模型或人工审核时，其输出只能是 `provisional`，不能转入 `frozen_test`。
+Qwen 可以对候选条目作辅助诊断，但不能把同一模型的自评当作 Gold Set 真值。条目必须经过官方来源验证和人工审核后才能转入 `frozen_test`；未完成人工裁决时一律保持 `provisional`。DeepSeek 只用于中间智能体替换消融，不参与 Gold Set 初标或复核。
 
 ## 6. 与 V2Plus 融合的验证关系
 

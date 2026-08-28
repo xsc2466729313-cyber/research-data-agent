@@ -275,11 +275,13 @@ class ResearchAgentService:
         request: AgentTaskRequest,
         *,
         qwen_client: QwenClient | None = None,
+        summary_client: QwenClient | None = None,
         task_id: str | None = None,
     ) -> AgentTaskResult:
         if qwen_client is None:
             self._refresh_env_qwen()
         active_qwen = qwen_client or self.qwen
+        active_summary = summary_client or active_qwen
         task_id = task_id or f"agent-{uuid4().hex[:12]}"
         created_at = datetime.now(timezone.utc)
         plan_steps = [
@@ -639,7 +641,7 @@ class ResearchAgentService:
                 for item in executed
             ]
             try:
-                summary = active_qwen.summarize(
+                summary = active_summary.summarize(
                     request.question,
                     spec,
                     tool_message,
@@ -658,11 +660,20 @@ class ResearchAgentService:
                     readiness.model_dump(mode="json"),
                 )
             except QwenClientError as exc:
-                qwen_warning = f"{active_qwen.settings.provider_label}总结失败，保留确定性质量报告：{exc}"
+                qwen_warning = f"{active_summary.settings.provider_label}总结失败，保留确定性质量报告：{exc}"
 
+        model_role_notice = (
+            f"{active_qwen.settings.provider_label}负责科研问题结构化、工具选择和数据层总结"
+            if active_summary.settings.provider == active_qwen.settings.provider
+            and active_summary.settings.model == active_qwen.settings.model
+            else (
+                f"{active_qwen.settings.provider_label}负责科研问题结构化与工具选择；"
+                f"{active_summary.settings.provider_label}负责数据层总结"
+            )
+        )
         notice_parts = [
             "主结果来自真实公开数据库工具；仅规划模式不会生成或冒充患者数据。",
-            f"{active_qwen.settings.provider_label}负责科研问题结构化、工具选择和数据层总结；医学安全规则与发布门控不由模型覆盖。",
+            f"{model_role_notice}；医学安全规则与发布门控不由模型覆盖。",
         ]
         if qwen_warning:
             notice_parts.append(qwen_warning)
@@ -673,7 +684,7 @@ class ResearchAgentService:
             model_provider=active_qwen.settings.provider_label,
             model_name=active_qwen.settings.model,
             used_model=model_used,
-            used_qwen=model_used,
+            used_qwen=model_used and active_qwen.settings.provider == "qwen",
             notice=" ".join(notice_parts),
             research_spec=spec,
             parsed_question=self.question_parser.parse(request.question, spec, provisional_design),

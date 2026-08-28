@@ -7,30 +7,22 @@ local_adapter:
   overview_endpoint: /api/evaluation/overview
   history_endpoint: /api/evaluation/history
   core_artifacts: data/output/evaluation
-  deepseek_artifacts: evaluation/results_deepseek
-  tri_ai_consensus: evaluation/goldset_tri_ai_consensus.json
-  model_consensus_snapshot: evaluation/goldset_model_consensus_snapshot.json
+  qwen_review_artifacts: evaluation/results_qwen_review
+  planner_replacement_ablation: evaluation/planner_replacement_ablation_local
 
 ai_panel:
-  architecture: qwen_subject_deepseek_primary_glm_independent_review
+  architecture: qwen_subject_qwen_auxiliary_review_human_gold
   roles:
     subject_agent:
       provider: qwen
       responsibility: system_under_test
       may_create_ground_truth: false
-    primary_annotator:
-      provider: deepseek
-      model: deepseek-chat
-      responsibility: goldset_initial_label_and_semantic_judge
-      may_create_ground_truth: false
-    independent_reviewer:
-      provider: glm
-      model: glm-5.2
-      responsibility: independent_review_and_disagreement_detection
+    auxiliary_reviewer:
+      provider: qwen
+      model: qwen-plus
+      responsibility: output_diagnostic_only
       may_create_ground_truth: false
   consensus:
-    minimum_confidence: 0.90
-    require_model_agreement: true
     require_official_source_verification: true
     require_human_adjudication: true
     approved_status: human_approved_only

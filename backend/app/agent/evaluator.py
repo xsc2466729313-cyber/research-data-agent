@@ -92,21 +92,23 @@ def source_rank(task: dict[str, Any], expected_sources: tuple[str, ...]) -> int 
     return None
 
 
-class DeepSeekJudge:
+class QwenJudge:
+    """Use Qwen only to review a planner-ablation output after it is produced."""
+
     def __init__(
         self,
         api_key: str,
         *,
-        base_url: str = "https://api.deepseek.com/v1",
-        model: str = "deepseek-chat",
+        base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        model: str = "qwen-plus",
         timeout_seconds: float = 120,
         client: httpx.Client | None = None,
     ) -> None:
         if not api_key.strip():
-            raise ValueError("缺少 DEEPSEEK_API_KEY。")
+            raise ValueError("缺少 DASHSCOPE_API_KEY。")
         self.api_key = api_key.strip()
         self.base_url = base_url.rstrip("/")
-        self.model = model.strip() or "deepseek-chat"
+        self.model = model.strip() or "qwen-plus"
         self.client = client or httpx.Client(timeout=timeout_seconds, follow_redirects=True)
         self._owns_client = client is None
 
@@ -181,7 +183,7 @@ class DeepSeekJudge:
             self.client.close()
 
 
-def evaluate_task(case: EvaluationCase, task: dict[str, Any], latency_ms: float, judge: DeepSeekJudge | None) -> dict[str, Any]:
+def evaluate_task(case: EvaluationCase, task: dict[str, Any], latency_ms: float, judge: QwenJudge | None) -> dict[str, Any]:
     row: dict[str, Any] = {
         "case_id": case.case_id,
         "difficulty": case.difficulty,
@@ -203,8 +205,13 @@ def evaluate_task(case: EvaluationCase, task: dict[str, Any], latency_ms: float,
 
 
 def summarize(rows: list[dict[str, Any]], *, judge_model: str | None) -> dict[str, Any]:
-    ranks = {row["case_id"]: row.get("rank") for row in rows}
-    difficulties = {row["case_id"]: row.get("difficulty", "medium") for row in rows}
+    # Keep repeated runs independent. A plain case_id key would silently retain
+    # only the final repeat and make the reported mean depend on loop order.
+    run_ids = [f"{row['case_id']}:{row.get('repeat', index)}" for index, row in enumerate(rows, 1)]
+    ranks = {run_id: row.get("rank") for run_id, row in zip(run_ids, rows)}
+    difficulties = {
+        run_id: row.get("difficulty", "medium") for run_id, row in zip(run_ids, rows)
+    }
     metrics = retrieval_metrics(ranks, difficulties)
     metrics["avg_latency_ms"] = sum(float(row.get("latency_ms", 0)) for row in rows) / max(1, len(rows))
     valid = [row for row in rows if row.get("judge_scores", {}).get("overall") is not None]
@@ -243,7 +250,7 @@ def write_reports(output_dir: Path, rows: list[dict[str, Any]], metadata: dict[s
         f"- Gold Set：`{metadata.get('benchmark')}`",
         f"- 评测病例：{len(rows)}",
         f"- 生成模型：`{metadata.get('generation_model', '未记录')}`",
-        f"- DeepSeek Judge：`{metadata.get('judge_model', '未运行')}`",
+        f"- 千问评审模型：`{metadata.get('judge_model', '未运行')}`",
         f"- 评测状态：`{metadata.get('judge_status', 'unknown')}`",
         "",
         "| " + " | ".join(columns) + " |",
@@ -260,7 +267,7 @@ def write_reports(output_dir: Path, rows: list[dict[str, Any]], metadata: dict[s
         "",
         "## 解释",
         "",
-        "Recall/MRR/nDCG 依赖人工审核的 expected_sources；DeepSeek 评分只评审检索证据和数据摘要，不替代 Gold Set。",
+        "Recall/MRR/nDCG 依赖人工审核的 expected_sources；千问评分只评审检索证据和数据摘要，不替代 Gold Set。",
         "评测结果不能解释为临床有效性或治疗建议。",
     ])
     (output_dir / "comparison.md").write_text("\n".join(lines) + "\n", encoding="utf-8")

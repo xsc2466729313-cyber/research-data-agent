@@ -2,7 +2,7 @@
 
 ## 结论先行
 
-当前系统已经形成“问题理解 → 真实数据获取 → 标准化与患者/样本关联 → 医学安全门控 → 两轮闭环 → 可追溯导出”的可运行链路。Qwen-plus 是默认规划模型；会话接口支持 Qwen、DeepSeek 和 OpenAI-compatible provider。Qwen-plus 已在本机完成真实连接、鉴权和结构化 Agent 探测，见 `evaluation/model_integration_probe_20260828.json`。未配置的 provider 不产生分数。
+当前系统已经形成“问题理解 → 真实数据获取 → 标准化与患者/样本关联 → 医学安全门控 → 两轮闭环 → 可追溯导出”的可运行链路。Qwen-plus 是生产规划模型，公共会话和 API 检查入口只接受 Qwen。Qwen-plus 已在本机完成真实连接、鉴权和结构化 Agent 探测，见 `evaluation/model_integration_probe_20260828.json`。
 
 公开 BEIR 的 **BGE-small-en-v1.5 检索结果优于 tuned BM25**；查询理解规则组在五任务宏平均没有提升。因此生产默认保留兼容路径，不能把局部 SciFact 改善解释为完整临床科研能力。
 
@@ -19,8 +19,8 @@
 | --- | --- | --- |
 | **Qwen-plus** | 默认中文科研问题理解、工具规划和摘要 | 已接入本地 FastAPI 与前端临时会话 |
 | Qwen-max / Qwen-turbo | 可选同供应商对照 | 连接后才产生真实观测 |
-| DeepSeek Chat / Reasoner | 可选兼容模型或独立评委 | 已有 provider/session 适配；本机本轮未配置独立 Key，因此未参与排名 |
-| GLM 等 OpenAI-compatible 模型 | 外部评测或自定义端点 | 通过 `openai_compatible` provider 接入；未连接不计分 |
+| DeepSeek Chat | 独立替换消融的实验组，只替换中间规划/工具选择智能体 | 不进入生产会话、不作评审；尚无可发布的同条件结果 |
+| **Qwen-plus 评审器** | 对 Qwen 对照组和 DeepSeek 实验组作同协议辅助审阅 | 评审分不是 Gold Set 真值，也不能换算正式 SDTI |
 | BGE-small-en-v1.5 | 检索模型对照 | 五个 BEIR 任务已有真实检索层结果 |
 
 模型只输出结构化 proposal；数据事实、患者关联、医学规则和发布判定由程序层完成。

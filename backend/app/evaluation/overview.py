@@ -191,9 +191,8 @@ def retrieval_probe_from_matches(matches: list[Any]) -> RetrievalProbe:
 
 
 ROOT = Path(__file__).resolve().parents[3]
-# Team zip evaluation artifacts; never treated as frozen Gold Set scores.
-TEAM_CORE_PATH = ROOT / "evaluation" / "ai_provisional_core_metrics.json"
-TEAM_BENCHMARK_PATH = ROOT / "evaluation" / "results_deepseek" / "comparison.json"
+# Optional Qwen-reviewed retrieval artifact; never treated as a frozen Gold Set score.
+TEAM_BENCHMARK_PATH = ROOT / "evaluation" / "results_qwen_review" / "comparison.json"
 
 
 def _load_json(path: Path) -> dict[str, Any] | None:
@@ -207,33 +206,12 @@ def _load_json(path: Path) -> dict[str, Any] | None:
 
 
 def load_team_reference() -> TeamReferenceReport:
-    core = _load_json(TEAM_CORE_PATH)
     benchmark = _load_json(TEAM_BENCHMARK_PATH)
-    if not core and not benchmark:
+    if not benchmark:
         return TeamReferenceReport(
             available=False,
             status="未接入",
-            notice="未找到团队评测压缩包中的 evaluation/ 结果文件。",
-        )
-    label_map = {key: label for key, label, _target, _unit, _reason in OFFICIAL_METRIC_SPECS}
-    metrics: list[OverviewMetric] = []
-    raw_metrics = (core or {}).get("metrics") or {}
-    for key, label, target, unit, _reason in OFFICIAL_METRIC_SPECS:
-        item = raw_metrics.get(key) or {}
-        value = item.get("value")
-        display = None if value is None else (value * 100 if unit == "percent" else value)
-        metrics.append(
-            OverviewMetric(
-                key=key,
-                label=label_map.get(key, key),
-                value=value,
-                display_value=display,
-                target=target if unit == "percent" else None,
-                display_target=target * 100 if unit == "percent" else target,
-                unit=unit,
-                status="TEAM_REFERENCE",
-                reason=str(item.get("method") or "团队对照页评测产物，仅作方法对照，不是本仓库冻结 Gold Set 成绩。"),
-            )
+            notice="未找到当前千问评审产物；旧 AI 代理核心指标不会接入当前总览。",
         )
     summary = ((benchmark or {}).get("summary") or {})
     bench_metrics = summary.get("metrics") or {}
@@ -245,21 +223,21 @@ def load_team_reference() -> TeamReferenceReport:
             display_value=None if bench_metrics.get(key) is None else float(bench_metrics[key]) * 100,
             unit="percent",
             status="TEAM_REFERENCE",
-            reason="来自团队 evaluation/results_deepseek/comparison.json",
+            reason="来自 evaluation/results_qwen_review/comparison.json；仅作检索诊断。",
         )
         for key, label in (("recall@1", "Recall@1"), ("recall@3", "Recall@3"), ("recall@5", "Recall@5"), ("ndcg@3", "nDCG@3"))
     ]
     return TeamReferenceReport(
         available=True,
         status="TEAM_REFERENCE",
-        notice=str((core or {}).get("notice") or "团队对照评测产物；不得作为本仓库官方 SDTI。"),
-        metrics=metrics,
+        notice="千问统一评审产物；不得作为冻结 Gold Set、正式 Faithfulness 或 SDTI。",
+        metrics=[],
         benchmark=RetrievalProbe(
             status="已接入" if bench_metrics else "无检索对照",
             cases=int(summary.get("cases") or 0),
-            ranking_model=str(summary.get("judge_model") or (benchmark or {}).get("metadata", {}).get("judge_model") or "deepseek-chat"),
+            ranking_model=str(summary.get("judge_model") or (benchmark or {}).get("metadata", {}).get("judge_model") or "qwen-plus"),
             metrics=probe_metrics,
-            note=f"团队 DeepSeek 探针 {int(summary.get('cases') or 0)} 题；正式 Gold Set 仍未冻结。",
+            note=f"千问评审检索探针 {int(summary.get('cases') or 0)} 题；正式 Gold Set 仍未冻结。",
         ),
     )
 

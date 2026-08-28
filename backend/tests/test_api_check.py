@@ -51,34 +51,3 @@ def test_api_check_reports_invalid_endpoint_without_opening_a_client() -> None:
     assert result.status == "连接失败"
     assert result.reachable is False
     assert called is False
-
-
-def test_api_check_supports_deepseek_provider() -> None:
-    secret = "deepseek-test-key"
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url.host == "api.deepseek.com"
-        return httpx.Response(
-            200,
-            json={"choices": [{"message": {"content": "CONNECTION_OK"}}]},
-            request=request,
-        )
-
-    def factory(settings: QwenSettings) -> QwenClient:
-        return QwenClient(
-            settings=settings,
-            client=httpx.Client(transport=httpx.MockTransport(handler)),
-        )
-
-    result = ApiCheckService(client_factory=factory).check(
-        ApiCheckRequest(
-            provider="deepseek",
-            api_key=secret,
-            base_url="https://api.deepseek.com",
-            model="deepseek-chat",
-        )
-    )
-
-    assert result.provider == "DeepSeek"
-    assert result.reachable is True
-    assert secret not in result.model_dump_json()

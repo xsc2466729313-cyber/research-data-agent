@@ -461,16 +461,11 @@ class CompetitionReportBuilder:
 
     @staticmethod
     def _model_was_used(result: AgentTaskResult) -> bool:
-        """Read the provider-neutral flag while accepting legacy result payloads."""
-        return bool(getattr(result, "used_model", getattr(result, "used_qwen", False)))
+        return bool(getattr(result, "used_model", result.used_qwen))
 
     @staticmethod
     def _model_label(result: AgentTaskResult) -> str:
         return str(getattr(result, "model_provider", "") or "模型")
-
-    @classmethod
-    def _planner_label(cls, result: AgentTaskResult) -> str:
-        return "千问" if cls._model_label(result) == "千问" else "结构化模型"
 
     @classmethod
     def _current_method_id(cls, result: AgentTaskResult, databases: list[str]) -> str:
@@ -1066,14 +1061,14 @@ class CompetitionReportBuilder:
         return {
             "full": {
                 "score": diagnostic_score,
-                "note": f"当前任务完整系统：{CompetitionReportBuilder._planner_label(result)}规划、多源整合、来源图谱与质量门同时开启。",
+                "note": f"当前任务完整系统：{CompetitionReportBuilder._model_label(result)}规划、多源整合、来源图谱与质量门同时开启。",
             },
             "no_qwen": {
                 "score": no_qwen_score,
                 "note": (
-                    f"同一次结果上的反事实：不计{CompetitionReportBuilder._planner_label(result)}抽出的基因/结局/治疗要素，只保留疾病关键词匹配。"
+                    f"同一次结果上的反事实：不计{CompetitionReportBuilder._model_label(result)}抽出的基因/结局/治疗要素，只保留疾病关键词匹配。"
                     if CompetitionReportBuilder._model_was_used(result)
-                    else "本任务未调用结构化模型，该行与正式模型使用同一诊断分。"
+                    else "本任务未调用模型，该行与正式模型使用同一诊断分。"
                 ),
             },
             "single_source": {
@@ -1214,21 +1209,17 @@ class CompetitionReportBuilder:
         qwen_effect = (
             f"当前任务已使用{CompetitionReportBuilder._model_label(result)}，结构化得到基因 {current_genes}；结局 {current_outcomes}。"
             if CompetitionReportBuilder._model_was_used(result)
-            else "当前任务未使用结构化模型，已退回确定性规划。"
+            else "当前任务未使用模型，已退回确定性规划。"
         )
         return [
             scored(
                 "no_qwen",
                 CompetitionAblationRow(
-                    variant=(
-                        "去掉千问结构化解析"
-                        if CompetitionReportBuilder._model_label(result) == "千问"
-                        else "去掉结构化模型解析"
-                    ),
+                    variant="去掉千问结构化解析",
                     removed_component="ResearchSpec 抽取与函数调用规划",
                     expected_effect="问题理解、结局识别和工具选择都会变弱。",
                     observed_effect=qwen_effect,
-                    note="同表反事实诊断：不计结构化模型抽出的基因/结局/治疗要素。",
+                    note="同表反事实诊断：不计千问抽出的基因/结局/治疗要素。",
                 ),
             ),
             scored(
@@ -1316,7 +1307,7 @@ class CompetitionReportBuilder:
         nodes = [
             CompetitionRagFlowNode(node_id="rag-input", label="科研问题", layer="输入", order=1, status="已接收", detail=result.research_spec.research_goal),
             CompetitionRagFlowNode(node_id="rag-lexical", label="关键词/实体", layer="检索", order=2, status="已抽取", detail=f"疾病、基因、药物、结局：{source_label}"),
-            CompetitionRagFlowNode(node_id="rag-qwen", label=f"{CompetitionReportBuilder._planner_label(result)}规划", layer="规划", order=3, status="已生成", detail="结构化 ResearchSpec 与工具选择"),
+            CompetitionRagFlowNode(node_id="rag-qwen", label="千问规划", layer="规划", order=3, status="已生成", detail="结构化 ResearchSpec 与工具选择"),
             CompetitionRagFlowNode(node_id="rag-gate", label="规则与质量门控", layer="约束", order=4, status="已应用", detail="医学安全规则、来源校验、字段标准化"),
             CompetitionRagFlowNode(node_id="rag-graph", label="来源/知识图谱", layer="证据", order=5, status="已联动", detail="来源、字段字典、lineage 图"),
             CompetitionRagFlowNode(node_id="rag-output", label="科研数据集", layer="输出", order=6, status="已输出", detail=f"{result.modeling_dataset.row_count} 行科研宽表"),
@@ -1784,17 +1775,8 @@ class CompetitionReportBuilder:
         return [
             CompetitionChecklistItem(
                 label="Qwen 模型调用",
-                status=(
-                    "已覆盖"
-                    if CompetitionReportBuilder._model_was_used(result)
-                    and CompetitionReportBuilder._model_label(result) == "千问"
-                    else "待补充"
-                ),
-                detail=(
-                    "需要提供千问调用凭证或截图。"
-                    if CompetitionReportBuilder._model_label(result) != "千问"
-                    else "需要提供调用凭证或截图。"
-                ),
+                status="已覆盖" if result.used_qwen else "待补充",
+                detail="需要提供调用凭证或截图。",
             ),
             CompetitionChecklistItem(
                 label="来源标注与原始证据",
@@ -1809,7 +1791,7 @@ class CompetitionReportBuilder:
             CompetitionChecklistItem(
                 label="消融实验",
                 status="已覆盖",
-                detail="报告包含去掉结构化模型、多源融合和来源图谱的消融设计。",
+                detail="报告包含去掉千问、多源融合和来源图谱的消融设计。",
             ),
             CompetitionChecklistItem(
                 label="混合 RAG + 知识图谱",

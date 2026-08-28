@@ -10,7 +10,8 @@ data/benchmarks/
 data/output/
 output/
 evaluation/smoke_results*/
-evaluation/model_comparison_local/
+evaluation/planner_replacement_ablation_local/
+evaluation/results_qwen_review/
 .codex_spreadsheet_tmp/
 node_modules/
 *.log

@@ -11,7 +11,7 @@ from pydantic import Field
 
 
 class ApiCheckRequest(ApiModel):
-    provider: Literal["qwen", "deepseek", "openai_compatible"] = "qwen"
+    provider: Literal["qwen"] = "qwen"
     api_key: SecretStr
     base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
     model: str = "qwen-plus"

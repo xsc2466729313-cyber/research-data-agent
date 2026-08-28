@@ -25,7 +25,7 @@
 
 ## 多模型对比状态
 
-`/api/agent/qwen-sessions` 支持 `qwen`、`deepseek` 和 `openai_compatible`。本机本轮只有 Qwen 凭据，因此不存在同条件的 Qwen、DeepSeek、GLM 实测排名。完整比较需要同一冻结题集和 Evaluation Contract、相同数据源与工具预算、相同安全规则、每模型至少三次重复，以及人工审核的乳腺癌 Gold Set。条件不齐时必须写 `NOT_EVALUATED`。
+`/api/agent/qwen-sessions` 和 `/api/agent/api-check` 只接受 Qwen。DeepSeek 仅由 `scripts/run_planner_replacement_ablation.py` 在独立进程中替换中间规划/工具选择智能体；两组统一由 Qwen 辅助评审。完整比较需要同一冻结题集和 Evaluation Contract、相同数据源与工具预算、相同安全规则、至少三次重复，以及人工审核的乳腺癌 Gold Set。条件不齐时必须写 `NOT_EVALUATED`。
 
 ## GitHub 不包含的数据与恢复
 

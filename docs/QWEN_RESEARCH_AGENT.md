@@ -115,6 +115,8 @@
 - 公网部署必须使用 HTTPS，不能用明文 HTTP 传输凭据；
 - 若凭据曾出现在聊天、终端截图或版本库中，应在百炼控制台轮换。
 
+生产任务接口和两轮闭环只接受 `provider=qwen` 的会话。会话注册器保留兼容提供方的连接诊断能力，但 DeepSeek 不会进入 `/api/agent/tasks` 或 `/api/v2/agent/closed-loop`；它只由独立的中间智能体替换消融脚本使用。
+
 ## 官方接口依据
 
 千问调用使用阿里云百炼 OpenAI 兼容 `chat/completions` 接口：
