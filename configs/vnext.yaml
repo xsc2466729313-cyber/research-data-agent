@@ -1,0 +1,29 @@
+version: "vnext-0.1"
+
+governance:
+  decision_protocol: "proposal_algorithm_rule_gate_v1"
+  auto_confidence_threshold: 0.90
+  review_confidence_threshold: 0.65
+  rule_version: "0.1"
+  schema_version: "0.1"
+
+retrieval:
+  service_version: "retrieval-service-v2"
+  default_method: "bm25"
+  bm25_weight: 0.55
+  dense_weight: 0.45
+  candidate_pool_multiplier: 5
+  dense_backend: "BAAI/bge-small-en-v1.5"
+  reranker_backend: "cross-encoder/ms-marco-MiniLM-L6-v2"
+  offline_dense_fallback: "hashing-dense-fallback-v1"
+  query_instruction: "Represent this sentence for searching relevant passages: "
+  max_seq_length: 128
+  production_backends_require_benchmark: true
+  record_latency_and_invocation: true
+
+selective_agent_invocation:
+  enabled: true
+  target_rate_min: 0.05
+  target_rate_max: 0.20
+  current_qwen_judges_enabled: false
+  notice: "Actual invocation rates are measured from runs; target rates are not reported as achieved results."

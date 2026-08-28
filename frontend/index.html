@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="千问驱动的乳腺癌科研数据智能体：从科研问题、真实数据库工具调用到可阅读、可追溯的科研数据集。" />
     <title>千问乳腺癌科研数据智能体</title>
-    <link rel="stylesheet" href="/styles.css?v=20260827-4" />
+    <link rel="stylesheet" href="/styles.css?v=20260828-ui-1" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">跳至正文</a>
@@ -221,6 +221,7 @@
           <div class="switch-row">
             <label class="switch-control"><input id="use-qwen" type="checkbox" checked /><span><strong>启用模型规划</strong><small>问题解析、工具调用与结果摘要</small></span></label>
             <label class="switch-control"><input id="allow-fallback" type="checkbox" checked /><span><strong>允许确定性兜底</strong><small>模型不可用时生成可审查的确定性计划</small></span></label>
+            <label class="switch-control"><input id="closed-loop" type="checkbox" checked /><span><strong>启用闭环自我修正</strong><small>固定两轮：根据第一轮结果补充验证并比较指标</small></span></label>
           </div>
           <div class="form-actions">
             <p>系统会按研究问题自主检索公开数据库、文献中的 GSE/NCT，并换方法补全；达到目标或轮次门限后停止。新增入口不构成跨研究患者合并。</p>
@@ -454,6 +455,16 @@
             </div>
           </section>
 
+          <section id="closed-loop-panel" class="panel" hidden>
+            <div class="section-heading">
+              <div><p class="section-kicker">Closed-Loop Iteration</p><h2>闭环自我修正</h2></div>
+              <span id="closed-loop-status" class="status-badge"></span>
+            </div>
+            <p id="closed-loop-stop-reason" class="section-note"></p>
+            <div id="closed-loop-summary" class="collection-agent-summary"></div>
+            <div id="closed-loop-rounds" class="collection-agent-iterations"></div>
+          </section>
+
           <section id="agent-process" class="panel">
             <div class="section-heading"><div><p class="section-kicker">Retrieval Log</p><h2>检索规划与工具调用</h2></div><span id="tool-count" class="count-tag"></span></div>
             <div id="plan-list" class="plan-list"></div>
@@ -577,6 +588,6 @@
     <div id="toast" class="toast" hidden role="status" aria-live="polite"></div>
     <footer><span>千问科研数据智能体</span><span>模型负责规划；规则负责安全边界；数据须真实可追溯</span></footer>
     <!-- 输入你真正想研究的问题 规划与真实检索入口 先明确研究需要什么数据 每一步筛选都能解释清楚 患者编号能不能安全对上 -->
-    <script src="/app.js?v=20260827-4" defer></script>
+    <script src="/app.js?v=20260828-closed-loop-2" defer></script>
   </body>
 </html>

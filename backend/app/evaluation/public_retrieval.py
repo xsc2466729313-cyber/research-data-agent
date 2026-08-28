@@ -16,6 +16,17 @@ from pathlib import Path
 from typing import Iterable
 
 from backend.app.retrieval_text_features import retrieval_tokens
+from backend.app.evaluation.semantic_retrieval import (
+    CrossEncoderBenchmarkIndex,
+    HybridSemanticBenchmarkIndex,
+    SentenceTransformerBenchmarkIndex,
+)
+from backend.app.vnext_config import load_vnext_config
+from backend.app.retrieval.query_understanding import (
+    build_rule_plan,
+    reciprocal_rank_fusion,
+    validate_query_plan,
+)
 
 
 BEIR_DATASETS = {
@@ -65,6 +76,9 @@ class RetrievalMetrics:
     mrr_at_10: float
     mean_latency_ms: float
     query_count: int
+    index_build_seconds: float = 0.0
+    estimated_cost_usd: float = 0.0
+    qwen_invocation_rate: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -73,6 +87,14 @@ class RetrievalConfig:
 
     k1: float
     b: float
+    fit_split: str
+    fit_ndcg_at_10: float | None
+
+
+@dataclass(frozen=True)
+class HybridWeightConfig:
+    lexical_weight: float
+    dense_weight: float
     fit_split: str
     fit_ndcg_at_10: float | None
 
@@ -209,6 +231,59 @@ class BM25Index:
         return [self.doc_ids[index] for index in ranked]
 
 
+class QueryUnderstandingIndex:
+    """A transparent wrapper that changes only query construction and fusion."""
+
+    def __init__(self, base: BM25Index, mode: str, planner=None) -> None:
+        self.base = base
+        self.mode = mode
+        self.planner = planner
+        self.doc_ids = base.doc_ids
+        self.method_id = f"{base.method_id}_query_{mode}"
+        self.method_label = f"{base.method_label} + query understanding ({mode})"
+        self.index_build_seconds = getattr(base, "index_build_seconds", 0.0)
+        self.estimated_cost_usd = getattr(base, "estimated_cost_usd", 0.0)
+        self.qwen_invocation_rate = 0.0 if planner is None else 1.0
+        self.fallback_count = 0
+
+    def reset_query_cache(self) -> None:
+        reset = getattr(self.base, "reset_query_cache", None)
+        if callable(reset):
+            reset()
+
+    def rank(self, query: str, top_k: int) -> list[str]:
+        queries = self._queries(query)
+        if len(queries) == 1:
+            return self.base.rank(queries[0], top_k)
+        rankings = [self.base.rank(item, 100) for item in queries]
+        index_by_id = {doc_id: index for index, doc_id in enumerate(self.doc_ids)}
+        index_rankings = [[index_by_id[item] for item in ranking if item in index_by_id] for ranking in rankings]
+        fused = reciprocal_rank_fusion(index_rankings, k=60, top_k=top_k)
+        return [self.doc_ids[index] for index, _score in fused]
+
+    def _queries(self, query: str) -> list[str]:
+        if self.mode == "raw":
+            return [query.strip()]
+        if self.mode == "rules":
+            checked = validate_query_plan(build_rule_plan(query), query)
+            return checked.accepted_queries or [query.strip()]
+        if self.planner is None:
+            self.fallback_count += 1
+            return [query.strip()]
+        try:
+            checked = validate_query_plan(self.planner(query), query)
+            if checked.fallback_used:
+                self.fallback_count += 1
+            accepted = checked.accepted_queries or [query.strip()]
+            if self.mode == "rules_qwen":
+                rules = validate_query_plan(build_rule_plan(query), query).accepted_queries
+                return list(dict.fromkeys([*rules, *accepted]))
+            return accepted[:1] if self.mode == "qwen_single" else accepted
+        except Exception:
+            self.fallback_count += 1
+            return [query.strip()]
+
+
 class TunedBM25Index(BM25Index):
     method_id = "project_bm25_tuned_v2"
     method_label = "Project BM25 tuned v2"
@@ -240,6 +315,31 @@ def fit_bm25_parameters(
             best = candidate
     assert best is not None
     return RetrievalConfig(best[1], best[2], fit_split, best[0])
+
+
+def fit_hybrid_weights(
+    lexical: TunedBM25Index,
+    semantic: SentenceTransformerBenchmarkIndex,
+    queries: dict[str, str],
+    dataset_dir: Path,
+) -> HybridWeightConfig:
+    """Tune fusion weights on train/dev only; test qrels are never inspected."""
+    fit_split = "dev" if (dataset_dir / "qrels" / "dev.tsv").exists() else "train"
+    fit_qrels = _load_qrels(dataset_dir, fit_split)
+    if not fit_qrels:
+        return HybridWeightConfig(0.55, 0.45, "none", None)
+    best: tuple[float, float, float] | None = None
+    for lexical_weight in (0.0, 0.25, 0.5, 0.75, 1.0):
+        dense_weight = 1.0 - lexical_weight
+        candidate_index = HybridSemanticBenchmarkIndex(
+            lexical, semantic, lexical_weight=lexical_weight, dense_weight=dense_weight
+        )
+        score = evaluate_retriever(candidate_index, queries, fit_qrels).ndcg_at_10
+        candidate = (score, lexical_weight, dense_weight)
+        if best is None or candidate > best:
+            best = candidate
+    assert best is not None
+    return HybridWeightConfig(best[1], best[2], fit_split, best[0])
 
 
 class ProjectHybridHashIndex:
@@ -307,16 +407,26 @@ def evaluate_retriever(
     queries: dict[str, str],
     qrels: dict[str, dict[str, int]],
 ) -> RetrievalMetrics:
+    reset = getattr(retriever, "reset_query_cache", None)
+    if callable(reset):
+        reset()
     ndcgs: list[float] = []
     recalls: list[float] = []
     reciprocal_ranks: list[float] = []
     latencies: list[float] = []
-    for query_id in sorted(qrels):
-        if query_id not in queries:
-            continue
+    eligible_queries = [query_id for query_id in sorted(qrels) if query_id in queries]
+    batch_rank = getattr(retriever, "rank_many", None)
+    batch_rankings: dict[str, list[str]] = {}
+    batch_latency_share = 0.0
+    if callable(batch_rank):
+        batch_started = time.perf_counter()
+        rankings = batch_rank([queries[query_id] for query_id in eligible_queries], 100)
+        batch_latency_share = (time.perf_counter() - batch_started) * 1000 / max(1, len(eligible_queries))
+        batch_rankings = dict(zip(eligible_queries, rankings))
+    for query_id in eligible_queries:
         started = time.perf_counter()
-        ranking = retriever.rank(queries[query_id], 100)
-        latencies.append((time.perf_counter() - started) * 1000)
+        ranking = batch_rankings.get(query_id) or retriever.rank(queries[query_id], 100)
+        latencies.append(batch_latency_share + (time.perf_counter() - started) * 1000)
         relevant = qrels[query_id]
         gains = [relevant.get(doc_id, 0) for doc_id in ranking[:10]]
         dcg = sum((2**gain - 1) / math.log2(rank + 1) for rank, gain in enumerate(gains, start=1))
@@ -335,6 +445,9 @@ def evaluate_retriever(
         mrr_at_10=sum(reciprocal_ranks) / len(reciprocal_ranks),
         mean_latency_ms=sum(latencies) / len(latencies),
         query_count=len(ndcgs),
+        index_build_seconds=float(getattr(retriever, "index_build_seconds", 0.0)),
+        estimated_cost_usd=float(getattr(retriever, "estimated_cost_usd", 0.0)),
+        qwen_invocation_rate=float(getattr(retriever, "qwen_invocation_rate", 0.0)),
     )
 
 
@@ -355,7 +468,7 @@ def write_run_artifacts(
     dataset_id: str,
     manifest: dict[str, str],
     metrics_by_method: dict[str, tuple[str, RetrievalMetrics]],
-    method_configs: dict[str, RetrievalConfig] | None = None,
+    method_configs: dict[str, object] | None = None,
     output_root: Path,
 ) -> Path:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -375,7 +488,8 @@ def write_run_artifacts(
             for method_id, (label, metrics) in metrics_by_method.items()
         },
         "method_configs": {
-            method_id: asdict(config) for method_id, config in (method_configs or {}).items()
+            method_id: asdict(config) if hasattr(config, "__dataclass_fields__") else config
+            for method_id, config in (method_configs or {}).items()
         },
         "scope_notice": "These are retrieval-layer scores, not full-agent, clinical-validity, or SDTI scores.",
     }
@@ -392,7 +506,7 @@ def write_run_artifacts(
         writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
         for method_id, (label, metrics) in metrics_by_method.items():
-            for metric_name in ("ndcg_at_10", "recall_at_100", "mrr_at_10", "mean_latency_ms"):
+            for metric_name in ("ndcg_at_10", "recall_at_100", "mrr_at_10", "mean_latency_ms", "index_build_seconds", "estimated_cost_usd", "qwen_invocation_rate"):
                 value = getattr(metrics, metric_name)
                 writer.writerow({
                     "evaluation_id": run_dir.name,
@@ -406,8 +520,8 @@ def write_run_artifacts(
                     "method_label": label,
                     "metric": metric_name,
                     "value": f"{value:.8f}",
-                    "direction": "lower" if metric_name == "mean_latency_ms" else "higher",
-                    "unit": "ms_per_query" if metric_name == "mean_latency_ms" else "ratio",
+                    "direction": "lower" if metric_name in {"mean_latency_ms", "index_build_seconds", "estimated_cost_usd"} else "higher",
+                    "unit": "ms_per_query" if metric_name == "mean_latency_ms" else "seconds" if metric_name == "index_build_seconds" else "usd" if metric_name == "estimated_cost_usd" else "ratio",
                     "n": metrics.query_count,
                     "run_count": 1,
                     "seed": "deterministic",
@@ -425,13 +539,14 @@ def write_run_artifacts(
         "",
         "> This is a retrieval-layer test. It is not a full-agent, medical-validity, or SDTI result.",
         "",
-        "| Method | nDCG@10 | Recall@100 | MRR@10 | Mean latency/query |",
-        "|---|---:|---:|---:|---:|",
+        "| Method | nDCG@10 | Recall@100 | MRR@10 | Mean latency/query | Index build | Local API cost |",
+        "|---|---:|---:|---:|---:|---:|---:|",
     ]
     for _, (label, metrics) in metrics_by_method.items():
         lines.append(
             f"| {label} | {metrics.ndcg_at_10:.4f} | {metrics.recall_at_100:.4f} | "
-            f"{metrics.mrr_at_10:.4f} | {metrics.mean_latency_ms:.2f} ms |"
+            f"{metrics.mrr_at_10:.4f} | {metrics.mean_latency_ms:.2f} ms | "
+            f"{metrics.index_build_seconds:.2f} s | ${metrics.estimated_cost_usd:.2f} |"
         )
     lines.extend([
         "",
@@ -458,6 +573,43 @@ def run_public_retrieval_benchmark(
     method_results: dict[str, tuple[str, RetrievalMetrics]] = {}
     method_configs: dict[str, RetrievalConfig] = {}
     tuned_config: RetrievalConfig | None = None
+    semantic_index: SentenceTransformerBenchmarkIndex | None = None
+    hybrid_index: HybridSemanticBenchmarkIndex | None = None
+    hybrid_config: HybridWeightConfig | None = None
+    vnext = load_vnext_config().retrieval
+    cache_root = data_root / ".vnext_embedding_cache"
+
+    def get_semantic() -> SentenceTransformerBenchmarkIndex:
+        nonlocal semantic_index
+        if semantic_index is None:
+            cache_name = f"{dataset_id}_{hashlib.sha256(vnext.dense_backend.encode()).hexdigest()[:12]}.npy"
+            semantic_index = SentenceTransformerBenchmarkIndex(
+                corpus,
+                model_name=vnext.dense_backend,
+                cache_path=cache_root / cache_name,
+                query_instruction=vnext.query_instruction,
+                max_seq_length=vnext.max_seq_length,
+            )
+        return semantic_index
+
+    def get_hybrid() -> HybridSemanticBenchmarkIndex:
+        nonlocal hybrid_index, tuned_config, hybrid_config
+        if hybrid_index is None:
+            if tuned_config is None:
+                tuned_config = fit_bm25_parameters(corpus, queries, dataset_dir)
+            lexical = TunedBM25Index(corpus, k1=tuned_config.k1, b=tuned_config.b)
+            if hybrid_config is None:
+                hybrid_config = fit_hybrid_weights(
+                    lexical, get_semantic(), queries, dataset_dir
+                )
+            hybrid_index = HybridSemanticBenchmarkIndex(
+                lexical,
+                get_semantic(),
+                lexical_weight=hybrid_config.lexical_weight,
+                dense_weight=hybrid_config.dense_weight,
+            )
+            method_configs[hybrid_index.method_id] = hybrid_config
+        return hybrid_index
     for method in methods:
         if method == "bm25":
             retriever = BM25Index(corpus)
@@ -470,6 +622,17 @@ def run_public_retrieval_benchmark(
             method_configs[method_id] = tuned_config
         elif method == "project_hybrid":
             retriever = ProjectHybridHashIndex(corpus)
+            method_id = retriever.method_id
+        elif method == "vnext_semantic":
+            retriever = get_semantic()
+            method_id = retriever.method_id
+        elif method == "vnext_hybrid":
+            retriever = get_hybrid()
+            method_id = retriever.method_id
+        elif method == "vnext_hybrid_rerank":
+            retriever = CrossEncoderBenchmarkIndex(
+                get_hybrid(), model_name=vnext.reranker_backend, rerank_k=10
+            )
             method_id = retriever.method_id
         else:
             raise ValueError(f"Unsupported method: {method}")

@@ -51,6 +51,17 @@ from backend.app.agent.service import (
     AgentExecutionError,
     ResearchAgentService,
 )
+from backend.app.agent.closed_loop import ClosedLoopService
+from backend.app.agent.closed_loop_models import (
+    ClosedLoopAction,
+    ClosedLoopAudit,
+    ClosedLoopDiagnosis,
+    ClosedLoopImprovement,
+    ClosedLoopIteration,
+    ClosedLoopMetricSnapshot,
+    ClosedLoopRequest,
+    ClosedLoopResponse,
+)
 
 __all__ = [
     "AgentConfigurationError",
@@ -104,6 +115,15 @@ __all__ = [
     "QwenClientError",
     "QwenSettings",
     "ResearchAgentService",
+    "ClosedLoopService",
+    "ClosedLoopAction",
+    "ClosedLoopAudit",
+    "ClosedLoopDiagnosis",
+    "ClosedLoopImprovement",
+    "ClosedLoopIteration",
+    "ClosedLoopMetricSnapshot",
+    "ClosedLoopRequest",
+    "ClosedLoopResponse",
     "ResearchTaskCreated",
     "ResearchTaskSpec",
     "ResearchTaskStatus",

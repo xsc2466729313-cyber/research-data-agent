@@ -1,0 +1,68 @@
+{
+  "artifact_type": "query_understanding_ablation",
+  "created_at": "2026-08-28T12:53:39.710638+00:00",
+  "methods": {
+    "A_raw": {
+      "status": "EVALUATED",
+      "description": "tuned BM25 on original query"
+    },
+    "B_rules": {
+      "status": "EVALUATED",
+      "description": "rules queries + RRF"
+    },
+    "C_qwen_single": {
+      "status": "NOT_EVALUATED"
+    },
+    "D_qwen_multi": {
+      "status": "NOT_EVALUATED"
+    },
+    "E_rules_qwen": {
+      "status": "NOT_EVALUATED"
+    }
+  },
+  "datasets": {
+    "beir_scifact": {
+      "manifest": {
+        "dataset_id": "beir_scifact",
+        "source_id": "beir:scifact",
+        "source_url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scifact.zip",
+        "archive_sha256": "536e14446a0ba56ed1398ab1055f39fe852686ecad24a6306c80c490fa8e0165",
+        "corpus_sha256": "dec31c8182f3d744c7d2c09423756fd1d17cbef75808db13ba01cc0aab4d1ac6",
+        "queries_sha256": "8ff84a7c903f722981cd8d595c022660140c51867b27608a6d4910db86080313",
+        "qrels_test_sha256": "0864bb985e0ca2367ba217977e72004d549054b2b06666ed9d4825ac7c21284c",
+        "qrels_train_sha256": "a53f2114831916c096b6c37d9e54da68cef4efdcdbd5ed46533601af972acf1d"
+      },
+      "bm25_config": {
+        "k1": 1.2,
+        "b": 0.75
+      },
+      "results": {
+        "A_raw": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.6044493287129828,
+          "recall_at_100": 0.8284444444444444,
+          "mrr_at_10": 0.568510582010582,
+          "mean_latency_ms": 8.850631332946554,
+          "query_count": 300,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 0.0,
+          "fallback_count": 0
+        },
+        "B_rules": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.6066519228652659,
+          "recall_at_100": 0.8323333333333333,
+          "mrr_at_10": 0.5702050264550264,
+          "mean_latency_ms": 19.389829999223974,
+          "query_count": 300,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 0.0,
+          "fallback_count": 0
+        }
+      }
+    }
+  },
+  "notice": "Retrieval-layer diagnostics only; no clinical or SDTI claim. Qwen groups require an external plan cache and never receive qrels."
+}

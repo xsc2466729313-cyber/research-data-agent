@@ -22,6 +22,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, Mapping, Sequence
 
+from backend.app.integration.schema_matcher_v3 import SchemaMatcherV3
+
 
 try:
     csv.field_size_limit(sys.maxsize)
@@ -434,6 +436,19 @@ def predict_schema_matches(
     elif method == "project_schema_profile_v2":
         threshold = 0.40
         score_fn = lambda source, target: _schema_profile_score(source, target, source_samples, target_samples)
+    elif method == "project_schema_v3":
+        matcher = SchemaMatcherV3()
+        matches = matcher.match(
+            source_columns,
+            target_columns,
+            source_values=source_samples,
+            target_values=target_samples,
+        )
+        return {
+            (match.source_field, match.target_field)
+            for match in matches
+            if match.decision in {"AUTO", "REVIEW"}
+        }
     else:
         raise ValueError(f"Unsupported method: {method}")
 
@@ -550,6 +565,7 @@ def write_schema_run(
         "token_jaccard": "Token Jaccard",
         "project_schema_rule_v1": "Project schema rule v1",
         "project_schema_profile_v2": "Project schema value-profile v2",
+        "project_schema_v3": "Project schema feature fusion v3",
     }
     with (run_dir / "unified_results.csv").open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
@@ -623,7 +639,7 @@ def run_public_schema_benchmark(
     dataset_id: str,
     data_root: Path,
     output_root: Path,
-    methods: Iterable[str] = ("exact_normalized_name", "token_jaccard", "project_schema_rule_v1", "project_schema_profile_v2"),
+    methods: Iterable[str] = ("exact_normalized_name", "token_jaccard", "project_schema_rule_v1", "project_schema_profile_v2", "project_schema_v3"),
     download: bool,
 ) -> Path:
     dataset_dir, manifest = prepare_schema_dataset(dataset_id, data_root, download=download)

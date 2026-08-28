@@ -1,0 +1,220 @@
+{
+  "report_version": "vnext-retrieval-macro-v1",
+  "created_at": "2026-08-28T09:45:14.493049+00:00",
+  "datasets": [
+    "beir_scifact",
+    "beir_nfcorpus",
+    "beir_scidocs",
+    "beir_arguana",
+    "beir_fiqa"
+  ],
+  "artifacts": {
+    "beir_scifact": "evaluation/public_benchmarks/runs/20260828T090914Z_beir_scifact",
+    "beir_nfcorpus": "evaluation/public_benchmarks/runs/20260828T090951Z_beir_nfcorpus",
+    "beir_scidocs": "evaluation/public_benchmarks/runs/20260828T092348Z_beir_scidocs",
+    "beir_arguana": "evaluation/public_benchmarks/runs/20260828T093123Z_beir_arguana",
+    "beir_fiqa": "evaluation/public_benchmarks/runs/20260828T085638Z_beir_fiqa"
+  },
+  "results_by_dataset": {
+    "beir_scifact": {
+      "project_bm25_tuned_v2": {
+        "method_label": "Project BM25 tuned v2",
+        "ndcg_at_10": 0.6044493287129828,
+        "recall_at_100": 0.8284444444444444,
+        "mrr_at_10": 0.568510582010582,
+        "mean_latency_ms": 8.032169000556072,
+        "query_count": 300,
+        "index_build_seconds": 0.0,
+        "estimated_cost_usd": 0.0,
+        "qwen_invocation_rate": 0.0
+      },
+      "vnext_bge_small_en_v1_5": {
+        "method_label": "VNext BGE-small-en-v1.5",
+        "ndcg_at_10": 0.6803406629947804,
+        "recall_at_100": 0.9383333333333334,
+        "mrr_at_10": 0.6499193121693122,
+        "mean_latency_ms": 8.787642333724458,
+        "query_count": 300,
+        "index_build_seconds": 26.87796110000636,
+        "estimated_cost_usd": 0.0,
+        "qwen_invocation_rate": 0.0
+      },
+      "vnext_bm25_bge_fusion_v1": {
+        "method_label": "VNext BM25 + BGE fusion",
+        "ndcg_at_10": 0.6197501384174854,
+        "recall_at_100": 0.8392222222222223,
+        "mrr_at_10": 0.5818941798941799,
+        "mean_latency_ms": 17.520807999729488,
+        "query_count": 300,
+        "index_build_seconds": 26.87796110000636,
+        "estimated_cost_usd": 0.0,
+        "qwen_invocation_rate": 0.0
+      }
+    },
+    "beir_nfcorpus": {
+      "project_bm25_tuned_v2": {
+        "method_label": "Project BM25 tuned v2",
+        "ndcg_at_10": 0.2902228424137962,
+        "recall_at_100": 0.2206128747160837,
+        "mrr_at_10": 0.5061010369059905,
+        "mean_latency_ms": 1.4426061922223696,
+        "query_count": 323,
+        "index_build_seconds": 0.0,
+        "estimated_cost_usd": 0.0,
+        "qwen_invocation_rate": 0.0
+      },
+      "vnext_bge_small_en_v1_5": {
+        "method_label": "VNext BGE-small-en-v1.5",
+        "ndcg_at_10": 0.3315364577027044,
+        "recall_at_100": 0.29745793338621335,
+        "mrr_at_10": 0.5257285370288466,
+        "mean_latency_ms": 4.351438700016761,
+        "query_count": 323,
+        "index_build_seconds": 27.37862380000297,
+        "estimated_cost_usd": 0.0,
+        "qwen_invocation_rate": 0.0
+      },
+      "vnext_bm25_bge_fusion_v1": {
+        "method_label": "VNext BM25 + BGE fusion",
+        "ndcg_at_10": 0.30832367875038963,
+        "recall_at_100": 0.2774151766985894,
+        "mrr_at_10": 0.5124072435991941,
+        "mean_latency_ms": 6.03450495344601,
+        "query_count": 323,
+        "index_build_seconds": 27.37862380000297,
+        "estimated_cost_usd": 0.0,
+        "qwen_invocation_rate": 0.0
+      }
+    },
+    "beir_scidocs": {
+      "project_bm25_tuned_v2": {
+        "method_label": "Project BM25 tuned v2",
+        "ndcg_at_10": 0.14898146417097713,
+        "recall_at_100": 0.33723333333333333,
+        "mrr_at_10": 0.2660515873015873,
+        "mean_latency_ms": 43.872748700290686,
+        "query_count": 1000,
+        "index_build_seconds": 0.0,
+        "estimated_cost_usd": 0.0,
+        "qwen_invocation_rate": 0.0
+      },
+      "vnext_bge_small_en_v1_5": {
+        "method_label": "VNext BGE-small-en-v1.5",
+        "ndcg_at_10": 0.1909828805144547,
+        "recall_at_100": 0.43118333333333336,
+        "mrr_at_10": 0.335090873015873,
+        "mean_latency_ms": 5.469408300152281,
+        "query_count": 1000,
+        "index_build_seconds": 27.357365300005767,
+        "estimated_cost_usd": 0.0,
+        "qwen_invocation_rate": 0.0
+      },
+      "vnext_bm25_bge_fusion_v1": {
+        "method_label": "VNext BM25 + BGE fusion",
+        "ndcg_at_10": 0.15625204765223677,
+        "recall_at_100": 0.3581333333333333,
+        "mrr_at_10": 0.2763023809523809,
+        "mean_latency_ms": 50.20634120001341,
+        "query_count": 1000,
+        "index_build_seconds": 27.357365300005767,
+        "estimated_cost_usd": 0.0,
+        "qwen_invocation_rate": 0.0
+      }
+    },
+    "beir_arguana": {
+      "project_bm25_tuned_v2": {
+        "method_label": "Project BM25 tuned v2",
+        "ndcg_at_10": 0.30674996985510244,
+        "recall_at_100": 0.9054054054054054,
+        "mrr_at_10": 0.19829048973785815,
+        "mean_latency_ms": 74.65558221900399,
+        "query_count": 1406,
+        "index_build_seconds": 0.0,
+        "estimated_cost_usd": 0.0,
+        "qwen_invocation_rate": 0.0
+      },
+      "vnext_bge_small_en_v1_5": {
+        "method_label": "VNext BGE-small-en-v1.5",
+        "ndcg_at_10": 0.3835643108025087,
+        "recall_at_100": 0.968705547652916,
+        "mrr_at_10": 0.26013118381539435,
+        "mean_latency_ms": 16.65645554758377,
+        "query_count": 1406,
+        "index_build_seconds": 27.161584300003597,
+        "estimated_cost_usd": 0.0,
+        "qwen_invocation_rate": 0.0
+      },
+      "vnext_bm25_bge_fusion_v1": {
+        "method_label": "VNext BM25 + BGE fusion",
+        "ndcg_at_10": 0.37405257102215755,
+        "recall_at_100": 0.9758179231863442,
+        "mrr_at_10": 0.24544525728736258,
+        "mean_latency_ms": 93.96439203407925,
+        "query_count": 1406,
+        "index_build_seconds": 27.161584300003597,
+        "estimated_cost_usd": 0.0,
+        "qwen_invocation_rate": 0.0
+      }
+    },
+    "beir_fiqa": {
+      "project_bm25_tuned_v2": {
+        "method_label": "Project BM25 tuned v2",
+        "ndcg_at_10": 0.22298736140356143,
+        "recall_at_100": 0.48432716974383644,
+        "mrr_at_10": 0.2753423231432491,
+        "mean_latency_ms": 125.39896774686906,
+        "query_count": 648,
+        "index_build_seconds": 0.0,
+        "estimated_cost_usd": 0.0,
+        "qwen_invocation_rate": 0.0
+      },
+      "vnext_bge_small_en_v1_5": {
+        "method_label": "VNext BGE-small-en-v1.5",
+        "ndcg_at_10": 0.353340924631334,
+        "recall_at_100": 0.641264376912525,
+        "mrr_at_10": 0.43956496178718407,
+        "mean_latency_ms": 18.3250648145155,
+        "query_count": 648,
+        "index_build_seconds": 1041.3074275000108,
+        "estimated_cost_usd": 0.0,
+        "qwen_invocation_rate": 0.0
+      },
+      "vnext_bm25_bge_fusion_v1": null
+    }
+  },
+  "aggregate": {
+    "project_bm25_tuned_v2": {
+      "dataset_count": 5,
+      "ndcg_at_10_macro": 0.314678193311284,
+      "recall_at_100_macro": 0.5552046455286207,
+      "mrr_at_10_macro": 0.36285920381985337,
+      "mean_latency_ms_macro": 50.680414771788435,
+      "index_build_seconds_sum": 0.0,
+      "estimated_cost_usd_sum": 0.0
+    },
+    "vnext_bge_small_en_v1_5": {
+      "dataset_count": 5,
+      "ndcg_at_10_macro": 0.3879530473291564,
+      "recall_at_100_macro": 0.6553889049236642,
+      "mrr_at_10_macro": 0.44208697356332205,
+      "mean_latency_ms_macro": 10.718001939198555,
+      "index_build_seconds_sum": 1150.0829620000295,
+      "estimated_cost_usd_sum": 0.0
+    },
+    "vnext_bm25_bge_fusion_v1": {
+      "dataset_count": 4,
+      "ndcg_at_10_macro": 0.36459460896056733,
+      "recall_at_100_macro": 0.6126471638601223,
+      "mrr_at_10_macro": 0.4040122654332794,
+      "mean_latency_ms_macro": 41.93151154681704,
+      "index_build_seconds_sum": 108.7755345000187,
+      "estimated_cost_usd_sum": 0.0
+    }
+  },
+  "scope_notice": "Retrieval-layer BEIR test metrics only; not clinical validity, full-agent quality, or SDTI.",
+  "limitations": [
+    "FiQA has no comparable vnext_bm25_bge_fusion_v1 artifact in the selected run and is excluded from the fusion macro average.",
+    "FiQA BGE artifact was completed before the final 96-token cache standardization; its exact run configuration is retained in the artifact history and is not silently relabeled.",
+    "No CrossEncoder result is included because its model was not downloaded and no proxy score is substituted."
+  ]
+}

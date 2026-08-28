@@ -1,0 +1,83 @@
+{
+  "evaluation_id": "20260828T121140Z_variant_matrix",
+  "evaluation_version": "end_to_end_variant_matrix_v1",
+  "layer": "frozen_goldset_sdti",
+  "status": "NOT_EVALUATED",
+  "code_revision": "959a9955cfa693c338f651ef5ad9c142a2e7f3db",
+  "created_at": "2026-08-28T12:11:40.600611+00:00",
+  "controls": [
+    "same_research_task",
+    "same_evaluation_contract",
+    "same_candidate_source_scope",
+    "same_dataset_version",
+    "same_random_seed_when_applicable",
+    "same_metric_script_version",
+    "repeated_runs_for_llm_variance"
+  ],
+  "variants": [
+    {
+      "variant_id": "rule_keyword",
+      "label": "Rule/Keyword Baseline",
+      "qwen_enabled": false,
+      "multi_source": false,
+      "quality_gate": false,
+      "adaptive_fitness": false,
+      "status": "NOT_EVALUATED",
+      "metrics": {},
+      "quality_gate_result": "REVIEW",
+      "note": "需要同一冻结 Evaluation Contract、同一数据版本、真实模型运行和冻结 Gold Set；本次只登记对照配置。"
+    },
+    {
+      "variant_id": "qwen_only",
+      "label": "Qwen-only",
+      "qwen_enabled": true,
+      "multi_source": false,
+      "quality_gate": false,
+      "adaptive_fitness": false,
+      "status": "NOT_EVALUATED",
+      "metrics": {},
+      "quality_gate_result": "REVIEW",
+      "note": "需要同一冻结 Evaluation Contract、同一数据版本、真实模型运行和冻结 Gold Set；本次只登记对照配置。"
+    },
+    {
+      "variant_id": "single_source_agent",
+      "label": "Single-source Agent",
+      "qwen_enabled": true,
+      "multi_source": false,
+      "quality_gate": true,
+      "adaptive_fitness": true,
+      "status": "NOT_EVALUATED",
+      "metrics": {},
+      "quality_gate_result": "REVIEW",
+      "note": "需要同一冻结 Evaluation Contract、同一数据版本、真实模型运行和冻结 Gold Set；本次只登记对照配置。"
+    },
+    {
+      "variant_id": "multi_source_no_gate",
+      "label": "Multi-source No-Gate",
+      "qwen_enabled": true,
+      "multi_source": true,
+      "quality_gate": false,
+      "adaptive_fitness": true,
+      "status": "NOT_EVALUATED",
+      "metrics": {},
+      "quality_gate_result": "REVIEW",
+      "note": "需要同一冻结 Evaluation Contract、同一数据版本、真实模型运行和冻结 Gold Set；本次只登记对照配置。"
+    },
+    {
+      "variant_id": "full_agent",
+      "label": "Full Agent",
+      "qwen_enabled": true,
+      "multi_source": true,
+      "quality_gate": true,
+      "adaptive_fitness": true,
+      "status": "NOT_EVALUATED",
+      "metrics": {},
+      "quality_gate_result": "REVIEW",
+      "note": "需要同一冻结 Evaluation Contract、同一数据版本、真实模型运行和冻结 Gold Set；本次只登记对照配置。"
+    }
+  ],
+  "limitations": [
+    "This artifact registers the exact comparison matrix only; it does not claim a model or system score.",
+    "Run after an independently reviewed breast-cancer Gold Set and frozen Evaluation Contract are available."
+  ]
+}

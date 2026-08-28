@@ -37,6 +37,9 @@ from backend.app.agent import (
     ModelEvaluationGenerateRequest,
     ModelEvaluationRunRequest,
     ModelEvaluationService,
+    ClosedLoopRequest,
+    ClosedLoopResponse,
+    ClosedLoopService,
 )
 from backend.app.export_service import DatasetExportFormat, MockDatasetExportService
 from backend.app.evaluation import EvaluationError, EvaluationService, GoldSetCsvLoader
@@ -66,7 +69,9 @@ from backend.app.goldset.models import (
     SourceVerificationResult,
 )
 from backend.app.models import MockPipelineResult, ResearchQuestion
+from backend.app.governance import SafetyDecisionRequest, SafetyDecisionResult, SafetyLayer
 from backend.app.literature import LiteratureScanRequest
+from backend.app.retrieval import RetrievalRequest, RetrievalResponse, RetrievalServiceV2
 from backend.app.rag import (
     EvidenceQueryRequest,
     EvidenceQueryResponse,
@@ -87,8 +92,28 @@ from backend.app.research_planning import (
     ResearchTopic,
     TopicCreateRequest,
 )
+from backend.app.research_planning_v2 import ResearchPlanningV2Request, ResearchPlanningV2Response, ResearchPlanningV2Service
+from backend.app.quality_v2 import (
+    ErrorDetectionResult,
+    QualityApplyRequest,
+    QualityReviewRequest,
+    QualityReviewResponse,
+    QualityV2Service,
+    RepairCandidateResult,
+)
+from backend.app.quality_v2.models import SafeApplyResult
 from backend.app.source_broker.models import SourcePlanningResult, SourcePlanRequest
-from backend.app.integration import IntegrationError, NormalizationIntegrationPipeline
+from backend.app.integration import (
+    IntegrationError,
+    EntityMatcherV3,
+    EntityMatcherV3Request,
+    EntityMatcherV3Response,
+    PatientSampleLinker,
+    NormalizationIntegrationPipeline,
+    SchemaMatcherV3,
+    SchemaMatcherV3Request,
+    SchemaMatcherV3Response,
+)
 from backend.app.integration.models import (
     NormalizationIntegrationRequest,
     NormalizationIntegrationResult,
@@ -153,17 +178,24 @@ cbioportal_adapter = CBioPortalAdapter()
 aact_adapter = AACTClinicalTrialsAdapter()
 civic_adapter = CIViCAdapter()
 normalization_pipeline = NormalizationIntegrationPipeline()
+schema_matcher_v3 = SchemaMatcherV3()
+entity_matcher_v3 = EntityMatcherV3()
 evaluation_service = EvaluationService()
 goldset_loader = GoldSetCsvLoader()
 goldset_curation_service = GoldSetCurationService()
 repair_loop_service = RepairLoopService()
 mock_export_service = MockDatasetExportService()
 research_agent_service = ResearchAgentService()
+closed_loop_service = ClosedLoopService(research_agent_service)
 research_planning_service = ResearchPlanningService()
 qwen_session_registry = QwenSessionRegistry()
 agent_export_service = AgentDatasetExportService()
 api_check_service = ApiCheckService()
 model_evaluation_service = ModelEvaluationService()
+vnext_safety_layer = SafetyLayer()
+retrieval_service_v2 = RetrievalServiceV2()
+research_planning_v2_service = ResearchPlanningV2Service()
+quality_v2_service = QualityV2Service()
 GOLDSET_TEMPLATE_DIR = Path(__file__).resolve().parents[2] / "goldset" / "templates"
 
 
@@ -207,6 +239,10 @@ def get_research_agent_service() -> ResearchAgentService:
     return research_agent_service
 
 
+def get_closed_loop_service() -> ClosedLoopService:
+    return closed_loop_service
+
+
 def get_research_planning_service() -> ResearchPlanningService:
     return research_planning_service
 
@@ -241,6 +277,10 @@ def get_model_evaluation_service() -> ModelEvaluationService:
     return model_evaluation_service
 
 
+def get_quality_v2_service() -> QualityV2Service:
+    return quality_v2_service
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {
@@ -251,6 +291,141 @@ def health() -> dict[str, str]:
         ),
         "version": app.version,
     }
+
+
+@app.post("/api/v2/governance/decide", response_model=SafetyDecisionResult)
+def evaluate_vnext_proposal(payload: SafetyDecisionRequest) -> SafetyDecisionResult:
+    """Apply the non-bypassable VNext provenance and medical safety gate."""
+
+    return vnext_safety_layer.evaluate(payload)
+
+
+@app.post("/api/v2/retrieval/search", response_model=RetrievalResponse)
+def search_vnext_documents(payload: RetrievalRequest) -> RetrievalResponse:
+    """Run audited retrieval while explicitly disclosing offline fallbacks."""
+
+    return retrieval_service_v2.search(payload)
+
+
+@app.post("/api/v2/research/plan", response_model=ResearchPlanningV2Response)
+def plan_research_v2(payload: ResearchPlanningV2Request) -> ResearchPlanningV2Response:
+    """Produce structured questions, variables and study design with source labeling."""
+
+    return research_planning_v2_service.plan(payload)
+
+
+@app.post("/api/v2/agent/closed-loop", response_model=ClosedLoopResponse)
+def run_agent_closed_loop(
+    payload: ClosedLoopRequest,
+    service: Annotated[ClosedLoopService, Depends(get_closed_loop_service)],
+    registry: Annotated[QwenSessionRegistry, Depends(get_qwen_session_registry)],
+) -> ClosedLoopResponse:
+    """Run bounded self-correction using the previous round's diagnostics."""
+
+    session_client = resolve_qwen_session_client(payload.initial_request, registry)
+    try:
+        return service.run(payload, qwen_client=session_client)
+    except AgentConfigurationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except AgentExecutionError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.get("/api/v2/agent/closed-loop/{loop_id}", response_model=ClosedLoopResponse)
+def get_agent_closed_loop(
+    loop_id: str,
+    service: Annotated[ClosedLoopService, Depends(get_closed_loop_service)],
+) -> ClosedLoopResponse:
+    result = service.get(loop_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="闭环任务不存在或服务已重启。")
+    return result
+
+
+@app.post("/api/v2/quality/review", response_model=QualityReviewResponse)
+def review_quality_v2(
+    payload: QualityReviewRequest,
+    service: Annotated[QualityV2Service, Depends(get_quality_v2_service)],
+) -> QualityReviewResponse:
+    return service.review(payload)
+
+
+@app.post("/api/v2/quality/detect", response_model=ErrorDetectionResult)
+def detect_quality_errors_v2(
+    payload: QualityReviewRequest,
+    service: Annotated[QualityV2Service, Depends(get_quality_v2_service)],
+):
+    return service.detect(payload)
+
+
+@app.post("/api/v2/quality/candidates", response_model=RepairCandidateResult)
+def generate_quality_candidates_v2(
+    payload: QualityReviewRequest,
+    service: Annotated[QualityV2Service, Depends(get_quality_v2_service)],
+):
+    return service.candidates(payload)
+
+
+@app.post("/api/v2/quality/apply", response_model=SafeApplyResult)
+def apply_quality_repairs_v2(
+    payload: QualityApplyRequest,
+    service: Annotated[QualityV2Service, Depends(get_quality_v2_service)],
+):
+    return service.apply(payload)
+
+
+@app.post("/api/v2/schema/match", response_model=SchemaMatcherV3Response)
+def match_schema_v3(payload: SchemaMatcherV3Request) -> SchemaMatcherV3Response:
+    matches = schema_matcher_v3.match(
+        payload.source_fields,
+        payload.target_fields,
+        source_types=payload.source_types,
+        target_types=payload.target_types,
+        source_values=payload.source_values,
+        target_values=payload.target_values,
+        source_table=payload.source_table,
+        target_table=payload.target_table,
+        source_descriptions=payload.source_descriptions,
+        target_descriptions=payload.target_descriptions,
+    )
+    return SchemaMatcherV3Response(
+        matcher_version=schema_matcher_v3.VERSION,
+        matches=[{
+            "source_field": item.source_field,
+            "target_field": item.target_field,
+            "confidence": item.confidence,
+            "evidence": item.evidence,
+            "decision": item.decision,
+            "decision_source": item.decision_source,
+            "judge_reason": item.judge_reason,
+        } for item in matches],
+        qwen_invocation_count=schema_matcher_v3.qwen_invocation_count,
+    )
+
+
+@app.post("/api/v2/entity/match", response_model=EntityMatcherV3Response)
+def match_entity_v3(payload: EntityMatcherV3Request) -> EntityMatcherV3Response:
+    matches = entity_matcher_v3.match(
+        payload.left,
+        payload.right,
+        id_field=payload.id_field,
+        study_field=payload.study_field,
+        patient_sample_linker=PatientSampleLinker() if payload.linker_authorized else None,
+    )
+    return EntityMatcherV3Response(
+        matcher_version=entity_matcher_v3.VERSION,
+        matches=[{
+            "left_record_id": item.left_record_id,
+            "right_record_id": item.right_record_id,
+            "similarity_features": item.similarity_features,
+            "model_confidence": item.model_confidence,
+            "decision": item.decision,
+            "basis": item.basis,
+            "safety_rule_hits": item.safety_rule_hits,
+            "candidate_generated": item.candidate_generated,
+        } for item in matches],
+        learned_invocation_count=entity_matcher_v3.learned_invocation_count,
+    )
 
 
 @app.get(

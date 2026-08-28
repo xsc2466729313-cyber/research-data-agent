@@ -15,6 +15,22 @@ from backend.app.normalization.models import NormalizedIdentity
 class PatientSampleLinker:
     AUTO_LINK_THRESHOLD = 0.90
 
+    def authorize_candidate(self, left: dict[str, object], right: dict[str, object], confidence: float) -> bool:
+        """Authorize an already-scored candidate without merging records.
+
+        Entity Matcher V3 uses this narrow hook as a final safety gate. Exact
+        identity contradictions and cross-study links remain forbidden here.
+        """
+        if confidence < self.AUTO_LINK_THRESHOLD:
+            return False
+        if left.get("study_id") and right.get("study_id") and left.get("study_id") != right.get("study_id"):
+            return False
+        if left.get("patient_id") and right.get("patient_id") and left.get("patient_id") != right.get("patient_id"):
+            return False
+        if left.get("sample_id") and right.get("sample_id") and left.get("sample_id") != right.get("sample_id"):
+            return False
+        return True
+
     def link(
         self,
         *,

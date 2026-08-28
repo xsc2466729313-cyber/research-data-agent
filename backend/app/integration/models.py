@@ -118,3 +118,36 @@ class NormalizationIntegrationResult(ApiModel):
     summary: dict[str, int]
     processed_at: datetime
     notice: str
+
+
+class SchemaMatcherV3Request(ApiModel):
+    source_fields: list[str] = Field(min_length=1, max_length=500)
+    target_fields: list[str] = Field(min_length=1, max_length=500)
+    source_types: dict[str, str] = Field(default_factory=dict)
+    target_types: dict[str, str] = Field(default_factory=dict)
+    source_values: dict[str, list[Any]] = Field(default_factory=dict)
+    target_values: dict[str, list[Any]] = Field(default_factory=dict)
+    source_table: str | None = None
+    target_table: str | None = None
+    source_descriptions: dict[str, str] = Field(default_factory=dict)
+    target_descriptions: dict[str, str] = Field(default_factory=dict)
+
+
+class SchemaMatcherV3Response(ApiModel):
+    matcher_version: str
+    matches: list[dict[str, Any]]
+    qwen_invocation_count: int = Field(ge=0)
+
+
+class EntityMatcherV3Request(ApiModel):
+    left: list[dict[str, Any]] = Field(min_length=1, max_length=5000)
+    right: list[dict[str, Any]] = Field(min_length=1, max_length=5000)
+    id_field: str = "id"
+    study_field: str = "study_id"
+    linker_authorized: bool = False
+
+
+class EntityMatcherV3Response(ApiModel):
+    matcher_version: str
+    matches: list[dict[str, Any]]
+    learned_invocation_count: int = Field(ge=0)

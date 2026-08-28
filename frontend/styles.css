@@ -1290,3 +1290,70 @@ body > main#main-content::before { content: "高级数据工作台"; display: bl
   .planner-plan-grid { grid-template-columns: 1fr; }
   .planner-next-action { align-items: flex-start; flex-direction: column; }
 }
+
+/* Final presentation overrides: one visual language for both workspaces. */
+:root {
+  --planner-ink: #16302f;
+  --planner-muted: #647474;
+  --planner-indigo: #0f766e;
+  --planner-indigo-soft: #e8f3f1;
+  --planner-bg: #eef3f1;
+  --planner-surface: #ffffff;
+  --planner-soft: #f6f9f8;
+  --planner-line: #dbe6e2;
+  --planner-success: #0f766e;
+}
+.planner-app { grid-template-columns: 205px minmax(0, 1fr) 310px; background: #eef3f1; }
+.planner-sidebar { padding: 1.1rem .85rem .85rem; background: #e8efed; border-right-color: #d4e1dd; }
+.planner-brand-mark { border-radius: 8px; background: #0f766e; box-shadow: none; }
+.planner-new-button, .planner-question-card button, .planner-composer button { background: #0f766e; box-shadow: none; }
+.planner-new-button:hover, .planner-question-card button:hover, .planner-composer button:hover { background: #115e59; }
+.planner-next-action { background: #0f766e; box-shadow: none; }
+.planner-next-action button { color: #0f766e; }
+.planner-stage-nav button.is-active { color: #0f766e; box-shadow: 0 2px 8px rgba(15, 118, 110, .08); }
+.planner-stage-nav button small, .planner-recent { display: none; }
+.planner-center, .planner-right { box-shadow: 0 8px 24px rgba(22, 48, 47, .06); }
+.planner-orbit { border-color: #cfe2dd; color: #0f766e; background: #e8f3f1; box-shadow: none; }
+.planner-kicker, .planner-result-heading span, .planner-prompt-grid strong { color: #0f766e; }
+.planner-welcome h1 { color: #16302f; letter-spacing: 0; }
+.planner-prompt-grid { gap: .6rem; }
+.planner-prompt-grid button { min-height: 96px; border-color: #dce7e3; border-radius: 8px; background: #fbfdfc; }
+.planner-prompt-grid button:hover { transform: translateY(-1px); border-color: #9bc9bf; box-shadow: 0 7px 16px rgba(15, 118, 110, .08); }
+.planner-prompt-grid button:nth-child(n + 5) { display: none; }
+.planner-progress-track i { background: #0f766e; }
+.planner-composer { border-color: #cfe0db; border-radius: 9px; box-shadow: 0 6px 18px rgba(22, 48, 47, .08); }
+.planner-scope-chip { color: #41615d; background: #e8f3f1; }
+.planner-empty p { display: none; }
+.planner-tabs button.is-active { color: #0f766e; border-bottom-color: #0f766e; }
+.topbar nav a:nth-child(n + 3):nth-child(-n + 8) { display: none; }
+.hero { padding-top: 2.2rem; padding-bottom: 1.7rem; }
+.hero h1 { max-width: 760px; letter-spacing: 0; }
+.capability-tags span { border-color: #cfe0db; color: #35615b; background: #eff7f5; }
+.protocol-strip { margin-top: .7rem; }
+.protocol-strip li:nth-child(n + 6) { display: none; }
+.task-entry .form-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.task-entry .form-grid label:nth-child(4) { grid-column: 1 / -1; max-width: 310px; }
+.task-entry .switch-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.task-entry .switch-control:nth-child(2) { display: none; }
+.section-heading h2 { letter-spacing: 0; }
+.results-toc a:nth-child(n + 7):nth-child(-n + 8) { display: none; }
+
+@media (max-width: 980px) {
+  .planner-app { grid-template-columns: 175px minmax(0, 1fr); }
+  .planner-right { display: none; }
+  .topbar nav a:nth-child(n + 3) { display: none; }
+}
+@media (max-width: 760px) {
+  .planner-app { display: block; height: auto; min-height: 100vh; overflow: visible; }
+  .planner-sidebar { display: none; }
+  .planner-center { min-height: 100vh; margin: 0; border-radius: 0; }
+  .planner-header { min-height: 58px; padding: 0 1rem; }
+  .planner-welcome { width: min(100% - 2rem, 600px); padding: 2.5rem 0 1.25rem; }
+  .planner-welcome h1 { font-size: 1.7rem; }
+  .planner-prompt-grid { grid-template-columns: 1fr; }
+  .planner-prompt-grid button { min-height: 78px; }
+  .planner-composer { margin: 0 .75rem .75rem; }
+  .planner-composer small { display: none; }
+  .task-entry .form-grid, .task-entry .switch-row { grid-template-columns: 1fr; }
+  .task-entry .form-grid label:nth-child(4) { grid-column: auto; max-width: none; }
+}

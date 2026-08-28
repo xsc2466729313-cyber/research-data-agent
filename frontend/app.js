@@ -453,6 +453,37 @@ async function runResearchTask(payload) {
   }
 }
 
+async function runClosedLoopTask(payload) {
+  await pinPreferredApiOrigin();
+  const body = {
+    initial_request: payload,
+    max_iterations: 2,
+    require_two_rounds: true,
+    min_improvement: 0.01,
+    stop_on_no_improvement: true,
+  };
+  try {
+    const loop = await readJson(await fetchApi("/api/v2/agent/closed-loop", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }));
+    renderClosedLoop(loop);
+    if (!loop.final_result) throw new Error(loop.stop_reason || "闭环没有返回最终结果。");
+    return loop.final_result;
+  } catch (error) {
+    const message = String(error.message || "");
+    if (payload.qwen_session_id && (message.includes("临时会话不存在") || message.includes("已过期"))) {
+      clearStaleQwenSession();
+      const retry = { ...payload };
+      delete retry.qwen_session_id;
+      setProgress(16, "千问临时会话已失效，改用当前后端配置继续闭环…");
+      return runClosedLoopTask(retry);
+    }
+    throw error;
+  }
+}
+
 async function checkConfiguration() {
   const system = document.querySelector("#system-status");
   try {
@@ -679,10 +710,15 @@ form.addEventListener("submit", async (event) => {
   submitButton.disabled = true;
   errorPanel.hidden = true;
   resultsPanel.hidden = true;
+  const closedLoopPanel = document.querySelector("#closed-loop-panel");
+  if (closedLoopPanel) closedLoopPanel.hidden = true;
   state.result = null;
   startProgress();
   try {
-    const result = await runResearchTask(buildAgentTaskPayload());
+    const payload = buildAgentTaskPayload();
+    const result = document.querySelector("#closed-loop")?.checked
+      ? await runClosedLoopTask(payload)
+      : await runResearchTask(payload);
     state.result = result;
     renderResult(result);
     resultsPanel.hidden = false;
@@ -723,6 +759,31 @@ function renderResult(result) {
   renderSources(result.source_items, result.candidate_sources, result.modeling_dataset);
   renderCompetitionReport(result.competition_report);
   persistAndRenderSystemEvaluation(result);
+}
+
+function renderClosedLoop(loop) {
+  const panel = document.querySelector("#closed-loop-panel");
+  const status = document.querySelector("#closed-loop-status");
+  const reason = document.querySelector("#closed-loop-stop-reason");
+  const summary = document.querySelector("#closed-loop-summary");
+  const rounds = document.querySelector("#closed-loop-rounds");
+  if (!panel || !status || !reason || !summary || !rounds || !loop) return;
+  panel.hidden = false;
+  status.textContent = `${loop.completed_iterations || 0} 轮 · ${loop.status || "completed"}`;
+  status.className = `status-badge ${statusClass(loop.status === "completed" ? "PASS" : "REVIEW")}`;
+  reason.textContent = localizeNarrative(loop.stop_reason || "");
+  summary.innerHTML = (loop.improvement_summary || []).map((item) => `<article><span>前后轮对比</span><strong>${escapeHtml(localizeNarrative(item))}</strong></article>`).join("");
+  rounds.innerHTML = (loop.iterations || []).map((item) => {
+    const metrics = item.metrics || {};
+    const diagnoses = (item.diagnoses || []).map((diagnosis) => diagnosis.label).join("、") || "未发现新的缺口";
+    const improvement = item.improvement?.summary?.join("；") || "第一轮基线，尚无前后对比";
+    return `<article class="collection-iteration ${metrics.publish_allowed ? "is-pass" : "is-review"}">
+      <div class="collection-iteration-head"><strong>第 ${escapeHtml(item.iteration)} 轮</strong><span class="status-badge ${statusClass(metrics.quality_gate)}">${escapeHtml(metrics.quality_gate || "REVIEW")}</span></div>
+      <p>诊断：${escapeHtml(localizeNarrative(diagnoses))}</p>
+      <small>progress ${Number(metrics.progress_score || 0).toFixed(2)} · 字段覆盖 ${(Number(metrics.required_field_coverage || 0) * 100).toFixed(1)}% · 目标匹配 ${(Number(metrics.target_match_rate || 0) * 100).toFixed(1)}% · 可追溯 ${(Number(metrics.traceability || 0) * 100).toFixed(1)}% · 未解决缺口 ${escapeHtml(metrics.unresolved_gap_count || 0)}</small>
+      <small>${escapeHtml(localizeNarrative(improvement))}</small>
+    </article>`;
+  }).join("");
 }
 
 function renderResearchBrief(brief, assessment) {
@@ -2992,7 +3053,7 @@ async function runPlannerDatasetBuild(button) {
   plannerElement("#question").value = plannerState.contract.research_question;
   if (status) status.innerHTML = `<div class="planner-build-status"><strong>正在生成科研数据集</strong><p>系统正在检索公开数据库、统一字段、检查患者/样本关联并运行质量门。你可以留在当前页面等待。</p></div>`;
   try {
-    const result = await runResearchTask(buildAgentTaskPayload());
+    const result = await runClosedLoopTask(buildAgentTaskPayload());
     state.result = result;
     renderResult(result);
     const dataset = result.modeling_dataset || {};

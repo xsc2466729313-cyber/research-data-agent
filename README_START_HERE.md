@@ -78,3 +78,18 @@
 前端现已升级为 **Guided Research Planning Workspace**：默认首页从宽泛 Topic 出发，依次展示真实论文 Evidence、候选科研问题、Research Blueprint 和 Source Plan；原完整数据工作台保留为“高级数据工作台”。详见 `docs/FRONTEND_PLANNING_WORKSPACE.md`。
 
 模型评价、架构选择和答辩说明见 `docs/MODEL_EVALUATION_AND_SELECTION_REPORT.md`。该报告明确区分任务级诊断、AI Judge 探针、冻结 Gold Set 正式指标和未完成的横向模型实验，不使用代理分数冒充正式 SDTI。
+
+VNext 检索实测汇总见 `evaluation/vnext_retrieval_calibrated_macro_20260828.md`：BGE-small-en-v1.5 五组 nDCG@10 宏平均 `0.3880`，校准融合 `0.3791`，均高于 tuned BM25 `0.3147`；融合权重只用 train/dev 选择，以上仅为 BEIR 检索层指标，不是临床效果或 SDTI。
+Phase C Research Planning V2 已完成：`POST /api/v2/research/plan` 返回结构化 PICO/PECO 抽取、Evidence Pack、候选问题、变量角色/理由/证据/可用性、研究设计与未决问题；无论文 Evidence 时明确标记 `GENERIC_FALLBACK`，不作为正式科研事实。Phase D Schema Matcher V3 已接入独立模块、`/api/v2/schema/match` 和 Valentine 评测入口，十任务宏平均 F1 `0.7994`，低于现有 V2 `0.8451`，因此保持 V2 为默认。Phase E Entity Matcher V3 已接入 `/api/v2/entity/match`，经 train/valid 阈值校准后五个 DeepMatcher 任务宏平均 F1 `0.5579`、Recall `0.6229`，虽较固定阈值提升但仍低于 V2 F1 `0.7408`，因此保持 V2 为默认。详见 `docs/RESEARCH_AGENT_V2_PHASE_C.md`、`docs/SCHEMA_MATCHER_V3_PHASE_D.md`、`docs/ENTITY_MATCHER_V3_PHASE_E.md`。
+
+Phase F Quality V2 已接入：`/api/v2/quality/detect`、`/api/v2/quality/candidates`、`/api/v2/quality/review` 将错误检测、修复候选、安全应用和 Research Readiness 分离；只自动执行低风险确定性候选，高风险医学字段、身份、response 与关键 provenance 保留审核或阻断。就绪度采用六项 Hard Gates 与可解释 Soft Indicators，正式 Detection F1/Repair Accuracy 等待冻结乳腺癌 Error Gold Set，不报告虚假成绩。详见 `docs/QUALITY_V2_PHASE_F.md`。
+
+端到端对照矩阵与乳腺癌 Gold Set 工作区已建立：`scripts/run_variant_matrix.py` 会冻结 Rule/Qwen/Single-source/Multi-source/Full Agent 的共同控制条件，但在真实模型、冻结 Evaluation Contract 和人工 Gold Set 就绪前保持 `NOT_EVALUATED`。Gold Set 工作区见 `goldset/breast_cancer/README.md`。
+
+VNext 升级已完成 **Phase A 治理底座** 并建立 **Phase B 统一检索协议**：Agent/算法只生成 proposal，独立 Safety Layer 依据证据、医学语义、身份与来源规则输出 `AUTO/REVIEW/REJECT`；检索统一返回 BM25/dense/fusion/rerank 分数、延迟、调用率与审计哈希。当前默认主检索为 BM25，Hashing 仅显式 fallback；真实 embedding/reranker 和五组 BEIR 重跑仍属 Phase B 后续验收。详见 `docs/VNEXT_PHASE_A_B.md`。
+
+当前已补充 **Closed-Loop Iteration V2**：`POST /api/v2/agent/closed-loop` 会保存第一轮完整结果，诊断字段/结局/证据链缺口，安全地生成第二轮检索输入，并返回前后轮 coverage、target match、traceability、review burden 与 progress score 对比；支持 `GET /api/v2/agent/closed-loop/{loop_id}` 查询审计结果。前端研究任务入口已同步提供“启用闭环自我修正”开关、轮次诊断与指标对比展示，并更新脚本缓存版本。闭环最多 4 轮，质量门通过、重复输入或无可验证改进时停止。该 progress score 仅用于任务内反馈，不冒充正式 benchmark 或 SDTI。详见 `docs/CLOSED_LOOP_ITERATION.md`。
+
+闭环默认执行 **两轮研究**：第一轮通过质量门也会生成“补充验证/完整性复核”请求，第二轮严格基于第一轮输出、诊断和已尝试来源重新检索；两轮之后才允许按无改进或质量门规则停止。可通过 `require_two_rounds=false` 保留兼容的提前停止行为，前端默认显式发送 `require_two_rounds=true`。
+
+查询理解层与 A-E 消融已接入公开 BEIR 评测：规则归一化、保护词/漂移校验、原始回退和 `k=60` RRF 均可审计；无外部 Qwen 结构化计划缓存时 C/D/E 明确为 `NOT_EVALUATED`。当前结果仅为检索层诊断，生产默认保持 `compat`。详见 `docs/QUERY_UNDERSTANDING_ABLATION.md`。

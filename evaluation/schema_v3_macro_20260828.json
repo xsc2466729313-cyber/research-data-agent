@@ -1,0 +1,14 @@
+{
+  "evaluation_version": "public-schema-v1",
+  "layer": "external_benchmarks",
+  "stage": "schema_integration",
+  "benchmark": "Valentine",
+  "task_count": 10,
+  "results": {
+    "project_schema_profile_v2": {"precision_macro": 0.9285714286, "recall_macro": 0.7864285714, "f1_macro": 0.8450933707},
+    "project_schema_v3": {"precision_macro": 0.8647695442, "recall_macro": 0.7723809524, "f1_macro": 0.7994012810}
+  },
+  "default_method": "project_schema_profile_v2",
+  "scope_notice": "Generic schema matching only; not clinical validity, patient identity, or SDTI.",
+  "run_prefixes": ["20260828T104132Z_valentine_", "20260828T104133Z_valentine_", "20260828T104135Z_valentine_", "20260828T104136Z_valentine_"]
+}

@@ -1,0 +1,555 @@
+{
+  "evaluation_id": "20260828T095805Z_phase_c",
+  "evaluation_version": "research-agent-v2-phase-c-smoke",
+  "layer": "research_planning",
+  "stage": "integration_smoke",
+  "fixture_notice": "Synthetic local fixture; no external accuracy score is reported.",
+  "checks": {
+    "cases": 2,
+    "evidence_case_source": "GENERIC_FALLBACK",
+    "fallback_case_source": "GENERIC_FALLBACK",
+    "evidence_pack_items": 1,
+    "fallback_pack_items": 0,
+    "required_fields_with_reason": true,
+    "source_id_preserved": true,
+    "raw_value_preserved": true,
+    "qwen_calls": 0
+  },
+  "results": [
+    {
+      "candidate_questions": [
+        {
+          "candidate_id": "question-5acc806be242",
+          "question": "PIK3CA 突变是否与 HER2 阳性乳腺癌患者新辅助治疗后的 pCR 有关？",
+          "research_type": "association",
+          "population": "HER2-positive breast cancer patients receiving neoadjuvant treatment",
+          "exposure": "PIK3CA mutation status",
+          "outcome": "pathological complete response",
+          "rank": 1,
+          "feasibility_score": 0.24,
+          "evidence_refs": [],
+          "generation_source": "GENERIC_FALLBACK"
+        },
+        {
+          "candidate_id": "question-69105e34173a",
+          "question": "乳腺癌不同受体亚型在新辅助治疗后的 pCR 是否存在差异？",
+          "research_type": "association",
+          "population": "breast cancer patients receiving neoadjuvant treatment",
+          "exposure": "ER/PR/HER2 receptor subtype",
+          "outcome": "pathological complete response",
+          "rank": 2,
+          "feasibility_score": 0.24,
+          "evidence_refs": [],
+          "generation_source": "GENERIC_FALLBACK"
+        },
+        {
+          "candidate_id": "question-389647a2e893",
+          "question": "治疗前基因表达特征能否预测乳腺癌新辅助治疗后的 pCR？",
+          "research_type": "classification_prediction",
+          "population": "breast cancer patients with pretreatment tumor samples",
+          "exposure": "pretreatment gene expression features",
+          "outcome": "pathological complete response",
+          "rank": 3,
+          "feasibility_score": 0.24,
+          "evidence_refs": [],
+          "generation_source": "GENERIC_FALLBACK"
+        }
+      ],
+      "selected_question": {
+        "candidate_id": "question-5acc806be242",
+        "question": "PIK3CA 突变是否与 HER2 阳性乳腺癌患者新辅助治疗后的 pCR 有关？",
+        "research_type": "association",
+        "population": "HER2-positive breast cancer patients receiving neoadjuvant treatment",
+        "exposure": "PIK3CA mutation status",
+        "outcome": "pathological complete response",
+        "rank": 1,
+        "feasibility_score": 0.24,
+        "evidence_refs": [],
+        "generation_source": "GENERIC_FALLBACK"
+      },
+      "required_fields": [
+        {
+          "field_id": "study_id",
+          "role": "identity",
+          "reason": "不同独立队列只能纵向追加，必须保留研究边界。",
+          "evidence_refs": [],
+          "availability": "operational_rule",
+          "priority": "required"
+        },
+        {
+          "field_id": "patient_id",
+          "role": "identity",
+          "reason": "用于患者级分析、去重与安全实体关联；低置信度关联进入 review。",
+          "evidence_refs": [],
+          "availability": "operational_rule",
+          "priority": "required"
+        },
+        {
+          "field_id": "sample_id",
+          "role": "identity",
+          "reason": "用于样本级溯源并防止把不同样本误当同一患者记录。",
+          "evidence_refs": [],
+          "availability": "operational_rule",
+          "priority": "required"
+        },
+        {
+          "field_id": "disease",
+          "role": "population",
+          "reason": "确认研究人群疾病边界。",
+          "evidence_refs": [
+            "fixture:phase-c:fixture:phase-c:001"
+          ],
+          "availability": "supported",
+          "priority": "required"
+        },
+        {
+          "field_id": "source_id",
+          "role": "provenance",
+          "reason": "关键非空字段必须可追溯到真实来源。",
+          "evidence_refs": [],
+          "availability": "operational_rule",
+          "priority": "required"
+        },
+        {
+          "field_id": "pik3ca_mutation",
+          "role": "primary_exposure",
+          "reason": "候选问题点名的主要分子暴露，必须来自同一患者/样本队列。",
+          "evidence_refs": [
+            "fixture:phase-c:fixture:phase-c:001"
+          ],
+          "availability": "supported",
+          "priority": "required"
+        },
+        {
+          "field_id": "pcr",
+          "role": "primary_outcome",
+          "reason": "候选问题的主要结局；必须来自 clinical response 域，不能由细胞系 AUC/IC50 替代。",
+          "evidence_refs": [
+            "fixture:phase-c:fixture:phase-c:001"
+          ],
+          "availability": "supported",
+          "priority": "required"
+        },
+        {
+          "field_id": "response_domain",
+          "role": "safety",
+          "reason": "冻结医学规则要求区分患者临床结局、细胞系药敏、临床试验和知识证据。",
+          "evidence_refs": [],
+          "availability": "operational_rule",
+          "priority": "required"
+        },
+        {
+          "field_id": "her2_status",
+          "role": "population_or_covariate",
+          "reason": "HER2 IHC 2+ 不得直接判为 Positive，ERBB2 CNA amplification 也不能替代 IHC 状态。",
+          "evidence_refs": [],
+          "availability": "missing",
+          "priority": "required"
+        }
+      ],
+      "recommended_fields": [
+        {
+          "field_id": "treatment",
+          "role": "treatment_context",
+          "reason": "治疗方案差异可能影响 pCR，需要用于分层或混杂控制。",
+          "evidence_refs": [
+            "fixture:phase-c:fixture:phase-c:001"
+          ],
+          "availability": "supported",
+          "priority": "recommended"
+        },
+        {
+          "field_id": "er_status",
+          "role": "covariate",
+          "reason": "常用临床协变量；缺失不阻断主问题，但会限制混杂控制。",
+          "evidence_refs": [],
+          "availability": "missing",
+          "priority": "recommended"
+        },
+        {
+          "field_id": "pr_status",
+          "role": "covariate",
+          "reason": "常用临床协变量；缺失不阻断主问题，但会限制混杂控制。",
+          "evidence_refs": [],
+          "availability": "missing",
+          "priority": "recommended"
+        },
+        {
+          "field_id": "age",
+          "role": "covariate",
+          "reason": "常用临床协变量；缺失不阻断主问题，但会限制混杂控制。",
+          "evidence_refs": [],
+          "availability": "missing",
+          "priority": "recommended"
+        },
+        {
+          "field_id": "stage",
+          "role": "covariate",
+          "reason": "常用临床协变量；缺失不阻断主问题，但会限制混杂控制。",
+          "evidence_refs": [],
+          "availability": "missing",
+          "priority": "recommended"
+        }
+      ],
+      "optional_fields": [
+        {
+          "field_id": "grade",
+          "role": "covariate",
+          "reason": "可增强亚组描述，但缺失不影响主问题。",
+          "evidence_refs": [],
+          "availability": "missing",
+          "priority": "optional"
+        }
+      ],
+      "study_design": {
+        "design": "observational_association",
+        "analysis_unit": "patient_or_sample",
+        "split_strategy": "cohort_preserving_analysis",
+        "population": "HER2-positive breast cancer patients receiving neoadjuvant treatment",
+        "exposure": "PIK3CA mutation status",
+        "outcome": "pathological complete response",
+        "response_domain": "clinical",
+        "leakage_controls": [
+          "不同研究保留 study_id 边界，不按同名 patient_id 横向拼接"
+        ],
+        "evidence_required": true,
+        "data_sources": [],
+        "constraints": {}
+      },
+      "metrics": [
+        {
+          "metric_id": "odds_ratio",
+          "role": "primary",
+          "reason": "根据研究范式 association 的确定性指标映射选择；若论文 Methods 有定义则附在证据中。",
+          "evidence_refs": []
+        },
+        {
+          "metric_id": "confidence_interval_95",
+          "role": "supporting",
+          "reason": "根据研究范式 association 的确定性指标映射选择；若论文 Methods 有定义则附在证据中。",
+          "evidence_refs": []
+        },
+        {
+          "metric_id": "p_value",
+          "role": "supporting",
+          "reason": "根据研究范式 association 的确定性指标映射选择；若论文 Methods 有定义则附在证据中。",
+          "evidence_refs": []
+        }
+      ],
+      "evidence_refs": [
+        "fixture:phase-c:fixture:phase-c:001"
+      ],
+      "unresolved_questions": [
+        "HER2 状态"
+      ],
+      "question_generation_source": "GENERIC_FALLBACK",
+      "structured_extraction": {
+        "population": [
+          "乳腺癌"
+        ],
+        "intervention": [
+          "治疗"
+        ],
+        "exposure": [
+          "mutation",
+          "PIK3CA"
+        ],
+        "comparator": [],
+        "outcome": [
+          "pCR",
+          "pathological complete response",
+          "response"
+        ],
+        "covariates": [
+          "ER"
+        ],
+        "subgroups": [],
+        "granularity": "patient_or_sample",
+        "research_type": "association",
+        "evidence_refs": [
+          "evidence-78e4483dff4b19e6"
+        ],
+        "extraction_source": "EVIDENCE_AGENT",
+        "confidence": 0.78
+      },
+      "evidence_pack": [
+        {
+          "evidence_id": "evidence-78e4483dff4b19e6",
+          "paper_id": "fixture:phase-c:001",
+          "source_id": "fixture:phase-c",
+          "source_url": "https://example.invalid/local-regression-fixture",
+          "provider": "local_regression_fixture",
+          "section": "methods",
+          "evidence_type": "research_agent_extraction",
+          "text": "PIK3CA mutation and pathological complete response were recorded.",
+          "raw_field": "paper.section",
+          "raw_value": "PIK3CA mutation and pathological complete response were recorded.",
+          "confidence": 0.92
+        }
+      ],
+      "fallback_template_only": true,
+      "agent_version": "research-agent-v2.1",
+      "audit": {
+        "input_paper_count": 1,
+        "evidence_item_count": 1,
+        "question_generation_source": "GENERIC_FALLBACK",
+        "qwen_invocation_count": 0,
+        "runtime_data_verification": false,
+        "created_at": "2026-08-28T09:58:05.253874+00:00"
+      },
+      "notice": "输出来自真实论文 Evidence 的结构化规划；变量仍需 Data Agent 做 runtime verification。"
+    },
+    {
+      "candidate_questions": [
+        {
+          "candidate_id": "question-667939fc4054",
+          "question": "PIK3CA 突变是否与 HER2 阳性乳腺癌患者新辅助治疗后的 pCR 有关？",
+          "research_type": "association",
+          "population": "HER2-positive breast cancer patients receiving neoadjuvant treatment",
+          "exposure": "PIK3CA mutation status",
+          "outcome": "pathological complete response",
+          "rank": 1,
+          "feasibility_score": 0.24,
+          "evidence_refs": [],
+          "generation_source": "GENERIC_FALLBACK"
+        },
+        {
+          "candidate_id": "question-c4149b59b2af",
+          "question": "乳腺癌不同受体亚型在新辅助治疗后的 pCR 是否存在差异？",
+          "research_type": "association",
+          "population": "breast cancer patients receiving neoadjuvant treatment",
+          "exposure": "ER/PR/HER2 receptor subtype",
+          "outcome": "pathological complete response",
+          "rank": 2,
+          "feasibility_score": 0.24,
+          "evidence_refs": [],
+          "generation_source": "GENERIC_FALLBACK"
+        },
+        {
+          "candidate_id": "question-dcf14c0fb906",
+          "question": "治疗前基因表达特征能否预测乳腺癌新辅助治疗后的 pCR？",
+          "research_type": "classification_prediction",
+          "population": "breast cancer patients with pretreatment tumor samples",
+          "exposure": "pretreatment gene expression features",
+          "outcome": "pathological complete response",
+          "rank": 3,
+          "feasibility_score": 0.24,
+          "evidence_refs": [],
+          "generation_source": "GENERIC_FALLBACK"
+        }
+      ],
+      "selected_question": {
+        "candidate_id": "question-667939fc4054",
+        "question": "PIK3CA 突变是否与 HER2 阳性乳腺癌患者新辅助治疗后的 pCR 有关？",
+        "research_type": "association",
+        "population": "HER2-positive breast cancer patients receiving neoadjuvant treatment",
+        "exposure": "PIK3CA mutation status",
+        "outcome": "pathological complete response",
+        "rank": 1,
+        "feasibility_score": 0.24,
+        "evidence_refs": [],
+        "generation_source": "GENERIC_FALLBACK"
+      },
+      "required_fields": [
+        {
+          "field_id": "study_id",
+          "role": "identity",
+          "reason": "不同独立队列只能纵向追加，必须保留研究边界。",
+          "evidence_refs": [],
+          "availability": "operational_rule",
+          "priority": "required"
+        },
+        {
+          "field_id": "patient_id",
+          "role": "identity",
+          "reason": "用于患者级分析、去重与安全实体关联；低置信度关联进入 review。",
+          "evidence_refs": [],
+          "availability": "operational_rule",
+          "priority": "required"
+        },
+        {
+          "field_id": "sample_id",
+          "role": "identity",
+          "reason": "用于样本级溯源并防止把不同样本误当同一患者记录。",
+          "evidence_refs": [],
+          "availability": "operational_rule",
+          "priority": "required"
+        },
+        {
+          "field_id": "disease",
+          "role": "population",
+          "reason": "确认研究人群疾病边界。",
+          "evidence_refs": [],
+          "availability": "missing",
+          "priority": "required"
+        },
+        {
+          "field_id": "source_id",
+          "role": "provenance",
+          "reason": "关键非空字段必须可追溯到真实来源。",
+          "evidence_refs": [],
+          "availability": "operational_rule",
+          "priority": "required"
+        },
+        {
+          "field_id": "pik3ca_mutation",
+          "role": "primary_exposure",
+          "reason": "候选问题点名的主要分子暴露，必须来自同一患者/样本队列。",
+          "evidence_refs": [],
+          "availability": "missing",
+          "priority": "required"
+        },
+        {
+          "field_id": "pcr",
+          "role": "primary_outcome",
+          "reason": "候选问题的主要结局；必须来自 clinical response 域，不能由细胞系 AUC/IC50 替代。",
+          "evidence_refs": [],
+          "availability": "missing",
+          "priority": "required"
+        },
+        {
+          "field_id": "response_domain",
+          "role": "safety",
+          "reason": "冻结医学规则要求区分患者临床结局、细胞系药敏、临床试验和知识证据。",
+          "evidence_refs": [],
+          "availability": "operational_rule",
+          "priority": "required"
+        },
+        {
+          "field_id": "her2_status",
+          "role": "population_or_covariate",
+          "reason": "HER2 IHC 2+ 不得直接判为 Positive，ERBB2 CNA amplification 也不能替代 IHC 状态。",
+          "evidence_refs": [],
+          "availability": "missing",
+          "priority": "required"
+        }
+      ],
+      "recommended_fields": [
+        {
+          "field_id": "treatment",
+          "role": "treatment_context",
+          "reason": "治疗方案差异可能影响 pCR，需要用于分层或混杂控制。",
+          "evidence_refs": [],
+          "availability": "missing",
+          "priority": "recommended"
+        },
+        {
+          "field_id": "er_status",
+          "role": "covariate",
+          "reason": "常用临床协变量；缺失不阻断主问题，但会限制混杂控制。",
+          "evidence_refs": [],
+          "availability": "missing",
+          "priority": "recommended"
+        },
+        {
+          "field_id": "pr_status",
+          "role": "covariate",
+          "reason": "常用临床协变量；缺失不阻断主问题，但会限制混杂控制。",
+          "evidence_refs": [],
+          "availability": "missing",
+          "priority": "recommended"
+        },
+        {
+          "field_id": "age",
+          "role": "covariate",
+          "reason": "常用临床协变量；缺失不阻断主问题，但会限制混杂控制。",
+          "evidence_refs": [],
+          "availability": "missing",
+          "priority": "recommended"
+        },
+        {
+          "field_id": "stage",
+          "role": "covariate",
+          "reason": "常用临床协变量；缺失不阻断主问题，但会限制混杂控制。",
+          "evidence_refs": [],
+          "availability": "missing",
+          "priority": "recommended"
+        }
+      ],
+      "optional_fields": [
+        {
+          "field_id": "grade",
+          "role": "covariate",
+          "reason": "可增强亚组描述，但缺失不影响主问题。",
+          "evidence_refs": [],
+          "availability": "missing",
+          "priority": "optional"
+        }
+      ],
+      "study_design": {
+        "design": "observational_association",
+        "analysis_unit": "patient_or_sample",
+        "split_strategy": "cohort_preserving_analysis",
+        "population": "HER2-positive breast cancer patients receiving neoadjuvant treatment",
+        "exposure": "PIK3CA mutation status",
+        "outcome": "pathological complete response",
+        "response_domain": "clinical",
+        "leakage_controls": [
+          "不同研究保留 study_id 边界，不按同名 patient_id 横向拼接"
+        ],
+        "evidence_required": true,
+        "data_sources": [],
+        "constraints": {}
+      },
+      "metrics": [
+        {
+          "metric_id": "odds_ratio",
+          "role": "primary",
+          "reason": "根据研究范式 association 的确定性指标映射选择；若论文 Methods 有定义则附在证据中。",
+          "evidence_refs": []
+        },
+        {
+          "metric_id": "confidence_interval_95",
+          "role": "supporting",
+          "reason": "根据研究范式 association 的确定性指标映射选择；若论文 Methods 有定义则附在证据中。",
+          "evidence_refs": []
+        },
+        {
+          "metric_id": "p_value",
+          "role": "supporting",
+          "reason": "根据研究范式 association 的确定性指标映射选择；若论文 Methods 有定义则附在证据中。",
+          "evidence_refs": []
+        }
+      ],
+      "evidence_refs": [],
+      "unresolved_questions": [
+        "需要至少一个可核验论文 Evidence 后再进入正式 Research Contract。",
+        "疾病",
+        "PIK3CA 突变状态",
+        "病理完全缓解 pCR",
+        "HER2 状态"
+      ],
+      "question_generation_source": "GENERIC_FALLBACK",
+      "structured_extraction": {
+        "population": [
+          "乳腺癌"
+        ],
+        "intervention": [
+          "治疗"
+        ],
+        "exposure": [],
+        "comparator": [],
+        "outcome": [],
+        "covariates": [],
+        "subgroups": [],
+        "granularity": "patient_or_sample",
+        "research_type": "association",
+        "evidence_refs": [],
+        "extraction_source": "GENERIC_FALLBACK",
+        "confidence": 0.25
+      },
+      "evidence_pack": [],
+      "fallback_template_only": true,
+      "agent_version": "research-agent-v2.1",
+      "audit": {
+        "input_paper_count": 0,
+        "evidence_item_count": 0,
+        "question_generation_source": "GENERIC_FALLBACK",
+        "qwen_invocation_count": 0,
+        "runtime_data_verification": false,
+        "created_at": "2026-08-28T09:58:05.254148+00:00"
+      },
+      "notice": "候选问题和变量仅为 GENERIC_FALLBACK；没有论文 Evidence 时不进入正式数据获取。"
+    }
+  ]
+}

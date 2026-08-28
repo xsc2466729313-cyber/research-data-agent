@@ -14,3 +14,8 @@ evaluation/smoke_results*/
 node_modules/
 *.log
 runtime-logs/
+
+# Public benchmark corpora and repeated run directories are reproducible from
+# the scripts and manifests; keep only curated summaries under evaluation/.
+evaluation/public_benchmarks/runs/
+evaluation/closed_loop/*.json

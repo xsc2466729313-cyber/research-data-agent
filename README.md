@@ -25,6 +25,10 @@
 - [Source Broker](docs/SOURCE_BROKER_PHASE4.md)
 - [分层公开评测方案](docs/PUBLIC_BENCHMARK_EVALUATION.md)
 - [公开评测对比结果](docs/PUBLIC_BENCHMARK_COMPARISON.md)
+- [最终系统架构图](docs/FINAL_SYSTEM_ARCHITECTURE.md)
+- [最终设计报告](docs/FINAL_DESIGN_REPORT_20260828.md)
+- [最终功能与 API 报告](docs/FINAL_FUNCTION_REPORT_20260828.md)
+- [最终评测报告](evaluation/FINAL_EVALUATION_REPORT_20260828.md)
 
 ## 端到端工作流
 

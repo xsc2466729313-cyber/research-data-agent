@@ -69,3 +69,17 @@ def test_load_schema_task_uses_matches_not_overlap_cols(tmp_path: Path) -> None:
 def test_prepare_schema_dataset_requires_download_when_missing(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError, match="--download"):
         prepare_schema_dataset("valentine_education_covid_meals", tmp_path, download=False)
+
+
+def test_v3_schema_method_is_label_independent_and_uses_value_context() -> None:
+    source = ["age_at_diagnosis", "her2"]
+    target = ["patient_age", "her2_status"]
+    predicted = predict_schema_matches(
+        source,
+        target,
+        "project_schema_v3",
+        source_samples={"age_at_diagnosis": [60, 61], "her2": ["Positive"]},
+        target_samples={"patient_age": [60, 61], "her2_status": ["Positive"]},
+    )
+    assert ("age_at_diagnosis", "patient_age") in predicted
+    assert ("her2", "her2_status") in predicted

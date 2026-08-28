@@ -13,6 +13,9 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from backend.app.integration.entity_matcher_v3 import EntityMatcherV3, EntityMatcherV3Config
+from backend.app.integration.patient_sample_linker import PatientSampleLinker
+
 
 ENTITY_DATASETS = {
     "deepmatcher_dblp_acm": {
@@ -279,6 +282,13 @@ def _predict(
             + config.exact_field_weight * exact_fraction
         )
         return score >= config.threshold
+    if method == "project_entity_v3":
+        config = rule_config if isinstance(rule_config, EntityMatcherV3Config) else None
+        matches = EntityMatcherV3(config=config).match([left], [right], patient_sample_linker=PatientSampleLinker())
+        # Public entity benchmark measures candidate/final proposal recall;
+        # only the production linker may turn LINK into a merge. REVIEW is
+        # therefore counted as a positive proposal, not as an automatic merge.
+        return bool(matches and matches[0].decision in {"LINK", "REVIEW"})
     raise ValueError(f"Unsupported method: {method}")
 
 
@@ -361,6 +371,32 @@ def fit_entity_rule(
     return EntityRuleConfig(*best[3], threshold=best[2])
 
 
+def fit_entity_v3_threshold(
+    train_pairs: list[tuple[dict[str, str], dict[str, str], int]],
+    valid_pairs: list[tuple[dict[str, str], dict[str, str], int]],
+) -> EntityMatcherV3Config:
+    """Calibrate only the REVIEW proposal threshold on held-in data."""
+    development = valid_pairs or train_pairs
+    if not development:
+        raise ValueError("Cannot fit entity v3 threshold on an empty development split")
+    matcher = EntityMatcherV3()
+    scored = [(matcher._model_score(matcher._features(left, right), left, right)[0], label) for left, right, label in development]
+    best: tuple[float, float] | None = None
+    for index in range(20, 91):
+        threshold = index / 100
+        tp = sum(score >= threshold and label == 1 for score, label in scored)
+        fp = sum(score >= threshold and label == 0 for score, label in scored)
+        fn = sum(score < threshold and label == 1 for score, label in scored)
+        precision = tp / (tp + fp) if tp + fp else 0.0
+        recall = tp / (tp + fn) if tp + fn else 0.0
+        f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
+        candidate = (f1, threshold)
+        if best is None or candidate[0] > best[0] or (candidate[0] == best[0] and candidate[1] > best[1]):
+            best = candidate
+    assert best is not None
+    return EntityMatcherV3Config(review_threshold=best[1], fit_split="train_valid")
+
+
 def _git_revision(project_root: Path) -> str:
     result = subprocess.run(["git", "rev-parse", "HEAD"], cwd=project_root, capture_output=True, text=True, check=False)
     return result.stdout.strip() or "unknown"
@@ -372,7 +408,7 @@ def write_entity_run(
     dataset_id: str,
     manifest: dict[str, str],
     results: dict[str, EntityMetrics],
-    method_configs: dict[str, EntityRuleConfig],
+    method_configs: dict[str, object],
     output_root: Path,
 ) -> Path:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -405,6 +441,7 @@ def write_entity_run(
         "title_jaccard": "Title token Jaccard",
         "project_portability_rule_v1": "Project portability rule v1",
         "project_learned_entity_v2": "Project learned entity rule v2",
+        "project_entity_v3": "Project entity matcher v3",
     }
     with (run_dir / "unified_results.csv").open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
@@ -459,12 +496,13 @@ def run_public_entity_benchmark(*, project_root: Path, dataset_id: str, data_roo
     valid_pairs, _ = load_entity_pairs(dataset_dir, "valid")
     test_pairs, _ = load_entity_pairs(dataset_dir, "test")
     learned_config = fit_entity_rule(train_pairs, valid_pairs)
-    methods = ["exact_title", "title_jaccard", "project_portability_rule_v1", "project_learned_entity_v2"]
+    v3_config = fit_entity_v3_threshold(train_pairs, valid_pairs)
+    methods = ["exact_title", "title_jaccard", "project_portability_rule_v1", "project_learned_entity_v2", "project_entity_v3"]
     results = {
         method: evaluate_entity_pairs(
             test_pairs,
             method,
-            rule_config=learned_config if method == "project_learned_entity_v2" else None,
+            rule_config=(learned_config if method == "project_learned_entity_v2" else v3_config if method == "project_entity_v3" else None),
         )
         for method in methods
     }
@@ -479,6 +517,6 @@ def run_public_entity_benchmark(*, project_root: Path, dataset_id: str, data_roo
         dataset_id=dataset_id,
         manifest=manifest,
         results=results,
-        method_configs={"project_learned_entity_v2": learned_config},
+        method_configs={"project_learned_entity_v2": learned_config, "project_entity_v3": v3_config},
         output_root=output_root,
     )
