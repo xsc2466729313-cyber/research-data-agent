@@ -162,13 +162,25 @@ class QwenJudge:
 
     @staticmethod
     def _normalize(payload: dict[str, Any]) -> dict[str, Any]:
+        def numeric(value: Any, default: float) -> float:
+            if isinstance(value, dict):
+                value = value.get("score", value.get("value", value.get("rate", default)))
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return default
+
         result: dict[str, Any] = {}
         for key in ("faithfulness", "relevance", "completeness", "retrieval_quality"):
             item = payload.get(key) or {}
-            score = max(1, min(5, int(float(item.get("score", 1)))))
-            result[key] = {"score": score, "reason": str(item.get("reason") or "未提供理由")[:1000]}
-        result["overall"] = max(1, min(5, int(float(payload.get("overall", 1)))))
-        result["claim_support_rate"] = max(0.0, min(1.0, float(payload.get("claim_support_rate", 0))))
+            score = max(1, min(5, int(numeric(item, 1))))
+            reason = item.get("reason") if isinstance(item, dict) else None
+            result[key] = {"score": score, "reason": str(reason or "未提供理由")[:1000]}
+        result["overall"] = max(1, min(5, int(numeric(payload.get("overall"), 1))))
+        result["claim_support_rate"] = max(
+            0.0,
+            min(1.0, numeric(payload.get("claim_support_rate"), 0.0)),
+        )
         def as_list(value: Any) -> list[Any]:
             if value is None:
                 return []

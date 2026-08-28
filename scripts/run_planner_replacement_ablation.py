@@ -228,7 +228,12 @@ def main() -> int:
             service = ResearchAgentService(qwen_client=client)
             try:
                 for repeat in range(1, args.repeats + 1):
-                    for case in cases:
+                    for case_index, case in enumerate(cases, 1):
+                        print(
+                            f"[{label}] repeat={repeat}/{args.repeats} "
+                            f"case={case_index}/{len(cases)} {case.case_id}",
+                            flush=True,
+                        )
                         started = time.perf_counter()
                         try:
                             result = service.run(
@@ -259,6 +264,12 @@ def main() -> int:
                             }
                         row.update({"variant": label, "provider": provider, "planner_model": settings.model, "repeat": repeat})
                         rows_by_variant[label].append(row)
+                        print(
+                            f"  status={row.get('status')} rank={row.get('rank')} "
+                            f"judge={'ok' if row.get('judge_scores') else 'error'} "
+                            f"latency_ms={float(row.get('latency_ms') or 0):.0f}",
+                            flush=True,
+                        )
             finally:
                 client.close()
     finally:

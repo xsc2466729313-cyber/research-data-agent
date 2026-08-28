@@ -9,6 +9,7 @@ from scripts.run_planner_replacement_ablation import (
     safe_run_row,
     write_report,
 )
+from backend.app.agent.evaluator import QwenJudge
 
 
 def test_ablation_metadata_keeps_qwen_as_production_and_reviewer(tmp_path: Path) -> None:
@@ -96,3 +97,20 @@ def test_ablation_output_whitelist_does_not_persist_secrets(tmp_path: Path) -> N
     payload = json.loads(content)
     assert payload["metadata"]["review_provider"] == "qwen"
     assert "must-not-be-written" not in content
+
+
+def test_qwen_judge_accepts_object_wrapped_numeric_fields() -> None:
+    normalized = QwenJudge._normalize({
+        "faithfulness": {"score": 4, "reason": "有来源"},
+        "relevance": 5,
+        "completeness": {"value": 3},
+        "retrieval_quality": {"score": 4},
+        "overall": {"score": 4},
+        "claim_support_rate": {"rate": 0.75},
+        "missing_evidence": [],
+        "unsupported_claims": [],
+    })
+
+    assert normalized["overall"] == 4
+    assert normalized["claim_support_rate"] == 0.75
+    assert normalized["relevance"]["score"] == 5

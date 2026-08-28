@@ -1,0 +1,776 @@
+{
+  "metadata": {
+    "protocol": "planner-replacement-ablation-v2",
+    "production_provider": "qwen",
+    "production_model": "qwen-plus",
+    "control_group": "Qwen 中间智能体（对照组）",
+    "ablation_provider": "deepseek",
+    "ablation_model": "deepseek-chat",
+    "experiment_group": "DeepSeek 替换中间智能体（实验组）",
+    "review_provider": "qwen",
+    "review_model": "qwen-plus",
+    "shared_summary_provider": "qwen",
+    "shared_summary_model": "qwen-plus",
+    "replacement_scope": "research question parsing, planning and tool selection only",
+    "production_path_modified": false,
+    "benchmark": "evaluation\\retrieval_gold.template.jsonl",
+    "cases": 3,
+    "repeats": 3,
+    "fixed_conditions": {
+      "data_mode": "live",
+      "max_sources": 3,
+      "max_records": 500,
+      "iterative_collection": true,
+      "max_rounds": 2,
+      "temperature_policy": "client defaults shared by both variants"
+    },
+    "formal_metrics": "NOT_EVALUATED_without_frozen_breast_cancer_goldset",
+    "qwen_review_role": "auxiliary_diagnostic_not_ground_truth",
+    "api_keys_written": false
+  },
+  "summary": {
+    "Qwen 中间智能体（对照组）": {
+      "cases": 9,
+      "judge_model": "qwen-plus",
+      "metrics": {
+        "recall@1": 0.3333333333333333,
+        "recall@3": 0.6666666666666666,
+        "recall@5": 0.8888888888888888,
+        "mrr@3": 0.5,
+        "ndcg@3": 0.5436432511904858,
+        "recall@3_easy": 1.0,
+        "recall@3_hard": 1.0,
+        "recall@3_medium": 0.0,
+        "avg_latency_ms": 43882.764466663095,
+        "judge_valid_rate": 0.5555555555555556,
+        "avg_faithfulness": 4.2,
+        "avg_relevance": 5.0,
+        "avg_completeness": 3.0,
+        "avg_retrieval_quality": 4.2,
+        "avg_overall": 4.0,
+        "avg_claim_support_rate": 0.6599999999999999
+      },
+      "latency_ms_stdev": 6300.68,
+      "runs": 9
+    },
+    "DeepSeek 替换中间智能体（实验组）": {
+      "cases": 9,
+      "judge_model": "qwen-plus",
+      "metrics": {
+        "recall@1": 0.8888888888888888,
+        "recall@3": 1.0,
+        "recall@5": 1.0,
+        "mrr@3": 0.925925925925926,
+        "ndcg@3": 0.9444444444444444,
+        "recall@3_easy": 1.0,
+        "recall@3_hard": 1.0,
+        "recall@3_medium": 1.0,
+        "avg_latency_ms": 19230.30021111481,
+        "judge_valid_rate": 0.3333333333333333,
+        "avg_faithfulness": 4.0,
+        "avg_relevance": 5.0,
+        "avg_completeness": 3.0,
+        "avg_retrieval_quality": 4.0,
+        "avg_overall": 4.0,
+        "avg_claim_support_rate": 0.7966666666666665
+      },
+      "latency_ms_stdev": 10626.97,
+      "runs": 9
+    }
+  },
+  "runs": {
+    "Qwen 中间智能体（对照组）": [
+      {
+        "case_id": "brca-her2-response-001",
+        "difficulty": "medium",
+        "repeat": 1,
+        "variant": "Qwen 中间智能体（对照组）",
+        "provider": "qwen",
+        "planner_model": "qwen-plus",
+        "status": "完成",
+        "used_model": true,
+        "used_qwen": true,
+        "reported_provider": "千问",
+        "reported_model": "qwen-plus",
+        "rank": null,
+        "latency_ms": 35310.0420999981,
+        "task_id": "agent-7f32f7ab5715",
+        "tool_calls": 6,
+        "source_items": 11,
+        "candidate_sources": 7,
+        "dataset_rows": 736,
+        "quality_gate": "REVIEW",
+        "analysis_ready": true,
+        "judge_scores": {},
+        "judge_error": "TypeError: float() argument must be a string or a real number, not 'dict'",
+        "run_error": null
+      },
+      {
+        "case_id": "brca-erbb2-clinical-002",
+        "difficulty": "easy",
+        "repeat": 1,
+        "variant": "Qwen 中间智能体（对照组）",
+        "provider": "qwen",
+        "planner_model": "qwen-plus",
+        "status": "完成",
+        "used_model": true,
+        "used_qwen": true,
+        "reported_provider": "千问",
+        "reported_model": "qwen-plus",
+        "rank": 2,
+        "latency_ms": 45913.80699997535,
+        "task_id": "agent-ca49ea4ef327",
+        "tool_calls": 6,
+        "source_items": 36,
+        "candidate_sources": 7,
+        "dataset_rows": 28,
+        "quality_gate": "REVIEW",
+        "analysis_ready": false,
+        "judge_scores": {
+          "faithfulness": {
+            "score": 5,
+            "reason": "所有数据来源、工具调用、字段映射和清洗操作均严格依据原始检索日志与元数据描述，未引入外部事实或推断；如‘ERBB2突变仅1例检出’直接对应summary_zh中明确陈述。"
+          },
+          "relevance": {
+            "score": 5,
+            "reason": "所选7个候选源（TCGA PanCan Atlas、METABRIC、CIViC、GDC TCGA-BRCA、GEO GSE243375/GSE254622）全部聚焦乳腺癌+ERBB2，且覆盖临床、突变、证据三类required_data_types；relevance_score均≥0.86。"
+          },
+          "completeness": {
+            "score": 4,
+            "reason": "target_fields中erbb2_immunohistochemistry_result、erbb2_ish_result、erbb2_variant_allele_frequency等关键字段在cBioPortal/GDC原始数据中未提供（仅提供突变/扩增状态），故宽表中缺失；field_completeness_rate=63.96%印证部分字段不可得。"
+          },
+          "retrieval_quality": {
+            "score": 5,
+            "reason": "6/6工具调用成功；36个真实来源登记完整；source_items含28个可追溯的本地缓存/下载文件，checksum齐全；GDC MAF、CIViC evidence-item、cBioPortal clinical_sample等均为高保真原始数据格式。"
+          },
+          "overall": 5,
+          "claim_support_rate": 1.0,
+          "missing_evidence": [
+            "erbb2_immunohistochemistry_result",
+            "erbb2_ish_result",
+            "erbb2_variant_genomic_coordinates",
+            "tumor_purity",
+            "ki67_index",
+            "evidence_publication"
+          ],
+          "unsupported_claims": []
+        },
+        "judge_error": null,
+        "run_error": null
+      },
+      {
+        "case_id": "brca-treatment-evidence-003",
+        "difficulty": "hard",
+        "repeat": 1,
+        "variant": "Qwen 中间智能体（对照组）",
+        "provider": "qwen",
+        "planner_model": "qwen-plus",
+        "status": "完成",
+        "used_model": true,
+        "used_qwen": true,
+        "reported_provider": "千问",
+        "reported_model": "qwen-plus",
+        "rank": 1,
+        "latency_ms": 45962.400399992475,
+        "task_id": "agent-ede3f016a617",
+        "tool_calls": 6,
+        "source_items": 28,
+        "candidate_sources": 24,
+        "dataset_rows": 221,
+        "quality_gate": "REVIEW",
+        "analysis_ready": true,
+        "judge_scores": {
+          "faithfulness": {
+            "score": 4,
+            "reason": "检索严格遵循任务目标：区分患者队列（GSE298828等GEO队列）与医学知识证据（CIViC），未跨源拼接分子-结局数据；cBioPortal失败已如实记录，未虚构结果。"
+          },
+          "relevance": {
+            "score": 5,
+            "reason": "CIViC返回31条PIK3CA在乳腺癌中的治疗相关证据（含evidence_level、guideline_reference、PMID）；GSE298828等GEO队列明确包含treatment_response且样本量充足，完全匹配required_data_types和target_fields中对临床、治疗响应、证据来源的要求。"
+          },
+          "completeness": {
+            "score": 3,
+            "reason": "关键缺失：所有GEO队列（含GSE298828）均未提供PIK3CA变异字段（variant_hgvs_c/p），导致requested_variable_coverage_rate=0%；patient_id存在但无对应突变数据，无法构建‘PIK3CA变异→治疗响应’的患者级关联。"
+          },
+          "retrieval_quality": {
+            "score": 4,
+            "reason": "高质量执行了多源策略：CIViC精准命中医学证据；GEO目录+深度提取确保队列可追溯；cBioPortal失败属外部服务不可控，已标注HTTP 503；所有221行数据均来自同一研究，避免污染。"
+          },
+          "overall": 4,
+          "claim_support_rate": 0.67,
+          "missing_evidence": [
+            "PIK3CA variant_hgvs_c / variant_hgvs_p for all 221 patients in GSE298828",
+            "Progression free survival / overall survival months in any retrieved cohort",
+            "Therapy_agent and therapy_line mapped to individual patients with PIK3CA status"
+          ],
+          "unsupported_claims": []
+        },
+        "judge_error": null,
+        "run_error": null
+      },
+      {
+        "case_id": "brca-her2-response-001",
+        "difficulty": "medium",
+        "repeat": 2,
+        "variant": "Qwen 中间智能体（对照组）",
+        "provider": "qwen",
+        "planner_model": "qwen-plus",
+        "status": "完成",
+        "used_model": true,
+        "used_qwen": true,
+        "reported_provider": "千问",
+        "reported_model": "qwen-plus",
+        "rank": 4,
+        "latency_ms": 46911.746500001755,
+        "task_id": "agent-99a4351ec47f",
+        "tool_calls": 6,
+        "source_items": 19,
+        "candidate_sources": 8,
+        "dataset_rows": 736,
+        "quality_gate": "REVIEW",
+        "analysis_ready": true,
+        "judge_scores": {},
+        "judge_error": "TypeError: float() argument must be a string or a real number, not 'dict'",
+        "run_error": null
+      },
+      {
+        "case_id": "brca-erbb2-clinical-002",
+        "difficulty": "easy",
+        "repeat": 2,
+        "variant": "Qwen 中间智能体（对照组）",
+        "provider": "qwen",
+        "planner_model": "qwen-plus",
+        "status": "完成",
+        "used_model": true,
+        "used_qwen": true,
+        "reported_provider": "千问",
+        "reported_model": "qwen-plus",
+        "rank": 2,
+        "latency_ms": 43896.46889999858,
+        "task_id": "agent-d67e8957d6a0",
+        "tool_calls": 6,
+        "source_items": 35,
+        "candidate_sources": 6,
+        "dataset_rows": 28,
+        "quality_gate": "REVIEW",
+        "analysis_ready": false,
+        "judge_scores": {
+          "faithfulness": {
+            "score": 4,
+            "reason": "数据摘要准确反映检索过程与结果：明确列出6个数据库调用、35个来源、28行宽表、字段完整率63.96%、504条被排除记录等关键事实，无虚构或夸大。但未说明为何ERBB2扩增/ISH/IHC等字段缺失（如原始cBioPortal API未返回这些字段），属轻微信息留白。"
+          },
+          "relevance": {
+            "score": 5,
+            "reason": "所有检索动作（cBioPortal TCGA/METABRIC/TCGA-Legacy、GDC、CIViC、GEO）均直接响应‘乳腺癌ERBB2临床特征、突变、样本级证据’需求；候选来源相关性评分均≥0.86；覆盖clinical/mutation/evidence三类必需数据类型。"
+          },
+          "completeness": {
+            "score": 3,
+            "reason": "虽覆盖全部21个target_fields中的100%变量名（通过schema匹配声明），但摘要明确指出ERBB2扩增状态、ISH结果、IHC评分、蛋白表达水平等关键靶向治疗相关字段实际未在返回数据中出现，且样本量仅28例，无法支撑多数临床特征分布分析，核心字段存在实质性缺失。"
+          },
+          "retrieval_quality": {
+            "score": 4,
+            "reason": "检索策略合理：多源交叉（cBioPortal多队列+GDC+ CIViC+GEO），工具调用成功率达100%，来源登记35个，可追溯率100%；但GDC仅发现5个MAF文件未下载内容，CIViC证据未说明是否映射至患者样本层级，存在证据粒度不匹配风险。"
+          },
+          "overall": 4,
+          "claim_support_rate": 0.82,
+          "missing_evidence": [
+            "erbb2_amplification_status",
+            "erbb2_ish_result",
+            "erbb2_ihc_score",
+            "erbb2_protein_expression_level",
+            "menopausal_status",
+            "ki67_index"
+          ],
+          "unsupported_claims": []
+        },
+        "judge_error": null,
+        "run_error": null
+      },
+      {
+        "case_id": "brca-treatment-evidence-003",
+        "difficulty": "hard",
+        "repeat": 2,
+        "variant": "Qwen 中间智能体（对照组）",
+        "provider": "qwen",
+        "planner_model": "qwen-plus",
+        "status": "完成",
+        "used_model": true,
+        "used_qwen": true,
+        "reported_provider": "千问",
+        "reported_model": "qwen-plus",
+        "rank": 1,
+        "latency_ms": 56835.28119997936,
+        "task_id": "agent-4656c268fefb",
+        "tool_calls": 6,
+        "source_items": 36,
+        "candidate_sources": 25,
+        "dataset_rows": 221,
+        "quality_gate": "REVIEW",
+        "analysis_ready": true,
+        "judge_scores": {},
+        "judge_error": "TypeError: float() argument must be a string or a real number, not 'dict'",
+        "run_error": null
+      },
+      {
+        "case_id": "brca-her2-response-001",
+        "difficulty": "medium",
+        "repeat": 3,
+        "variant": "Qwen 中间智能体（对照组）",
+        "provider": "qwen",
+        "planner_model": "qwen-plus",
+        "status": "完成",
+        "used_model": true,
+        "used_qwen": true,
+        "reported_provider": "千问",
+        "reported_model": "qwen-plus",
+        "rank": 4,
+        "latency_ms": 38722.34430001117,
+        "task_id": "agent-50fd831a3e11",
+        "tool_calls": 6,
+        "source_items": 19,
+        "candidate_sources": 8,
+        "dataset_rows": 736,
+        "quality_gate": "REVIEW",
+        "analysis_ready": true,
+        "judge_scores": {
+          "faithfulness": {
+            "score": 4,
+            "reason": "数据集真实来源于GSE196093，样本数、响应字段完整性、pCR计数（256/736）与原始GEO元数据一致；未跨队列拼接分子数据，符合‘同一研究内实体对齐’原则；但声称‘patient_id’存在而实际GEO series matrix中无标准化patient_id字段，存在ID解析假设风险。"
+          },
+          "relevance": {
+            "score": 5,
+            "reason": "GSE196093明确标注为I-SPY2-990新辅助治疗队列，含HER2阳性患者、trastuzumab/pertuzumab联合化疗、pCR及RCB相关响应指标，完全匹配问题中的疾病、亚型、药物和核心结局（pCR, treatment_response）。"
+          },
+          "completeness": {
+            "score": 2,
+            "reason": "目标字段中仅覆盖treatment_response、pcr_binary、her2_status（推断）、subtype；缺失全部requested_variable：PIK3CA突变（0%覆盖）、age_at_diagnosis、ER/PR、tumor_size、nodal_status、neoadjuvant_regimen、RCB_score等共15项中的13项；字段完成率仅0.0%。"
+          },
+          "retrieval_quality": {
+            "score": 4,
+            "reason": "成功定位并提取高相关性独立队列（GSE196093），检索策略覆盖GEO/cBioPortal/CIViC三类源，且明确排除跨研究拼接；但未检出同时含PIK3CA突变与pCR的HER2+新辅助队列（如GSE66305含突变但未在当前整合中启用），召回有优化空间。"
+          },
+          "overall": 3,
+          "claim_support_rate": 0.13,
+          "missing_evidence": [
+            "PIK3CA_variant_type",
+            "PIK3CA_genomic_coordinates",
+            "PIK3CA_allele_frequency",
+            "age_at_diagnosis",
+            "menopausal_status",
+            "tumor_size",
+            "nodal_status",
+            "histological_grade",
+            "ER_status",
+            "PR_status",
+            "HER2_status_by_IHC",
+            "HER2_status_by_ISH",
+            "neoadjuvant_regimen",
+            "treatment_duration",
+            "RCB_score",
+            "surgical_margin_status",
+            "date_of_surgery",
+            "follow_up_months",
+            "recurrence_event",
+            "death_event"
+          ],
+          "unsupported_claims": [
+            "dataset_profile.name声称'GSE196093科研数据集'含patient_id字段——但GSE196093 series matrix中无标准化patient_id，仅含sample_id；该字段属推断或重命名，未说明映射逻辑。",
+            "summary_zh称'736个基线患者样本（一名患者一行）'——GSE196093实际为RPPA蛋白组学数据，样本多为配对基线/治疗后，且GEO未提供患者去重标识，'patient_count=0'与'一名患者一行'矛盾。"
+          ]
+        },
+        "judge_error": null,
+        "run_error": null
+      },
+      {
+        "case_id": "brca-erbb2-clinical-002",
+        "difficulty": "easy",
+        "repeat": 3,
+        "variant": "Qwen 中间智能体（对照组）",
+        "provider": "qwen",
+        "planner_model": "qwen-plus",
+        "status": "完成",
+        "used_model": true,
+        "used_qwen": true,
+        "reported_provider": "千问",
+        "reported_model": "qwen-plus",
+        "rank": 2,
+        "latency_ms": 43122.167399997124,
+        "task_id": "agent-2ba042c301ec",
+        "tool_calls": 6,
+        "source_items": 34,
+        "candidate_sources": 5,
+        "dataset_rows": 28,
+        "quality_gate": "REVIEW",
+        "analysis_ready": false,
+        "judge_scores": {
+          "faithfulness": {
+            "score": 4,
+            "reason": "数据来源真实、可追溯，所有调用工具均成功返回结果，来源登记完整；但摘要中称'27例未检出ERBB2突变，1例检出'，而原始cBioPortal数据中ERBB2突变实际以拷贝数扩增（CNA）为主，点突变极少，该表述可能混淆突变类型与分子改变，存在轻微术语不严谨。"
+          },
+          "relevance": {
+            "score": 5,
+            "reason": "所选5个核心来源（brca_tcga_pan_can_atlas_2018、TCGA-BRCA、brca_metabric、brca_tcga、CIViC）全部聚焦乳腺癌与ERBB2，覆盖临床、突变、拷贝数、证据四类所需数据，且relevance_score均≥0.88；GEO检索零结果亦属合理排除。"
+          },
+          "completeness": {
+            "score": 3,
+            "reason": "目标字段覆盖率仅63.96%，关键字段如erbb2_immunohistochemistry_result、erbb2_ish_result、erbb2_variant_allele_frequency、tumor_purity、ki67_index等在返回的28行宽表中完全缺失；虽声明'变量覆盖=100.0%'，但该指标指schema定义覆盖而非实际值填充，与用户要求的样本级证据存在实质性缺口。"
+          },
+          "retrieval_quality": {
+            "score": 4,
+            "reason": "检索策略合理：多源协同（cBioPortal三队列+GDC+ CIViC），接口调用成功，记录量充足（总record_count > 4700）；但GDC MAF文件未解析为结构化字段，CIViC证据未映射至具体样本ID，导致临床-分子-证据链断裂，影响端到端证据粒度。"
+          },
+          "overall": 4,
+          "claim_support_rate": 0.68,
+          "missing_evidence": [
+            "erbb2_immunohistochemistry_result",
+            "erbb2_ish_result",
+            "erbb2_variant_genomic_coordinates",
+            "erbb2_variant_allele_frequency",
+            "tumor_purity",
+            "tumor_grade",
+            "menopausal_status",
+            "ki67_index",
+            "evidence_level",
+            "evidence_source",
+            "evidence_publication"
+          ],
+          "unsupported_claims": [
+            "摘要称'1例检出ERBB2突变'，但未说明是点突变、融合或扩增；cBioPortal中ERBB2改变主要为扩增，而用户明确要求'突变信息'，该表述未区分变异类型，易引发歧义。"
+          ]
+        },
+        "judge_error": null,
+        "run_error": null
+      },
+      {
+        "case_id": "brca-treatment-evidence-003",
+        "difficulty": "hard",
+        "repeat": 3,
+        "variant": "Qwen 中间智能体（对照组）",
+        "provider": "qwen",
+        "planner_model": "qwen-plus",
+        "status": "完成",
+        "used_model": true,
+        "used_qwen": true,
+        "reported_provider": "千问",
+        "reported_model": "qwen-plus",
+        "rank": 1,
+        "latency_ms": 38270.62240001396,
+        "task_id": "agent-213be4cfdb4c",
+        "tool_calls": 6,
+        "source_items": 36,
+        "candidate_sources": 25,
+        "dataset_rows": 221,
+        "quality_gate": "REVIEW",
+        "analysis_ready": true,
+        "judge_scores": {},
+        "judge_error": "TypeError: float() argument must be a string or a real number, not 'dict'",
+        "run_error": null
+      }
+    ],
+    "DeepSeek 替换中间智能体（实验组）": [
+      {
+        "case_id": "brca-her2-response-001",
+        "difficulty": "medium",
+        "repeat": 1,
+        "variant": "DeepSeek 替换中间智能体（实验组）",
+        "provider": "deepseek",
+        "planner_model": "deepseek-chat",
+        "status": "完成",
+        "used_model": true,
+        "used_qwen": false,
+        "reported_provider": "DeepSeek",
+        "reported_model": "deepseek-chat",
+        "rank": 1,
+        "latency_ms": 20720.110599999316,
+        "task_id": "agent-97c2e4acb737",
+        "tool_calls": 6,
+        "source_items": 19,
+        "candidate_sources": 8,
+        "dataset_rows": 736,
+        "quality_gate": "REVIEW",
+        "analysis_ready": true,
+        "judge_scores": {},
+        "judge_error": "TypeError: float() argument must be a string or a real number, not 'dict'",
+        "run_error": null
+      },
+      {
+        "case_id": "brca-erbb2-clinical-002",
+        "difficulty": "easy",
+        "repeat": 1,
+        "variant": "DeepSeek 替换中间智能体（实验组）",
+        "provider": "deepseek",
+        "planner_model": "deepseek-chat",
+        "status": "完成",
+        "used_model": true,
+        "used_qwen": false,
+        "reported_provider": "DeepSeek",
+        "reported_model": "deepseek-chat",
+        "rank": 1,
+        "latency_ms": 11786.745099991094,
+        "task_id": "agent-7ecdfdeda369",
+        "tool_calls": 3,
+        "source_items": 16,
+        "candidate_sources": 5,
+        "dataset_rows": 43,
+        "quality_gate": "REVIEW",
+        "analysis_ready": false,
+        "judge_scores": {
+          "faithfulness": {
+            "score": 4,
+            "reason": "数据摘要准确反映原始来源：METABRIC队列确实提供erbb2_altered、erbb2_cna、临床字段及43例样本；未虚构突变位点或表达值，明确指出缺失具体突变位点、定量表达和证据等级，与source_items和readiness中warnings一致。"
+          },
+          "relevance": {
+            "score": 5,
+            "reason": "所有检索来源（brca_metabric、TCGA-BRCA、GSE161743等）均聚焦乳腺癌与ERBB2，覆盖临床、突变、拷贝数、治疗响应等题设要求；GEO候选集含HER2+治疗响应研究，直接支持样本级证据需求。"
+          },
+          "completeness": {
+            "score": 3,
+            "reason": "缺失关键目标字段：erbb2_mutation（具体位点）、erbb2_expression_level（定量表达）、evidence_level（样本级证据等级）；虽有erbb2_cna和erbb2_altered，但未提供突变类型/功能注释；field_completeness_rate仅69.3%，requested_variable_coverage_rate为78%，未达100%。"
+          },
+          "retrieval_quality": {
+            "score": 4,
+            "reason": "成功调用cBioPortal、GDC、GEO三大权威源，覆盖高相关队列（brca_metabric relevance 0.96, TCGA-BRCA 0.95）；GEO检索命中含治疗响应的HER2+队列（GSE161743），具备样本级证据潜力；但GDC MAF文件未实际下载（local_path=null），TCGA突变数据未整合进宽表。"
+          },
+          "overall": 4,
+          "claim_support_rate": 0.82,
+          "missing_evidence": [
+            "erbb2_mutation（具体氨基酸改变或DNA位点）",
+            "erbb2_expression_level（RNAseq或IHC定量值）",
+            "evidence_level（如OncoKB、CIViC等级）",
+            "sample_id与patient_id的完整映射细节（部分source_items无local_path）",
+            "TCGA-BRCA突变MAF文件的实际内容解析结果"
+          ],
+          "unsupported_claims": []
+        },
+        "judge_error": null,
+        "run_error": null
+      },
+      {
+        "case_id": "brca-treatment-evidence-003",
+        "difficulty": "hard",
+        "repeat": 1,
+        "variant": "DeepSeek 替换中间智能体（实验组）",
+        "provider": "deepseek",
+        "planner_model": "deepseek-chat",
+        "status": "完成",
+        "used_model": true,
+        "used_qwen": false,
+        "reported_provider": "DeepSeek",
+        "reported_model": "deepseek-chat",
+        "rank": 1,
+        "latency_ms": 15818.402700009756,
+        "task_id": "agent-024f3cd922e7",
+        "tool_calls": 6,
+        "source_items": 46,
+        "candidate_sources": 24,
+        "dataset_rows": 57,
+        "quality_gate": "REVIEW",
+        "analysis_ready": false,
+        "judge_scores": {},
+        "judge_error": "TypeError: float() argument must be a string or a real number, not 'dict'",
+        "run_error": null
+      },
+      {
+        "case_id": "brca-her2-response-001",
+        "difficulty": "medium",
+        "repeat": 2,
+        "variant": "DeepSeek 替换中间智能体（实验组）",
+        "provider": "deepseek",
+        "planner_model": "deepseek-chat",
+        "status": "完成",
+        "used_model": true,
+        "used_qwen": false,
+        "reported_provider": "DeepSeek",
+        "reported_model": "deepseek-chat",
+        "rank": 1,
+        "latency_ms": 17144.01399999042,
+        "task_id": "agent-65373600062c",
+        "tool_calls": 6,
+        "source_items": 20,
+        "candidate_sources": 13,
+        "dataset_rows": 736,
+        "quality_gate": "REVIEW",
+        "analysis_ready": true,
+        "judge_scores": {},
+        "judge_error": "TypeError: float() argument must be a string or a real number, not 'dict'",
+        "run_error": null
+      },
+      {
+        "case_id": "brca-erbb2-clinical-002",
+        "difficulty": "easy",
+        "repeat": 2,
+        "variant": "DeepSeek 替换中间智能体（实验组）",
+        "provider": "deepseek",
+        "planner_model": "deepseek-chat",
+        "status": "完成",
+        "used_model": true,
+        "used_qwen": false,
+        "reported_provider": "DeepSeek",
+        "reported_model": "deepseek-chat",
+        "rank": 1,
+        "latency_ms": 46501.155900012236,
+        "task_id": "agent-6592191874c8",
+        "tool_calls": 6,
+        "source_items": 19,
+        "candidate_sources": 8,
+        "dataset_rows": 76,
+        "quality_gate": "REVIEW",
+        "analysis_ready": true,
+        "judge_scores": {
+          "faithfulness": {
+            "score": 4,
+            "reason": "数据来源真实、可追溯，所有引用的数据库（cBioPortal、GDC、GEO）和 accession 均准确对应；但 GSE66999 等 GEO 队列未提供 ERBB2 突变/表达原始数据，而摘要中明确指出 '无ERBB2基因水平的突变或表达数据'，与检索目标存在关键缺口，故未达满分。"
+          },
+          "relevance": {
+            "score": 5,
+            "reason": "所选队列（brca_metabric、TCGA-BRCA、GSE66999、GSE161743、GSE55891）均聚焦乳腺癌与ERBB2/HER2，覆盖临床特征、治疗响应、HER2状态等核心字段，且全部含真实患者/样本级证据，高度匹配问题中'临床特征、突变信息、样本级证据'三重需求。"
+          },
+          "completeness": {
+            "score": 3,
+            "reason": "虽覆盖 clinical（HER2状态、response、treatment）、evidence（响应分级、IHC亚型）等字段，但关键 requested_data_types 中的 'mutation' 和 'expression' 在主要分析队列（GSE66999）中完全缺失；TCGA-BRCA 和 METABRIC 提供突变/表达，但未在最终整合表中体现字段对齐结果，target_variable_coverage_rate=0.0% 直接反映完整性不足。"
+          },
+          "retrieval_quality": {
+            "score": 4,
+            "reason": "检索策略合理：跨三大平台（cBioPortal/GDC/GEO）覆盖互补数据类型；6次工具调用全部成功，19个来源登记完整；source_count（8+5+3+1+1+1=19）与 record_count 一致；但未将 cBioPortal/METABRIC 的 ERBB2 突变数据与 GEO 响应队列进行患者级跨源对齐（因规则禁止），导致分子-结局关联证据链断裂。"
+          },
+          "overall": 4,
+          "claim_support_rate": 0.75,
+          "missing_evidence": [
+            "ERBB2 突变（如 S310F、V777L、I767M 等热点变异）在 GSE66999/GSE161743/GSE55891 中无原始检测数据",
+            "ERBB2 mRNA 表达值（FPKM/TPM）未从 TCGA-BRCA 或 METABRIC 提取并映射至响应样本",
+            "HER2 蛋白水平（IHC 0/1+/2+/3+）与拷贝数变异（CNA）未在任一队列中联合标注于同一 patient_id-sample_id 对"
+          ],
+          "unsupported_claims": []
+        },
+        "judge_error": null,
+        "run_error": null
+      },
+      {
+        "case_id": "brca-treatment-evidence-003",
+        "difficulty": "hard",
+        "repeat": 2,
+        "variant": "DeepSeek 替换中间智能体（实验组）",
+        "provider": "deepseek",
+        "planner_model": "deepseek-chat",
+        "status": "完成",
+        "used_model": true,
+        "used_qwen": false,
+        "reported_provider": "DeepSeek",
+        "reported_model": "deepseek-chat",
+        "rank": 1,
+        "latency_ms": 16007.507400005125,
+        "task_id": "agent-0c75303026ba",
+        "tool_calls": 6,
+        "source_items": 36,
+        "candidate_sources": 25,
+        "dataset_rows": 221,
+        "quality_gate": "REVIEW",
+        "analysis_ready": true,
+        "judge_scores": {},
+        "judge_error": "TypeError: float() argument must be a string or a real number, not 'dict'",
+        "run_error": null
+      },
+      {
+        "case_id": "brca-her2-response-001",
+        "difficulty": "medium",
+        "repeat": 3,
+        "variant": "DeepSeek 替换中间智能体（实验组）",
+        "provider": "deepseek",
+        "planner_model": "deepseek-chat",
+        "status": "完成",
+        "used_model": true,
+        "used_qwen": false,
+        "reported_provider": "DeepSeek",
+        "reported_model": "deepseek-chat",
+        "rank": 3,
+        "latency_ms": 18641.752700001234,
+        "task_id": "agent-ce14f77158f0",
+        "tool_calls": 6,
+        "source_items": 40,
+        "candidate_sources": 26,
+        "dataset_rows": 57,
+        "quality_gate": "REVIEW",
+        "analysis_ready": false,
+        "judge_scores": {},
+        "judge_error": "TypeError: float() argument must be a string or a real number, not 'dict'",
+        "run_error": null
+      },
+      {
+        "case_id": "brca-erbb2-clinical-002",
+        "difficulty": "easy",
+        "repeat": 3,
+        "variant": "DeepSeek 替换中间智能体（实验组）",
+        "provider": "deepseek",
+        "planner_model": "deepseek-chat",
+        "status": "完成",
+        "used_model": true,
+        "used_qwen": false,
+        "reported_provider": "DeepSeek",
+        "reported_model": "deepseek-chat",
+        "rank": 1,
+        "latency_ms": 11938.68660001317,
+        "task_id": "agent-26ea1dff46f4",
+        "tool_calls": 6,
+        "source_items": 19,
+        "candidate_sources": 8,
+        "dataset_rows": 76,
+        "quality_gate": "REVIEW",
+        "analysis_ready": true,
+        "judge_scores": {
+          "faithfulness": {
+            "score": 4,
+            "reason": "所有报告数据均严格源自所列真实来源（cBioPortal METABRIC、TCGA-BRCA、GEO GSE66999/GSE161743/GSE55891），未跨队列拼接分子与临床字段；质量检查明确声明‘不把其他研究的分子字段拼到该队列患者上’，符合科研可追溯性原则。"
+          },
+          "relevance": {
+            "score": 5,
+            "reason": "所选6个核心来源全部聚焦HER2阳性乳腺癌，覆盖临床特征（ER/PR/HER2状态、治疗响应）、ERBB2相关分子维度（METABRIC含ERBB2突变/CNA、TCGA含突变、GEO队列含HER2状态及治疗响应），完全匹配问题中‘临床特征、突变信息、样本级证据’三类需求。"
+          },
+          "completeness": {
+            "score": 3,
+            "reason": "目标字段覆盖率为50.0%（质量门检查报告），缺失关键ERBB2分子数据：GSE66999等GEO队列无突变/CNA/表达值；TCGA-BRCA仅返回MAF文件但未解析具体ERBB2突变记录；METABRIC虽含突变/CNA，但未说明是否已提取并映射至宽表16列中；ERBB2_expression、erbb2_mutation等字段实际填充率未达要求。"
+          },
+          "retrieval_quality": {
+            "score": 4,
+            "reason": "检索策略合理：cBioPortal按study_id精准调用brca_metabric（高相关分0.96），GDC限定TCGA-BRCA和突变/表达类型，GEO采用HER2+trastuzumab响应关键词并验证3个高相关队列；所有19个来源均完成真实接口调用或文件下载，可追溯率100%。"
+          },
+          "overall": 4,
+          "claim_support_rate": 0.82,
+          "missing_evidence": [
+            "ERBB2突变具体位点及功能注释（如S310F、V777L等）未在摘要中呈现",
+            "ERBB2拷贝数变异（CNA）定量值（如log2 ratio、amplicon边界）未提取或报告",
+            "ERBB2 mRNA表达值（FPKM/TPM）或蛋白水平（IHC H-score）未从TCGA或METABRIC中结构化输出",
+            "治疗方案细节（如曲妥珠单抗剂量、联合化疗方案）在GSE66999中未映射至treatment_regimen字段"
+          ],
+          "unsupported_claims": []
+        },
+        "judge_error": null,
+        "run_error": null
+      },
+      {
+        "case_id": "brca-treatment-evidence-003",
+        "difficulty": "hard",
+        "repeat": 3,
+        "variant": "DeepSeek 替换中间智能体（实验组）",
+        "provider": "deepseek",
+        "planner_model": "deepseek-chat",
+        "status": "完成",
+        "used_model": true,
+        "used_qwen": false,
+        "reported_provider": "DeepSeek",
+        "reported_model": "deepseek-chat",
+        "rank": 1,
+        "latency_ms": 14514.326900010929,
+        "task_id": "agent-e8683ec5f3f3",
+        "tool_calls": 6,
+        "source_items": 46,
+        "candidate_sources": 24,
+        "dataset_rows": 57,
+        "quality_gate": "REVIEW",
+        "analysis_ready": false,
+        "judge_scores": {},
+        "judge_error": "TypeError: float() argument must be a string or a real number, not 'dict'",
+        "run_error": null
+      }
+    ]
+  }
+}

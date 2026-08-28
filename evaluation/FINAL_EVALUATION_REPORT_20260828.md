@@ -37,10 +37,17 @@ B 相对 A 的 nDCG@10 为 **`-0.000014`**，且延迟增加约 **`61.49 ms`**�
 
 ## 5. 模型对比状态
 
-**Qwen-plus 本轮完成真实连接、鉴权和结构化 Agent 探测**，见 `evaluation/model_integration_probe_20260828.json`。会话接口支持 Qwen、DeepSeek 和 OpenAI-compatible provider；本机本轮没有独立 DeepSeek/GLM 凭据，因此它们是 **`NOT_EVALUATED`**，没有横向排名。历史 DeepSeek Judge 的 3 案例运行（recall@3 `1.0`、nDCG@3 `0.754`、平均忠实度 `4.67/5`）只可作为小样本语义审阅记录，不能当作基础模型比较。
+**Qwen-plus 已完成真实连接、鉴权和结构化 Agent 探测**，见 `evaluation/model_integration_probe_20260828.json`。此外，`evaluation/planner_replacement_ablation_20260829/` 已完成一次真实的中间智能体替换消融：生产路径、数据总结和辅助评审保持 Qwen，只把问题解析、规划和工具选择替换为 DeepSeek。3 条 provisional 乳腺癌题目各重复 3 次，两组均完成 9/9 次 Agent 运行。
+
+| 角色 | 中间智能体 | Recall@3 | MRR@3 | nDCG@3 | 平均延迟 | Analysis Ready | 质量门 |
+|---|---|---:|---:|---:|---:|---:|---|
+| **生产对照组（本项目）** | **Qwen-plus** | **0.6667** | **0.5000** | **0.5436** | **43.88 s** | **66.67%** | **9/9 REVIEW** |
+| 外部替换实验组 | DeepSeek Chat | 1.0000 | 0.9259 | 0.9444 | 19.23 s | 55.56% | 9/9 REVIEW |
+
+DeepSeek 在该小样本的检索排名和延迟上更好，但差异主要由唯一一条 medium 题目产生；easy 与 hard 题两组 Recall@3 均为 1.0。Qwen 的 Analysis Ready 高 11.11 个百分点。两组均为 REVIEW，且题集未冻结，因此这不是正式模型排名。首次运行的 Qwen 辅助评审只有 Qwen 组 5/9、DeepSeek 组 3/9 成功解析；解析修复后的重跑又遇到 DashScope `Arrearage`，故不完整的 Judge 分不参与胜负判断。GLM 仍为 `NOT_EVALUATED`。
 
 ## 6. 最终判断
 
-- 已证实：BGE 检索层在已报告公开运行中优于当前 tuned BM25；Qwen 本地结构化 Agent 探测通过；两轮闭环和安全审计可运行。
+- 已证实：BGE 检索层在已报告公开运行中优于当前 tuned BM25；Qwen 本地结构化 Agent 探测通过；Qwen/DeepSeek 中间智能体替换脚本可运行；两轮闭环和安全审计可运行。
 - 未证实：查询理解规则带来宏平均提升；Qwen/DeepSeek/GLM 谁在完整科研数据任务上最好；正式 Retrieval F1、Faithfulness、Repair Accuracy 和 SDTI。
-- 生产建议：继续使用显式 `compat` 默认；在获得 Qwen 计划缓存和冻结乳腺癌 Gold Set 后，再运行 C/D/E 和多模型重复对照。
+- 生产建议：继续使用 Qwen 生产主链和显式 `compat` 默认；冻结乳腺癌 Gold Set、扩充题目并恢复完整 Qwen 辅助评审后，再形成正式模型排名。

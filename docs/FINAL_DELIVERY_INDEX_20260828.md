@@ -14,6 +14,7 @@
 | `docs/FINAL_INTEGRATED_REPORT_20260829.md` | 分层整合的设计、功能、公开评测、闭环、模型和对比说明 | 真实产物汇总，明确证据边界 |
 | `evaluation/FINAL_EVALUATION_REPORT_20260828.md` | 检索横向对比、查询理解消融、闭环和模型状态 | 真实产物，分层说明 |
 | `evaluation/PUBLIC_BENCHMARK_STRATIFIED_REPORT_20260828.md` | BEIR 逐数据集指标 | 真实重跑；FiQA 未纳入本轮宏平均 |
+| `evaluation/planner_replacement_ablation_20260829/planner_replacement_ablation.md` | Qwen 对照组与 DeepSeek 中间智能体替换实验组 | 3 条 provisional 题目 × 每组 3 次；非正式排名 |
 
 ## 当前可据实陈述的结果
 
@@ -22,10 +23,11 @@
 - 本轮重新运行 SciFact、NFCorpus、SciDocs、ArguAna，共 **3,029 个测试查询**。**BGE nDCG@10 宏平均 `0.3966`**，tuned BM25 为 `0.3376`。FiQA 因资源窗口未完成，没有纳入该平均。
 - 五数据集查询理解 A/B 消融中，规则+RRF 未提高宏 nDCG@10 且增加延迟，因此生产默认保持 `compat`。Qwen C/D/E 缺少全量有效计划缓存，保持 `NOT_EVALUATED`。
 - 两轮闭环具有输入/输出哈希和诊断审计。计划模式无真实数据时正确输出 **REVIEW 与零覆盖**，不会伪装成改进。
+- 中间智能体替换消融完成 18/18 次 Agent 运行：**Qwen 对照组 Recall@3 `0.6667`、Analysis Ready `66.67%`**；DeepSeek 实验组 Recall@3 `1.0000`、Analysis Ready `55.56%`。两组均为 9/9 `REVIEW`，只作为小样本诊断。
 
 ## 多模型对比状态
 
-`/api/agent/qwen-sessions` 和 `/api/agent/api-check` 只接受 Qwen。DeepSeek 仅由 `scripts/run_planner_replacement_ablation.py` 在独立进程中替换中间规划/工具选择智能体；两组统一由 Qwen 辅助评审。完整比较需要同一冻结题集和 Evaluation Contract、相同数据源与工具预算、相同安全规则、至少三次重复，以及人工审核的乳腺癌 Gold Set。条件不齐时必须写 `NOT_EVALUATED`。
+`/api/agent/qwen-sessions` 和 `/api/agent/api-check` 只接受 Qwen。DeepSeek 仅由 `scripts/run_planner_replacement_ablation.py` 在独立进程中替换中间规划/工具选择智能体；数据总结和两组辅助评审仍统一使用 Qwen。当前已完成同题集、同预算、同规则、每题三次重复的小样本实验；由于题集未冻结、Qwen 辅助评审不完整且缺少人工乳腺癌 Gold Set，正式模型排名和 SDTI 必须写 `NOT_EVALUATED`。
 
 ## GitHub 不包含的数据与恢复
 

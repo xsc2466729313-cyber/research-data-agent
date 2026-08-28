@@ -11,7 +11,7 @@
 
 当前最有证据的结果来自公开检索层。本轮在 SciFact、NFCorpus、SciDocs、ArguAna 上重跑 3,029 个测试查询，BGE-small-en-v1.5 的 nDCG@10 宏平均为 **0.3966**，tuned BM25 为 **0.3376**，相对提升 **17.5%**。该结果说明 BGE 是公开检索诊断中的强候选，不等同于乳腺癌临床效果。
 
-Qwen-plus 已完成本机网络、鉴权、模型可用性和函数调用探测。生产 Agent 与两轮闭环固定使用 Qwen；DeepSeek 只在独立消融中替换中间规划/工具选择智能体，以比较替换前后的输出变化。两组结果统一由 Qwen 审阅。历史 `results_deepseek/comparison.json` 是旧的 DeepSeek Judge 小样本产物，不能用于当前模型比较。正式乳腺癌金标准集尚未冻结，故检索 F1、忠实度、可追溯率、错误检测 F1、修复正确率和 SDTI 仍为 `NOT_EVALUATED`。
+Qwen-plus 已完成本机网络、鉴权、模型可用性和函数调用探测。生产 Agent 与两轮闭环固定使用 Qwen；DeepSeek 只在独立消融中替换中间问题解析、规划和工具选择。2026-08-29 的 3 题×3 次 live 对比中，两组均 9/9 完成；DeepSeek 的 Recall@3 为 `1.0000`，Qwen 为 `0.6667`，但差异集中在 1 条中等难度题，且两组质量门均为 `REVIEW`。题集尚未冻结，Qwen 辅助评审也未全部有效，因此该结果只能作为开发消融，正式乳腺癌检索 F1、忠实度、可追溯率、错误检测 F1、修复正确率和 SDTI 仍为 `NOT_EVALUATED`。
 
 ### 本项目实测指标速览
 
@@ -209,14 +209,16 @@ V3 没有超过 V2，因此当前默认仍为 **值分布画像 V2**。
 
 ### 7.6 多模型对比边界
 
-生产会话只允许 Qwen。`scripts/run_planner_replacement_ablation.py` 在独立进程中固定题集、数据源、工具预算、医学规则和评价协议，只替换中间规划/工具选择智能体为 DeepSeek；对 Qwen 与 DeepSeek 结果均使用 Qwen 审阅，并重复至少 3 次。该脚本尚未在轮换后凭据和冻结题集上运行，因此不存在可发布的模型优劣结论。
+生产会话只允许 Qwen。`scripts/run_planner_replacement_ablation.py` 在独立进程中固定题集、数据源、工具预算、医学规则和评价协议，只替换中间问题解析、规划和工具选择智能体为 DeepSeek；数据总结和评审仍使用 Qwen。本轮使用 3 条 provisional 题目，每条重复 3 次，产物见 `evaluation/planner_replacement_ablation_20260829/`。
 
-| 模型 | 本轮同条件端到端成绩 | 当前状态 |
-|---|---:|---|
-| **Qwen-plus** | **结构化 Agent 探测通过** | **已完成接入探测；尚非质量排名** |
-| DeepSeek | 未生成 | `NOT_EVALUATED`，本机无独立凭据 |
+| 角色 | 中间智能体 | 完成率 | Recall@3 | MRR@3 | nDCG@3 | 平均延迟 | Analysis Ready | 质量门 |
+|---|---|---:|---:|---:|---:|---:|---:|---|
+| **本项目生产对照组** | **Qwen-plus** | **100%** | **0.6667** | **0.5000** | **0.5436** | **43.88 s** | **66.67%** | **9/9 REVIEW** |
+| 外部替换实验组 | DeepSeek Chat | 100% | 1.0000 | 0.9259 | 0.9444 | 19.23 s | 55.56% | 9/9 REVIEW |
 
-因此，报告中没有把外部模型的宣传指标当作本项目实测，也没有用 Qwen 的接入探测替代端到端质量分数。
+DeepSeek 在这 3 条题目上的排名更高、平均延迟低 56.18%，但提升主要来自唯一一条 medium 题；easy 与 hard 题两组 Recall@3 均为 1.0。Qwen 的 Analysis Ready 比例高 11.11 个百分点。由于题目数很小、标签未冻结、两组均未通过质量门，不能据此宣称 DeepSeek 全面优于 Qwen，也不改变生产主链继续使用 Qwen 的决策。
+
+Qwen 辅助评审在首次完整运行中只有 5/9 与 3/9 有效；修复字段解析后重跑时，DashScope 最小探测返回 `Arrearage`。因此不完整的 Qwen 评审分没有用于模型胜负结论，正式指标保持 `NOT_EVALUATED`。
 
 ## 八、两轮闭环与任务级结果
 
@@ -240,7 +242,7 @@ V3 没有超过 V2，因此当前默认仍为 **值分布画像 V2**。
 - **清洗层**：确定性清洗适用于低风险格式问题；语义错误和医学关键字段一律交由复核，避免自动修复造成风险。
 - **字段对齐层**：本项目 V2 宏平均 F1 为 **0.8451**，是当前默认实现；后续以乳腺癌领域 Gold Set 校准。
 - **实体关联层**：本项目 V2 宏平均 F1 为 **0.7408**；公开实体结果不能代替乳腺癌患者身份验证。
-- **模型层**：Qwen-plus 已通过真实连接探测；其他模型没有同条件数据，不能排名。
+- **模型层**：已完成 Qwen 与 DeepSeek 的小样本中间智能体替换消融；DeepSeek 在 provisional 检索排名和延迟上占优，Qwen 在 Analysis Ready 比例上占优，两组均未通过质量门，尚不能形成正式排名。
 - **闭环层**：两轮执行和审计链路可运行；没有真实输入时保持 REVIEW，体现的是安全性而非分数提升。
 
 ### 9.2 按证据强度
@@ -260,7 +262,7 @@ V3 没有超过 V2，因此当前默认仍为 **值分布画像 V2**。
 ## 十、当前缺口、风险与下一步
 
 1. **正式金标准集缺失**：需要独立初标、复核、冻结 checksum 的检索、字段、错误三类金标准集，才能计算 SDTI。
-2. **中间智能体替换对比缺失**：使用轮换后的 DeepSeek 凭据，在同一冻结题集、工具预算和 Qwen 评审协议下重复运行。
+2. **中间智能体替换证据仍弱**：当前只有 3 条 provisional 题目；需扩充并冻结题集，在 Qwen 账户恢复后按同一预算重新完成全部 Qwen 评审。
 3. **乳腺癌领域分层不足**：已新增 `docs/BREAST_CANCER_GOLDSET_CANDIDATE_PLAN.md`，以 TCGA-BRCA、GSE76360、GSE25066、METABRIC、ClinicalTrials.gov/AACT 和 CIViC 构建候选任务池；正式入集仍需独立审核与冻结。
 4. **交叉编码器完整成绩缺失**：接口和回归测试已存在，但大规模公开运行未完成，暂不报告成绩。
 5. **数据充分性仍是短板**：当前可追溯性接近 98%，但研究相关性和分析充分性约 79%–81%，下一步优先补齐关键字段覆盖和结局可用性。
@@ -292,7 +294,7 @@ python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
 
 ## 十二、最终结论
 
-系统已经形成可运行的“问题理解 → 数据源选择 → 真实取数 → 标准化与关联 → 医学安全 → 两轮闭环 → 可追溯导出 → 分层评测”链路。公开检索重跑支持 BGE 作为强候选，Qwen-plus 真实探测支持其作为当前规划模型；但正式乳腺癌 Gold Set 和多模型同条件排名尚未完成。
+系统已经形成可运行的“问题理解 → 数据源选择 → 真实取数 → 标准化与关联 → 医学安全 → 两轮闭环 → 可追溯导出 → 分层评测”链路。公开检索重跑支持 BGE 作为强候选，Qwen-plus 真实探测支持其作为当前生产规划模型；Qwen/DeepSeek 小样本中间智能体替换消融已经完成，但正式乳腺癌 Gold Set 和冻结题集上的多模型排名尚未完成。
 
 因此，当前最准确、可被证据支持的结论是：**系统工程链路已完成，公开模块级评测已形成；本项目 BGE 在本轮公开检索层优于项目 BM25 调参版。正式临床科研可信度和不同大模型优劣，仍需通过 Gold Set 与同条件重复实验确认。**
 
@@ -306,5 +308,6 @@ python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
 - `evaluation/model_integration_probe_20260828.json`
 - `evaluation/query_understanding/qwen_plan_probe_20260828.json`
 - `evaluation/query_understanding/ablation_20260828.json`
+- `evaluation/planner_replacement_ablation_20260829/planner_replacement_ablation.md`
 - `evaluation/closed_loop/live_two_round_smoke_20260828.json`
 - `evaluation/closed_loop/two_round_final_20260828.json`
