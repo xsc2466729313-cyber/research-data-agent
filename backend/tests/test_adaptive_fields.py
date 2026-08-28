@@ -1,6 +1,7 @@
 from backend.app.agent.accession_harvest import asks_sample_timepoint, asks_treatment, needs_clinical_outcome
 from backend.app.agent.collection_agent import CollectionAgent
 from backend.app.agent.dataset_builder import ResearchDatasetBuilder
+from backend.app.agent.models import DatasetColumn, ModelingDataset
 from backend.app.agent.study_design import StudyDesignBuilder
 from backend.app.models import ResearchSpec
 
@@ -33,6 +34,7 @@ def test_pcr_question_does_not_require_treatment_plan_or_timepoint() -> None:
     assert asks_treatment(spec) is False
     assert asks_sample_timepoint(spec) is False
     assert needs_clinical_outcome(spec) is True
+
 
     rows = [
         {
@@ -84,6 +86,32 @@ def test_pcr_question_does_not_require_treatment_plan_or_timepoint() -> None:
     assert dataset.rows[0]["pcr_binary"] == 1
     assert dataset.rows[0]["brca_any_mutation"] == 1
     assert dataset.target_column in {"pcr", "pcr_binary"}
+
+
+def test_empty_dataset_with_declared_outcome_stays_unevaluated() -> None:
+    dataset = ModelingDataset(
+        name="empty-outcome",
+        unit_of_analysis="患者",
+        columns=[
+            DatasetColumn(
+                name="pcr",
+                label_zh="病理完全缓解",
+                data_type="string",
+                role="研究结局",
+                description="病理完全缓解结局",
+            )
+        ],
+        rows=[],
+        row_count=0,
+        patient_count=0,
+        sample_count=0,
+        target_column="pcr",
+    )
+
+    readiness = ResearchDatasetBuilder()._readiness(dataset, _tnbc_pcr_spec())
+
+    assert readiness.target_missing_rate is None
+    assert any("研究结局未评测" in warning for warning in readiness.warnings)
 
 
 def test_molecular_question_does_not_force_treatment_or_outcome() -> None:
@@ -349,4 +377,3 @@ def test_required_variable_coverage_uses_row_fill_not_any_value() -> None:
     assert by_id["sample_type"].available is True
     assert by_id["sample_type"].coverage_rate == 0.5
     assert 0 < design.variable_coverage_rate < 1
-

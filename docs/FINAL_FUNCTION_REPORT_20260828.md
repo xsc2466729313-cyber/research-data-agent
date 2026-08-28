@@ -20,8 +20,6 @@
 | POST | `/api/v2/retrieval/search` | query、documents、显式查询理解模式 | 检索排名、RRF、延迟和审计遥测 |
 | POST | `/api/v2/research/plan` | topic 或研究问题 | PICO/PECO、Evidence Pack、变量和 Source Plan |
 | POST | `/api/v2/governance/decide` | proposal、证据和医学语义 | `AUTO` / `REVIEW` / `REJECT` |
-| POST | `/api/evaluation/model-tests/generate` | 问题数量、模型目标、`run_mode` | 统一模型测试计划 |
-| POST | `/api/evaluation/model-tests/run` | `report_id`、各目标 `session_ids` | 真实结构化输出指标 |
 
 ## 不会随 GitHub 一起提交的内容
 

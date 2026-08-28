@@ -222,10 +222,6 @@ class AgentDatasetExportService:
                 "未计算" if result.readiness.target_match_rate is None else f"{result.readiness.target_match_rate:.1%}",
             ),
             (
-                "研究结局完整率",
-                "未计算" if result.readiness.target_missing_rate is None else f"{1 - result.readiness.target_missing_rate:.1%}",
-            ),
-            (
                 "全表字段完整率",
                 "未计算" if result.readiness.field_completeness_rate is None else f"{result.readiness.field_completeness_rate:.1%}",
             ),

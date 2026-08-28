@@ -64,7 +64,7 @@ CSV / Parquet / Excel 导出
 | 数据源层 | GDC、NCBI GEO、cBioPortal、AACT/ClinicalTrials.gov、CIViC |
 | 数据整合 | 患者/样本级宽表、字段字典、来源登记、原始值审计和冲突记录 |
 | Source Broker | DatasetCandidate、Field Coverage Matrix、最小来源组合、JoinPolicy 和 fallback |
-| 质量控制 | 样本量、字段完整率、结局完整率、基因覆盖率、重复患者、截断和证据门控 |
+| 质量控制 | 样本量、字段完整率、结局字段匹配、基因覆盖率、重复患者、截断和证据门控 |
 | 可视化 | 中文结果表、指标面板、字段展开、来源筛选和交互式数据溯源 |
 | 导出 | CSV、Snappy Parquet、多工作表 Excel |
 | 开发者入口 | 中文 API 交互台、请求 JSON、HTTP 状态、耗时和 cURL 复制 |

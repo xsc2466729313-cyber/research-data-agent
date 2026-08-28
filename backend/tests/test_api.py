@@ -102,7 +102,7 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "四层质量门" in response.text
     assert "先明确研究需要什么数据" in response.text
     assert "每一步筛选都能解释清楚" in response.text
-    assert "模型评价中心 ↗" in response.text
+    assert "模型评价中心" not in response.text
     assert "数据统一与身份对齐" in response.text
     assert "患者编号能不能安全对上" in response.text
     assert "统一评价与科研适用性" not in response.text
@@ -112,13 +112,6 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "模型评价中心" not in response.text.split('<main id="main-content">', 1)[1]
     assert "比赛对齐" not in response.text
     assert "API · 开发者入口" not in response.text
-    evaluation_page = client.get("/model-evaluation.html")
-    assert evaluation_page.status_code == 200
-    assert "模型评价中心" in evaluation_page.text
-    assert "指标对比" in evaluation_page.text
-    assert "横向结果" in evaluation_page.text
-    assert "真实 API 调用" in evaluation_page.text
-
     script = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
     assert 'fetchApi("/api/research/task"' in script
     assert 'fetchApi("/api/agent/tasks"' in script
@@ -136,7 +129,7 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "renderDataset" in script
     assert "renderReadiness" in script
     assert "renderDictionary" in script
-    assert "结局完整率" in script
+    assert "结局完整率" not in script
     assert "来源审计完整度" in script
     assert "全表字段完整率" not in script
     assert "主字段覆盖" in script
@@ -181,23 +174,13 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "内部综合诊断分" in script
     assert "association-meter" in script
     assert "scientific-usability-findings" in script
-    assert "/api/agent/api-check" in script
-    assert "/api/evaluation/model-tests/generate" in script
+    assert "/api/evaluation/model-tests/generate" not in script
     assert "model-bar-chart" in script
     assert "研究相关性" in script
     assert "患者-样本关联置信度" in script
-    assert "modelSessions" in script
-    assert "session_ids" in script
+    assert "modelSessions" not in script
     assert "renderDataAlignment" in script
     assert "data_alignment" in script
-    evaluation_script = (ROOT / "frontend" / "model-evaluation.js").read_text(encoding="utf-8")
-    assert "evaluation-model-configs" in evaluation_page.text
-    assert "DeepSeek" in evaluation_page.text
-    assert "提供商</th>" in evaluation_page.text
-    assert "结构化完整率" in evaluation_script
-    assert "目标字段输出率" in evaluation_script
-    assert "综合可观察分" not in evaluation_script
-
     styles = (ROOT / "frontend" / "styles.css").read_text(encoding="utf-8")
     assert "@media (max-width: 760px)" in styles
     assert "prefers-reduced-motion" in styles
@@ -212,7 +195,7 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert ".model-comparison-visual" in styles
     assert ".stratified-visual" in styles
     assert ".model-bar-chart" in styles
-    assert ".evaluation-workbench" in styles
+    assert ".evaluation-workbench" not in styles
     assert ".pico-grid" in styles
     assert ".quality-gate-panel" in styles
     assert ".cohort-stage-funnel" in styles
@@ -370,22 +353,14 @@ def test_agent_task_api_exposes_competition_alignment_report(tmp_path: Path) -> 
     assert "消融" in result.competition_report.summary or result.competition_report.summary
 
 
-def test_model_evaluation_plan_api_returns_pending_rows_without_fake_scores() -> None:
-    response = client.post(
-        "/api/evaluation/model-tests/generate",
-        json={
-            "question_count": 2,
-            "seed_question": "乳腺癌治疗响应",
-            "models": ["qwen-plus", "qwen-max"],
-        },
-    )
+def test_removed_model_evaluation_api_is_not_exposed() -> None:
+    response = client.post("/api/evaluation/model-tests/generate", json={})
+    page = client.get("/model-evaluation.html")
+    openapi = client.get("/openapi.json").json()
 
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["status"] == "待运行"
-    assert len(payload["questions"]) == 2
-    assert len(payload["model_rows"]) == 4
-    assert all(row["metrics"] == {} for row in payload["model_rows"])
+    assert response.status_code == 405  # Static mount receives the unknown POST route.
+    assert page.status_code == 404
+    assert not any(path.startswith("/api/evaluation/model-tests") for path in openapi["paths"])
 
 
 def test_latest_agent_task_endpoint_does_not_invent_scores() -> None:

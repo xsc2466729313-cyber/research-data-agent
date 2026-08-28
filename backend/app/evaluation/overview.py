@@ -65,7 +65,6 @@ class EvaluationOverview(ApiModel):
     team_reference: TeamReferenceReport = Field(default_factory=TeamReferenceReport)
     toolkit_run: ToolkitRunReport = Field(default_factory=ToolkitRunReport)
     last_task_id: str | None = None
-    last_model_test_id: str | None = None
     goldset_row_counts: dict[str, int] = Field(default_factory=dict)
 
 
@@ -285,7 +284,6 @@ def official_unscored_metrics() -> list[OverviewMetric]:
 def build_evaluation_overview(
     *,
     latest_task: Any | None = None,
-    latest_model_test: Any | None = None,
     goldset_row_counts: dict[str, int] | None = None,
 ) -> EvaluationOverview:
     counts = goldset_row_counts or {}
@@ -325,6 +323,5 @@ def build_evaluation_overview(
         team_reference=TeamReferenceReport(available=False, status="已隐藏", notice="页面不再展示团队压缩包探针。"),
         toolkit_run=toolkit,
         last_task_id=getattr(latest_task, "task_id", None),
-        last_model_test_id=getattr(latest_model_test, "report_id", None),
         goldset_row_counts=counts,
     )

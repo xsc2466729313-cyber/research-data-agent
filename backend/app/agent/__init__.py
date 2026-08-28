@@ -39,13 +39,6 @@ from backend.app.agent.study_design import StudyDesignBuilder
 from backend.app.agent.api_check import ApiCheckRequest, ApiCheckResult, ApiCheckService
 from backend.app.agent.collection_agent import CollectionAgent
 from backend.app.agent.quality_agent import QualityAgent, QualityAgentReport, QualityStatus
-from backend.app.agent.model_evaluation_agent import (
-    ModelComparisonReport,
-    ModelEvaluationGenerateRequest,
-    ModelEvaluationRunRequest,
-    ModelEvaluationService,
-    ModelTarget,
-)
 from backend.app.agent.service import (
     AgentConfigurationError,
     AgentExecutionError,
@@ -103,11 +96,6 @@ __all__ = [
     "StudyDesignBuilder",
     "StudyDesignReport",
     "StudyVariable",
-    "ModelComparisonReport",
-    "ModelEvaluationGenerateRequest",
-    "ModelEvaluationRunRequest",
-    "ModelEvaluationService",
-    "ModelTarget",
     "QwenSessionRequest",
     "QwenSessionRegistry",
     "QwenSessionStatus",

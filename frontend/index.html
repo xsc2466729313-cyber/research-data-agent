@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="千问驱动的乳腺癌科研数据智能体：从科研问题、真实数据库工具调用到可阅读、可追溯的科研数据集。" />
     <title>千问乳腺癌科研数据智能体</title>
-    <link rel="stylesheet" href="/styles.css?v=20260828-ui-1" />
+    <link rel="stylesheet" href="/styles.css?v=20260828-ui-cleanup-1" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">跳至正文</a>
@@ -114,7 +114,6 @@
         <a href="#quality-gates">质量门</a>
         <a href="#research-data">分析矩阵</a>
         <a href="#evaluation-dashboard">系统评测</a>
-        <a href="/model-evaluation.html">模型评价中心 ↗</a>
       </nav>
       <div id="system-status" class="system-status"><span class="status-dot"></span><span>正在连接</span></div>
     </header>
@@ -508,8 +507,8 @@
             <div id="evaluation-bars" class="evaluation-bars"></div>
           </article>
           <article class="evaluation-chart-panel">
-            <div class="outcome-visual-heading"><h3>可信度五维轮廓</h3><span>短板会拉低内部综合诊断分</span></div>
-            <div id="evaluation-radar" class="evaluation-radar" role="img" aria-label="本模型任务级五维雷达图"></div>
+            <div class="outcome-visual-heading"><h3>可信度四维轮廓</h3><span>短板会拉低内部综合诊断分</span></div>
+            <div id="evaluation-radar" class="evaluation-radar" role="img" aria-label="本模型任务级四维雷达图"></div>
           </article>
         </div>
         <div class="metric-compare-panel">
@@ -534,10 +533,6 @@
           <article class="evaluation-chart-panel">
             <div class="outcome-visual-heading"><h3>历史评测</h3><span>本机最多保留最近 20 次真实任务</span></div>
             <div id="evaluation-history" class="evaluation-history"></div>
-          </article>
-          <article class="evaluation-chart-panel">
-            <div class="outcome-visual-heading"><h3>独立评委入口</h3><span>DeepSeek 等只当评委，不当 Gold Truth</span></div>
-            <p class="section-note">要学对照页的独立评委：打开顶栏评委页，连接 DeepSeek 或其他独立模型，用同一批科研问题跑结构化覆盖率。双模型初标走 <code>/api/goldset/*</code>，复核模型不得与初标相同。</p>
           </article>
         </div>
         <div id="evaluation-safety" class="evaluation-safety"></div>
@@ -588,6 +583,6 @@
     <div id="toast" class="toast" hidden role="status" aria-live="polite"></div>
     <footer><span>千问科研数据智能体</span><span>模型负责规划；规则负责安全边界；数据须真实可追溯</span></footer>
     <!-- 输入你真正想研究的问题 规划与真实检索入口 先明确研究需要什么数据 每一步筛选都能解释清楚 患者编号能不能安全对上 -->
-    <script src="/app.js?v=20260828-closed-loop-2" defer></script>
+    <script src="/app.js?v=20260828-ui-cleanup-1" defer></script>
   </body>
 </html>

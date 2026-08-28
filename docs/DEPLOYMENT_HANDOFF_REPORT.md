@@ -16,22 +16,13 @@
 
 原 README 的克隆命令没有指定分支，因此 `git clone` 后自动检出 `main`，得到旧页面是可重复出现的必然结果。
 
-## 同时修复的问题
-
-新版包含模型评价报告页：
-
-- `frontend/model-evaluation.html`
-- `frontend/model-evaluation.js`
-
-此前 `frontend/Dockerfile` 只复制 `index.html`、`styles.css` 和 `app.js`，没有把模型评价页复制进 Nginx 镜像。本次交付已补齐这两个文件。
-
 ## 新仓库交付原则
 
 新仓库以当前完整版本重新初始化：
 
 - 默认分支直接使用 `main`；
 - 不携带原仓库容易混淆的旧分支历史；
-- 包含当前科研规划工作台、模型评价页面、项目报告、评测产物和部署脚本；
+- 包含当前科研规划工作台、系统评测、项目报告、评测产物和部署脚本；
 - 不包含 `.env`、API Key、本地缓存、运行日志、虚拟环境和临时输出；
 - 冻结 Schema、医学安全规则和 SDTI 公式保持不变。
 
@@ -52,7 +43,6 @@ docker compose ps
 访问：
 
 - 科研规划工作台：<http://localhost:8888/>
-- 模型评价中心：<http://localhost:8888/model-evaluation.html>
 - 后端健康检查：<http://localhost:8000/health>
 - API 文档：<http://localhost:8000/docs>
 
@@ -66,14 +56,13 @@ git log -1 --oneline
 docker compose ps
 curl.exe http://localhost:8000/health
 curl.exe http://localhost:8888/ | Select-String "科研规划工作台"
-curl.exe http://localhost:8888/model-evaluation.html | Select-String "模型评价"
 ```
 
 正确结果应满足：
 
 1. 当前分支是 `main`；
 2. 首页源码包含“科研规划工作台”；
-3. 模型评价页面返回自己的 HTML，而不是被 Nginx 回退到首页；
+3. 系统评测只展示真实任务观测值；无 Gold Set 时正式指标保持未评测；
 4. 前后端容器均为 `healthy` 或 `running`；
 5. 浏览器强制刷新后页面与仓库截图一致。
 

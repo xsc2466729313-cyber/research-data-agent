@@ -15,15 +15,6 @@ const state = {
   datasetSourceKey: "primary",
   qwenSessionId: null,
   qwenSessionExpiresAt: null,
-  modelEvaluationReport: null,
-  modelSessions: {},
-  modelConfigs: [
-    { targetId: "qwen-qwen-plus", provider: "qwen", model: "qwen-plus", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", apiKey: "", workspaceId: "", sessionId: null, status: "未连接" },
-    { targetId: "qwen-qwen-max", provider: "qwen", model: "qwen-max", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", apiKey: "", workspaceId: "", sessionId: null, status: "未连接" },
-    { targetId: "qwen-qwen-turbo", provider: "qwen", model: "qwen-turbo", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", apiKey: "", workspaceId: "", sessionId: null, status: "未连接" },
-    { targetId: "deepseek-deepseek-chat", provider: "deepseek", model: "deepseek-chat", baseUrl: "https://api.deepseek.com", apiKey: "", workspaceId: "", sessionId: null, status: "未连接" },
-    { targetId: "deepseek-deepseek-reasoner", provider: "deepseek", model: "deepseek-reasoner", baseUrl: "https://api.deepseek.com", apiKey: "", workspaceId: "", sessionId: null, status: "未连接" },
-  ],
   lineage: { sources: [], candidates: [], primary: "", selected: null, hover: null, view: "all", paused: false },
 };
 
@@ -136,7 +127,6 @@ const METRIC_LABELS_ZH = {
   "Fitness Score": "科研适配度",
   fitness_score: "科研适配度",
   source_audit: "来源审计完整度",
-  outcome_completeness: "结局完整率",
   field_completeness: "字段完整率",
   question_fit: "问题匹配度",
   exploratory_usability: "科研探索可用性",
@@ -1026,24 +1016,23 @@ function deriveSameTableVariants(report) {
   const metrics = report?.metrics || [];
   const pct = (name) => metricPercentValue(metrics.find((item) => item.name === name));
   const audit = pct("来源审计完整度") ?? pct("来源可追溯率");
-  const outcome = pct("结局完整率");
   const field = pct("字段完整率");
   const cover = pct("请求要素覆盖率") ?? pct("请求变量覆盖率");
   const explore = pct("科研探索可用性") ?? pct("分析可用性");
   const diversity = pct("数据源多样性");
   const internal = Number.parseFloat(String((metrics.find((item) => item.name === "内部综合诊断分") || {}).display_value || ""));
-  const full = Number.isFinite(internal) ? internal : meanPercent([audit, outcome, field, cover, diversity, explore]);
+  const full = Number.isFinite(internal) ? internal : meanPercent([audit, field, cover, diversity, explore]);
   if (full == null) return [];
   const usedQwen = report?.used_qwen !== false;
   const noQwenCover = usedQwen ? (cover == null ? 80 : Math.min(cover, 80)) : cover;
-  const noQwen = usedQwen ? meanPercent([audit, outcome, field, noQwenCover, diversity, explore]) : full;
-  const single = diversity == null ? full : meanPercent([audit, outcome, field, cover, 20, explore]);
+  const noQwen = usedQwen ? meanPercent([audit, field, noQwenCover, diversity, explore]) : full;
+  const single = diversity == null ? full : meanPercent([audit, field, cover, 20, explore]);
   const cleaned = Number.parseFloat(String((metrics.find((item) => item.name === "自动清洗值数") || {}).display_value || ""));
   const rawField = Number.isFinite(cleaned) && cleaned > 0 && field != null
     ? Math.max(0, field - Math.min(field * 0.12, cleaned * 0.05))
     : field;
   const noRepair = (Number.isFinite(cleaned) && cleaned > 0)
-    ? meanPercent([audit, outcome, rawField, cover, diversity, explore])
+    ? meanPercent([audit, rawField, cover, diversity, explore])
     : full;
   return [
     { variant_id: "full", label: "正式模型 Ours", diagnostic_score: full, status: "已计算", note: "本次任务完整系统诊断均值", is_primary: true },
@@ -1112,13 +1101,12 @@ function renderModelMetricComparison(report) {
   };
   const actualRows = [
     { name: "来源审计完整度", value: metricValue("来源审计完整度") ?? metricValue("来源可追溯率") },
-    { name: "结局完整率", value: metricValue("结局完整率") },
     { name: "字段完整率", value: metricValue("字段完整率") },
     { name: "请求要素覆盖率", value: metricValue("请求要素覆盖率") ?? metricValue("请求变量覆盖率") },
     { name: "科研探索可用性", value: metricValue("科研探索可用性") ?? metricValue("分析可用性") },
   ];
   const variantColors = {
-    full: "#0f766e",
+    full: "#2563eb",
     no_qwen: "#64748b",
     single_source: "#2563eb",
     no_repair: "#d97706",
@@ -1428,7 +1416,6 @@ function renderReadiness(readiness, dataset, sources, candidates, brief, assessm
   const badge = document.querySelector("#readiness-status");
   badge.textContent = readiness.status;
   badge.className = `status-badge ${statusClass(readiness.status)}`;
-  const outcomeCompleteness = readiness.target_missing_rate == null ? null : (1 - readiness.target_missing_rate) * 100;
   const sourceDatabases = new Set([
     ...sources.map((source) => canonicalDatabaseName(source.source_name)),
     ...(candidates || []).map((candidate) => canonicalDatabaseName(candidate.source_database)),
@@ -1465,7 +1452,6 @@ function renderReadiness(readiness, dataset, sources, candidates, brief, assessm
           ? `${fieldLabel(dataset, readiness.target_column)} · 字段契合与行覆盖连续计分，不是有列即 100%`
           : "没有用其他结局替代；生存结局不会记为 pCR 匹配",
       },
-      { label: "结局完整率", percent: outcomeCompleteness, detail: readiness.target_column ? fieldLabel(dataset, readiness.target_column) : "尚未识别结局字段" },
     ] : []),
     {
       label: "主表基因变量覆盖",
@@ -1678,7 +1664,7 @@ function renderModelComparisonVisual(rows) {
       <strong>${escapeHtml(row.method_label)}</strong>
       <small>${escapeHtml(row.status === "当前任务真实运行" ? "当前任务" : row.status)}</small>
     </article>`;
-  }).join("")}</div><div class="model-evaluation-axis"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>`;
+  }).join("")}</div><div class="comparison-axis"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>`;
 }
 
 function renderStratifiedVisual(rows) {
@@ -1761,7 +1747,6 @@ const SYSTEM_EVALUATION_HISTORY_KEY = "brca-agent-system-evaluation-history-v1";
 let lastEvaluationOverview = null;
 const SYSTEM_EVAL_DIAGNOSTICS = [
   { name: "来源审计完整度", fallbackTarget: 85 },
-  { name: "结局完整率", fallbackTarget: 100 },
   { name: "字段完整率", fallbackTarget: 95 },
   { name: "请求要素覆盖率", fallbackTarget: 80 },
   { name: "科研探索可用性", fallbackTarget: 70 },
@@ -1883,8 +1868,8 @@ function renderSystemEvaluationDashboard(snapshot, history) {
       ["最近评测", "—"],
     ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("");
     cards.innerHTML = [...SYSTEM_EVAL_DIAGNOSTICS.map((item) => `<article class="evaluation-metric-card is-pending"><span>${escapeHtml(item.name)}</span><strong>未测</strong><small>任务级诊断 · 运行后填入</small></article>`), ...toolkitRunCards()].join("");
-    bars.innerHTML = '<p class="muted-visual">运行一次真实数据任务后，这里显示本模型的来源审计、结局完整、字段完整等诊断柱。</p>';
-    radar.innerHTML = '<p class="muted-visual">暂无五维轮廓。</p>';
+    bars.innerHTML = '<p class="muted-visual">运行一次真实数据任务后，这里显示本模型的来源审计、字段完整、要素覆盖与科研可用性。</p>';
+    radar.innerHTML = '<p class="muted-visual">暂无可信度轮廓。</p>';
     ablation.innerHTML = '<p class="muted-visual">运行任务后，这里显示同表消融反事实分数。</p>';
     historyBox.innerHTML = records.length
       ? records.map((row) => `<div class="evaluation-history-row"><div><strong>${escapeHtml(row.task_id || "未编号任务")}</strong><span>${escapeHtml(row.question || "任务级诊断")}</span></div><div><strong>${escapeHtml(new Date(row.saved_at).toLocaleString())}</strong><span>${escapeHtml(row.quality_gate || "REVIEW")}</span></div></div>`).join("")
@@ -1927,16 +1912,17 @@ function renderSystemEvaluationDashboard(snapshot, history) {
   const cy = 130;
   const radius = 86;
   const axes = SYSTEM_EVAL_DIAGNOSTICS.map((item) => (metricPercentValue(metricByName(snapshot.metrics, item.name)) ?? 0) / 100);
-  const grid = [1, 0.66, 0.33].map((scale) => `<polygon points="${SYSTEM_EVAL_DIAGNOSTICS.map((_, index) => radarPoint(cx, cy, radius * scale, index, 5, 1)).join(" ")}"></polygon>`).join("");
+  const axisCount = SYSTEM_EVAL_DIAGNOSTICS.length;
+  const grid = [1, 0.66, 0.33].map((scale) => `<polygon points="${SYSTEM_EVAL_DIAGNOSTICS.map((_, index) => radarPoint(cx, cy, radius * scale, index, axisCount, 1)).join(" ")}"></polygon>`).join("");
   const spokes = SYSTEM_EVAL_DIAGNOSTICS.map((_, index) => {
-    const [x, y] = radarPoint(cx, cy, radius, index, 5, 1).split(",");
+    const [x, y] = radarPoint(cx, cy, radius, index, axisCount, 1).split(",");
     return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}"></line>`;
   }).join("");
-  const labels = ["来源审计", "结局完整", "字段完整", "要素覆盖", "科研探索"].map((label, index) => {
-    const [x, y] = radarPoint(cx, cy, radius + 22, index, 5, 1).split(",");
+  const labels = ["来源审计", "字段完整", "要素覆盖", "科研探索"].map((label, index) => {
+    const [x, y] = radarPoint(cx, cy, radius + 22, index, axisCount, 1).split(",");
     return `<text x="${x}" y="${y}" text-anchor="middle">${escapeHtml(label)}</text>`;
   }).join("");
-  radar.innerHTML = `<svg viewBox="0 0 300 260" aria-hidden="true"><g class="radar-grid">${grid}${spokes}</g><polygon class="radar-value" points="${axes.map((value, index) => radarPoint(cx, cy, radius, index, 5, value)).join(" ")}"></polygon>${labels}</svg>`;
+  radar.innerHTML = `<svg viewBox="0 0 300 260" aria-hidden="true"><g class="radar-grid">${grid}${spokes}</g><polygon class="radar-value" points="${axes.map((value, index) => radarPoint(cx, cy, radius, index, axisCount, value)).join(" ")}"></polygon>${labels}</svg>`;
   const comparisonReport = {
     metrics: snapshot.metrics || [],
     variant_scores: snapshot.variant_scores || [],
@@ -2411,349 +2397,6 @@ document.querySelectorAll(".export-button").forEach((button) => {
   });
 });
 
-function renderApiCheckResult(result) {
-  const container = document.querySelector("#api-check-result");
-  if (!container) return;
-  const statusClassName = result.status === "连接失败" ? "is-error" : "is-success";
-  const facts = [
-    ["网络可达", result.reachable ? "是" : "否"],
-    ["鉴权成功", result.authenticated ? "是" : "否"],
-    ["模型可用", result.model_available ? "是" : "否"],
-    ["函数调用", result.function_calling_available ? "已支持" : "未确认"],
-    ["Agent 探测", result.agent_ready ? "通过" : "未通过/未执行"],
-    ["状态", result.status],
-  ];
-  container.innerHTML = facts.map(([label, value]) => `<article><span>${escapeHtml(label)}</span><strong class="${statusClassName}">${escapeHtml(value)}</strong></article>`).join("")
-    + `<p>${escapeHtml(result.message)} · ${escapeHtml(result.model)}</p>`;
-}
-
-async function checkApiAgent() {
-  const button = document.querySelector("#api-check-submit");
-  const input = document.querySelector("#api-check-key");
-  const message = document.querySelector("#evaluation-workbench-message");
-  if (!button || !input) return;
-  if (!input.value.trim()) {
-    renderApiCheckResult({ status: "连接失败", message: "请输入已轮换的新 Key；聊天中出现的旧 Key 不会被使用。", model: "—", reachable: false, authenticated: false, model_available: false, function_calling_available: false, agent_ready: false });
-    return;
-  }
-  button.disabled = true;
-  try {
-    const response = await fetchApi("/api/agent/api-check", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        provider: document.querySelector("#api-check-provider").value,
-        api_key: input.value,
-        base_url: document.querySelector("#api-check-base-url").value,
-        model: document.querySelector("#api-check-model").value || "qwen-plus",
-        run_agent_probe: document.querySelector("#api-check-agent-probe").checked,
-      }),
-    });
-    const result = await readJson(response);
-    renderApiCheckResult(result);
-    if (message) message.textContent = result.agent_ready ? "API 检测通过，可以运行当前会话。" : result.message;
-  } catch (error) {
-    renderApiCheckResult({ status: "连接失败", message: error.message, model: "—", reachable: false, authenticated: false, model_available: false, function_calling_available: false, agent_ready: false });
-  } finally {
-    input.value = "";
-    button.disabled = false;
-  }
-}
-
-const MODEL_PROVIDER_LABELS = {
-  qwen: "千问",
-  deepseek: "DeepSeek",
-  openai_compatible: "OpenAI 兼容",
-};
-
-const MODEL_PROVIDER_DEFAULTS = {
-  qwen: { model: "qwen-plus", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
-  deepseek: { model: "deepseek-chat", baseUrl: "https://api.deepseek.com" },
-  openai_compatible: { model: "自定义模型", baseUrl: "https://你的兼容接口/v1" },
-};
-
-function modelConfigTargetId(provider, model) {
-  return `${provider}-${String(model).trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-")}`;
-}
-
-function renderModelConfigList() {
-  const container = document.querySelector("#evaluation-model-configs");
-  if (!container) return;
-  container.innerHTML = state.modelConfigs.map((config, index) => {
-    const connected = Boolean(config.sessionId);
-    return `<article class="model-config-row" data-model-index="${index}">
-      <div class="model-config-fields">
-        <label>提供商
-          <select data-model-field="provider">
-            ${Object.entries(MODEL_PROVIDER_LABELS).map(([value, label]) => `<option value="${value}" ${config.provider === value ? "selected" : ""}>${label}</option>`).join("")}
-          </select>
-        </label>
-        <label>模型名称
-          <input data-model-field="model" type="text" value="${escapeHtml(config.model)}" />
-        </label>
-        <label class="model-config-wide">接口地址
-          <input data-model-field="baseUrl" type="url" value="${escapeHtml(config.baseUrl)}" />
-        </label>
-        <label class="model-config-wide">临时 API Key
-          <input data-model-field="apiKey" type="password" autocomplete="new-password" placeholder="${connected ? "已清空，仅保留内存会话" : "连接前输入临时 Key"}" value="${escapeHtml(config.apiKey)}" />
-        </label>
-      </div>
-      <div class="model-config-actions">
-        <span class="model-config-status ${connected ? "is-success" : "is-review"}">${connected ? "已连接" : escapeHtml(config.status || "未连接")}</span>
-        <button class="button button-primary model-connect-button" type="button">${connected ? "重新连接" : "连接并加入"}</button>
-        <button class="button button-secondary model-remove-button" type="button" ${state.modelConfigs.length <= 1 ? "disabled" : ""}>删除</button>
-      </div>
-    </article>`;
-  }).join("");
-}
-
-function updateModelConfigFromField(row, field, value) {
-  const index = Number(row.dataset.modelIndex);
-  const config = state.modelConfigs[index];
-  if (!config) return;
-  config[field] = value;
-  if (field === "provider") {
-    const defaults = MODEL_PROVIDER_DEFAULTS[value];
-    config.model = defaults.model;
-    config.baseUrl = defaults.baseUrl;
-    config.targetId = modelConfigTargetId(value, config.model);
-    config.sessionId = null;
-    config.status = "未连接";
-    renderModelConfigList();
-  } else if (field === "model") {
-    config.targetId = modelConfigTargetId(config.provider, value);
-  }
-}
-
-async function connectEvaluationModel(row) {
-  const index = Number(row.dataset.modelIndex);
-  const config = state.modelConfigs[index];
-  if (!config) return;
-  const button = row.querySelector(".model-connect-button");
-  const status = row.querySelector(".model-config-status");
-  if (!config.apiKey.trim()) {
-    status.textContent = "请输入临时 Key";
-    status.className = "model-config-status is-error";
-    return;
-  }
-  button.disabled = true;
-  status.textContent = "验证中";
-  status.className = "model-config-status is-review";
-  try {
-    const response = await fetchApi("/api/agent/qwen-sessions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        provider: config.provider,
-        api_key: config.apiKey,
-        base_url: config.baseUrl,
-        model: config.model,
-        workspace_id: config.workspaceId || null,
-        timeout_seconds: 120,
-      }),
-    });
-    const session = await readJson(response);
-    config.targetId = modelConfigTargetId(config.provider, config.model);
-    config.sessionId = session.session_id;
-    config.status = "已连接";
-    config.apiKey = "";
-    state.modelSessions[config.targetId] = {
-      sessionId: session.session_id,
-      provider: config.provider,
-      modelId: config.model,
-      modelLabel: `${MODEL_PROVIDER_LABELS[config.provider]} ${config.model}`,
-      expiresAt: session.expires_at,
-    };
-    renderModelConfigList();
-    if (state.modelEvaluationReport) renderModelEvaluationReport(state.modelEvaluationReport);
-    showToast(`${session.provider} / ${session.model} 已加入多模型测试`);
-  } catch (error) {
-    config.status = error.message;
-    status.textContent = error.message;
-    status.className = "model-config-status is-error";
-  } finally {
-    button.disabled = false;
-  }
-}
-
-async function removeEvaluationModel(index) {
-  const config = state.modelConfigs[index];
-  if (!config) return;
-  if (config.sessionId) {
-    await fetchApi(`/api/agent/qwen-sessions/${encodeURIComponent(config.sessionId)}`, { method: "DELETE" }).catch(() => null);
-    delete state.modelSessions[config.targetId];
-  }
-  state.modelConfigs.splice(index, 1);
-  renderModelConfigList();
-  if (state.modelEvaluationReport) renderModelEvaluationReport(state.modelEvaluationReport);
-}
-
-function renderModelEvaluationReport(report) {
-  state.modelEvaluationReport = report;
-  const status = document.querySelector("#model-evaluation-status");
-  const summary = document.querySelector("#model-evaluation-summary");
-  const reportId = document.querySelector("#model-evaluation-report-id");
-  const tableBody = document.querySelector("#model-evaluation-table tbody");
-  const chart = document.querySelector("#model-evaluation-chart");
-  const runButton = document.querySelector("#evaluation-run");
-  const exportButton = document.querySelector("#evaluation-export");
-  if (!status || !summary || !reportId || !tableBody || !chart) return;
-  status.textContent = report.status;
-  status.className = `status-badge ${statusClass(report.status)}`;
-  summary.textContent = report.summary_zh;
-  reportId.textContent = report.report_id;
-  runButton.disabled = !Object.keys(state.modelSessions).length;
-  exportButton.disabled = false;
-  const questions = new Map((report.questions || []).map((item) => [item.question_id, item.question]));
-  tableBody.innerHTML = (report.model_rows || []).map((row) => {
-    const metrics = Object.entries(row.metrics || {}).map(([key, value]) => `${metricLabelZh(key)}=${metricValueText(value)}`).join("；") || "待实测";
-    return `<tr><td><strong>${escapeHtml(row.question_id)}</strong><small>${escapeHtml(questions.get(row.question_id) || "—")}</small></td>
-      <td>${escapeHtml(MODEL_PROVIDER_LABELS[row.provider] || row.provider)}</td>
-      <td>${escapeHtml(row.model_label)}<small>${escapeHtml(row.model_id)}</small></td>
-      <td>${escapeHtml(row.status)}</td><td>${escapeHtml(metrics)}</td>
-      <td><span class="status-badge ${statusClass(row.quality_gate)}">${escapeHtml(row.quality_gate === "REVIEW" ? "待复核" : row.quality_gate)}</span></td>
-      <td>${escapeHtml(localizeNarrative(row.note))}</td></tr>`;
-  }).join("") || '<tr><td colspan="7" class="muted-cell">暂无测试行。</td></tr>';
-  const grouped = new Map();
-  (report.model_rows || []).forEach((row) => {
-    const current = grouped.get(row.model_id) || { label: row.model_label, values: [] };
-    const score = row.metrics?.["综合可观察分"];
-    if (typeof score === "number") current.values.push(score);
-    grouped.set(row.model_id, current);
-  });
-  const bars = [...grouped.values()].map((item) => {
-    const score = item.values.length ? item.values.reduce((sum, value) => sum + value, 0) / item.values.length * 100 : null;
-    return `<article class="model-evaluation-bar${score == null ? " is-pending" : ""}">
-      <strong>${score == null ? "待实测" : `${score.toFixed(1)}%`}</strong>
-      <div class="model-evaluation-bar-track"><i style="height:${(score || 0).toFixed(1)}%"></i></div>
-      <strong>${escapeHtml(item.label)}</strong><span>${score == null ? "未运行" : "已观测"}</span>
-    </article>`;
-  }).join("");
-  chart.innerHTML = bars ? `<div class="model-evaluation-bars">${bars}</div><div class="model-evaluation-axis"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>` : '<p class="muted-visual">暂无可视化指标。</p>';
-}
-
-async function generateModelEvaluationPlan() {
-  const button = document.querySelector("#evaluation-generate");
-  const message = document.querySelector("#evaluation-workbench-message");
-  button.disabled = true;
-  try {
-    const targets = state.modelConfigs.map((config) => ({
-      target_id: config.targetId || modelConfigTargetId(config.provider, config.model),
-      provider: config.provider,
-      model_id: config.model,
-      model_label: `${MODEL_PROVIDER_LABELS[config.provider]} ${config.model}`,
-    }));
-    const questionSessionId = state.qwenSessionId
-      || state.modelSessions["qwen-qwen-plus"]?.sessionId
-      || null;
-    const payload = {
-      question_count: Number(document.querySelector("#evaluation-question-count").value),
-      seed_question: document.querySelector("#evaluation-seed-question").value,
-      targets,
-      run_mode: questionSessionId ? "live" : "dry_run",
-    };
-    if (questionSessionId) payload.qwen_session_id = questionSessionId;
-    const report = await readJson(await fetchApi("/api/evaluation/model-tests/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    }));
-    renderModelEvaluationReport(report);
-    message.textContent = questionSessionId ? "已使用千问会话生成问题；请点击“运行已连接模型”开始并行观测。" : "已生成规则测试问题；连接一个或多个模型后可运行真实测试。";
-  } catch (error) {
-    message.textContent = error.message;
-  } finally {
-    button.disabled = false;
-  }
-}
-
-async function runModelEvaluation() {
-  const report = state.modelEvaluationReport;
-  const button = document.querySelector("#evaluation-run");
-  const message = document.querySelector("#evaluation-workbench-message");
-  if (!report || !Object.keys(state.modelSessions).length) {
-    message.textContent = "请先连接至少一个模型临时会话，再运行真实测试。";
-    return;
-  }
-  button.disabled = true;
-  try {
-    const session_ids = Object.fromEntries(
-      Object.entries(state.modelSessions).map(([targetId, session]) => [targetId, session.sessionId]),
-    );
-    const updated = await readJson(await fetchApi("/api/evaluation/model-tests/run", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ report_id: report.report_id, session_ids }),
-    }));
-    renderModelEvaluationReport(updated);
-    message.textContent = updated.summary_zh;
-  } catch (error) {
-    message.textContent = error.message;
-  } finally {
-    button.disabled = false;
-  }
-}
-
-async function exportModelEvaluationReport() {
-  const report = state.modelEvaluationReport;
-  if (!report) return;
-  const response = await fetchApi(`/api/evaluation/model-tests/${encodeURIComponent(report.report_id)}/export/xlsx`);
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
-    throw new Error(body.detail || "对比报告导出失败。");
-  }
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `${report.report_id}-多模型对比报告.xlsx`;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
-}
-
-document.querySelector("#api-check-submit")?.addEventListener("click", checkApiAgent);
-document.querySelector("#api-check-provider")?.addEventListener("change", (event) => {
-  const defaults = MODEL_PROVIDER_DEFAULTS[event.target.value];
-  document.querySelector("#api-check-model").value = defaults.model;
-  document.querySelector("#api-check-base-url").value = defaults.baseUrl;
-});
-document.querySelector("#evaluation-generate")?.addEventListener("click", generateModelEvaluationPlan);
-document.querySelector("#evaluation-run")?.addEventListener("click", runModelEvaluation);
-document.querySelector("#evaluation-add-model")?.addEventListener("click", () => {
-  state.modelConfigs.push({
-    targetId: `custom-${Date.now()}`,
-    provider: "openai_compatible",
-    model: "自定义模型",
-    baseUrl: "https://你的兼容接口/v1",
-    apiKey: "",
-    workspaceId: "",
-    sessionId: null,
-    status: "未连接",
-  });
-  renderModelConfigList();
-});
-document.querySelector("#evaluation-model-configs")?.addEventListener("input", (event) => {
-  const field = event.target.dataset.modelField;
-  const row = event.target.closest("[data-model-index]");
-  if (field && row) updateModelConfigFromField(row, field, event.target.value);
-});
-document.querySelector("#evaluation-model-configs")?.addEventListener("change", (event) => {
-  const field = event.target.dataset.modelField;
-  const row = event.target.closest("[data-model-index]");
-  if (field && row) updateModelConfigFromField(row, field, event.target.value);
-});
-document.querySelector("#evaluation-model-configs")?.addEventListener("click", (event) => {
-  const row = event.target.closest("[data-model-index]");
-  if (!row) return;
-  const index = Number(row.dataset.modelIndex);
-  if (event.target.closest(".model-connect-button")) connectEvaluationModel(row);
-  if (event.target.closest(".model-remove-button")) removeEvaluationModel(index);
-});
-document.querySelector("#evaluation-export")?.addEventListener("click", () => exportModelEvaluationReport().catch((error) => {
-  document.querySelector("#evaluation-workbench-message").textContent = error.message;
-}));
 document.querySelector("#model-chart-metric")?.addEventListener("change", () => {
   renderModelComparisonVisual(state.result?.competition_report?.unified_evaluation?.model_comparison || []);
 });
@@ -2770,7 +2413,6 @@ document.querySelector("#evaluation-refresh")?.addEventListener("click", () => {
 });
 
 checkConfiguration();
-renderModelConfigList();
 restoreSystemEvaluationDashboard();
 
 // Guided research-planning workspace. This keeps the planning flow separate from

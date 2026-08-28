@@ -86,12 +86,6 @@ class CompetitionReportBuilder:
                 ),
             ),
             self._metric(
-                "结局完整率",
-                outcome_complete,
-                "尽量接近 100%",
-                "结局字段必须与科研问题同域。",
-            ),
-            self._metric(
                 "字段完整率",
                 field_complete,
                 ">=95% 更稳健",
@@ -271,7 +265,6 @@ class CompetitionReportBuilder:
             "internal_diagnostic_score": round(diagnostic_score, 4),
             "fitness_score": fitness.fitness_score,
             "source_audit": source_audit_score,
-            "outcome_completeness": outcome_complete,
             "field_completeness": field_complete,
             "question_fit": question_fit_score,
             "exploratory_usability": exploratory_analysis_score,
@@ -485,7 +478,7 @@ class CompetitionReportBuilder:
         observed: dict[str, float | str | None],
     ) -> list[ModelComparisonRow]:
         # A single task result is a task-level observation, not a model comparison.
-        # The independent model-evaluation page creates the required batch artifact.
+        # Cross-model scores stay empty until an external, reproducible batch run exists.
         return []
 
     @staticmethod
@@ -1752,8 +1745,6 @@ class CompetitionReportBuilder:
             "把科研问题转成结构化 ResearchSpec，再驱动真实工具，而不是只做关键词检索。",
             f"把 {len(databases)} 类来源统一进同一份科研数据集，并保留 source_id / 官方 URL。",
         ]
-        if outcome_complete is not None:
-            items.append(f"结局完整率当前为 {outcome_complete:.1%}，直接暴露是否能支撑后续分析。")
         if field_complete is not None:
             items.append(f"字段完整率当前为 {field_complete:.1%}，能直接指出缺失风险。")
         if traceability_rate is not None:

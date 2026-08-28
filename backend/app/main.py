@@ -33,10 +33,6 @@ from backend.app.agent import (
     ResearchTaskSpec,
     ResearchTaskStatus,
     QualityGateReport,
-    ModelComparisonReport,
-    ModelEvaluationGenerateRequest,
-    ModelEvaluationRunRequest,
-    ModelEvaluationService,
     ClosedLoopRequest,
     ClosedLoopResponse,
     ClosedLoopService,
@@ -191,7 +187,6 @@ research_planning_service = ResearchPlanningService()
 qwen_session_registry = QwenSessionRegistry()
 agent_export_service = AgentDatasetExportService()
 api_check_service = ApiCheckService()
-model_evaluation_service = ModelEvaluationService()
 vnext_safety_layer = SafetyLayer()
 retrieval_service_v2 = RetrievalServiceV2()
 research_planning_v2_service = ResearchPlanningV2Service()
@@ -271,10 +266,6 @@ def resolve_qwen_session_client(
 
 def get_api_check_service() -> ApiCheckService:
     return api_check_service
-
-
-def get_model_evaluation_service() -> ModelEvaluationService:
-    return model_evaluation_service
 
 
 def get_quality_v2_service() -> QualityV2Service:
@@ -464,82 +455,6 @@ def check_agent_api(
     service: Annotated[ApiCheckService, Depends(get_api_check_service)],
 ) -> ApiCheckResult:
     return service.check(payload)
-
-
-@app.post(
-    "/api/evaluation/model-tests/generate",
-    response_model=ModelComparisonReport,
-)
-def generate_model_evaluation_plan(
-    payload: ModelEvaluationGenerateRequest,
-    service: Annotated[ModelEvaluationService, Depends(get_model_evaluation_service)],
-    registry: Annotated[QwenSessionRegistry, Depends(get_qwen_session_registry)],
-) -> ModelComparisonReport:
-    client = None
-    if payload.qwen_session_id:
-        client = registry.get(payload.qwen_session_id)
-        if client is None:
-            raise HTTPException(status_code=401, detail="临时模型会话不存在或已过期，请重新连接 API。")
-    return service.generate(payload, qwen_client=client)
-
-
-@app.post(
-    "/api/evaluation/model-tests/run",
-    response_model=ModelComparisonReport,
-)
-def run_model_evaluation(
-    payload: ModelEvaluationRunRequest,
-    service: Annotated[ModelEvaluationService, Depends(get_model_evaluation_service)],
-    registry: Annotated[QwenSessionRegistry, Depends(get_qwen_session_registry)],
-) -> ModelComparisonReport:
-    session_ids = dict(payload.session_ids)
-    if payload.qwen_session_id and not session_ids:
-        session_ids["qwen-qwen-plus"] = payload.qwen_session_id
-    clients = {}
-    for target_id, session_id in session_ids.items():
-        client = registry.get(session_id)
-        if client is None:
-            raise HTTPException(status_code=401, detail=f"模型目标 {target_id} 的临时会话不存在或已过期。")
-        clients[target_id] = client
-    if not clients:
-        raise HTTPException(status_code=401, detail="请至少连接一个模型临时会话后再运行真实测试。")
-    try:
-        return service.run(payload, clients)
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-
-@app.get(
-    "/api/evaluation/model-tests/{report_id}",
-    response_model=ModelComparisonReport,
-)
-def get_model_evaluation(
-    report_id: str,
-    service: Annotated[ModelEvaluationService, Depends(get_model_evaluation_service)],
-) -> ModelComparisonReport:
-    report = service.get(report_id)
-    if report is None:
-        raise HTTPException(status_code=404, detail="多模型测试报告不存在或服务已重启。")
-    return report
-
-
-@app.get("/api/evaluation/model-tests/{report_id}/export/xlsx")
-def export_model_evaluation(
-    report_id: str,
-    service: Annotated[ModelEvaluationService, Depends(get_model_evaluation_service)],
-) -> Response:
-    try:
-        content = service.export_xlsx(report_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return Response(
-        content=content,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={
-            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(report_id + '-多模型对比报告.xlsx')}",
-            "X-Content-Type-Options": "nosniff",
-        },
-    )
 
 
 @app.post("/api/agent/tasks", response_model=AgentTaskResult)
@@ -935,12 +850,10 @@ def run_normalization_integration(
 @app.get("/api/evaluation/overview", response_model=EvaluationOverview)
 def get_evaluation_overview(
     agent: Annotated[ResearchAgentService, Depends(get_research_agent_service)],
-    models: Annotated[ModelEvaluationService, Depends(get_model_evaluation_service)],
 ) -> EvaluationOverview:
     inspection = goldset_loader.inspect(GOLDSET_TEMPLATE_DIR)
     return build_evaluation_overview(
         latest_task=agent.latest(),
-        latest_model_test=models.latest(),
         goldset_row_counts=inspection.row_counts,
     )
 

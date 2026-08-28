@@ -721,15 +721,17 @@ class ResearchDatasetBuilder:
 
         target_missing_rate: float | None = None
         nonmissing_classes: set[str] = set()
-        if dataset.target_column:
+        if dataset.target_column and dataset.row_count:
             target_values = [row.get(dataset.target_column) for row in dataset.rows]
             missing = sum(value in {None, ""} for value in target_values)
-            target_missing_rate = missing / dataset.row_count if dataset.row_count else 1.0
+            target_missing_rate = missing / dataset.row_count
             nonmissing_classes = {str(value) for value in target_values if value not in {None, ""}}
             if needs_outcome and target_missing_rate > 0.2:
                 warnings.append(f"研究结局缺失率为 {target_missing_rate:.1%}，需要预先定义纳入/排除规则。")
             if needs_outcome and len(nonmissing_classes) <= 1:
                 warnings.append("非缺失研究结局只有一个类别，无法进行可靠的分组比较。")
+        elif dataset.target_column:
+            warnings.append("当前没有实际数据行，研究结局未评测。")
 
         field_completeness_rate = self._field_completeness(dataset)
         variable_coverage = self._requested_variable_coverage(dataset, spec)
