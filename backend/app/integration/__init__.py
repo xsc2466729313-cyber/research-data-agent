@@ -10,6 +10,8 @@ from backend.app.integration.models import (
     SchemaMatcherV3Response,
 )
 from backend.app.integration.entity_matcher_v3 import EntityMatchV3, EntityMatcherV3
+from backend.app.integration.entity_matcher_v2plus import EntityMatchV2Plus, EntityMatcherV2Plus
+from backend.app.integration.schema_matcher_v2plus import SchemaMatchV2Plus, SchemaMatcherV2Plus
 from backend.app.integration.patient_sample_linker import PatientSampleLinker
 
 __all__ = [
@@ -26,6 +28,10 @@ __all__ = [
     "SchemaMatcherV3Response",
     "EntityMatchV3",
     "EntityMatcherV3",
+    "EntityMatchV2Plus",
+    "EntityMatcherV2Plus",
+    "SchemaMatchV2Plus",
+    "SchemaMatcherV2Plus",
     "EntityMatcherV3Request",
     "EntityMatcherV3Response",
     "PatientSampleLinker",

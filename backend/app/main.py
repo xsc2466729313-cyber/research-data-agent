@@ -102,11 +102,13 @@ from backend.app.source_broker.models import SourcePlanningResult, SourcePlanReq
 from backend.app.integration import (
     IntegrationError,
     EntityMatcherV3,
+    EntityMatcherV2Plus,
     EntityMatcherV3Request,
     EntityMatcherV3Response,
     PatientSampleLinker,
     NormalizationIntegrationPipeline,
     SchemaMatcherV3,
+    SchemaMatcherV2Plus,
     SchemaMatcherV3Request,
     SchemaMatcherV3Response,
 )
@@ -176,6 +178,8 @@ civic_adapter = CIViCAdapter()
 normalization_pipeline = NormalizationIntegrationPipeline()
 schema_matcher_v3 = SchemaMatcherV3()
 entity_matcher_v3 = EntityMatcherV3()
+schema_matcher_v2plus = SchemaMatcherV2Plus()
+entity_matcher_v2plus = EntityMatcherV2Plus()
 evaluation_service = EvaluationService()
 goldset_loader = GoldSetCsvLoader()
 goldset_curation_service = GoldSetCurationService()
@@ -416,6 +420,45 @@ def match_entity_v3(payload: EntityMatcherV3Request) -> EntityMatcherV3Response:
             "candidate_generated": item.candidate_generated,
         } for item in matches],
         learned_invocation_count=entity_matcher_v3.learned_invocation_count,
+    )
+
+
+@app.post("/api/v2/schema/match-v2plus", response_model=SchemaMatcherV3Response)
+def match_schema_v2plus(payload: SchemaMatcherV3Request) -> SchemaMatcherV3Response:
+    matches = schema_matcher_v2plus.match(
+        payload.source_fields, payload.target_fields,
+        source_types=payload.source_types, target_types=payload.target_types,
+        source_values=payload.source_values, target_values=payload.target_values,
+        source_table=payload.source_table, target_table=payload.target_table,
+        source_descriptions=payload.source_descriptions, target_descriptions=payload.target_descriptions,
+    )
+    return SchemaMatcherV3Response(
+        matcher_version=schema_matcher_v2plus.VERSION,
+        matches=[{
+            "source_field": item.source_field, "target_field": item.target_field,
+            "confidence": item.confidence, "evidence": item.evidence,
+            "decision": item.decision, "decision_source": item.decision_source,
+            "safety_rule_hits": item.safety_rule_hits,
+        } for item in matches],
+        qwen_invocation_count=0,
+    )
+
+
+@app.post("/api/v2/entity/match-v2plus", response_model=EntityMatcherV3Response)
+def match_entity_v2plus(payload: EntityMatcherV3Request) -> EntityMatcherV3Response:
+    matches = entity_matcher_v2plus.match(
+        payload.left, payload.right, id_field=payload.id_field, study_field=payload.study_field,
+        linker_authorized=payload.linker_authorized,
+    )
+    return EntityMatcherV3Response(
+        matcher_version=entity_matcher_v2plus.VERSION,
+        matches=[{
+            "left_record_id": item.left_record_id, "right_record_id": item.right_record_id,
+            "model_confidence": item.confidence, "decision": item.decision,
+            "reason": item.reason, "similarity_features": item.similarity_features,
+            "safety_rule_hits": item.safety_rule_hits, "decision_source": item.decision_source,
+        } for item in matches],
+        learned_invocation_count=0,
     )
 
 

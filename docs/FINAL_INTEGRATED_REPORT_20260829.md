@@ -262,9 +262,10 @@ V3 没有超过 V2，因此当前默认仍为 **值分布画像 V2**。
 
 1. **正式金标准集缺失**：需要独立初标、复核、冻结 checksum 的检索、字段、错误三类金标准集，才能计算 SDTI。
 2. **多模型同条件对比缺失**：补齐 DeepSeek、GLM 或其他兼容模型凭据，在同一题集和工具预算下重复运行。
-3. **乳腺癌领域分层不足**：应按 HER2、TNBC、HR+/HER2-、数据源、`response_domain`、证据等级和匹配置信度报告 worst stratum。
+3. **乳腺癌领域分层不足**：已新增 `docs/BREAST_CANCER_GOLDSET_CANDIDATE_PLAN.md`，以 TCGA-BRCA、GSE76360、GSE25066、METABRIC、ClinicalTrials.gov/AACT 和 CIViC 构建候选任务池；正式入集仍需独立审核与冻结。
 4. **交叉编码器完整成绩缺失**：接口和回归测试已存在，但大规模公开运行未完成，暂不报告成绩。
 5. **数据充分性仍是短板**：当前可追溯性接近 98%，但研究相关性和分析充分性约 79%–81%，下一步优先补齐关键字段覆盖和结局可用性。
+6. **V2/V3 安全融合候选已实现**：`/api/v2/schema/match-v2plus` 与 `/api/v2/entity/match-v2plus` 保留已验证 V2 的候选决策，并仅从 V3 引入特征审计、显式身份冲突阻断和授权门。尚未在独立乳腺癌 validation 集完成默认切换，因此不报告新成绩，也不改变当前 V2 默认。
 
 ## 十一、复现、端口与 GitHub 数据恢复
 
@@ -281,6 +282,8 @@ python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
 - 健康检查：`GET /health`
 - 临时模型会话：`POST /api/agent/qwen-sessions`
 - 两轮闭环：`POST /api/v2/agent/closed-loop`
+- V2Plus 字段对齐候选：`POST /api/v2/schema/match-v2plus`
+- V2Plus 实体关联候选：`POST /api/v2/entity/match-v2plus`
 
 配置写入被 Git 忽略的 `.env` 后，同一台本机的请求无需重复输入 API Key；临时会话只返回 `session_id`，服务重启后失效，最长保留两小时。Docker 前端默认端口为 `8888`，后端仍为 `8000`。
 
