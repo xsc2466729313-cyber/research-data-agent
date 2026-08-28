@@ -54,7 +54,7 @@ def main() -> int:
     parser.add_argument("--qwen-csv", type=Path, default=None)
     parser.add_argument("--qwen-review-api-key", default=os.getenv("DASHSCOPE_API_KEY", ""))
     parser.add_argument("--qwen-review-base-url", default=os.getenv("QWEN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"))
-    parser.add_argument("--qwen-review-model", default=os.getenv("QWEN_MODEL", "qwen-plus"))
+    parser.add_argument("--qwen-review-model", default=os.getenv("QWEN_MODEL", "qwen3.8-max"))
     parser.add_argument("--max-cases", type=int, default=30)
     parser.add_argument("--max-sources", type=int, default=3)
     parser.add_argument("--allow-provisional", action="store_true")

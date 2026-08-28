@@ -100,7 +100,7 @@ class QwenJudge:
         api_key: str,
         *,
         base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1",
-        model: str = "qwen-plus",
+        model: str = "qwen3.8-max",
         timeout_seconds: float = 120,
         client: httpx.Client | None = None,
     ) -> None:
@@ -108,27 +108,54 @@ class QwenJudge:
             raise ValueError("缺少 DASHSCOPE_API_KEY。")
         self.api_key = api_key.strip()
         self.base_url = base_url.rstrip("/")
-        self.model = model.strip() or "qwen-plus"
+        self.model = model.strip() or "qwen3.8-max"
         self.client = client or httpx.Client(timeout=timeout_seconds, follow_redirects=True)
         self._owns_client = client is None
 
     def evaluate(self, case: EvaluationCase, task: dict[str, Any]) -> dict[str, Any]:
+        def compact(items: Any, fields: tuple[str, ...], limit: int) -> list[dict[str, Any]]:
+            rows = items if isinstance(items, list) else []
+            return [
+                {key: item.get(key) for key in fields if item.get(key) is not None}
+                for item in rows[:limit]
+                if isinstance(item, dict)
+            ]
+
         context = {
             "question": case.question,
             "research_spec": task.get("research_spec"),
             "plan": task.get("plan"),
-            "tool_calls": task.get("tool_calls"),
-            "candidate_sources": task.get("candidate_sources"),
-            "source_items": task.get("source_items"),
+            "tool_calls": compact(
+                task.get("tool_calls"),
+                ("tool_name", "arguments", "status", "source_count", "record_count", "message"),
+                12,
+            ),
+            "candidate_sources": compact(
+                task.get("candidate_sources"),
+                (
+                    "dataset_id", "dataset_name", "source_database", "data_type", "sample_count",
+                    "has_treatment", "has_response", "public_access", "relevance_score", "accession",
+                ),
+                20,
+            ),
+            "source_items": compact(
+                task.get("source_items"),
+                ("source_id", "source_name", "source_type", "accession", "file_type", "status"),
+                30,
+            ),
             "dataset_profile": {
                 "name": (task.get("modeling_dataset") or {}).get("name"),
                 "row_count": (task.get("modeling_dataset") or {}).get("row_count"),
                 "patient_count": (task.get("modeling_dataset") or {}).get("patient_count"),
                 "sample_count": (task.get("modeling_dataset") or {}).get("sample_count"),
-                "columns": [item.get("name") for item in (task.get("modeling_dataset") or {}).get("columns", [])],
+                "columns": [
+                    item.get("name")
+                    for item in (task.get("modeling_dataset") or {}).get("columns", [])[:100]
+                    if isinstance(item, dict)
+                ],
             },
             "readiness": task.get("readiness"),
-            "summary_zh": task.get("summary_zh"),
+            "summary_zh": str(task.get("summary_zh") or "")[:4000],
         }
         system = (
             "你是独立的科研检索质量评审员。只根据给出的科研问题、检索计划、来源和数据摘要评分，"
@@ -143,6 +170,8 @@ class QwenJudge:
             json={
                 "model": self.model,
                 "temperature": 0,
+                "enable_thinking": False,
+                "max_tokens": 1200,
                 "messages": [
                     {"role": "system", "content": system},
                     {"role": "user", "content": json.dumps(context, ensure_ascii=False)},

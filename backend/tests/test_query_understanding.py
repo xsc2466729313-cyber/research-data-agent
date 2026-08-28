@@ -32,6 +32,23 @@ def test_invalid_generated_plan_falls_back_to_original_query():
     assert checked.accepted_queries == ["PIK3CA 2+ HER2"]
 
 
+def test_natural_language_rewrite_does_not_require_stopwords_but_preserves_negation():
+    accepted = validate_query_plan(
+        {
+            "must_keep_terms": ["TET protein", "myeloid cancers"],
+            "keyword_query": "TET protein loss myeloid cancers",
+        },
+        "The loss of the TET protein functions may have dire biological consequences, such as myeloid cancers.",
+    )
+    assert accepted.valid is True
+    rejected = validate_query_plan(
+        {"keyword_query": "co-IR blockade adverse autoimmune events"},
+        "co-IR blockade does not cause adverse autoimmune events",
+    )
+    assert rejected.valid is False
+    assert "not" in rejected.protected_terms
+
+
 def test_rule_plan_bounds_long_public_query_fields():
     plan = build_rule_plan("HER2 " + ("evidence " * 1200))
     assert len(plan.keyword_query) <= 4000

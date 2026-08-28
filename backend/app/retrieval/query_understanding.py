@@ -40,8 +40,22 @@ _NEGATION_TERMS = ("not", "no", "without", "否", "不", "无", "未")
 
 def protected_terms(query: str) -> list[str]:
     terms = [item.strip() for item in _QUOTED_RE.findall(query or "") if item.strip()]
-    terms.extend(_TOKEN_RE.findall(query or ""))
-    terms.extend(term for term in (query or "").split() if term.isupper() and len(term) > 1)
+    for token in _TOKEN_RE.findall(query or ""):
+        token = token.rstrip(".,;:")
+        has_identifier_shape = (
+            any(character.isdigit() for character in token)
+            or any(character in "_+./-" for character in token)
+            or (len(token) > 1 and any(character.isalpha() for character in token) and token.isupper())
+        )
+        if has_identifier_shape:
+            terms.append(token)
+    folded = (query or "").casefold()
+    for term in _NEGATION_TERMS:
+        if term.isascii():
+            if re.search(rf"\b{re.escape(term)}\b", query or "", flags=re.IGNORECASE):
+                terms.append(term)
+        elif term.casefold() in folded:
+            terms.append(term)
     return list(dict.fromkeys(terms))[:32]
 
 
@@ -77,7 +91,13 @@ def build_rule_plan(query: str) -> RetrievalQueryPlan:
 def validate_query_plan(plan: RetrievalQueryPlan | dict[str, Any], original_query: str) -> QueryPlanValidation:
     parsed = plan if isinstance(plan, RetrievalQueryPlan) else RetrievalQueryPlan.model_validate(plan)
     raw = normalize_query(original_query)
-    protected = list(dict.fromkeys([*protected_terms(raw), *parsed.must_keep_terms]))
+    raw_folded = raw.casefold()
+    declared_must_keep = [
+        normalize_query(term)
+        for term in parsed.must_keep_terms
+        if normalize_query(term) and normalize_query(term).casefold() in raw_folded
+    ]
+    protected = list(dict.fromkeys([*protected_terms(raw), *declared_must_keep]))
     candidates = [parsed.keyword_query, parsed.paraphrase_query, parsed.evidence_query]
     accepted: list[str] = []
     rejected: list[str] = []

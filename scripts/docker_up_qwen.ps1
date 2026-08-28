@@ -1,7 +1,7 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$CredentialCsv,
-    [string]$Model = "qwen-plus"
+    [string]$Model = "qwen3.8-max"
 )
 
 $ErrorActionPreference = "Stop"

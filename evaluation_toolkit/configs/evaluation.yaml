@@ -19,7 +19,7 @@ ai_panel:
       may_create_ground_truth: false
     auxiliary_reviewer:
       provider: qwen
-      model: qwen-plus
+      model: qwen3.8-max
       responsibility: output_diagnostic_only
       may_create_ground_truth: false
   consensus:

@@ -40,6 +40,12 @@ def session_request() -> QwenSessionRequest:
     )
 
 
+def test_qwen_session_request_defaults_to_flagship_model() -> None:
+    request = QwenSessionRequest(api_key="session-test-key")
+
+    assert request.model == "qwen3.8-max"
+
+
 def test_qwen_session_registry_keeps_secret_out_of_status_and_can_delete() -> None:
     registry = build_registry()
     status = registry.create(session_request())

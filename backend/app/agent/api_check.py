@@ -14,7 +14,7 @@ class ApiCheckRequest(ApiModel):
     provider: Literal["qwen"] = "qwen"
     api_key: SecretStr
     base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-    model: str = "qwen-plus"
+    model: str = "qwen3.8-max"
     workspace_id: str | None = None
     timeout_seconds: float = Field(default=30, ge=5, le=120)
     run_agent_probe: bool = False

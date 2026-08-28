@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="千问驱动的乳腺癌科研数据智能体：从科研问题、真实数据库工具调用到可阅读、可追溯的科研数据集。" />
     <title>千问乳腺癌科研数据智能体</title>
-    <link rel="stylesheet" href="/styles.css?v=20260828-ui-cleanup-1" />
+    <link rel="stylesheet" href="/styles.css?v=20260829-user-ui-3" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">跳至正文</a>
@@ -46,14 +46,11 @@
             <span class="planner-orbit" aria-hidden="true">✦</span>
             <p class="planner-kicker">从研究想法，到可以开始的数据工作</p>
             <h1>告诉我你想研究的方向</h1>
-            <p>只需要一句稍微宽泛的描述。系统会自动查找论文、明确研究问题、制定研究方案，并检查公开数据是否可用。</p>
+            <p>输入研究方向后，系统查找真实来源、生成研究方案，并整理可追溯的数据结果。</p>
             <div class="planner-prompt-grid" aria-label="研究方向示例">
               <button type="button" data-planner-example="哪些因素会影响乳腺癌新辅助治疗的疗效？"><strong>新辅助治疗疗效</strong><span>哪些因素会影响乳腺癌新辅助治疗的疗效？</span><small>点击后自动完成研究规划</small></button>
               <button type="button" data-planner-example="哪些生物标志物可以预测乳腺癌患者的治疗效果？"><strong>生物标志物</strong><span>哪些生物标志物可以预测乳腺癌患者的治疗效果？</span><small>点击后自动完成研究规划</small></button>
               <button type="button" data-planner-example="不同乳腺癌分子亚型的治疗响应是否存在差异？"><strong>分子亚型差异</strong><span>不同乳腺癌分子亚型的治疗响应是否存在差异？</span><small>点击后自动完成研究规划</small></button>
-              <button type="button" data-planner-example="乳腺癌患者的预后主要受到哪些临床和分子因素影响？"><strong>乳腺癌预后</strong><span>乳腺癌患者的预后主要受到哪些临床和分子因素影响？</span><small>点击后自动完成研究规划</small></button>
-              <button type="button" data-planner-example="基因突变与乳腺癌治疗响应之间有什么关系？"><strong>基因突变与响应</strong><span>基因突变与乳腺癌治疗响应之间有什么关系？</span><small>点击后自动完成研究规划</small></button>
-              <button type="button" data-planner-example="公开数据中有哪些乳腺癌队列适合开展疗效预测研究？"><strong>公开数据队列</strong><span>公开数据中有哪些乳腺癌队列适合开展疗效预测研究？</span><small>点击后自动完成研究规划</small></button>
             </div>
           </section>
 
@@ -109,49 +106,14 @@
         <a id="advanced-return-planner" href="#planning-workspace">← 返回研究向导</a>
         <a href="#main-content">工作台</a>
         <a href="#task-entry">研究问题</a>
-        <a href="#study-design">研究方案</a>
-        <a href="#cohort-construction">队列定义</a>
         <a href="#quality-gates">质量门</a>
         <a href="#research-data">分析矩阵</a>
-        <a href="#evaluation-dashboard">系统评测</a>
+        <a href="#provenance">来源</a>
       </nav>
       <div id="system-status" class="system-status"><span class="status-dot"></span><span>正在连接</span></div>
     </header>
 
     <main id="main-content">
-      <section class="hero">
-        <div>
-          <p class="eyebrow">QWEN · 科研数据智能体</p>
-          <h1>从公开数据库生产可分析、可审计的科研数据集</h1>
-          <p class="hero-lead">
-            系统依据研究问题完成 PICO 结构化解析，调用 GDC、GEO、cBioPortal、ClinicalTrials.gov、CIViC 等公开入口，执行队列筛选、实体对齐与四层质量门，输出含字段字典与来源溯源的患者级宽表。本系统不提供临床诊疗建议。
-          </p>
-          <div class="capability-tags">
-            <span>千问函数调用</span><span>真实公开数据库</span><span>患者/样本级宽表</span><span>中文字段字典</span>
-          </div>
-        </div>
-        <aside class="agent-route">
-          <p>科研问题 → 可用于分析的科研数据集</p>
-          <ol>
-            <li><span>01</span><strong>问题解析</strong></li>
-            <li><span>02</span><strong>研究方案</strong></li>
-            <li><span>03</span><strong>数据源规划</strong></li>
-            <li><span>04</span><strong>队列与对齐</strong></li>
-            <li><span>05</span><strong>质量门与输出</strong></li>
-          </ol>
-        </aside>
-      </section>
-
-      <ol class="protocol-strip" aria-label="协议步骤">
-        <li><a href="#task-entry"><b>01</b><span>问题解析</span></a></li>
-        <li><a href="#study-design"><b>02</b><span>研究方案</span></a></li>
-        <li><a href="#cohort-construction"><b>03</b><span>队列构建</span></a></li>
-        <li><a href="#data-alignment"><b>04</b><span>实体对齐</span></a></li>
-        <li><a href="#quality-gates"><b>05</b><span>质量门</span></a></li>
-        <li><a href="#research-data"><b>06</b><span>分析矩阵</span></a></li>
-        <li><a href="#provenance"><b>07</b><span>来源溯源</span></a></li>
-      </ol>
-
       <section id="configuration-panel" class="configuration panel" aria-live="polite">
         <div>
           <span id="configuration-badge" class="status-badge is-waiting">检查中</span>
@@ -239,13 +201,10 @@
       <div id="results" class="results" hidden>
         <nav class="results-toc" aria-label="结果章节">
           <a href="#briefing">摘要</a>
-          <a href="#study-design">方案</a>
-          <a href="#cohort-construction">队列</a>
-          <a href="#data-alignment">对齐</a>
           <a href="#quality-gates">质量门</a>
           <a href="#research-data">矩阵</a>
+          <a href="#readiness">适用性</a>
           <a href="#provenance">溯源</a>
-          <a href="#evaluation-dashboard">评测</a>
         </nav>
 
         <section class="result-overview">
@@ -264,6 +223,9 @@
           <div id="spec-grid" class="spec-grid"></div>
         </section>
 
+        <details class="method-drawer">
+          <summary>研究方案、队列筛选与身份对齐审计</summary>
+          <div class="method-drawer-content">
         <section id="study-design" class="panel study-design-panel">
           <div class="section-heading">
             <div><p class="section-kicker">03 · Study Design</p><h2>数据需求与研究方案</h2></div>
@@ -330,6 +292,8 @@
             </article>
           </div>
         </section>
+          </div>
+        </details>
 
         <section id="quality-gates" class="panel quality-gate-panel">
           <div class="section-heading">
@@ -341,16 +305,23 @@
           <div id="quality-gate-layers" class="quality-gate-layers"></div>
         </section>
 
+        <section id="closed-loop-panel" class="panel closed-loop-primary" hidden>
+          <div class="section-heading">
+            <div><p class="section-kicker">Closed-Loop Iteration</p><h2>两轮闭环修正</h2></div>
+            <span id="closed-loop-status" class="status-badge"></span>
+          </div>
+          <p id="closed-loop-stop-reason" class="section-note"></p>
+          <div id="closed-loop-summary" class="collection-agent-summary"></div>
+          <div id="closed-loop-rounds" class="collection-agent-iterations"></div>
+        </section>
+
         <section id="research-data" class="panel">
           <div class="section-heading action-heading">
           <div><p class="section-kicker">07 · 科研数据集</p><h2 id="dataset-title">分析矩阵（患者/样本级宽表）</h2></div>
             <div class="button-group">
+              <button class="button button-primary export-button" data-format="xlsx" type="button">下载 Excel</button>
               <button class="button button-secondary export-button" data-format="csv" type="button">下载 CSV</button>
-              <button class="button button-secondary export-button" data-format="json" type="button">下载 JSON</button>
-              <button class="button button-secondary export-button" data-format="metadata" type="button">下载 Metadata</button>
               <button class="button button-secondary export-button" data-format="quality_report" type="button">下载质量报告</button>
-              <button class="button button-secondary export-button" data-format="parquet" type="button">下载 Parquet</button>
-              <button class="button button-secondary export-button" data-format="xlsx" type="button">下载 Excel</button>
             </div>
           </div>
           <p id="dataset-note" class="section-note"></p>
@@ -395,11 +366,6 @@
           </div>
           <h3>风险提示</h3><ul id="warning-list" class="message-list warning-list"></ul>
           <h3>下一步建议</h3><ul id="recommendation-list" class="message-list recommendation-list"></ul>
-          <div class="evaluation-note">
-            <strong>系统评测指标</strong>
-            <span>冻结检索精确率 / 召回率 / 忠实度 / 可追溯性 / 修复成功率 / SDTI：未评测</span>
-            <small>Gold Set 未加载，不展示官方成绩。本工作台任务级诊断见下方「系统评测」：请求要素覆盖、科研探索可用性。主科研路径不再用全表完整度抢注意力。</small>
-          </div>
           </article>
           <article class="panel dictionary-panel">
             <div class="section-heading"><div><p class="section-kicker">09 · 中文字段字典</p><h2>变量定义</h2></div><span id="dictionary-count" class="count-tag"></span></div>
@@ -454,16 +420,6 @@
             </div>
           </section>
 
-          <section id="closed-loop-panel" class="panel" hidden>
-            <div class="section-heading">
-              <div><p class="section-kicker">Closed-Loop Iteration</p><h2>闭环自我修正</h2></div>
-              <span id="closed-loop-status" class="status-badge"></span>
-            </div>
-            <p id="closed-loop-stop-reason" class="section-note"></p>
-            <div id="closed-loop-summary" class="collection-agent-summary"></div>
-            <div id="closed-loop-rounds" class="collection-agent-iterations"></div>
-          </section>
-
           <section id="agent-process" class="panel">
             <div class="section-heading"><div><p class="section-kicker">Retrieval Log</p><h2>检索规划与工具调用</h2></div><span id="tool-count" class="count-tag"></span></div>
             <div id="plan-list" class="plan-list"></div>
@@ -489,55 +445,6 @@
 
       </div>
 
-      <section id="evaluation-dashboard" class="panel evaluation-dashboard">
-        <div class="section-heading action-heading">
-          <div><p class="section-kicker">11 · 系统评测</p><h2>评测结果与可信度趋势</h2></div>
-          <div class="button-group">
-            <span id="evaluation-status" class="status-badge is-review">待运行</span>
-            <button id="evaluation-refresh" class="button button-secondary" type="button">刷新评测</button>
-          </div>
-        </div>
-        <p class="section-note">评测方法对齐「统一评测方案工具包」：对本工作台真实任务计算清洗残留、nDCG@10、整合 Macro-F1、Task-Adaptive Fitness 和 Quality Gate。官方 Gold Set SDTI 在模板为空时不填成绩。</p>
-        <div id="evaluation-protocol" class="evaluation-protocol" aria-label="评测策略步骤"></div>
-        <div id="evaluation-meta" class="evaluation-meta"></div>
-        <div id="evaluation-metric-cards" class="evaluation-metric-cards" aria-label="本模型任务级诊断指标"></div>
-        <div class="evaluation-chart-grid">
-          <article class="evaluation-chart-panel">
-            <div class="outcome-visual-heading"><h3>核心诊断与内部目标</h3><span id="evaluation-bars-note">目标线来自任务级诊断规则，不是官方 SDTI 阈值</span></div>
-            <div id="evaluation-bars" class="evaluation-bars"></div>
-          </article>
-          <article class="evaluation-chart-panel">
-            <div class="outcome-visual-heading"><h3>可信度四维轮廓</h3><span>短板会拉低内部综合诊断分</span></div>
-            <div id="evaluation-radar" class="evaluation-radar" role="img" aria-label="本模型任务级四维雷达图"></div>
-          </article>
-        </div>
-        <div class="metric-compare-panel">
-          <div class="metric-compare-heading">
-            <div><h3>本模型当前可观测效果</h3><span>对照行来自同一次任务的反事实消融，不是另跑 Gold Set</span></div>
-            <strong id="metric-compare-topline">正式模型 · 待评测</strong>
-          </div>
-          <div id="metric-compare-bars" class="metric-compare-bars"></div>
-          <div id="metric-compare-values" class="metric-compare-values"></div>
-        </div>
-        <div class="evaluation-chart-grid">
-          <article class="evaluation-chart-panel">
-            <div class="outcome-visual-heading"><h3>检索排序探针</h3><span id="evaluation-probe-meta">方法对齐 Recall@k / nDCG，排序来自本模型候选匹配分</span></div>
-            <div id="evaluation-probe-bars" class="evaluation-bars"></div>
-          </article>
-          <article class="evaluation-chart-panel">
-            <div class="outcome-visual-heading"><h3>消融对照</h3><span id="evaluation-ablation-meta">去掉模块后对当前任务的可观察影响</span></div>
-            <div id="evaluation-ablation" class="evaluation-history"></div>
-          </article>
-        </div>
-        <div class="evaluation-chart-grid">
-          <article class="evaluation-chart-panel">
-            <div class="outcome-visual-heading"><h3>历史评测</h3><span>本机最多保留最近 20 次真实任务</span></div>
-            <div id="evaluation-history" class="evaluation-history"></div>
-          </article>
-        </div>
-        <div id="evaluation-safety" class="evaluation-safety"></div>
-        <div id="evaluation-artifacts" class="evaluation-artifacts"></div>
-      </section>
     </main>
 
     <dialog id="qwen-connection-dialog" class="qwen-dialog" aria-labelledby="qwen-dialog-title">
@@ -556,7 +463,7 @@
             <input id="qwen-base-url" type="url" required value="https://dashscope.aliyuncs.com/compatible-mode/v1" spellcheck="false" />
           </label>
           <label class="qwen-field">模型
-            <input id="qwen-model" type="text" required value="qwen-plus" spellcheck="false" />
+            <input id="qwen-model" type="text" required value="qwen3.8-max" spellcheck="false" />
           </label>
           <label class="qwen-field">业务空间 ID（可选）
             <input id="qwen-workspace-id" type="text" autocomplete="off" spellcheck="false" />
@@ -583,6 +490,6 @@
     <div id="toast" class="toast" hidden role="status" aria-live="polite"></div>
     <footer><span>千问科研数据智能体</span><span>模型负责规划；规则负责安全边界；数据须真实可追溯</span></footer>
     <!-- 输入你真正想研究的问题 规划与真实检索入口 先明确研究需要什么数据 每一步筛选都能解释清楚 患者编号能不能安全对上 -->
-    <script src="/app.js?v=20260828-ui-cleanup-1" defer></script>
+    <script src="/app.js?v=20260829-user-ui-3" defer></script>
   </body>
 </html>

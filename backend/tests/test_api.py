@@ -85,20 +85,21 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "测试连接并启用" in response.text
     assert "最长 2 小时" in response.text
     assert "本次实际清洗动作" in response.text
-    assert "系统评测指标" in response.text
-    assert "评测结果与可信度趋势" in response.text
-    assert "evaluation-dashboard" in response.text
-    assert "统一评测方案工具包" in response.text
+    assert "公开数据实测" not in response.text
+    assert "DeepSeek 替换组" not in response.text
+    assert "正式 SDTI：NOT_EVALUATED" not in response.text
+    assert "evaluation-dashboard" not in response.text
+    assert "评测结果与可信度趋势" not in response.text
     assert "团队压缩包对照探针" not in response.text
     assert "团队对照探针" not in response.text
     assert "AI proxy" not in response.text
     assert "DeepSeek Judge" not in response.text
     assert "下载 CSV" in response.text
-    assert "下载 JSON" in response.text
-    assert "下载 Metadata" in response.text
     assert "下载质量报告" in response.text
-    assert "下载 Parquet" in response.text
     assert "下载 Excel" in response.text
+    assert "下载 JSON" not in response.text
+    assert "下载 Metadata" not in response.text
+    assert "下载 Parquet" not in response.text
     assert "四层质量门" in response.text
     assert "先明确研究需要什么数据" in response.text
     assert "每一步筛选都能解释清楚" in response.text
@@ -136,18 +137,9 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "renderResearchBrief" in script
     assert "brief-keywords" in script
     assert "检索关键词" in script
-    assert "主表基因变量覆盖" in script
-    assert "请求要素覆盖率" in script
-    assert "科研探索可用性" in script
     assert "renderLineage" in script
-    assert "SYSTEM_EVALUATION_HISTORY_KEY" in script
-    assert "persistAndRenderSystemEvaluation" in script
-    assert "renderSystemEvaluationDashboard" in script
-    assert 'fetchApi("/api/evaluation/overview"' in script
-    assert 'fetchApi("/api/agent/tasks/latest"' in script
-    assert "deriveSameTableVariants" in script
-    assert "resolveVariantScores" in script
-    assert "需一次完整任务结果才能做同表反事实" not in script
+    assert "loadPublicBenchmarkSummary" not in script
+    assert "public-benchmark-summary.json" not in script
     assert "updateLineageInteraction" in script
     assert "renderRawCharacteristics" in script
     assert "openRawCharacteristicsDialog" in script
@@ -156,12 +148,7 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "qwen_session_id" in script
     assert "data-source-db" in script
     assert "TYPE_TRANSLATIONS" in script
-    assert "renderCompetitionReport" in script
     assert "competition_report" in script
-    assert "renderUnifiedEvaluation" in script
-    assert "renderEvaluationFlow" in script
-    assert "renderModelComparisonVisual" in script
-    assert "renderStratifiedVisual" in script
     assert "renderScientificUsability" in script
     assert "renderStudyDesign" in script
     assert "renderCohortConstruction" in script
@@ -170,12 +157,9 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "study-design-summary" in script
     assert "cohort-funnel" in script
     assert "cohort-stage-funnel" in script
-    assert "competition-spotlight" in script
-    assert "内部综合诊断分" in script
     assert "association-meter" in script
     assert "scientific-usability-findings" in script
     assert "/api/evaluation/model-tests/generate" not in script
-    assert "model-bar-chart" in script
     assert "研究相关性" in script
     assert "患者-样本关联置信度" in script
     assert "modelSessions" not in script
@@ -221,7 +205,7 @@ def test_frontend_guided_planner_is_primary_and_wires_real_planning_apis() -> No
     assert "告诉我你想研究的方向" in response.text
     assert "哪些因素会影响乳腺癌新辅助治疗的疗效？" in response.text
     assert "哪些生物标志物可以预测乳腺癌患者的治疗效果？" in response.text
-    assert "公开数据中有哪些乳腺癌队列适合开展疗效预测研究？" in response.text
+    assert "公开数据中有哪些乳腺癌队列适合开展疗效预测研究？" not in response.text
     assert "研究依据" in response.text
     assert "研究方案" in response.text
     assert "数据准备" in response.text

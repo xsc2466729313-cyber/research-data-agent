@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import httpx
 
 from backend.app.agent import ApiCheckRequest, ApiCheckService, QwenClient, QwenSettings
@@ -10,6 +12,7 @@ def test_api_check_keeps_key_out_of_result() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.headers["Authorization"] == f"Bearer {secret}"
+        assert json.loads(request.content)["model"] == "qwen3.8-max"
         return httpx.Response(
             200,
             json={"choices": [{"message": {"content": "CONNECTION_OK"}}]},

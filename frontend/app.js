@@ -746,10 +746,8 @@ function renderResult(result) {
   renderCollectionAgent(result.collection_agent);
     renderDataAlignment(result.data_alignment);
     renderQualityGates(result.quality_gate_report);
-    renderDictionary(result.modeling_dataset.columns);
+  renderDictionary(result.modeling_dataset.columns);
   renderSources(result.source_items, result.candidate_sources, result.modeling_dataset);
-  renderCompetitionReport(result.competition_report);
-  persistAndRenderSystemEvaluation(result);
 }
 
 function renderClosedLoop(loop) {
@@ -1421,15 +1419,6 @@ function renderReadiness(readiness, dataset, sources, candidates, brief, assessm
     ...sources.map((source) => canonicalDatabaseName(source.source_name)),
     ...(candidates || []).map((candidate) => canonicalDatabaseName(candidate.source_database)),
   ].filter(Boolean));
-  const sourceEntries = new Set([
-    ...sources.map((source) => `${canonicalDatabaseName(source.source_name)}:${source.accession || source.source_id}`),
-    ...(candidates || []).map((candidate) => `${canonicalDatabaseName(candidate.source_database)}:${candidate.accession || candidate.dataset_id}`),
-  ]);
-  const reportMetrics = new Map((state.result?.competition_report?.metrics || []).map((metric) => [metric.name, metric]));
-  const questionFitMetric = reportMetrics.get("请求要素覆盖率") || reportMetrics.get("请求变量覆盖率");
-  const explorationMetric = reportMetrics.get("科研探索可用性") || reportMetrics.get("分析可用性");
-  const questionFitPercent = metricPercentValue(questionFitMetric);
-  const explorationPercent = metricPercentValue(explorationMetric);
   const variableCoverage = readiness.requested_variable_coverage_rate == null ? null : readiness.requested_variable_coverage_rate * 100;
   const primaryCoverage = assessment?.primary_coverage == null ? null : assessment.primary_coverage * 100;
   const outcomeMatchRate = readiness.target_match_rate == null
@@ -1454,26 +1443,8 @@ function renderReadiness(readiness, dataset, sources, candidates, brief, assessm
           : "没有用其他结局替代；生存结局不会记为 pCR 匹配",
       },
     ] : []),
-    {
-      label: "主表基因变量覆盖",
-      percent: variableCoverage,
-      detail: variableCoverage == null
-        ? "科研问题未指定基因"
-        : "只看同一患者级主表是否含请求基因；不把外部候选库硬拼成患者变量",
-    },
-    {
-      label: "请求要素覆盖率",
-      percent: questionFitPercent ?? variableCoverage,
-      detail: questionFitMetric?.detail || "综合疾病、结局、基因/分子证据、治疗和数据类型匹配",
-    },
-    { label: "数据库类型数", value: sourceDatabases.size, suffix: "类", detail: [...sourceDatabases].join("、") || "尚无来源" },
-    { label: "实际检索入口", value: sourceEntries.size, suffix: "个", detail: "按数据库类型 + accession / study_id / project_id 去重" },
-    {
-      label: "科研探索可用性",
-      percent: explorationPercent,
-      detail: explorationMetric?.detail || "综合样本量、主字段覆盖、问题匹配和类别分布",
-    },
-    { label: "自动清洗", value: readiness.cleaned_value_count, suffix: "处", detail: `另排除 ${readiness.excluded_orphan_record_count} 条孤立分子记录` },
+    { label: "真实来源", value: sourceDatabases.size, suffix: "类", detail: [...sourceDatabases].join("、") || "尚无来源" },
+    { label: "清洗与隔离", value: readiness.cleaned_value_count, suffix: "处", detail: `排除 ${readiness.excluded_orphan_record_count} 条孤立分子记录` },
   ];
   document.querySelector("#research-metrics").innerHTML = metricCards.map((metric) => {
     if (!("percent" in metric) || metric.percent == null) {
@@ -1483,8 +1454,6 @@ function renderReadiness(readiness, dataset, sources, candidates, brief, assessm
     const percent = Math.max(0, Math.min(100, metric.percent));
     return `<article class="research-metric research-metric-rate"><div class="metric-ring" style="--metric-value:${percent.toFixed(1)}" role="img" aria-label="${escapeHtml(metric.label)} ${percent.toFixed(1)}%"><span>${percent.toFixed(1)}%</span></div><div><span>${escapeHtml(metric.label)}</span><p>${escapeHtml(metric.detail)}</p></div></article>`;
   }).join("");
-  renderModelMetricComparison(state.result?.competition_report);
-
   const distributionHeading = document.querySelector(".outcome-visual-heading h3");
   if (distributionHeading) {
     distributionHeading.textContent = needsOutcome ? "研究结局分布" : "主变量分布";
@@ -1502,11 +1471,7 @@ function renderReadiness(readiness, dataset, sources, candidates, brief, assessm
     ["样本数量", dataset.sample_count],
     [needsOutcome ? "研究结局字段" : "本题主变量", fieldLabel(dataset, readiness.target_column)],
     ["主字段覆盖", primaryCoverage == null ? "未计算" : `${primaryCoverage.toFixed(1)}%`],
-    ["主表基因变量覆盖", readiness.requested_variable_coverage_rate == null ? "未指定基因变量" : `${(readiness.requested_variable_coverage_rate * 100).toFixed(1)}%`],
-    ["请求要素覆盖率", questionFitPercent == null ? "未计算" : `${questionFitPercent.toFixed(1)}%`],
     ["命中命名队列", (assessment?.named_cohorts_hit || []).join("、") || "未点名"],
-    ["重复患者", readiness.repeated_patient_count],
-    ["重复样本行", readiness.duplicate_row_count],
     ["分析分组建议", readiness.split_strategy],
   ];
   document.querySelector("#readiness-facts").innerHTML = facts.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("");
@@ -2414,7 +2379,6 @@ document.querySelector("#evaluation-refresh")?.addEventListener("click", () => {
 });
 
 checkConfiguration();
-restoreSystemEvaluationDashboard();
 
 // Guided research-planning workspace. This keeps the planning flow separate from
 // the legacy advanced workbench while using the same audited backend APIs.

@@ -37,7 +37,7 @@ class QwenSessionRequest(ApiModel):
         min_length=12,
         max_length=500,
     )
-    model: str = Field(default="qwen-plus", min_length=2, max_length=100)
+    model: str = Field(default="qwen3.8-max", min_length=2, max_length=100)
     workspace_id: str | None = Field(default=None, max_length=200)
     timeout_seconds: float = Field(default=120, ge=5, le=300)
 

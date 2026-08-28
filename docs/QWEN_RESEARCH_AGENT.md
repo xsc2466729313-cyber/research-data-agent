@@ -123,7 +123,7 @@
 
 - API Key：`DASHSCOPE_API_KEY`
 - 业务空间专属地址：`QWEN_BASE_URL`
-- 默认模型：`qwen-plus`
+- 当前默认模型：`qwen3.8-max`。历史评测中已经记录的 `qwen-plus` 结果保持原模型标识，不回填或改名。
 - 结构化解析：`response_format={"type":"json_object"}`
 - 工具选择：`tools + tool_choice=auto`
 - 多工具支持：`parallel_tool_calls=true`

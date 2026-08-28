@@ -1278,3 +1278,18 @@ body > main#main-content::before { content: "高级数据工作台"; display: bl
   .task-entry .form-grid, .task-entry .switch-row { grid-template-columns: 1fr; }
   .task-entry .form-grid label:nth-child(4) { grid-column: auto; max-width: none; }
 }
+
+.method-drawer,
+.audit-drawer { margin-bottom: 1rem; border: 1px solid #dbeafe; border-radius: 7px; background: #fff; }
+.method-drawer > summary,
+.audit-drawer > summary { padding: .72rem .9rem; color: #1e3a8a; cursor: pointer; font-size: .76rem; font-weight: 700; }
+.method-drawer-content { padding: 0 .8rem .1rem; border-top: 1px solid #eaf2fd; }
+.method-drawer-content > .panel { margin: .8rem 0; box-shadow: none; }
+.closed-loop-primary { border-left: 3px solid #2563eb; }
+
+@media (max-width: 760px) {
+  .planner-welcome { width: calc(100% - 1.2rem); padding-top: 1.25rem; }
+  .planner-orbit { width: 40px; height: 40px; margin-bottom: .7rem; }
+  .planner-welcome h1 { font-size: 1.45rem; }
+  .method-drawer-content { padding: 0 .45rem .05rem; }
+}

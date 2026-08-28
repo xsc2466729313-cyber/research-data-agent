@@ -40,7 +40,7 @@ def planner_settings(provider: str, qwen_env: dict[str, str], deepseek_env: dict
             provider="qwen",
             api_key=env_or_local("DASHSCOPE_API_KEY", qwen_env) or None,
             base_url=env_or_local("QWEN_BASE_URL", qwen_env, "https://dashscope.aliyuncs.com/compatible-mode/v1"),
-            model=env_or_local("QWEN_MODEL", qwen_env, "qwen-plus"),
+            model=env_or_local("QWEN_MODEL", qwen_env, "qwen3.8-max"),
             workspace_id=env_or_local("QWEN_WORKSPACE_ID", qwen_env) or None,
             timeout_seconds=float(env_or_local("QWEN_TIMEOUT_SECONDS", qwen_env, "120")),
         )

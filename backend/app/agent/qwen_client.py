@@ -89,7 +89,7 @@ class QwenSettings:
                 os.getenv("QWEN_BASE_URL")
                 or "https://dashscope.aliyuncs.com/compatible-mode/v1"
             ).rstrip("/"),
-            model=os.getenv("QWEN_MODEL", "qwen-plus").strip() or "qwen-plus",
+            model=os.getenv("QWEN_MODEL", "qwen3.8-max").strip() or "qwen3.8-max",
             workspace_id=os.getenv("QWEN_WORKSPACE_ID") or None,
             timeout_seconds=float(os.getenv("QWEN_TIMEOUT_SECONDS", "120")),
         )
