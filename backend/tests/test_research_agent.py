@@ -146,7 +146,9 @@ def test_qwen_agent_executes_function_call_and_builds_research_table(tmp_path: P
     )
 
     assert result.used_qwen is True
+    assert result.used_model is True
     assert result.agent_mode == "千问科研数据智能体"
+    assert result.model_provider == "千问"
     assert result.tool_calls[0].tool_name == "search_cbioportal"
     assert result.tool_calls[0].status == "完成"
     assert result.modeling_dataset.row_count == 1

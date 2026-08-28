@@ -725,9 +725,10 @@ form.addEventListener("submit", async (event) => {
 });
 
 function renderResult(result) {
+  const usedModel = result.used_model ?? result.used_qwen;
   document.querySelector("#result-status").textContent = result.status;
   document.querySelector("#agent-mode").textContent = result.agent_mode;
-  document.querySelector("#model-name").textContent = result.used_qwen ? result.model_name : `${result.model_name}（未调用）`;
+  document.querySelector("#model-name").textContent = usedModel ? `${result.model_provider} / ${result.model_name}` : `${result.model_name}（未调用）`;
   document.querySelector("#dataset-size").textContent = `${result.modeling_dataset.row_count} 行 × ${result.modeling_dataset.columns.length} 列`;
   document.querySelector("#task-id").textContent = result.task_id;
   document.querySelector("#agent-summary").textContent = localizeNarrative(result.summary_zh);

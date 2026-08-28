@@ -417,6 +417,9 @@ class AgentTaskResult(ApiModel):
     agent_mode: str
     model_provider: str
     model_name: str
+    # ``used_qwen`` is retained for API compatibility. New consumers should
+    # read ``used_model`` together with ``model_provider`` instead.
+    used_model: bool = False
     used_qwen: bool
     notice: str
     research_spec: ResearchSpec

@@ -290,7 +290,7 @@ class ResearchAgentService:
             AgentPlanStep(step_id="质量检查", label="质量门检查", status="等待", detail="来源可信、字段质量、实体一致性和科研适用性。"),
         ]
 
-        qwen_used = False
+        model_used = False
         agent_mode = "确定性科研规划"
         tool_message: dict[str, Any] | None = None
         qwen_warning: str | None = None
@@ -302,16 +302,16 @@ class ResearchAgentService:
             if active_qwen.available:
                 try:
                     spec = active_qwen.extract_research_spec(request.question, task_id)
-                    qwen_used = True
-                    agent_mode = "千问科研数据智能体"
+                    model_used = True
+                    agent_mode = f"{active_qwen.settings.provider_label}科研数据智能体"
                 except QwenClientError as exc:
                     if not request.allow_deterministic_fallback:
                         raise AgentExecutionError(str(exc)) from exc
                     spec = self._deterministic_spec(request.question, task_id)
-                    qwen_warning = f"千问问题解析失败，已使用确定性兜底：{exc}"
+                    qwen_warning = f"{active_qwen.settings.provider_label}问题解析失败，已使用确定性兜底：{exc}"
             else:
                 spec = self._deterministic_spec(request.question, task_id)
-                qwen_warning = "未配置千问凭据，已使用确定性规划兜底。"
+                qwen_warning = f"未配置{active_qwen.settings.provider_label}凭据，已使用确定性规划兜底。"
         else:
             spec = self._deterministic_spec(request.question, task_id)
         spec = self._enrich_research_spec(spec, request.question)
@@ -332,7 +332,7 @@ class ResearchAgentService:
         )
 
         calls: list[dict[str, Any]] = []
-        if qwen_used:
+        if model_used:
             try:
                 tool_message, calls = active_qwen.choose_tools(
                     spec,
@@ -342,7 +342,7 @@ class ResearchAgentService:
             except QwenClientError as exc:
                 if not request.allow_deterministic_fallback:
                     raise AgentExecutionError(str(exc)) from exc
-                qwen_warning = f"千问工具选择失败，已使用确定性兜底：{exc}"
+                qwen_warning = f"{active_qwen.settings.provider_label}工具选择失败，已使用确定性兜底：{exc}"
         deterministic_calls = self._deterministic_tool_calls(spec, request, brief)
         if calls:
             calls = self._merge_tool_calls(calls, deterministic_calls, request.max_sources)
@@ -558,7 +558,7 @@ class ResearchAgentService:
                 dataset=dataset,
                 readiness=readiness,
                 attempted_calls=attempted_calls,
-                qwen_client=active_qwen if qwen_used else None,
+                qwen_client=active_qwen if model_used else None,
                 round_number=round_number,
                 max_rounds=max_rounds,
             )
@@ -626,7 +626,7 @@ class ResearchAgentService:
         )
 
         summary = self._fallback_summary(dataset.row_count, readiness.warnings)
-        if qwen_used and tool_message is not None and executed:
+        if model_used and tool_message is not None and executed:
             tool_summaries = [
                 {
                     "call_id": item.call_id,
@@ -658,11 +658,11 @@ class ResearchAgentService:
                     readiness.model_dump(mode="json"),
                 )
             except QwenClientError as exc:
-                qwen_warning = f"千问总结失败，保留确定性质量报告：{exc}"
+                qwen_warning = f"{active_qwen.settings.provider_label}总结失败，保留确定性质量报告：{exc}"
 
         notice_parts = [
             "主结果来自真实公开数据库工具；仅规划模式不会生成或冒充患者数据。",
-            "千问负责科研问题结构化、工具选择和数据层总结；医学安全规则与发布门控不由模型覆盖。",
+            f"{active_qwen.settings.provider_label}负责科研问题结构化、工具选择和数据层总结；医学安全规则与发布门控不由模型覆盖。",
         ]
         if qwen_warning:
             notice_parts.append(qwen_warning)
@@ -670,9 +670,10 @@ class ResearchAgentService:
             task_id=task_id,
             status="完成" if any(item.status == "完成" for item in executed) or request.data_mode == AgentDataMode.PLAN_ONLY else "部分失败",
             agent_mode=agent_mode,
-            model_provider="阿里云百炼 / 千问",
+            model_provider=active_qwen.settings.provider_label,
             model_name=active_qwen.settings.model,
-            used_qwen=qwen_used,
+            used_model=model_used,
+            used_qwen=model_used,
             notice=" ".join(notice_parts),
             research_spec=spec,
             parsed_question=self.question_parser.parse(request.question, spec, provisional_design),

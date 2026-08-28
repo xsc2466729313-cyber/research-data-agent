@@ -10,7 +10,7 @@
 
 | 提交关注点 | 当前实现 | 可展示证据 |
 |---|---|---|
-| 使用千问模型 | `QwenClient` 使用阿里云百炼 OpenAI 兼容接口，支持 JSON Mode、Function Calling 和临时内存会话 | 前端“连接千问 API”、`/api/agent/qwen-sessions`、任务结果 `used_qwen/model_name` |
+| 使用千问模型 | `QwenClient` 使用阿里云百炼 OpenAI 兼容接口，支持 JSON Mode、Function Calling 和临时内存会话；兼容会话可接入 DeepSeek 作为外部对照 | 前端“连接千问 API”、`/api/agent/qwen-sessions`、任务结果 `used_model/model_provider/model_name` |
 | 科学数据查找 | 千问或确定性规划器选择 GDC、GEO、cBioPortal、ClinicalTrials.gov、CIViC 工具 | 智能体过程、工具调用表、候选队列表 |
 | 解析与字段对齐 | cBioPortal 临床/突变/CNA 透视为宽表，GSE76360 Series Matrix 解析为 HER2 队列 | 科研数据集、中文字段字典、清洗动作 |
 | 多源整合 | 以真实来源为边界整合候选和主科研数据集，不强行跨库拼接患者 | 数据溯源图、来源表、比赛报告 |
@@ -73,6 +73,8 @@
 图中的边表示检索、选择、来源归属、字段解释和反馈关系，不表示不同数据库患者被自动合并。低置信度患者/样本关联必须进入 unresolved/review，不能由图谱强行连接。
 
 ## 消融与对比方案
+
+同条件 Qwen/DeepSeek 对照运行器为 `scripts/run_model_comparison.py`。它只记录真实会话的 provider、模型、延迟、工具调用、来源数、数据行数和质量门；正式 Gold Set 指标仍保持 `NOT_EVALUATED`，且 provider 审计不一致的运行会被排除。
 
 建议提交时使用同一科研问题、同一数据上限、同一网络环境和同一导出格式进行对比，避免把运行波动当成模型改进。
 

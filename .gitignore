@@ -10,6 +10,7 @@ data/benchmarks/
 data/output/
 output/
 evaluation/smoke_results*/
+evaluation/model_comparison_local/
 .codex_spreadsheet_tmp/
 node_modules/
 *.log

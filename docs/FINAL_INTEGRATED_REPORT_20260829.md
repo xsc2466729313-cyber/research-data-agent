@@ -11,7 +11,7 @@
 
 当前最有证据的结果来自公开检索层。本轮在 SciFact、NFCorpus、SciDocs、ArguAna 上重跑 3,029 个测试查询，BGE-small-en-v1.5 的 nDCG@10 宏平均为 **0.3966**，tuned BM25 为 **0.3376**，相对提升 **17.5%**。该结果说明 BGE 是公开检索诊断中的强候选，不等同于乳腺癌临床效果。
 
-Qwen-plus 已完成本机网络、鉴权、模型可用性和函数调用探测。DeepSeek、GLM 本轮没有独立凭据，因此没有生成同条件横向排名。正式乳腺癌金标准集尚未冻结，故检索 F1、忠实度、可追溯率、错误检测 F1、修复正确率和 SDTI 仍为 `NOT_EVALUATED`。
+Qwen-plus 已完成本机网络、鉴权、模型可用性和函数调用探测。此前没有完成 DeepSeek 作为中间规划模型的同条件横向运行；历史 `results_deepseek/comparison.json` 仅是 DeepSeek Judge 小样本审阅，不能用于模型排名。本轮已修复 provider 审计标注，新增 `scripts/run_model_comparison.py`，可在用户轮换凭据后固定题集、预算和重复次数运行 Qwen/DeepSeek 对照。正式乳腺癌金标准集尚未冻结，故检索 F1、忠实度、可追溯率、错误检测 F1、修复正确率和 SDTI 仍为 `NOT_EVALUATED`。
 
 ### 本项目实测指标速览
 
@@ -209,7 +209,7 @@ V3 没有超过 V2，因此当前默认仍为 **值分布画像 V2**。
 
 ### 7.6 多模型对比边界
 
-会话接口支持 `qwen`、`deepseek` 和 `openai_compatible` 服务提供方，但本机本轮只有 Qwen 凭据。因而不存在 Qwen、DeepSeek、GLM 的同条件端到端排名。要完成该排名，必须冻结同一题集、数据源、工具预算、医学规则和评价协议，并对每个模型重复至少 3 次，再报告均值、波动和人工金标准集结果。
+会话接口支持 `qwen`、`deepseek` 和 `openai_compatible` 服务提供方。`scripts/run_model_comparison.py` 已实现同条件运行协议，但本机本轮没有可用于正式比较的轮换后 DeepSeek 凭据，因而仍不存在 Qwen、DeepSeek、GLM 的同条件端到端排名。要完成该排名，必须冻结同一题集、数据源、工具预算、医学规则和评价协议，并对每个模型重复至少 3 次，再报告均值、波动和人工金标准集结果。任何返回 provider 与会话不一致的运行会被标记为 `invalid_audit`，不纳入汇总。
 
 | 模型 | 本轮同条件端到端成绩 | 当前状态 |
 |---|---:|---|

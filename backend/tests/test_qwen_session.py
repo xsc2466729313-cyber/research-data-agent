@@ -116,6 +116,48 @@ def test_registry_supports_deepseek_session_without_exposing_key() -> None:
         registry.close()
 
 
+def test_agent_result_labels_the_actual_deepseek_provider() -> None:
+    """A compatible provider must not be presented as Qwen in task audit data."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content)
+        if payload.get("response_format"):
+            content = json.dumps({
+                "research_goal": "整理 HER2 阳性乳腺癌数据来源",
+                "disease": "Breast Cancer",
+                "subtype": "HER2-positive",
+                "genes": ["ERBB2"],
+                "outcomes": ["treatment_response"],
+                "required_data_types": ["clinical"],
+            })
+            message = {"role": "assistant", "content": content}
+        else:
+            message = {"role": "assistant", "content": json.dumps({"summary": "仅完成结构化规划。"})}
+        return httpx.Response(200, json={"choices": [{"message": message}]}, request=request)
+
+    client = QwenClient(
+        settings=QwenSettings(
+            provider="deepseek", api_key="deepseek-test-key",
+            base_url="https://api.deepseek.com/v1", model="deepseek-chat", workspace_id=None,
+        ),
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    from backend.app.agent.models import AgentTaskRequest
+    from backend.app.agent.service import ResearchAgentService
+
+    try:
+        result = ResearchAgentService(qwen_client=client).run(
+            AgentTaskRequest(
+                question="整理 HER2 阳性乳腺癌数据来源", use_qwen=True,
+                allow_deterministic_fallback=False, data_mode="plan_only", max_sources=1,
+            )
+        )
+        assert result.used_model is True
+        assert result.model_provider == "DeepSeek"
+        assert result.agent_mode == "DeepSeek科研数据智能体"
+    finally:
+        client.close()
+
+
 def test_agent_task_rejects_unknown_qwen_session() -> None:
     response = TestClient(app).post(
         "/api/agent/tasks",
