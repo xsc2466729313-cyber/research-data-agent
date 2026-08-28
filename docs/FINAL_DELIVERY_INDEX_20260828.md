@@ -16,11 +16,11 @@
 
 ## 当前可据实陈述的结果
 
-- Qwen-plus 在本机完成连接、鉴权和结构化 Agent 探测，产物为 `evaluation/model_integration_probe_20260828.json`；产物不含 API Key。
-- 五个 BEIR 任务的历史完整检索运行中，BGE-small-en-v1.5 的 nDCG@10 宏平均为 `0.3880`，高于 tuned BM25 的 `0.3147`；仅代表检索层。
-- 本轮重新运行 SciFact、NFCorpus、SciDocs、ArguAna，共 3,029 个测试查询。BGE nDCG@10 宏平均 `0.3966`，tuned BM25 为 `0.3376`。FiQA 因资源窗口未完成，没有纳入该平均。
+- **Qwen-plus 在本机完成连接、鉴权和结构化 Agent 探测**，产物为 `evaluation/model_integration_probe_20260828.json`；产物不含 API Key。
+- 五个 BEIR 任务的历史完整检索运行中，**BGE-small-en-v1.5 的 nDCG@10 宏平均为 `0.3880`**，高于 tuned BM25 的 `0.3147`；仅代表检索层。
+- 本轮重新运行 SciFact、NFCorpus、SciDocs、ArguAna，共 **3,029 个测试查询**。**BGE nDCG@10 宏平均 `0.3966`**，tuned BM25 为 `0.3376`。FiQA 因资源窗口未完成，没有纳入该平均。
 - 五数据集查询理解 A/B 消融中，规则+RRF 未提高宏 nDCG@10 且增加延迟，因此生产默认保持 `compat`。Qwen C/D/E 缺少全量有效计划缓存，保持 `NOT_EVALUATED`。
-- 两轮闭环具有输入/输出哈希和诊断审计。计划模式无真实数据时正确输出 REVIEW 与零覆盖，不会伪装成改进。
+- 两轮闭环具有输入/输出哈希和诊断审计。计划模式无真实数据时正确输出 **REVIEW 与零覆盖**，不会伪装成改进。
 
 ## 多模型对比状态
 

@@ -4,7 +4,7 @@
 
 1. 打开 `http://127.0.0.1:8000/`，输入研究方向。
 2. 系统先生成文献依据、候选问题、研究方案和数据源计划。
-3. 点击生成数据集后，默认进行两轮研究：第一轮形成数据和缺口，第二轮基于反馈补充检索并比较指标。
+3. 点击生成数据集后，默认进行**两轮研究闭环**：第一轮形成数据和缺口，第二轮基于反馈补充检索并比较指标。
 4. 结果页首屏展示状态、矩阵规模、质量门、证据和闭环改进；技术日志、候选登记和原始字段审计放在可展开区域。
 
 ## API 输入与输出
@@ -15,7 +15,7 @@
 | POST | `/api/agent/qwen-sessions` | `provider`、`api_key`、`base_url`、`model`、可选 `workspace_id` | 内存 `session_id` 和过期时间 |
 | DELETE | `/api/agent/qwen-sessions/{session_id}` | 路径参数 | 删除会话 |
 | POST | `/api/agent/tasks` | `question`、`data_mode`、`use_qwen`、`qwen_session_id`、来源/记录上限 | 单轮 `AgentTaskResult` |
-| POST | `/api/v2/agent/closed-loop` | `initial_request`、`max_iterations`、`require_two_rounds=true` | 两轮结果、诊断、指标和审计 |
+| POST | **`/api/v2/agent/closed-loop`** | `initial_request`、`max_iterations`、`require_two_rounds=true` | 两轮结果、诊断、指标和审计 |
 | GET | `/api/v2/agent/closed-loop/{loop_id}` | 路径参数 | 已保存闭环结果 |
 | POST | `/api/v2/retrieval/search` | query、documents、显式查询理解模式 | 检索排名、RRF、延迟和审计遥测 |
 | POST | `/api/v2/research/plan` | topic 或研究问题 | PICO/PECO、Evidence Pack、变量和 Source Plan |

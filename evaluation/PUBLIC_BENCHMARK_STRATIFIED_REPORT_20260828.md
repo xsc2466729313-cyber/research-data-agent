@@ -14,19 +14,19 @@
 |---|---|---:|---:|---:|---:|---|
 | SciFact (300) | BM25 local reference | 0.6040 | 0.8279 | 0.5689 | 5.49 | `20260828T153046Z_beir_scifact` |
 | SciFact (300) | Project BM25 tuned v2 | 0.6044 | 0.8284 | 0.5685 | 5.56 | `20260828T153046Z_beir_scifact` |
-| SciFact (300) | VNext BGE-small-en-v1.5 | 0.6803 | 0.9383 | 0.6499 | 7.52 | `20260828T153046Z_beir_scifact` |
+| SciFact (300) | **VNext BGE-small-en-v1.5** | **0.6803** | **0.9383** | **0.6499** | 7.52 | `20260828T153046Z_beir_scifact` |
 | SciFact (300) | VNext BM25+BGE fusion | 0.6803 | 0.9383 | 0.6499 | 13.89 | `20260828T153046Z_beir_scifact` |
 | NFCorpus (323) | BM25 local reference | 0.2899 | 0.2209 | 0.5020 | 0.94 | `20260828T153112Z_beir_nfcorpus` |
 | NFCorpus (323) | Project BM25 tuned v2 | 0.2902 | 0.2206 | 0.5061 | 0.95 | `20260828T153112Z_beir_nfcorpus` |
-| NFCorpus (323) | VNext BGE-small-en-v1.5 | 0.3315 | 0.2975 | 0.5257 | 4.16 | `20260828T153112Z_beir_nfcorpus` |
+| NFCorpus (323) | **VNext BGE-small-en-v1.5** | **0.3315** | **0.2975** | **0.5257** | 4.16 | `20260828T153112Z_beir_nfcorpus` |
 | NFCorpus (323) | VNext BM25+BGE fusion | 0.3318 | 0.2975 | 0.5273 | 4.98 | `20260828T153112Z_beir_nfcorpus` |
 | SciDocs (1,000) | BM25 local reference | 0.1490 | 0.3372 | 0.2661 | 33.16 | `20260828T153317Z_beir_scidocs` |
 | SciDocs (1,000) | Project BM25 tuned v2 | 0.1490 | 0.3372 | 0.2661 | 32.64 | `20260828T153317Z_beir_scidocs` |
-| SciDocs (1,000) | VNext BGE-small-en-v1.5 | 0.1910 | 0.4312 | 0.3351 | 4.90 | `20260828T153317Z_beir_scidocs` |
+| SciDocs (1,000) | **VNext BGE-small-en-v1.5** | **0.1910** | **0.4312** | **0.3351** | 4.90 | `20260828T153317Z_beir_scidocs` |
 | SciDocs (1,000) | VNext BM25+BGE fusion | 0.1563 | 0.3581 | 0.2763 | 37.94 | `20260828T153317Z_beir_scidocs` |
 | ArguAna (1,406) | BM25 local reference | 0.3067 | 0.9054 | 0.1983 | 56.63 | `20260828T153814Z_beir_arguana` |
 | ArguAna (1,406) | Project BM25 tuned v2 | 0.3067 | 0.9054 | 0.1983 | 54.91 | `20260828T153814Z_beir_arguana` |
-| ArguAna (1,406) | VNext BGE-small-en-v1.5 | 0.3836 | 0.9687 | 0.2601 | 16.59 | `20260828T153814Z_beir_arguana` |
+| ArguAna (1,406) | **VNext BGE-small-en-v1.5** | **0.3836** | **0.9687** | **0.2601** | 16.59 | `20260828T153814Z_beir_arguana` |
 | ArguAna (1,406) | VNext BM25+BGE fusion | 0.3741 | 0.9758 | 0.2454 | 73.50 | `20260828T153814Z_beir_arguana` |
 
 ## 四数据集宏平均（本轮）
@@ -36,11 +36,11 @@
 | 方法 | nDCG@10 | Recall@100 | MRR@10 | 平均延迟 ms/查询 | 相对 tuned BM25 的 nDCG |
 |---|---:|---:|---:|---:|---:|
 | BM25 local reference | 0.3374 | 0.5729 | 0.3838 | 24.05 | -0.1% |
-| Project BM25 tuned v2 | 0.3376 | 0.5729 | 0.3847 | 23.51 | 基线 |
-| VNext BGE-small-en-v1.5 | 0.3966 | 0.6589 | 0.4427 | 8.29 | +17.5% |
+| **Project BM25 tuned v2** | **0.3376** | 0.5729 | 0.3847 | 23.51 | 基线 |
+| **VNext BGE-small-en-v1.5** | **0.3966** | **0.6589** | **0.4427** | 8.29 | **+17.5%** |
 | VNext BM25+BGE fusion | 0.3856 | 0.6424 | 0.4247 | 32.58 | +14.2% |
 
-逐数据集看，BGE 在四个数据集的 nDCG@10 均高于 tuned BM25；融合在 SciDocs 上低于纯 BGE，在其余三个数据集仍高于 tuned BM25。融合 Recall@100 在 ArguAna 达到 0.9758，但延迟较高。结果支持将 BGE 作为公开检索诊断中的强候选，同时保留 BM25 作为低成本生产默认，直到完成更大规模资源评测和乳腺癌 Gold Set 验证。
+逐数据集看，**BGE 在四个数据集的 nDCG@10 均高于 tuned BM25**；融合在 SciDocs 上低于纯 BGE，在其余三个数据集仍高于 tuned BM25。融合 Recall@100 在 ArguAna 达到 0.9758，但延迟较高。结果支持将 BGE 作为公开检索诊断中的强候选，同时保留 BM25 作为低成本生产默认，直到完成更大规模资源评测和乳腺癌 Gold Set 验证。
 
 ## FiQA 状态
 

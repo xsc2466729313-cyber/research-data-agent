@@ -4,7 +4,7 @@
 
 当前系统已经形成“问题理解 → 真实数据获取 → 标准化与患者/样本关联 → 医学安全门控 → 两轮闭环 → 可追溯导出”的可运行链路。Qwen-plus 是默认规划模型；会话接口支持 Qwen、DeepSeek 和 OpenAI-compatible provider。Qwen-plus 已在本机完成真实连接、鉴权和结构化 Agent 探测，见 `evaluation/model_integration_probe_20260828.json`。未配置的 provider 不产生分数。
 
-公开 BEIR 的 BGE-small-en-v1.5 检索结果优于 tuned BM25；查询理解规则组在五任务宏平均没有提升。因此生产默认保留兼容路径，不能把局部 SciFact 改善解释为完整临床科研能力。
+公开 BEIR 的 **BGE-small-en-v1.5 检索结果优于 tuned BM25**；查询理解规则组在五任务宏平均没有提升。因此生产默认保留兼容路径，不能把局部 SciFact 改善解释为完整临床科研能力。
 
 ## 设计依据
 
@@ -17,7 +17,7 @@
 
 | 模型/接口 | 当前角色 | 证据状态 |
 | --- | --- | --- |
-| Qwen-plus | 默认中文科研问题理解、工具规划和摘要 | 已接入本地 FastAPI 与前端临时会话 |
+| **Qwen-plus** | 默认中文科研问题理解、工具规划和摘要 | 已接入本地 FastAPI 与前端临时会话 |
 | Qwen-max / Qwen-turbo | 可选同供应商对照 | 连接后才产生真实观测 |
 | DeepSeek Chat / Reasoner | 可选兼容模型或独立评委 | 已有 provider/session 适配；本机本轮未配置独立 Key，因此未参与排名 |
 | GLM 等 OpenAI-compatible 模型 | 外部评测或自定义端点 | 通过 `openai_compatible` provider 接入；未连接不计分 |
