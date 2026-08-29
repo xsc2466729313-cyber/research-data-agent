@@ -127,6 +127,10 @@ def question_asks_clinical_outcome(question: str) -> bool:
     if question_asks_survival(question):
         return True
     blob = (question or "").casefold()
+    if any(marker in blob for marker in ("不要求", "无需", "不需要", "不含", "排除")) and any(
+        marker in blob for marker in ("响应", "疗效", "缓解", "结局", "pcr", "response", "outcome")
+    ):
+        return False
     return any(token in blob for token in _OUTCOME_MARKERS)
 
 

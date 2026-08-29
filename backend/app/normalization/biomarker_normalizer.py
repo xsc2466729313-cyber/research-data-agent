@@ -10,10 +10,10 @@ from backend.app.normalization.models import (
 
 
 class BiomarkerNormalizer:
-    _POSITIVE = {"positive", "pos", "+", "detected"}
-    _NEGATIVE = {"negative", "neg", "-", "notdetected"}
-    _EQUIVOCAL = {"equivocal", "borderline", "indeterminate"}
-    _UNKNOWN = {"unknown", "na", "n/a", "notavailable", "notreported"}
+    _POSITIVE = {"positive", "pos", "+", "detected", "阳性"}
+    _NEGATIVE = {"negative", "neg", "-", "notdetected", "阴性"}
+    _EQUIVOCAL = {"equivocal", "borderline", "indeterminate", "可疑"}
+    _UNKNOWN = {"unknown", "na", "n/a", "notavailable", "notreported", "未知"}
 
     def normalize(
         self,
@@ -52,6 +52,8 @@ class BiomarkerNormalizer:
 
         if "HER2" in field_key or "ERBB2" in field_key:
             assay = self._her2_assay(field_key)
+            if assay == "Unknown" and value in {"0", "0+", "1", "1+", "2", "2+", "3", "3+"}:
+                assay = "IHC"
             return self._normalize_her2(value=value, assay=assay, raw_value=raw_value)
 
         if self._is_receptor_field(field_key, "ER", canonical_field, "er_status"):
@@ -103,7 +105,7 @@ class BiomarkerNormalizer:
             )
 
         if assay in {"FISH", "ISH", "CISH", "SISH"}:
-            if value in {"amplified", "amplification", *self._POSITIVE}:
+            if value in {"amplified", "amplification", "amp", *self._POSITIVE}:
                 status = "Positive"
             elif value in {
                 "nonamplified",

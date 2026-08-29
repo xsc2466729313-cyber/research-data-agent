@@ -18,6 +18,7 @@ class GeneNormalizer:
         "ERBB-2": "ERBB2",
         "C-ERBB2": "ERBB2",
         "P53": "TP53",
+        "PGR": "PGR",
     }
     _SYMBOL_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9-]{0,31}$")
 

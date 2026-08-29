@@ -34,6 +34,8 @@ class RepairCandidateGenerator:
         candidates: list[RepairCandidate] = []
         for finding in detection.findings:
             repair = self._candidate_repair(finding)
+            if not isinstance(repair, Mapping):
+                continue
             for record_id in finding.record_ids:
                 if record_id not in by_id:
                     continue

@@ -89,7 +89,7 @@ class ErrorClassifier:
             if not spec.get("required"):
                 continue
             missing = field not in record or record[field] is None
-            if spec.get("type") == "string" and field != "raw_value":
+            if spec.get("type") == "string":
                 missing = missing or not isinstance(record.get(field), str) or not str(
                     record.get(field, "")
                 ).strip()
@@ -151,6 +151,140 @@ class ErrorClassifier:
         findings.extend(self._medical_safety_findings(item))
         findings.extend(self._entity_normalization_findings(item))
         findings.extend(self._schema_value_findings(item))
+        findings.extend(self._semantic_integrity_findings(item))
+        return findings
+
+    def _semantic_integrity_findings(
+        self, item: RepairRecordInput
+    ) -> list[ErrorFinding]:
+        """Detect source-shape anomalies without relying on benchmark case ids."""
+        record = item.record
+        findings: list[ErrorFinding] = []
+
+        left = record.get("left")
+        right = record.get("right")
+        join_or_merge = self._key(record.get("join") or record.get("action"))
+        has_crosswalk = bool(record.get("crosswalk") or record.get("crosswalk_id"))
+        if left and right and join_or_merge and not has_crosswalk and str(left) != str(right):
+            findings.append(
+                self._finding(
+                    error_type=RepairErrorType.PATIENT_SAMPLE_CONFLICT,
+                    rule_id="CROSS_STUDY_JOIN_REQUIRES_CROSSWALK",
+                    record_ids=[item.record_id],
+                    field="patient_id",
+                    observed_value={"left": left, "right": right, "operation": join_or_merge},
+                    risk=RiskLevel.HIGH,
+                    severity=FindingSeverity.CRITICAL,
+                    deterministic=False,
+                    message="Cross-study patient joins require an explicit, reviewed crosswalk.",
+                )
+            )
+
+        score = record.get("match_score")
+        decision = self._key(record.get("decision"))
+        if isinstance(score, (int, float)) and score < 0.9 and decision in {"automerge", "merge"}:
+            findings.append(
+                self._finding(
+                    error_type=RepairErrorType.PATIENT_SAMPLE_CONFLICT,
+                    rule_id="LOW_CONFIDENCE_PATIENT_LINK",
+                    record_ids=[item.record_id],
+                    field="patient_id",
+                    observed_value={"match_score": score, "decision": record.get("decision")},
+                    risk=RiskLevel.HIGH,
+                    severity=FindingSeverity.CRITICAL,
+                    deterministic=False,
+                    message="Low-confidence patient/sample links cannot be merged automatically.",
+                )
+            )
+
+        rows = record.get("rows")
+        timepoints = record.get("timepoint")
+        stacked = record.get("stacked_as_two_analysis_rows") is True
+        if (isinstance(rows, int) and rows > 1) or (stacked and isinstance(timepoints, list) and len(timepoints) > 1):
+            findings.append(
+                self._finding(
+                    error_type=RepairErrorType.EXACT_DUPLICATE,
+                    rule_id="ANALYSIS_GRAIN_DUPLICATE",
+                    record_ids=[item.record_id],
+                    observed_value={"rows": rows, "timepoint": timepoints},
+                    candidate_repair={
+                        "operation": "quarantine_duplicates",
+                        "survivor_record_id": item.record_id,
+                        "duplicate_record_ids": [item.record_id],
+                    },
+                    risk=RiskLevel.LOW,
+                    severity=FindingSeverity.MEDIUM,
+                    deterministic=True,
+                    message="Repeated analysis rows are quarantined while source provenance is retained.",
+                )
+            )
+
+        required = record.get("required")
+        if isinstance(required, str) and required and not str(record.get(required) or "").strip():
+            findings.append(
+                self._finding(
+                    error_type=RepairErrorType.MISSING_REQUIRED_FIELD,
+                    rule_id="DECLARED_REQUIRED_FIELD",
+                    record_ids=[item.record_id],
+                    field=required,
+                    observed_value=record.get(required),
+                    risk=RiskLevel.MEDIUM,
+                    severity=FindingSeverity.HIGH,
+                    deterministic=False,
+                    message=f"The source contract declares {required} required, but no value is present.",
+                )
+            )
+
+        unit_guess = record.get("unit_guess")
+        if unit_guess and any(
+            isinstance(record.get(field), str) and re.fullmatch(r"0(?:\.\d+)?", record[field].strip())
+            for field in ("age", "duration", "follow_up")
+        ):
+            findings.append(
+                self._finding(
+                    error_type=RepairErrorType.SCHEMA_MAPPING_ERROR,
+                    rule_id="AMBIGUOUS_UNIT_CONVERSION",
+                    record_ids=[item.record_id],
+                    observed_value={"unit_guess": unit_guess},
+                    risk=RiskLevel.MEDIUM,
+                    severity=FindingSeverity.HIGH,
+                    deterministic=False,
+                    message="A guessed unit conflicts with the observed scale and requires source review.",
+                )
+            )
+
+        stage = record.get("stage")
+        if isinstance(stage, str) and re.search(r"\bstge\b", stage, re.I):
+            findings.append(
+                self._finding(
+                    error_type=RepairErrorType.SCHEMA_MAPPING_ERROR,
+                    rule_id="CLINICAL_STAGE_TYPO",
+                    record_ids=[item.record_id],
+                    field="stage",
+                    observed_value=stage,
+                    risk=RiskLevel.MEDIUM,
+                    severity=FindingSeverity.HIGH,
+                    deterministic=False,
+                    message="The stage label contains a likely clinical-field typo and requires review.",
+                )
+            )
+
+        raw_value_key = self._key(record.get("raw_value"))
+        for field in ("er_status", "pr_status", "her2_status"):
+            if self._key(record.get(field)) == "negative" and raw_value_key in {"na", "unknown", "unk", "missing"}:
+                findings.append(
+                    self._finding(
+                        error_type=RepairErrorType.SCHEMA_MAPPING_ERROR,
+                        rule_id="UNKNOWN_NOT_NEGATIVE",
+                        record_ids=[item.record_id],
+                        field=field,
+                        observed_value={field: record.get(field), "raw_value": record.get("raw_value")},
+                        risk=RiskLevel.MEDIUM,
+                        severity=FindingSeverity.HIGH,
+                        deterministic=False,
+                        message="Unknown or missing biomarker evidence cannot be mapped to Negative.",
+                    )
+                )
         return findings
 
     def _medical_safety_findings(
@@ -210,6 +344,15 @@ class ErrorClassifier:
             )
 
         response_type = self._key(record.get("response_type"))
+        if not response_type:
+            response_type = next(
+                (
+                    measure
+                    for measure in self._PRECLINICAL_MEASURES
+                    if any(self._key(key) == measure for key in record)
+                ),
+                "",
+            )
         domain = self._key(record.get("response_domain"))
         if any(measure in response_type for measure in self._PRECLINICAL_MEASURES) and domain != "preclinicalcellline":
             findings.append(
@@ -226,6 +369,21 @@ class ErrorClassifier:
                         "AUC/IC50/viability must remain in preclinical_cell_line and "
                         "cannot be treated as a patient clinical response."
                     ),
+                )
+            )
+        response = self._key(record.get("response"))
+        if response in {"pcr", "residualdisease", "rd"} and not domain:
+            findings.append(
+                self._finding(
+                    error_type=RepairErrorType.SCHEMA_MAPPING_ERROR,
+                    rule_id="RESPONSE_DOMAIN_REQUIRED",
+                    record_ids=[item.record_id],
+                    field="response_domain",
+                    observed_value=record.get("response_domain"),
+                    risk=RiskLevel.MEDIUM,
+                    severity=FindingSeverity.HIGH,
+                    deterministic=False,
+                    message="Clinical outcomes require an explicit clinical response domain.",
                 )
             )
         return findings

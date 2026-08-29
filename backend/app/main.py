@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import Annotated
@@ -37,6 +38,7 @@ from backend.app.agent import (
     ClosedLoopResponse,
     ClosedLoopService,
 )
+from backend.app.agent.loop_store import LoopStateStore
 from backend.app.export_service import DatasetExportFormat, MockDatasetExportService
 from backend.app.evaluation import EvaluationError, EvaluationService, GoldSetCsvLoader
 from backend.app.evaluation.overview import EvaluationOverview, build_evaluation_overview
@@ -194,7 +196,10 @@ goldset_curation_service = GoldSetCurationService()
 repair_loop_service = RepairLoopService()
 mock_export_service = MockDatasetExportService()
 research_agent_service = ResearchAgentService()
-closed_loop_service = ClosedLoopService(research_agent_service)
+closed_loop_service = ClosedLoopService(
+    research_agent_service,
+    store=LoopStateStore(Path(__file__).resolve().parents[2] / "data" / "state" / "agent.sqlite3"),
+)
 research_planning_service = ResearchPlanningService()
 requirement_agent_service = RequirementAgentService(planning=research_planning_service)
 parser_registry = ParserRegistry()
@@ -363,6 +368,14 @@ def get_agent_closed_loop(
     if result is None:
         raise HTTPException(status_code=404, detail="闭环任务不存在或服务已重启。")
     return result
+
+
+@app.get("/api/v2/agent/memory")
+def get_agent_memory(
+    service: Annotated[ClosedLoopService, Depends(get_closed_loop_service)],
+    limit: int = 20,
+) -> dict:
+    return {"memory": service.recall_memory(limit=limit)}
 
 
 @app.post("/api/v2/quality/review", response_model=QualityReviewResponse)
@@ -941,6 +954,14 @@ def get_evaluation_overview(
         latest_task=agent.latest(),
         goldset_row_counts=inspection.row_counts,
     )
+
+
+@app.get("/api/evaluation/stratified")
+def get_stratified_evaluation() -> dict:
+    report_path = Path(__file__).resolve().parents[2] / "evaluation" / "agent_stratified_ablation_20260829" / "report.json"
+    if not report_path.is_file():
+        return {"status": "NOT_EVALUATED", "notice": "分层与消融报告尚未生成。"}
+    return json.loads(report_path.read_text(encoding="utf-8"))
 
 
 @app.get(

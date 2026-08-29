@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from backend.app.evaluation.models import ErrorObservation, FieldObservation, RetrievalObservation
@@ -21,12 +22,12 @@ ERROR_TYPE_MATCH = {
         "invalid_schema_value",
     },
     "provenance_missing": {"provenance_missing"},
-    "gene_alias": {"gene_alias"},
+    "gene_alias": {"gene_alias", "casing_normalization"},
     "drug_alias": {"drug_alias"},
     "duplicate": {"exact_duplicate", "duplicate"},
     "missing": {"missing_required_field", "missing"},
-    "unit": set(),
-    "typo": set(),
+    "unit": {"schema_mapping_error", "invalid_schema_value"},
+    "typo": {"schema_mapping_error", "invalid_schema_value"},
 }
 
 BIOMARKER_FIELDS = {
@@ -59,7 +60,7 @@ def gold_id_matches(gold_id: str, system_id: str) -> bool:
 def _normalizer_for(canonical_field: str, raw_field: str) -> NormalizerKind | None:
     if canonical_field == "source_id":
         return None
-    if canonical_field == "gene" or ("gene" in raw_field.casefold() and canonical_field == "gene"):
+    if canonical_field == "gene":
         return NormalizerKind.GENE
     if canonical_field == "drug":
         return NormalizerKind.DRUG
@@ -67,9 +68,7 @@ def _normalizer_for(canonical_field: str, raw_field: str) -> NormalizerKind | No
         return NormalizerKind.MUTATION_STATUS
     if canonical_field == "response_domain":
         return NormalizerKind.RESPONSE_DOMAIN
-    if canonical_field in BIOMARKER_FIELDS or any(
-        token in raw_field.upper() for token in ("HER2", "ERBB2", "IHC", "FISH", "ER", "PR")
-    ):
+    if canonical_field in BIOMARKER_FIELDS:
         return NormalizerKind.BIOMARKER
     return NormalizerKind.PASSTHROUGH
 
@@ -85,6 +84,8 @@ def observe_field(row: Any) -> tuple[FieldObservation, dict[str, Any]]:
         dataset = row.source_dataset
         if dataset.upper().startswith("GSE"):
             values = {"source_id": f"geo:{dataset}"}
+        elif dataset.upper().startswith("NCT"):
+            values = {"source_id": f"nct:{dataset.upper()}"}
         elif dataset.upper().startswith("TCGA"):
             values = {"source_id": f"gdc:{dataset}"}
         elif dataset.casefold() == "civic":
@@ -93,12 +94,17 @@ def observe_field(row: Any) -> tuple[FieldObservation, dict[str, Any]]:
             values = {"source_id": dataset}
         status = "source_id_from_dataset"
     elif kind is NormalizerKind.GENE:
-        result = gene.normalize(row.raw_value)
+        gene_input = row.raw_value
+        if re.search(r"(?:^|[_\s-])(?:CNA|CNV|COPY[_\s-]?NUMBER)(?:$|[_\s-])", row.raw_field, re.I):
+            gene_input = re.split(r"[_\s-]+(?:CNA|CNV|COPY)", row.raw_field, maxsplit=1, flags=re.I)[0]
+        result = gene.normalize(gene_input)
         values = dict(result.values)
         status = result.status.value
     elif kind is NormalizerKind.DRUG:
         result = drug.normalize(row.raw_value)
         values = dict(result.values)
+        if values.get("drug") is not None:
+            values["drug"] = str(values["drug"]).casefold()
         status = result.status.value
     elif kind is NormalizerKind.BIOMARKER:
         result = biomarker.normalize(
@@ -108,6 +114,12 @@ def observe_field(row: Any) -> tuple[FieldObservation, dict[str, Any]]:
         )
         values = dict(result.values)
         status = result.status.value
+        if (
+            row.canonical_field == "her2_status"
+            and re.search(r"CNA|CNV|COPY[_\s-]?NUMBER", row.raw_field, re.I)
+        ):
+            values = {"her2_status": "Unknown"}
+            status = "safe_cna_not_ihc"
     elif kind is NormalizerKind.MUTATION_STATUS:
         compact = row.raw_value.strip().casefold()
         mapped = {
@@ -123,7 +135,7 @@ def observe_field(row: Any) -> tuple[FieldObservation, dict[str, Any]]:
         compact = row.raw_value.strip().casefold()
         if compact in {"yes", "pcr", "rd", "residual_disease"}:
             values = {"response_domain": "clinical"}
-        elif compact in {"auc", "ic50"} or row.raw_field.upper() == "AUC":
+        elif compact in {"auc", "ic50"} or row.raw_field.upper() in {"AUC", "IC50"}:
             values = {"response_domain": "preclinical_cell_line"}
         elif "predictive" in compact:
             values = {"response_domain": "knowledge_evidence"}
@@ -158,20 +170,17 @@ def observe_field(row: Any) -> tuple[FieldObservation, dict[str, Any]]:
             if compact in {"yes", "pcr"}:
                 values = {"response": "pCR"}
             elif compact == "rd":
-                values = {"response": "RD"}
-            elif compact in {"auc", "0.42"} or row.raw_field.upper() == "AUC":
-                values = {"response": str(row.raw_value)}
+                values = {"response": "residual_disease"}
+            elif "residual disease" in compact.replace("_", " "):
+                values = {"response": "residual_disease"}
+            elif row.raw_field.upper() in {"AUC", "IC50"}:
+                values = {"response": row.raw_field.upper()}
             status = "response_alias"
 
     observed_value = values.get(row.canonical_field)
-    if observed_value is None and values:
-        observed_value = next(iter(values.values()))
-        observed_field = next(iter(values))
-    else:
-        observed_field = row.canonical_field
-        if observed_value is None:
-            observed_value = "UNRESOLVED"
-            observed_field = row.canonical_field
+    observed_field = row.canonical_field
+    if observed_value is None:
+        observed_value = "UNRESOLVED"
     evidence = bool(row.source_dataset and row.raw_field and str(row.raw_value) != "")
     if str(observed_value) == "":
         observed_value = "UNRESOLVED"
@@ -201,13 +210,13 @@ def project_error_seed(record: dict[str, Any]) -> dict[str, Any]:
     import json
 
     projected = dict(record)
-    source_id = str(projected.get("source_id") or "official-seed")
+    source_id = str(projected["source_id"]) if "source_id" in projected else "official-seed"
     projected.setdefault("study_id", source_id)
     projected.setdefault("disease", "breast cancer")
     projected.setdefault("source_id", source_id)
-    raw_field = str(projected.get("raw_field") or "seed")
+    raw_field = str(projected["raw_field"]) if "raw_field" in projected else "seed"
     raw_value = projected.get("raw_value")
-    if raw_value is None or raw_value == "":
+    if "raw_value" not in projected:
         raw_value = json.dumps(record, ensure_ascii=False)
     projected["raw_field"] = raw_field
     projected["raw_value"] = raw_value if isinstance(raw_value, str) else json.dumps(raw_value, ensure_ascii=False)

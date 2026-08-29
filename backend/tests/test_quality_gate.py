@@ -10,6 +10,7 @@ from backend.app.agent.models import (
     ModelingDataset,
 )
 from backend.app.agent.quality_gate import QualityGateBuilder
+from backend.app.agent.research_brief import ResearchBriefBuilder
 from backend.app.agent.study_design import StudyDesignBuilder
 from backend.app.models import ResearchSpec, SourceItem
 
@@ -143,10 +144,10 @@ def test_field_and_fitness_review_copy_does_not_lead_with_zero_match() -> None:
     assert field_gate.decision == "REVIEW"
     assert "0.0%" not in field_gate.evidence
     assert "结局匹配=" not in field_gate.evidence
-    assert "还没对上" in field_gate.evidence
+    assert "45%" in field_gate.evidence
     assert fitness.decision == "REVIEW"
     assert "未识别" not in fitness.evidence
-    assert "还要补结局字段" in fitness.evidence
+    assert "低于探索性准入线" in fitness.evidence
 
 
 def test_missing_source_identity_rejects_source_gate() -> None:
@@ -171,14 +172,15 @@ def test_same_study_alignment_can_pass_all_four_gates() -> None:
     rows = [
         {
             "study_id": "study-a",
-            "patient_id": "P1",
-            "sample_id": "S1",
+            "patient_id": f"P{index}",
+            "sample_id": f"S{index}",
             "source_id": "source-a",
             "disease": "Breast Cancer",
             "subtype": "HER2-positive",
             "pik3ca_mutation": "1",
             "treatment_response": "pCR",
         }
+        for index in range(30)
     ]
     report = QualityGateBuilder().build(
         _result(
@@ -199,9 +201,109 @@ def test_same_study_alignment_can_pass_all_four_gates() -> None:
     }
     assert report.overall == "PASS"
     assert report.publish_allowed is True
-    assert report.variable_coverage == 0.9
+    assert report.variable_coverage == 1.0
     assert report.traceability == 1
     assert report.cohort_f1 is None
+
+
+def test_non_outcome_task_does_not_fail_because_target_column_is_absent() -> None:
+    rows = [
+        {
+            "study_id": "study-a",
+            "patient_id": f"P{index}",
+            "sample_id": f"S{index}",
+            "source_id": "source-a",
+            "disease": "Breast Cancer",
+            "pik3ca_mutation": "1",
+        }
+        for index in range(30)
+    ]
+    result = _result(
+        rows=rows,
+        sources=[_source()],
+        analysis_ready=True,
+        completeness=0.9,
+        target_match=False,
+        coverage=0.9,
+    )
+    spec = result.research_spec.model_copy(update={
+        "research_goal": "描述乳腺癌 PIK3CA 突变谱，不需要临床结局",
+        "subtype": None,
+        "outcomes": [],
+        "required_data_types": ["clinical", "mutation"],
+    })
+    brief = ResearchBriefBuilder().build(spec.research_goal, spec)
+    result = result.model_copy(update={"research_spec": spec, "research_brief": brief})
+    report = QualityGateBuilder().build(result)
+    decisions = {layer.gate_id: layer.decision for layer in report.layers}
+
+    assert decisions["field_quality"] == "PASS"
+    assert decisions["research_fitness"] == "PASS"
+    field_gate = next(layer for layer in report.layers if layer.gate_id == "field_quality")
+    fitness_gate = next(layer for layer in report.layers if layer.gate_id == "research_fitness")
+    assert "本题不要求临床结局" in fitness_gate.evidence
+    assert "结局" not in field_gate.evidence
+    assert "字段完整率" not in field_gate.evidence
+
+
+def test_exploratory_gate_accepts_499_coverage_and_787_outcome_match() -> None:
+    rows = [
+        {
+            "study_id": "study-a",
+            "patient_id": f"P{index}",
+            "sample_id": f"S{index}",
+            "source_id": "source-a",
+            "disease": "Breast Cancer",
+            "subtype": "HER2-positive",
+            "pik3ca_mutation": "1",
+            "treatment_response": "pCR" if index < 32 else None,
+        }
+        for index in range(40)
+    ]
+    result = _result(
+        rows=rows,
+        sources=[_source()],
+        analysis_ready=False,
+        completeness=0.499,
+        target_match=False,
+        coverage=0.499,
+    )
+    result = result.model_copy(update={
+        "readiness": result.readiness.model_copy(update={"target_match_rate": 0.787}),
+    })
+
+    report = QualityGateBuilder().build(result)
+    decisions = {layer.gate_id: layer.decision for layer in report.layers}
+
+    assert decisions["field_quality"] == "PASS"
+    assert decisions["research_fitness"] == "PASS"
+    assert report.overall == "PASS"
+    assert report.publish_allowed is True
+
+
+def test_exploratory_gate_rejects_zero_outcome_match() -> None:
+    rows = [
+        {
+            "study_id": "study-a",
+            "patient_id": f"P{index}",
+            "sample_id": f"S{index}",
+            "source_id": "source-a",
+            "disease": "Breast Cancer",
+            "subtype": "HER2-positive",
+            "pik3ca_mutation": "1",
+        }
+        for index in range(40)
+    ]
+    result = _result(rows=rows, sources=[_source()], coverage=0.8)
+    result = result.model_copy(update={
+        "readiness": result.readiness.model_copy(update={"target_match": False, "target_match_rate": 0.0}),
+    })
+
+    report = QualityGateBuilder().build(result)
+    fitness = next(layer for layer in report.layers if layer.gate_id == "research_fitness")
+
+    assert fitness.decision == "REVIEW"
+    assert report.publish_allowed is False
 
 
 def test_cross_source_identity_stays_review_and_is_not_auto_merged() -> None:

@@ -1117,7 +1117,22 @@ class ResearchAgentService:
         else:
             subtype = None
         outcomes: list[str] = []
-        if any(term in upper for term in ("PCR", "RESPONSE")) or any(term in question for term in ("响应", "疗效", "缓解")):
+        response_markers = ("PCR", "RESPONSE", "响应", "疗效", "缓解")
+        response_positive = False
+        for marker in response_markers:
+            start = 0
+            while True:
+                index = upper.find(marker.upper(), start)
+                if index < 0:
+                    break
+                before = question[max(0, index - 12):index]
+                if not any(token in before for token in ("不要求", "无需", "不要", "不得", "不是")):
+                    response_positive = True
+                    break
+                start = index + len(marker)
+            if response_positive:
+                break
+        if response_positive:
             outcomes.append("treatment_response")
         if question_asks_survival(question):
             outcomes.append("survival")
@@ -1534,12 +1549,17 @@ class ResearchAgentService:
         outcomes = list(dict.fromkeys(spec.outcomes or []))
         if not question_asks_clinical_outcome(question):
             outcomes = [item for item in outcomes if item not in {"treatment_response", "pCR", "pcr", "survival"}]
-        if any(term in upper for term in ("RESPONSE", "PCR")) or any(term in question for term in ("响应", "疗效", "缓解")):
+        if question_asks_clinical_outcome(question) and (
+            any(term in upper for term in ("RESPONSE", "PCR"))
+            or any(term in question for term in ("响应", "疗效", "缓解"))
+        ):
             if "treatment_response" not in outcomes:
                 outcomes.append("treatment_response")
         if question_asks_survival(question) and "survival" not in outcomes:
             outcomes.append("survival")
         required = list(dict.fromkeys(spec.required_data_types))
+        if "treatment_response" not in outcomes:
+            required = [item for item in required if item != "treatment_response"]
         for item in ("clinical", "mutation", "evidence"):
             if item not in required:
                 required.append(item)

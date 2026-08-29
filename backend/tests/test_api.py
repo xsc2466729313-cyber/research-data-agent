@@ -25,7 +25,7 @@ def test_health_reports_qwen_agent_capabilities() -> None:
     assert response.status_code == 200
     assert response.json() == {
         "status": "ok",
-        "mode": "qwen-agent+function-calling+live-adapters+research-dataset+traceability+quality-gate",
+        "mode": "qwen-agent+function-calling+live-adapters+research-dataset+traceability+quality-gate+v3-mainline",
         "version": "2.0.0-qwen-agent",
     }
 
@@ -84,7 +84,10 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "从百炼凭据 CSV 导入" in response.text
     assert "测试连接并启用" in response.text
     assert "最长 2 小时" in response.text
-    assert "本次实际清洗动作" in response.text
+    assert "技术审计与后续建议" in response.text
+    assert "本次实际清洗动作" not in response.text
+    assert "模型评测报告集合" not in response.text
+    assert 'href="#system-evaluation"' not in response.text
     assert "公开数据实测" not in response.text
     assert "DeepSeek 替换组" not in response.text
     assert "正式 SDTI：NOT_EVALUATED" not in response.text

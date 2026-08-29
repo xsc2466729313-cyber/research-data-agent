@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from urllib.parse import urlparse
 
-from backend.app.agent.accession_harvest import asks_pcr, seed_geo_accessions
+from backend.app.agent.accession_harvest import asks_pcr, needs_clinical_outcome, seed_geo_accessions
 from backend.app.agent.models import (
     AgentTaskResult,
     QualityGateLayer,
     QualityGateReport,
 )
+from backend.app.agent.research_brief import ResearchBriefBuilder
 
 
 OFFICIAL_HOSTS = (
@@ -19,6 +20,10 @@ OFFICIAL_HOSTS = (
     "europepmc.org",
     "ebi.ac.uk",
 )
+
+FIELD_COVERAGE_MIN = 0.45
+OUTCOME_MATCH_MIN = 0.75
+EXPLORATORY_ROW_MIN = 30
 
 
 class QualityGateBuilder:
@@ -45,16 +50,12 @@ class QualityGateBuilder:
             layers=layers,
             cohort_f1=None if result.cohort_construction is None else result.cohort_construction.patient_linkage_f1,
             cohort_plan_f1=self._cohort_plan_f1(result),
-            variable_coverage=(
-                None
-                if result.study_design is None
-                else result.study_design.variable_coverage_rate
-            ),
+            variable_coverage=self._primary_field_coverage(result),
             traceability=self._traceability(result),
             research_fitness=self._fitness_score(result),
             note=(
-                "质量门只根据本次任务观察到的来源、字段、身份和变量覆盖做准入判断，不生成虚假分数。"
-                "本题计划队列 F1 是计划 GEO/NCT 与已检索队列的集合对照，不是 Gold Set 患者关联分，也不是正式 SDTI。"
+                "质量门仅依据本次任务观察到的来源、主要字段、身份关系和科研适用性判定，不生成虚假分数。"
+                "探索性准入不等于正式发表结论或临床结论。"
             ),
         )
 
@@ -108,32 +109,14 @@ class QualityGateBuilder:
                 checks=["字段一致性", "单位一致性", "类型合法性"],
                 evidence="尚无患者/样本级宽表，不能判定字段一致性或类型合法性。",
             )
-        completeness = readiness.field_completeness_rate
-        outcome_rate = self._fill_rate(result, ("pcr", "pcr_binary", "treatment_response"))
-        outcome_aligned = bool(readiness.target_match) and (outcome_rate or 0.0) >= 0.8
-        if completeness is not None and completeness >= 0.8 and readiness.target_match:
-            decision = "PASS"
-        elif outcome_aligned:
-            decision = "PASS"
-        else:
-            decision = "REVIEW"
-        completeness_text = "未计算" if completeness is None else f"{completeness:.1%}"
+        coverage = self._primary_field_coverage(result)
+        decision = "PASS" if coverage is not None and coverage >= FIELD_COVERAGE_MIN else "REVIEW"
+        coverage_text = "未计算" if coverage is None else ("未覆盖" if coverage <= 0 else f"{coverage:.1%}")
         if decision == "PASS":
-            evidence = (
-                f"字段完整率 {completeness_text}；"
-                f"结局字段已对齐"
-                + (f"（行覆盖 {outcome_rate:.1%}）" if outcome_rate is not None else "")
-                + f"；清洗 {readiness.cleaned_value_count} 处。"
-            )
-        elif not readiness.target_match:
-            evidence = (
-                f"字段完整率 {completeness_text}，清洗 {readiness.cleaned_value_count} 处。"
-                "本题要的结局字段还没对上，质量门因此待补。"
-            )
+            evidence = f"主要字段行覆盖 {coverage_text}，达到探索性字段准入线（{FIELD_COVERAGE_MIN:.0%}）。"
         else:
             evidence = (
-                f"字段完整率 {completeness_text}，清洗 {readiness.cleaned_value_count} 处。"
-                "字段完整率尚未达到通过线，质量门因此待补。"
+                f"主要字段行覆盖 {coverage_text}，低于探索性字段准入线（{FIELD_COVERAGE_MIN:.0%}）。"
             )
         return QualityGateLayer(
             gate_id="field_quality",
@@ -172,34 +155,37 @@ class QualityGateBuilder:
         )
 
     def _fitness_gate(self, result: AgentTaskResult) -> QualityGateLayer:
-        coverage = (
-            None
-            if result.study_design is None
-            else result.study_design.variable_coverage_rate
-        )
-        outcome_rate = self._fill_rate(result, ("pcr", "pcr_binary", "treatment_response"))
-        her2_rate = self._fill_rate(result, ("her2_status",))
+        coverage = self._primary_field_coverage(result)
+        needs_outcome = self._needs_outcome(result)
+        outcome_rate = result.readiness.target_match_rate
+        if outcome_rate is None:
+            outcome_rate = 1.0 if result.readiness.target_match else 0.0
+        her2_rate = self._her2_evidence_rate(result)
         her2_needed = self._needs_her2(result)
         her2_ok = (not her2_needed) or (her2_rate or 0.0) >= 0.5
-        outcome_ok = bool(result.readiness.target_match) and (outcome_rate or 0.0) >= 0.8
-        if result.readiness.analysis_ready and coverage is not None and coverage >= 0.8:
-            decision = "PASS"
-        elif result.readiness.analysis_ready and outcome_ok and her2_ok:
-            decision = "PASS"
-        elif result.modeling_dataset.row_count == 0:
-            decision = "REVIEW"
-        else:
-            decision = "REVIEW"
+        outcome_ok = (not needs_outcome) or outcome_rate >= OUTCOME_MATCH_MIN
+        sample_ok = result.modeling_dataset.row_count >= EXPLORATORY_ROW_MIN
+        decision = "PASS" if (
+            coverage is not None
+            and coverage >= FIELD_COVERAGE_MIN
+            and outcome_ok
+            and her2_ok
+            and sample_ok
+        ) else "REVIEW"
         coverage_text = "未计算" if coverage is None else f"{coverage:.1%}"
-        if result.readiness.target_column:
-            outcome_text = f"结局字段已指向 {result.readiness.target_column}。"
+        if not needs_outcome:
+            outcome_text = "本题不要求临床结局。"
+        elif outcome_ok:
+            outcome_text = f"研究结局匹配={outcome_rate:.1%}，达到探索性准入线（{OUTCOME_MATCH_MIN:.0%}）。"
         else:
-            outcome_text = "本题结局字段尚未对上当前这批记录，还要补结局字段。"
+            outcome_text = f"研究结局匹配={outcome_rate:.1%}，低于探索性准入线（{OUTCOME_MATCH_MIN:.0%}）。"
         evidence = (
-            f"可科研性={result.readiness.status}；"
-            f"本题变量覆盖={coverage_text}。"
+            f"记录数={result.modeling_dataset.row_count}（准入线 {EXPLORATORY_ROW_MIN}）；"
+            f"主要字段行覆盖={coverage_text}；"
             f"{outcome_text}"
         )
+        if her2_needed and not her2_ok:
+            evidence += "HER2 直接状态或可追溯亚型证据不足，不能用 ERBB2 CNA 代替。"
         return QualityGateLayer(
             gate_id="research_fitness",
             label="Gate 4 科研适用性",
@@ -220,10 +206,66 @@ class QualityGateBuilder:
         return filled / len(rows)
 
     @staticmethod
+    def _her2_evidence_rate(result: AgentTaskResult) -> float | None:
+        rows = list(result.modeling_dataset.rows or [])
+        if not rows:
+            return None
+        filled = 0
+        for row in rows:
+            direct = row.get("her2_status")
+            if direct not in {None, "", "<缺失>"}:
+                filled += 1
+                continue
+            subtype = str(row.get("subtype") or "").casefold()
+            if ("her2-positive" in subtype or "her2 positive" in subtype or "her-2 positive" in subtype):
+                filled += 1
+        return filled / len(rows)
+
+    @staticmethod
     def _needs_her2(result: AgentTaskResult) -> bool:
         spec = result.research_spec
         blob = f"{spec.research_goal} {spec.subtype or ''}".casefold()
         return "her2" in blob or "her-2" in blob or "受体" in blob
+
+    @staticmethod
+    def _needs_outcome(result: AgentTaskResult) -> bool:
+        brief = result.research_brief
+        if brief is not None:
+            return bool(brief.needs_clinical_outcome)
+        return needs_clinical_outcome(result.research_spec)
+
+    @staticmethod
+    def _primary_field_coverage(result: AgentTaskResult) -> float | None:
+        brief = result.research_brief
+        if brief is None:
+            brief = ResearchBriefBuilder().build(
+                result.research_spec.research_goal,
+                result.research_spec,
+            )
+        primary = [field for field in brief.fields if field.priority == "primary"]
+        rows = list(result.modeling_dataset.rows or [])
+        if primary:
+            if not rows:
+                return 0.0
+            rates: list[float] = []
+            missing = {None, "", "<缺失>"}
+            for field in primary:
+                filled = 0
+                for row in rows:
+                    present = any(row.get(alias) not in missing for alias in (field.aliases or [field.field_id]))
+                    if not present and field.field_id == "her2_status":
+                        subtype = str(row.get("subtype") or "").casefold()
+                        present = "her2" in subtype or "her-2" in subtype
+                    if present:
+                        filled += 1
+                rates.append(filled / len(rows))
+            return round(sum(rates) / len(rates), 4)
+        assessment = result.value_assessment
+        if assessment is not None and assessment.primary_coverage is not None:
+            return assessment.primary_coverage
+        if result.study_design is None:
+            return None
+        return result.study_design.variable_coverage_rate
 
     @staticmethod
     def _cohort_plan_f1(result: AgentTaskResult) -> float | None:

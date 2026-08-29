@@ -150,7 +150,7 @@ def test_closed_loop_stops_when_no_legal_followup_remains():
     assert response.improved is False
 
 
-def test_closed_loop_hides_duplicate_rounds_when_second_round_does_not_improve():
+def test_closed_loop_hides_comparison_when_second_round_does_not_improve():
     base = _with_followup(_base_result())
     calls = []
 
@@ -173,7 +173,7 @@ def test_closed_loop_hides_duplicate_rounds_when_second_round_does_not_improve()
     assert response.completed_iterations == 2
     assert len(calls) == 2
     assert response.presentation == "best_only"
-    assert response.display_iterations == [1]
+    assert response.display_iterations == [response.best_iteration]
     assert response.improved is False
     joined = " ".join(response.improvement_summary)
     assert "没有新的合法补法" in joined or "第二轮已" in joined or "仍缺" in joined or "指标未变" in joined
@@ -222,7 +222,48 @@ def test_closed_loop_runs_second_round_after_first_passes_quality_gate():
     assert "闭环修正" in calls[1].question
     assert response.iterations[1].improvement is not None
     assert response.presentation == "best_only"
+    assert response.display_iterations == [response.best_iteration]
     assert response.improved is False
+
+
+def test_closed_loop_returns_first_result_when_second_round_regresses():
+    base = _base_result()
+    first = _with_followup(
+        base,
+        requested_variable_coverage_rate=0.50,
+        target_match=True,
+        target_match_rate=0.787,
+    )
+    second = _without_followup(
+        base,
+        requested_variable_coverage_rate=0.80,
+        target_match=False,
+        target_match_rate=0.0,
+    )
+    calls = []
+
+    def runner(request, **_kwargs):
+        calls.append(request)
+        return first if len(calls) == 1 else second
+
+    response = ClosedLoopService(object(), runner=runner).run(ClosedLoopRequest(
+        initial_request=AgentTaskRequest(
+            question=QUESTION,
+            use_qwen=False,
+            data_mode="plan_only",
+            max_sources=2,
+            max_records=100,
+        ),
+        max_iterations=2,
+    ))
+
+    assert response.completed_iterations == 2
+    assert response.improved is False
+    assert response.presentation == "best_only"
+    assert response.best_iteration == 1
+    assert response.display_iterations == [1]
+    assert response.final_result is not None
+    assert response.final_result.readiness.target_match_rate == 0.787
 
 
 def test_closed_loop_api_returns_round_comparison():

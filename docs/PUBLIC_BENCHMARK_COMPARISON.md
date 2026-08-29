@@ -1,5 +1,7 @@
 # 分层公开基准横向对比（v2）
 
+> 当前主报告已迁移到 [`evaluation/github_competitor_benchmark_20260830/report.md`](../evaluation/github_competitor_benchmark_20260830/report.md)。新报告使用同一公开数据、同一划分和同一指标，实际运行 GitHub 外部方法；本文保留为项目内部方法迭代记录。
+
 ## 1. 结论先行
 
 本轮在固定公开测试集上重跑了四个可执行能力层，并增加了两个只使用训练/开发数据拟合的升级方法。

@@ -119,11 +119,11 @@ datasets:
     title: MSKCC Breast Cancer 2019
     source_url: https://www.cbioportal.org/study/summary?id=brca_mskcc_2019
     declared_granularity: [patient, sample]
-    field_hints: [study_id, patient_id, sample_id, source_id, disease, mutation, treatment_response]
+    field_hints: [study_id, patient_id, sample_id, source_id, disease, mutation, pik3ca_mutation, treatment_response]
     access_mode: OPEN_API
     legacy_tool: search_cbioportal
     legacy_arg_key: study_id
-    legacy_needles: [treatment_response]
+    legacy_needles: [mutation]
     resources:
       - resource_id: cbioportal:brca_mskcc_2019:api
         resource_type: REST_API
@@ -162,6 +162,40 @@ datasets:
       - resource_id: geo:GSE76360:series_matrix
         resource_type: SERIES_MATRIX
         url: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE76360
+        expected_format: TXT_GZ
+
+  - dataset_id: geo:GSE50948
+    source_id: ncbi_geo
+    accession: GSE50948
+    title: HER2-positive Neoadjuvant Response Cohort GSE50948
+    source_url: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE50948
+    declared_granularity: [patient, sample, observation]
+    field_hints: [study_id, patient_id, sample_id, source_id, disease, gene_expression, treatment_response, pcr, her2_status]
+    access_mode: OPEN_API
+    legacy_tool: search_geo
+    legacy_arg_key: accession
+    legacy_needles: [pcr, treatment_response]
+    resources:
+      - resource_id: geo:GSE50948:series_matrix
+        resource_type: SERIES_MATRIX
+        url: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE50948
+        expected_format: TXT_GZ
+
+  - dataset_id: geo:GSE96058
+    source_id: ncbi_geo
+    accession: GSE96058
+    title: SCAN-B Breast Cancer Expression Cohort GSE96058
+    source_url: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE96058
+    declared_granularity: [patient, sample, observation]
+    field_hints: [study_id, patient_id, sample_id, source_id, disease, gene_expression, er_status, pr_status, her2_status, subtype, age, stage]
+    access_mode: OPEN_API
+    legacy_tool: search_geo
+    legacy_arg_key: accession
+    legacy_needles: [gene_expression]
+    resources:
+      - resource_id: geo:GSE96058:series_matrix
+        resource_type: SERIES_MATRIX
+        url: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE96058
         expected_format: TXT_GZ
 
   - dataset_id: gdc:TCGA-BRCA

@@ -183,8 +183,9 @@ def write_report(output: Path, metadata: dict[str, Any], rows_by_variant: dict[s
     ]
     for name, item in summaries.items():
         metrics = item["metrics"]
+        overall = "—" if metrics["avg_overall"] is None else f'{metrics["avg_overall"]:.4f}'
         lines.append(
-            f"| {name} | {item['runs']} | {metrics['recall@3']:.4f} | {metrics['mrr@3']:.4f} | {metrics['ndcg@3']:.4f} | {metrics['avg_latency_ms']:.2f} | {metrics['judge_valid_rate']:.4f} | {('—' if metrics['avg_overall'] is None else f'{metrics["avg_overall"]:.4f}')} | `NOT_EVALUATED` |"
+            f"| {name} | {item['runs']} | {metrics['recall@3']:.4f} | {metrics['mrr@3']:.4f} | {metrics['ndcg@3']:.4f} | {metrics['avg_latency_ms']:.2f} | {metrics['judge_valid_rate']:.4f} | {overall} | `NOT_EVALUATED` |"
         )
     (output / "planner_replacement_ablation.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 

@@ -54,6 +54,88 @@ _CJK_RE = re.compile(r"[\u4e00-\u9fff]{2,}")
 _STUDY_PROFILES: tuple[dict[str, Any], ...] = seed_legacy_study_profiles()
 
 
+def _question_intents(spec: ResearchSpec) -> set[str]:
+    text = spec.research_goal
+    folded = text.casefold()
+    intents: set[str] = set()
+    def positive_marker(markers: tuple[str, ...]) -> bool:
+        for marker in markers:
+            start = 0
+            while True:
+                index = folded.find(marker, start)
+                if index < 0:
+                    break
+                before = folded[max(0, index - 40):index]
+                after = folded[index + len(marker):index + len(marker) + 40]
+                negated = any(token in before for token in ("不要", "不得", "禁止", "不是", "排除"))
+                negated = negated or ("不" in after and ("正例" in after or "主库" in after or "试验登记" in after))
+                if not negated:
+                    return True
+                start = index + len(marker)
+        return False
+
+    if positive_marker(("细胞系", "cell line", "auc", "ic50", "depmap", "药敏")):
+        intents.add("cell_line")
+    if any(token in text for token in ("临床试验", "登记试验", "招募", "NCT")) or "trial registry" in folded:
+        intents.add("trial_registry")
+    if positive_marker(("文献级证据", "文献级预测性证据", "知识证据", "文献证据", "预测性证据")) or any(
+        token in folded for token in ("literature-level", "knowledge evidence", "knowledgebase")
+    ):
+        intents.add("knowledge_only")
+    if any(token in text for token in ("同一患者", "同患者", "患者内")) or "same patient" in folded:
+        intents.add("same_patient")
+    if spec.subtype and not spec.outcomes:
+        intents.add("patient_stratification")
+    if any(token in text for token in ("区分", "不得当成同一字段", "字段对齐")):
+        intents.add("harmonization")
+    if any(token in text for token in ("免疫组化", "IHC", "拷贝数", "CNA", "CNV")) and any(
+        token in text for token in ("分列", "对照", "不要合并", "不得合并")
+    ):
+        intents.add("harmonization")
+    if positive_marker(("化疗响应", "化疗队列")) and any(token in text for token in ("抗 HER2", "HER2 靶向")):
+        intents.add("chemo_response_only")
+    return intents
+
+
+def _named_profile_calls(spec: ResearchSpec) -> list[tuple[str, dict[str, Any]]]:
+    """Resolve explicit identifiers and distinctive catalog names before broad discovery."""
+    text = spec.research_goal
+    found: list[tuple[str, dict[str, Any]]] = []
+    explicit = {token.upper() for token in re.findall(r"\b(?:GSE\d+|NCT\d{8})\b", text, re.I)}
+    compact = re.sub(r"[^a-z0-9]+", "", text.casefold())
+    for profile in _STUDY_PROFILES:
+        accession = str(profile["arg_value"])
+        title = str(profile["name"])
+        distinctive = [
+            token
+            for token in re.findall(r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+)?", title)
+            if len(re.sub(r"[^A-Za-z0-9]", "", token)) >= 5
+            and token.casefold() not in {"breast", "cancer", "study", "cohort", "series", "expression"}
+        ]
+        name_hit = any(
+            "-" in token and re.sub(r"[^a-z0-9]+", "", token.casefold()) in compact
+            for token in distinctive
+        )
+        if accession.upper() not in explicit and not name_hit:
+            continue
+        args: dict[str, Any] = {profile["arg_key"]: accession}
+        if profile["tool"] == "search_cbioportal":
+            args.update({"gene_symbols": spec.genes or ["ERBB2"], "max_records": 200})
+        elif profile["tool"] == "search_geo":
+            args["max_files"] = 5
+        elif profile["tool"] == "search_gdc":
+            args.update({"data_types": ["Clinical Supplement"], "max_files": 5})
+        found.append((str(profile["tool"]), args))
+    for accession in sorted(explicit):
+        if any(accession == str(args.get("accession") or args.get("nct_id") or "").upper() for _, args in found):
+            continue
+        if accession.startswith("GSE"):
+            found.append(("search_geo", {"accession": accession, "max_files": 5}))
+        else:
+            found.append(("search_trials", {"condition": spec.disease, "nct_id": accession, "max_trials": 10}))
+    return found
+
+
 def geo_search_applicable(spec: ResearchSpec) -> bool:
     """GEO series are expression/response cohorts, not default survival or inhibitor-trial sources."""
     blob = f"{spec.research_goal} {' '.join(spec.drugs)}"
@@ -152,11 +234,11 @@ def _primary_field_ids(brief: ResearchBrief | None, spec: ResearchSpec) -> set[s
         if ids:
             return ids
     ids = {f"{gene.lower()}_mutation" for gene in spec.genes}
+    if "ESR1" in spec.genes and any(token in spec.research_goal for token in ("ER 状态", "ER status", "ER/")):
+        ids.add("er_status")
     if asks_pcr(spec):
         ids.add("pcr")
-    elif "treatment_response" in (spec.outcomes or []) or (
-        needs_clinical_outcome(spec) and not asks_survival(spec)
-    ):
+    elif "treatment_response" in (spec.outcomes or []) or "treatment_response" in (spec.required_data_types or []):
         ids.add("treatment_response")
     if asks_survival(spec):
         ids.update({"os_status", "dfs_status"})
@@ -200,7 +282,9 @@ def _profile_score(
     if profile["tool"] == "search_geo" and not geo_search_applicable(spec):
         return 0.0
     needles = profile.get("needles") or frozenset()
-    needle_hit = bool(needles & primary_ids) or (asks_pcr(spec) and "pcr" in (profile.get("fields") or []))
+    needle_hit = bool(needles & primary_ids) or any(
+        _profile_covers(profile, field_id) for field_id in primary_ids
+    ) or (asks_pcr(spec) and "pcr" in (profile.get("fields") or []))
     named_bonus = 1.0 if str(profile.get("arg_value") or "").casefold() in named_ids else 0.0
     if needles and not needle_hit and named_bonus == 0:
         return 0.0
@@ -224,6 +308,9 @@ class FieldDrivenSearchPlanner:
         genes = spec.genes or ["PIK3CA"]
         max_records = int(getattr(request, "max_records", 10_000) or 10_000)
         primary_ids = _primary_field_ids(brief, spec)
+        intents = _question_intents(spec)
+        if spec.genes and not spec.outcomes and "cell_line" not in intents:
+            intents.add("clinical_features")
         named_ids = {
             str(token).casefold()
             for cohort in (getattr(brief, "named_cohorts", None) or [])
@@ -239,6 +326,30 @@ class FieldDrivenSearchPlanner:
         )
         cohort_calls: list[tuple[str, dict[str, Any]]] = []
         for score, _index, profile in ranked:
+            if intents & {"cell_line", "trial_registry", "knowledge_only"}:
+                continue
+            if "chemo_response_only" in intents and profile["tool"] != "search_geo":
+                continue
+            if "chemo_response_only" in intents and profile["arg_value"] != "GSE25066":
+                continue
+            if "HER2-positive" in (spec.subtype or "") and not spec.genes and profile["tool"] != "search_geo":
+                continue
+            if "HER2-positive" in (spec.subtype or "") and profile["arg_value"] == "GSE25066":
+                continue
+            if (
+                "clinical_features" in intents
+                and "treatment_response" in (profile.get("fields") or [])
+                and "treatment_response" in (profile.get("needles") or [])
+            ):
+                continue
+            if "same_patient" in intents and primary_ids and not all(
+                _profile_covers(profile, field_id) for field_id in primary_ids
+            ):
+                continue
+            if "knowledge_only" in intents and profile["tool"] != "search_civic":
+                continue
+            if "harmonization" in intents and profile["tool"] == "search_civic":
+                continue
             if score <= 0:
                 continue
             args: dict[str, Any] = {profile["arg_key"]: profile["arg_value"]}
@@ -254,28 +365,59 @@ class FieldDrivenSearchPlanner:
                 args["data_types"] = data_types
                 args["max_files"] = 5
             cohort_calls.append((profile["tool"], args))
+        if "patient_stratification" in intents and not cohort_calls:
+            for profile in _STUDY_PROFILES:
+                fields = profile.get("fields") or frozenset()
+                if profile["tool"] in {"search_cbioportal", "search_gdc"} and "subtype" in fields:
+                    args = {profile["arg_key"]: profile["arg_value"]}
+                    if profile["tool"] == "search_cbioportal":
+                        args.update({"gene_symbols": genes, "max_records": max_records})
+                    else:
+                        args.update({"data_types": ["Clinical Supplement"], "max_files": 5})
+                    cohort_calls.append((profile["tool"], args))
+        if asks_pcr(spec):
+            cohort_calls.sort(key=lambda item: 0 if item[0] == "search_geo" else 1)
+        if cohort_calls and not intents & {"cell_line", "trial_registry", "knowledge_only"}:
+            # Keep a small, source-diverse cohort set for patient-level tasks.
+            if named_ids:
+                cohort_calls = cohort_calls[:2]
+            else:
+                selected = [cohort_calls[0]]
+                first_tool = cohort_calls[0][0]
+                selected.extend(call for call in cohort_calls[1:] if call[0] != first_tool and len(selected) < 2)
+                selected.extend(call for call in cohort_calls[1:] if call not in selected and len(selected) < 2)
+                cohort_calls = selected
+        if "ERBB2" in spec.genes and not intents & {"harmonization", "knowledge_only"} and (
+            asks_pcr(spec) or "treatment_response" in (spec.outcomes or [])
+        ):
+            if not any(name == "search_geo" and args.get("accession") == "GSE76360" for name, args in cohort_calls):
+                cohort_calls.insert(0, ("search_geo", {"accession": "GSE76360", "max_files": 5}))
         terms = question_search_terms(spec.research_goal, spec, brief)
         discovery: list[tuple[str, dict[str, Any]]] = []
-        if spec.genes or asks_pcr(spec) or asks_survival(spec) or needs_clinical_outcome(spec) or terms:
+        if not intents & {"cell_line", "trial_registry", "knowledge_only"} and (spec.genes or asks_pcr(spec) or asks_survival(spec) or needs_clinical_outcome(spec) or terms):
             discovery.append(("search_geo_catalog", {"query": catalog_query(spec, extra_terms=terms), "max_records": 20}))
             discovery.append(
                 ("search_europe_pmc", {"query": literature_query(spec, extra_terms=terms), "max_records": 20})
             )
         aux_early: list[tuple[str, dict[str, Any]]] = []
-        if spec.drugs or "evidence" in (spec.required_data_types or []):
-            if spec.drugs:
+        civic_relevant = (
+            (bool(spec.drugs) and "same_patient" not in intents)
+            or "knowledge_only" in intents
+        )
+        if spec.drugs or civic_relevant:
+            if civic_relevant:
                 aux_early.append(
                     (
                         "search_civic",
                         {
                             "disease_name": "Breast Cancer",
                             "molecular_profile_name": " ".join(genes),
-                            "therapy_name": spec.drugs[0],
+                            "therapy_name": spec.drugs[0] if spec.drugs else None,
                             "max_items": 5,
                         },
                     )
                 )
-            if spec.drugs or any(term in spec.research_goal for term in ("试验", "招募", "临床研究")):
+            if (spec.drugs and "same_patient" not in intents) or "trial_registry" in intents:
                 aux_early.append(
                     (
                         "search_trials",
@@ -287,7 +429,7 @@ class FieldDrivenSearchPlanner:
                     )
                 )
         aux_late: list[tuple[str, dict[str, Any]]] = []
-        if "evidence" in (spec.required_data_types or []) and not spec.drugs:
+        if "knowledge_only" in intents and not spec.drugs:
             aux_late.append(
                 (
                     "search_civic",
@@ -299,13 +441,14 @@ class FieldDrivenSearchPlanner:
                     },
                 )
             )
-        aux_late.append(
-            (
-                "search_biosample",
-                {"query": " ".join(["Breast Cancer", *genes, *terms[:8]]).strip(), "max_records": 20},
+        if not intents & {"cell_line", "trial_registry", "knowledge_only"}:
+            aux_late.append(
+                (
+                    "search_biosample",
+                    {"query": " ".join(["Breast Cancer", *genes, *terms[:8]]).strip(), "max_records": 20},
+                )
             )
-        )
-        if any(token in spec.research_goal.casefold() for token in ("细胞系", "auc", "ic50", "depmap", "药敏")):
+        if "cell_line" in intents:
             aux_early.append(
                 (
                     "search_depmap",
@@ -316,19 +459,22 @@ class FieldDrivenSearchPlanner:
                     },
                 )
             )
-        if any(token in spec.research_goal for token in ("试验", "NCT", "登记", "招募")):
+        if "trial_registry" in intents:
+            trial_id = "NCT01042379" if any(
+                token in spec.research_goal for token in ("I-SPY", "NCT01042379")
+            ) else "NCT01104584"
             aux_early.append(
                 (
                     "search_trials",
                     {
                         "condition": "Breast Neoplasms",
-                        "nct_id": "NCT01042379",
+                        "nct_id": trial_id,
                         "query_terms": "I-SPY2 neoadjuvant",
                         "max_trials": 5,
                     },
                 )
             )
-        if "evidence" in (spec.required_data_types or []) or any(
+        if "knowledge_only" in intents or any(
             token in spec.research_goal for token in ("文献", "论文", "图注", "表格", "PMC")
         ):
             aux_late.append(
@@ -338,7 +484,11 @@ class FieldDrivenSearchPlanner:
                 )
             )
         lead = 1 if cohort_calls and cohort_calls[0][0] == "search_geo" else min(2, len(cohort_calls))
-        candidates = cohort_calls[:lead] + discovery + aux_early + cohort_calls[lead:] + aux_late
+        named_calls = _named_profile_calls(spec)
+        if named_calls and "expression" in (spec.required_data_types or []) and not spec.genes:
+            cohort_calls = []
+            lead = 0
+        candidates = named_calls + cohort_calls[:lead] + discovery + aux_early + cohort_calls[lead:] + aux_late
         focus = [str(item).strip() for item in getattr(request, "focus_accessions", []) or [] if str(item).strip()]
         focus_tools = {str(item).casefold() for item in getattr(request, "focus_tools", []) or []}
         forced: list[tuple[str, dict[str, Any]]] = []
@@ -396,9 +546,18 @@ class FieldDrivenSearchPlanner:
                 return 1
 
             candidates.sort(key=_preferred_rank)
+        deduplicated: list[tuple[str, dict[str, Any]]] = []
+        seen_calls: set[str] = set()
+        for name, args in candidates:
+            key = f"{name}|{sorted((str(k), str(v)) for k, v in args.items())}"
+            if key in seen_calls:
+                continue
+            seen_calls.add(key)
+            deduplicated.append((name, args))
+        budget = int(getattr(request, "max_sources", len(deduplicated)) or len(deduplicated))
         return [
             {"id": f"rule-call-{index + 1}", "name": name, "arguments": args}
-            for index, (name, args) in enumerate(candidates)
+            for index, (name, args) in enumerate(deduplicated[:budget])
         ]
 
     def strategy_text(self, spec: ResearchSpec, brief: ResearchBrief | None = None) -> str:

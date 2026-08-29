@@ -20,6 +20,7 @@ from backend.app.agent.closed_loop_models import (
 )
 from backend.app.agent.models import AgentTaskRequest, AgentTaskResult
 from backend.app.agent.outcome_repair import diagnose_outcome_gap
+from backend.app.agent.loop_store import LoopStateStore
 
 
 SAFETY_CONSTRAINTS = [
@@ -48,9 +49,11 @@ class ClosedLoopService:
         agent_service: object,
         *,
         runner: Callable[..., AgentTaskResult] | None = None,
+        store: LoopStateStore | None = None,
     ) -> None:
         self.agent_service = agent_service
         self._runner = runner
+        self._store = store
         self._runs: dict[str, ClosedLoopResponse] = {}
         self._lock = threading.Lock()
 
@@ -106,6 +109,16 @@ class ClosedLoopService:
                     audit=audit,
                 )
             )
+            if self._store is not None:
+                self._store.remember(
+                    loop_id,
+                    number,
+                    {
+                        "metrics": metrics.model_dump(mode="json"),
+                        "diagnoses": [item.model_dump(mode="json") for item in diagnoses],
+                        "actions": [item.model_dump(mode="json") for item in actions],
+                    },
+                )
 
             gate_cleared = metrics.publish_allowed or not diagnoses
             if minimum_rounds_reached and gate_cleared:
@@ -140,9 +153,13 @@ class ClosedLoopService:
             current = next_request
             previous_metrics = metrics
 
-        final_result = iterations[-1].result if iterations else None
         status = "completed" if iterations else "stopped"
         presented = self._present(iterations, stop_reason)
+        best_iteration = next(
+            (item for item in iterations if item.iteration == presented["best_iteration"]),
+            None,
+        )
+        final_result = best_iteration.result if best_iteration is not None else None
         if stop_reason in GENERIC_STOP_REASONS:
             stop_reason = presented["user_notice"]
         attempted = presented.get("attempted_repairs") or []
@@ -171,11 +188,20 @@ class ClosedLoopService:
         )
         with self._lock:
             self._runs[loop_id] = response
+        if self._store is not None:
+            self._store.save_loop(loop_id, response.model_dump(mode="json"))
         return response
 
     def get(self, loop_id: str) -> ClosedLoopResponse | None:
         with self._lock:
-            return self._runs.get(loop_id)
+            result = self._runs.get(loop_id)
+        if result is not None or self._store is None:
+            return result
+        payload = self._store.load_loop(loop_id)
+        return ClosedLoopResponse.model_validate(payload) if payload else None
+
+    def recall_memory(self, *, limit: int = 20) -> list[dict]:
+        return self._store.recall(limit=limit) if self._store is not None else []
 
     def _execute(self, request: AgentTaskRequest, *, qwen_client: object | None, task_id: str) -> AgentTaskResult:
         if self._runner is not None:
@@ -529,11 +555,14 @@ class ClosedLoopService:
 
     @classmethod
     def _best_iteration(cls, iterations: list[ClosedLoopIteration]) -> ClosedLoopIteration:
+        gate_rank = {"PASS": 3, "READY": 3, "REVIEW": 2, "REJECT": 1, "FAIL": 1}
         return max(
             iterations,
             key=lambda item: (
-                item.metrics.required_field_coverage,
+                int(item.metrics.publish_allowed),
+                gate_rank.get(item.metrics.quality_gate, 0),
                 item.metrics.target_match_rate,
+                item.metrics.required_field_coverage,
                 item.metrics.progress_score,
                 -item.metrics.unresolved_gap_count,
                 -item.iteration,
@@ -615,7 +644,7 @@ class ClosedLoopService:
             "user_notice": "第二轮相对第一轮有可验证改进。下面对比前后，并突出最好一轮。",
             "improvement_summary": cls._zh_delta_lines(first, last) + attempted,
             "highlight_cards": cls._highlight_cards(last, first),
-            "display_iterations": [item.iteration for item in iterations],
+            "display_iterations": [item.iteration for item in iterations[:2]],
             "attempted_repairs": attempted,
         }
 

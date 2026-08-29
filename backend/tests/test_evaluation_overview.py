@@ -132,60 +132,50 @@ def test_overview_endpoint_keeps_official_sdti_unevaluated_when_development_exis
     assert layer["rows"][0]["dataset_zh"] == "科学事实"
 
 
-def test_evaluation_board_lives_after_results_and_refreshes_on_render() -> None:
+def test_internal_evaluation_is_removed_from_product_frontend() -> None:
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     script = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
-    task_at = html.find('id="task-entry"')
-    results_at = html.find('id="results"')
-    eval_at = html.find('id="system-evaluation"')
-    assert task_at != -1 and results_at != -1 and eval_at != -1
-    assert task_at < results_at < eval_at
-    assert 'id="system-evaluation"' in html[results_at:]
-    assert "开始正式评测" in html
-    assert "现在不填" not in html
-    assert "现在不能填" not in html
-    assert "正式考卷已写入入口，正式 SDTI 仍未评测" not in html
+    assert 'id="system-evaluation"' not in html
+    assert 'href="#system-evaluation"' not in html
+    assert 'id="official-eval-run"' not in html
+    assert "模型评测报告集合" not in html
+    assert "运行候选卷验证" not in html
     assert "闭环修正结果" in html
     assert "Closed-Loop Iteration" not in html
-    assert "还没有跑过任务" not in script
     render_fn = script.split("function renderResult(result)", 1)[1].split("function renderClosedLoop", 1)[0]
-    persist_fn = script.split("function persistAndRenderSystemEvaluation(result)", 1)[1].split("function snapshotDiagnosticScore", 1)[0]
     closed_loop_fn = script.split("function renderClosedLoop(loop)", 1)[1].split("function renderResearchBrief", 1)[0]
     readiness_fn = script.split("function renderReadiness(", 1)[1].split("function renderUnifiedEvaluation", 1)[0]
     quality_fn = script.split("function renderQualityGates(", 1)[1].split("function renderSpec(", 1)[0]
-    split_fn = script.split("function renderDevelopmentSplit(", 1)[1].split("function heroIfReady(", 1)[0]
-    assert "persistAndRenderSystemEvaluation(result)" in render_fn
-    assert "loadEvaluationOverview()" in persist_fn
-    assert "goldset/templates" not in persist_fn
+    assert "persistAndRenderSystemEvaluation(result)" not in render_fn
+    assert "if (!loop?.improved)" in closed_loop_fn
+    assert "panel.hidden = true" in closed_loop_fn
     assert "66.94" not in script
-    assert "开始正式评测" in script
-    assert "正式成绩待跑" not in script
-    assert "点按钮跑正式评测" in script
-    assert 'value: "未评测"' not in script
-    assert "display_iterations" in closed_loop_fn
-    assert "本次最好结果" in closed_loop_fn
-    assert "第二轮没有新的合法补法" in closed_loop_fn or "没有新的合法补法" in script
-    assert "协议必选字段对齐" in closed_loop_fn
+    assert "slice(0, 2)" in closed_loop_fn
+    assert "第 1 轮 · 基线" in closed_loop_fn
+    assert "第 2 轮 · 修正后" in closed_loop_fn
+    assert "主要必需字段覆盖" in closed_loop_fn
+    assert "无变化" in closed_loop_fn
     assert "必要字段覆盖 ${(Number(metrics.required_field_coverage || 0) * 100).toFixed(1)}%" not in closed_loop_fn
     assert "research-metric-note" in readiness_fn
+    assert 'label: "清洗与隔离"' not in readiness_fn
     assert "未识别到可统计的研究结局字段" not in readiness_fn
     assert '"未点名"' not in readiness_fn
     assert "本题还没有可对照的队列匹配表" not in quality_fn
-    assert "cohort_plan_f1" in quality_fn
-    assert "本题变量覆盖" in quality_fn
-    assert "eval-pending-note" in split_fn
-    assert "未发现错误清洗" in script
-    assert "错误清洗检查" in script
-    html_css_js = html + script + (ROOT / "frontend" / "styles.css").read_text(encoding="utf-8")
-    assert "is-pending" in html_css_js
-    assert "v=20260829-gap-repair-1" in html
+    assert "入口命中 F1" not in quality_fn
+    assert "非正式 SDTI" not in script
+    assert "读法：" not in script
+    assert "v=20260830-research-workbench-5" in html
+    report = ROOT / "evaluation" / "agent_stratified_ablation_20260829" / "report.md"
+    assert report.is_file()
 
 
 def test_result_presentation_does_not_posterize_empty_or_pending_states() -> None:
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     script = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
     styles = (ROOT / "frontend" / "styles.css").read_text(encoding="utf-8")
-    assert 'id="official-eval-run"' in html
+    assert 'id="official-eval-run"' not in html
+    assert '<details id="review-queue-panel"' in html
+    assert 'class="report-drawer compact-report-drawer readiness-audit"' in html
     assert 'id="scientific-usability" class="scientific-usability" hidden' in html
     assert 'id="outcome-visual" class="outcome-visual" hidden' in html
     assert "panel.hidden = !hasFindings" in script
@@ -193,4 +183,5 @@ def test_result_presentation_does_not_posterize_empty_or_pending_states() -> Non
     assert "percent <= 0" in script
     assert ".eval-pending-note" in styles
     assert ".research-metric-note" in styles
+    assert ".review-queue-summary" in styles
     assert "quality-gate-layers article[data-decision=\"REVIEW\"]" in styles

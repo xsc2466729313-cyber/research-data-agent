@@ -127,7 +127,7 @@ const METRIC_LABELS_ZH = {
   "Fitness Score": "科研适配度",
   fitness_score: "科研适配度",
   source_audit: "来源审计完整度",
-  field_completeness: "字段完整率",
+  field_completeness: "已填字段占比（辅助）",
   question_fit: "问题匹配度",
   exploratory_usability: "科研探索可用性",
   "结构化解析通过": "结构化解析通过率",
@@ -180,9 +180,7 @@ let pinnedApiOrigin = null;
 
 function isUnimplementedApi(response) {
   if (response.status === 405) return true;
-  if (response.status !== 404) return false;
-  const type = (response.headers.get("content-type") || "").toLowerCase();
-  return type.includes("text/html") || type.includes("text/plain");
+  return response.status === 404;
 }
 
 function originOfApiUrl(url) {
@@ -761,7 +759,6 @@ function renderResult(result) {
   renderReviewQueue(result);
   renderDictionary(result.modeling_dataset.columns);
   renderSources(result.source_items, result.candidate_sources, result.modeling_dataset);
-  persistAndRenderSystemEvaluation(result);
 }
 
 function renderClosedLoop(loop) {
@@ -770,50 +767,61 @@ function renderClosedLoop(loop) {
   const reason = document.querySelector("#closed-loop-stop-reason");
   const summary = document.querySelector("#closed-loop-summary");
   const rounds = document.querySelector("#closed-loop-rounds");
-  if (!panel || !status || !reason || !summary || !rounds || !loop) return;
+  if (!panel || !status || !reason || !summary || !rounds) return;
+  if (!loop?.improved) {
+    panel.hidden = true;
+    summary.innerHTML = "";
+    rounds.innerHTML = "";
+    return;
+  }
   panel.hidden = false;
   const improved = Boolean(loop.improved);
-  const presentation = loop.presentation || (improved ? "comparison" : "best_only");
   const bestIteration = Number(loop.best_iteration || 1);
-  const notice = loop.user_notice || loop.stop_reason || "第二轮没有新的合法补法，指标未变。下面只展示本次最好一轮。";
-  status.textContent = improved ? `第 ${bestIteration} 轮更好` : "本次最好一轮";
+  const iterations = Array.isArray(loop.iterations) ? loop.iterations : [];
+  const visible = iterations.slice(0, 2);
+  const hasComparison = visible.length >= 2;
+  status.textContent = hasComparison ? (improved ? "第 2 轮已提升" : "两轮已对照") : "完成基线诊断";
   status.className = `status-badge ${improved ? "is-success" : "is-pending"}`;
-  reason.textContent = localizeNarrative(notice);
-  const highlight = (Array.isArray(loop.highlight_cards) ? loop.highlight_cards : []).filter((card) => {
-    const value = String(card.value || "");
-    if (value === "0.0%" || value === "0%" || value === "0") return false;
-    return Boolean(card.label && value && value !== "—");
-  });
-  if (highlight.length) {
-    summary.innerHTML = highlight.map((card) => (
-      `<article class="closed-loop-highlight is-${escapeHtml(card.tone || "neutral")}">`
-      + `<span>${escapeHtml(card.label || "")}</span>`
-      + `<strong>${escapeHtml(card.value || "—")}</strong>`
-      + `<small>${escapeHtml(card.hint || "")}</small>`
-      + `</article>`
-    )).join("");
-  } else if (presentation === "comparison") {
-    summary.innerHTML = (loop.improvement_summary || []).map((item) => `<article><span>前后对比</span><strong>${escapeHtml(localizeNarrative(item))}</strong></article>`).join("");
+  reason.textContent = hasComparison
+    ? (improved ? "第 2 轮针对首轮缺口完成修正，并取得可验证提升。" : "第 2 轮已执行修正；当前指标与第 1 轮相比无可验证变化。")
+    : "当前仅形成第 1 轮基线，尚无第二轮可比较结果。";
+  if (hasComparison) {
+    const first = visible[0].metrics || {};
+    const second = visible[1].metrics || {};
+    const percentMetric = (label, key) => {
+      const before = Number(first[key] || 0) * 100;
+      const after = Number(second[key] || 0) * 100;
+      const delta = after - before;
+      return { label, before: `${before.toFixed(1)}%`, after: `${after.toFixed(1)}%`, delta, deltaText: Math.abs(delta) < 0.05 ? "无变化" : `${delta > 0 ? "+" : ""}${delta.toFixed(1)} 个百分点` };
+    };
+    const metricRows = [
+      percentMetric("闭环进度", "progress_score"),
+      percentMetric("主要必需字段覆盖", "required_field_coverage"),
+      percentMetric("研究结局匹配", "target_match_rate"),
+      percentMetric("来源可回查", "traceability"),
+    ];
+    const gapBefore = Number(first.unresolved_gap_count || 0);
+    const gapAfter = Number(second.unresolved_gap_count || 0);
+    const gapDelta = gapBefore - gapAfter;
+    metricRows.push({ label: "未解决缺口", before: String(gapBefore), after: String(gapAfter), delta: gapDelta, deltaText: gapDelta === 0 ? "无变化" : `${gapDelta > 0 ? "减少" : "增加"} ${Math.abs(gapDelta)} 个` });
+    summary.innerHTML = metricRows.map((metric) => `<article class="closed-loop-compare-card ${metric.delta > 0 ? "is-improved" : ""}">
+      <span>${escapeHtml(metric.label)}</span><strong>${escapeHtml(metric.before)} <i>→</i> ${escapeHtml(metric.after)}</strong><small>${escapeHtml(metric.deltaText)}</small>
+    </article>`).join("");
   } else {
-    const line = (loop.improvement_summary && loop.improvement_summary[0]) || notice;
-    summary.innerHTML = `<article class="closed-loop-best-note"><span>闭环结论</span><strong>${escapeHtml(localizeNarrative(line))}</strong></article>`;
+    const metrics = visible[0]?.metrics || {};
+    summary.innerHTML = `<article class="closed-loop-best-note"><span>第 1 轮基线</span><strong>${escapeHtml(closedLoopMetricLine(metrics) || "等待指标")}</strong></article>`;
   }
-  const allowed = new Set(
-    Array.isArray(loop.display_iterations) && loop.display_iterations.length
-      ? loop.display_iterations.map(Number)
-      : (presentation === "comparison" ? (loop.iterations || []).map((item) => Number(item.iteration)) : [bestIteration])
-  );
-  const visible = (loop.iterations || []).filter((item) => allowed.has(Number(item.iteration)));
   rounds.innerHTML = visible.map((item) => {
     const metrics = item.metrics || {};
     const diagnoses = (item.diagnoses || []).map((diagnosis) => diagnosis.label).filter(Boolean);
-    const isBest = Number(item.iteration) === bestIteration;
+    const iterationNumber = Number(item.iteration);
+    const isBest = iterationNumber === bestIteration;
     const gate = metrics.quality_gate || "REVIEW";
     const gateLabel = gate === "REVIEW" ? "待补" : gate;
     const metricLine = closedLoopMetricLine(metrics);
-    const diagnosisLine = diagnoses.length ? `还要：${diagnoses.join("、")}` : "本轮没有新的可执行缺口。";
+    const diagnosisLine = diagnoses.length ? `待处理问题：${diagnoses.join("、")}` : "本轮未发现新的可执行缺口。";
     return `<article class="collection-iteration ${isBest ? "is-best-round" : ""}">
-      <div class="collection-iteration-head"><strong>${isBest ? "本次最好结果" : `对照：第 ${escapeHtml(item.iteration)} 轮`}</strong><span class="status-badge ${statusClass(gate === "REVIEW" ? "待补" : gate)}">${escapeHtml(gateLabel)}</span></div>
+      <div class="collection-iteration-head"><strong>${iterationNumber === 1 ? "第 1 轮 · 基线" : "第 2 轮 · 修正后"}</strong><span class="status-badge ${statusClass(gate === "REVIEW" ? "待补" : gate)}">${escapeHtml(gateLabel)}</span></div>
       <p>${escapeHtml(localizeNarrative(diagnosisLine))}</p>
       ${metricLine ? `<small>${escapeHtml(metricLine)}</small>` : ""}
     </article>`;
@@ -850,7 +858,11 @@ function renderResearchBrief(brief, assessment) {
   const fieldMarkup = groups.map(([priority, label]) => {
     const fields = (brief.fields || []).filter((field) => field.priority === priority);
     if (!fields.length) return "";
-    return `<article class="brief-field-group is-${priority}"><span>${escapeHtml(label)}</span><div>${fields.map((field) => `<button type="button" title="${escapeHtml(field.reason || "")}"><strong>${escapeHtml(field.label)}</strong><small>${escapeHtml(field.field_id)}</small></button>`).join("")}</div></article>`;
+    const button = (field) => `<button type="button" title="${escapeHtml(field.reason || "")}"><strong>${escapeHtml(field.label)}</strong><small>${escapeHtml(field.field_id)}</small></button>`;
+    const shown = fields.slice(0, 6).map(button).join("");
+    const remainder = fields.slice(6);
+    const more = remainder.length ? `<details class="inline-field-drawer"><summary>其余 ${remainder.length} 个字段</summary><div>${remainder.map(button).join("")}</div></details>` : "";
+    return `<article class="brief-field-group is-${priority}"><span>${escapeHtml(label)}</span><div>${shown}</div>${more}</article>`;
   }).join("");
   const cohorts = (brief.named_cohorts || []).filter((cohort) => ["named_primary", "inferred_primary"].includes(cohort.role));
   const cohortMarkup = cohorts.length
@@ -894,24 +906,7 @@ function renderQualityGates(report) {
   overall.textContent = report.overall === "REVIEW" ? "REVIEW · 待补" : (report.overall || "REVIEW");
   overall.className = `status-badge ${statusClass(report.overall)}`;
   note.textContent = localizeNarrative(report.note || "");
-  const metricCards = [];
-  const cohortScore = report.cohort_f1 != null ? report.cohort_f1 : report.cohort_plan_f1;
-  const cohortHint = report.cohort_f1 != null
-    ? "患者关联对照"
-    : "本题计划队列与已检索队列的对照，不是正式 SDTI";
-  if (cohortScore != null) {
-    metricCards.push(`<article><span>队列 F1</span><strong>${escapeHtml(Number(cohortScore).toFixed(3))}</strong><small>${escapeHtml(cohortHint)}</small></article>`);
-  }
-  if (report.variable_coverage != null) {
-    metricCards.push(`<article><span>本题变量覆盖</span><strong>${(report.variable_coverage * 100).toFixed(1)}%</strong><small>研究方案里点名的变量在本表中的覆盖，不是协议必选字段对齐率</small></article>`);
-  }
-  if (report.traceability != null) {
-    metricCards.push(`<article><span>来源可回查</span><strong>${(report.traceability * 100).toFixed(1)}%</strong></article>`);
-  }
-  if (report.research_fitness != null) {
-    metricCards.push(`<article><span>科研适配</span><strong>${(report.research_fitness * 100).toFixed(1)}%</strong></article>`);
-  }
-  metrics.innerHTML = metricCards.join("");
+  metrics.innerHTML = "";
   layers.innerHTML = (report.layers || []).map((layer) => {
     const decision = layer.decision || "REVIEW";
     const badgeLabel = decision === "REVIEW" ? "待补" : decision;
@@ -928,13 +923,15 @@ function gateActionHint(layer) {
   const decision = String(layer.decision || "").toUpperCase();
   const evidence = String(layer.evidence || "");
   const id = String(layer.gate_id || "");
-  if (decision === "PASS") return evidence.split("；")[0] || "这项检查通过。";
-  if (decision === "REJECT") return evidence || "未通过。";
-  if (id === "field_quality" || /结局匹配=0|结局匹配=否|还没对上/.test(evidence)) return "还要补结局字段";
-  if (id === "research_fitness" || /未识别|不匹配|还要补结局/.test(evidence)) return "还要补结局字段";
-  if (id === "entity_consistency") return "身份对齐需要人工确认";
-  if (id === "source_trust") return "来源信息待核验";
-  return "需要补齐后复核";
+  if (decision === "PASS") return evidence.split("；")[0] || "检查通过";
+  if (decision === "REJECT") return evidence || "未通过准入检查";
+  if (id === "field_quality") {
+    return /结局.*尚未对齐|结局.*没对上/.test(evidence) ? "研究结局字段尚未对齐" : "主要字段覆盖需补充";
+  }
+  if (id === "research_fitness") return "科研适用条件尚未满足";
+  if (id === "entity_consistency") return "身份对齐待人工复核";
+  if (id === "source_trust") return "来源证据待核验";
+  return "待补充后复核";
 }
 
 function renderSpec(spec) {
@@ -1636,7 +1633,6 @@ function renderReadiness(readiness, dataset, sources, candidates, brief, assessm
       },
     ] : []),
     { label: "真实来源", value: sourceDatabases.size, suffix: "类", detail: [...sourceDatabases].join("、") || "尚无来源" },
-    { label: "清洗与隔离", value: readiness.cleaned_value_count, suffix: "处", detail: `排除 ${readiness.excluded_orphan_record_count} 条孤立分子记录` },
   ];
   document.querySelector("#research-metrics").innerHTML = metricCards.map((metric) => {
     if (!("percent" in metric) || metric.percent == null) {
@@ -1921,6 +1917,7 @@ function renderCompetitionReport(report) {
 
 const SYSTEM_EVALUATION_HISTORY_KEY = "brca-agent-system-evaluation-history-v1";
 let lastEvaluationOverview = null;
+let lastStratifiedEvaluation = null;
 let lastEvaluationSnapshot = null;
 const SYSTEM_EVAL_DIAGNOSTICS = [
   { name: "来源审计完整度", fallbackTarget: 85 },
@@ -2053,7 +2050,6 @@ function renderSystemEvaluationDashboard(snapshot) {
     radar.hidden = true;
   }
   renderEvaluationBoard(lastEvaluationOverview, lastEvaluationSnapshot);
-  renderModelMetricComparison(lastEvaluationSnapshot ? { metrics: lastEvaluationSnapshot.metrics || [], variant_scores: lastEvaluationSnapshot.variant_scores || [], ablation: lastEvaluationSnapshot.ablation || [], used_qwen: lastEvaluationSnapshot.used_qwen } : { metrics: [] });
 }
 
 function renderEvaluationProtocol() {
@@ -2070,12 +2066,80 @@ function renderRetrievalProbe() {
 
 async function loadEvaluationOverview() {
   try {
-    lastEvaluationOverview = await readJson(await fetchApi("/api/evaluation/overview"));
+    const [overview, stratified] = await Promise.all([
+      readJson(await fetchApi("/api/evaluation/overview")),
+      readJson(await fetchApi("/api/evaluation/stratified")).catch(() => null),
+    ]);
+    lastEvaluationOverview = overview;
+    lastStratifiedEvaluation = stratified;
+    renderStratifiedEvaluation(stratified);
     return lastEvaluationOverview;
   } catch {
     lastEvaluationOverview = null;
     return null;
   }
+}
+
+function renderStratifiedEvaluation(report) {
+  const container = document.querySelector("#evaluation-stratified");
+  if (!container) return;
+  const strata = report?.development_retrieval_strata || {};
+  const comparison = report?.official_candidate_comparison || {};
+  const baseline = comparison.baseline?.metrics;
+  const winnerKey = Object.keys(comparison).find((key) => key !== "baseline") || "";
+  const winnerEntry = winnerKey ? comparison[winnerKey] : null;
+  const winner = winnerEntry?.metrics;
+  if (!Object.keys(strata).length && !baseline && !winner) {
+    container.innerHTML = "";
+    return;
+  }
+  const metric = (row, key) => row?.[key]?.value == null ? "—" : Number(row[key].value).toFixed(3);
+  const delta = (key) => baseline?.[key]?.value != null && winner?.[key]?.value != null
+    ? (Number(winner[key].value) - Number(baseline[key].value)).toFixed(3)
+    : "—";
+  const comparisonRows = [
+    ["Retrieval F1", metric(baseline, "retrieval_f1"), metric(winner, "retrieval_f1"), delta("retrieval_f1")],
+    ["Faithfulness", metric(baseline, "faithfulness"), metric(winner, "faithfulness"), delta("faithfulness")],
+    ["Error F1", metric(baseline, "error_f1"), metric(winner, "error_f1"), delta("error_f1")],
+    ["Repair accuracy", metric(baseline, "repair_accuracy"), metric(winner, "repair_accuracy"), delta("repair_accuracy")],
+    ["SDTI", metric(baseline, "sdti"), metric(winner, "sdti"), delta("sdti")],
+  ];
+  const stratumLabels = {
+    clinical_outcome: "临床结局任务",
+    patient_stratification: "患者分层任务",
+    knowledge_and_preclinical: "知识与临床前任务",
+    expression_discovery: "表达队列发现",
+  };
+  const strataEntries = Object.entries(strata);
+  const strataRows = strataEntries.map(([name, row]) => `<tr><td><strong>${escapeHtml(stratumLabels[name] || name)}</strong><small>${row.question_count} 题</small></td><td>${row.tp}</td><td>${row.fp}</td><td>${row.fn}</td><td>${(Number(row.f1) * 100).toFixed(1)}%</td></tr>`).join("");
+  const comparisonTable = comparisonRows.map(([name, before, after, change]) => `<tr><td>${escapeHtml(name)}</td><td>${before}</td><td>${after}</td><td class="${Number(change) >= 0 ? "is-positive" : "is-negative"}">${change}</td></tr>`).join("");
+  const queryRows = Object.entries(report?.query_understanding_ablation || {})
+    .filter(([, row]) => row.status === "EVALUATED")
+    .map(([name, row]) => `<tr><td>${escapeHtml(name)}</td><td>${Number(row.ndcg_at_10).toFixed(3)}</td><td>${Number(row.recall_at_100).toFixed(3)}</td><td>${Number(row.mean_latency_ms).toFixed(1)} ms</td></tr>`).join("");
+  const retrievalRows = Object.entries(report?.retrieval_layer || {})
+    .map(([name, row]) => `<tr><td>${escapeHtml(name)}</td><td>${Number(row.ndcg_at_10_macro).toFixed(3)}</td><td>${Number(row.recall_at_100_macro).toFixed(3)}</td><td>${Number(row.mean_latency_ms_macro).toFixed(1)} ms</td></tr>`).join("");
+  const plannerRows = Object.entries(report?.planner_replacement_ablation || {})
+    .map(([name, row]) => `<tr><td>${escapeHtml(name)}</td><td>${row.cases}</td><td>${Number(row.metrics?.["recall@3"]).toFixed(3)}</td><td>${Number(row.metrics?.["ndcg@3"]).toFixed(3)}</td><td>${Number(row.metrics?.avg_latency_ms).toFixed(0)} ms</td></tr>`).join("");
+  const meanF1 = strataEntries.length
+    ? strataEntries.reduce((sum, [, row]) => sum + Number(row.f1 || 0), 0) / strataEntries.length
+    : null;
+  const currentSdti = winner?.sdti?.value;
+  const baselineSdti = baseline?.sdti?.value;
+  container.innerHTML = `<div class="evaluation-report-collection">
+    <details class="evaluation-report-card">
+      <summary><span><strong>分层评测报告</strong><small>${strataEntries.length} 个任务分层 · Macro F1 ${meanF1 == null ? "—" : (meanF1 * 100).toFixed(1) + "%"}</small></span><b>查看报告</b></summary>
+      <div class="report-card-body"><p>开发集按研究任务类型分层统计，便于定位召回短板；该报告不代表封存测试成绩。</p><div class="table-wrap"><table><thead><tr><th>任务分层</th><th>TP</th><th>FP</th><th>FN</th><th>F1</th></tr></thead><tbody>${strataRows}</tbody></table></div></div>
+    </details>
+    <details class="evaluation-report-card">
+      <summary><span><strong>消融实验报告</strong><small>候选卷 SDTI ${baselineSdti == null ? "—" : Number(baselineSdti).toFixed(2)} → ${currentSdti == null ? "—" : Number(currentSdti).toFixed(2)}</small></span><b>查看报告</b></summary>
+      <div class="report-card-body"><p>仅汇总已完成的真实运行产物；未执行的实验不推算结果。当前候选版本：${escapeHtml(winnerEntry?.evaluation_id || "未记录")}</p>
+      <h3>候选版本迭代</h3><div class="table-wrap"><table><thead><tr><th>指标</th><th>基线</th><th>当前</th><th>变化</th></tr></thead><tbody>${comparisonTable}</tbody></table></div>
+      ${retrievalRows ? `<h3>检索层对照</h3><div class="table-wrap"><table><thead><tr><th>检索方案</th><th>nDCG@10</th><th>Recall@100</th><th>平均延迟</th></tr></thead><tbody>${retrievalRows}</tbody></table></div>` : ""}
+      ${queryRows ? `<h3>查询理解消融</h3><div class="table-wrap"><table><thead><tr><th>方案</th><th>nDCG@10</th><th>Recall@100</th><th>平均延迟</th></tr></thead><tbody>${queryRows}</tbody></table></div>` : ""}
+      ${plannerRows ? `<h3>中间规划模型替换</h3><div class="table-wrap"><table><thead><tr><th>实验组</th><th>样例数</th><th>Recall@3</th><th>nDCG@3</th><th>平均延迟</th></tr></thead><tbody>${plannerRows}</tbody></table></div>` : ""}
+      </div>
+    </details>
+  </div>`;
 }
 
 function hasCurrentTask() {
@@ -2101,9 +2165,9 @@ function renderEvaluationBadges(overview) {
   const developmentReady = Boolean(overview?.development_split?.available);
   const officialReady = Boolean(overview?.official_run?.has_score) || Boolean(officialSdtiValue(overview));
   const badges = [
-    { label: goldReady ? "正式考卷已写入入口" : "正式考卷未备好", on: goldReady, pending: !goldReady },
-    { label: officialReady ? "正式成绩已出" : "点按钮跑正式评测", on: officialReady, pending: !officialReady },
-    { label: developmentReady ? "内部实测已出" : "内部实测未出", on: developmentReady, pending: !developmentReady },
+    { label: goldReady ? "候选卷数据已就绪" : "候选卷数据未就绪", on: goldReady, pending: !goldReady },
+    { label: officialReady ? "候选卷验证已完成" : "候选卷尚未验证", on: officialReady, pending: !officialReady },
+    { label: developmentReady ? "开发集诊断已完成" : "开发集诊断未完成", on: developmentReady, pending: !developmentReady },
   ];
   container.innerHTML = badges.map((badge) => `<span class="${badge.on ? "is-on" : (badge.pending ? "is-pending" : "is-off")}">${escapeHtml(badge.label)}</span>`).join("");
 }
@@ -2146,14 +2210,6 @@ function clearanceHero(snapshot) {
   return { label: "错误清洗检查", value, hint, tone };
 }
 
-function fieldCompletenessHero(snapshot) {
-  const value = metricPercentValue(metricByName(snapshot?.metrics, "字段完整率"));
-  if (value != null) {
-    return { label: "字段完整率", value: `${Number(value).toFixed(1)}%`, hint: "这次任务", tone: "is-accent" };
-  }
-  return toolkitHero("integration_macro_f1", "整合 Macro-F1", "这次任务还没有字段完整统计");
-}
-
 function renderDevelopmentSplit(split, snapshot) {
   const cards = document.querySelector("#development-split-cards");
   const note = document.querySelector("#evaluation-official-note");
@@ -2164,33 +2220,30 @@ function renderDevelopmentSplit(split, snapshot) {
   const runInfo = lastEvaluationOverview?.official_run || {};
   if (note) {
     note.textContent = officialSdti != null
-      ? `正式 SDTI 来自对本套 official_candidate 的系统观察（${runInfo.evaluation_id || "已跑"}），不是 development 分册。`
+      ? `候选卷 SDTI 来自 ${runInfo.evaluation_id || "已完成运行"} 的系统观察，仅用于版本验证。`
       : (goldReady
-        ? "正式考卷已写入入口。点「开始正式评测」会采集系统观察并算出正式 SDTI。"
-        : "正式考卷尚未写入入口，无法跑正式评测。");
+        ? "候选卷数据已就绪，可运行一次完整验证并生成 SDTI。"
+        : "候选卷数据尚未就绪，暂不能执行版本验证。");
   }
   if (howto) {
     howto.textContent = hasCurrentTask()
-      ? "这次任务里已经算出来的数字会填在下面。正式 SDTI 只来自对本套正式卷的评测，不会把内部实测抄进去。"
-      : "错误清洗检查、字段完整、检索对照：跑一次「运行研究协议」会自动出现。正式 SDTI 需要对本套正式卷点「开始正式评测」。";
+      ? "下方只展示本次任务与候选卷真实运行产生的指标，开发集结果单独归档。"
+      : "运行研究协议后显示任务级诊断；候选卷验证结果与开发集诊断分开记录。";
   }
-  const unofficial = split?.available && split.sdti != null;
   const officialCard = officialSdti != null
-    ? { label: "正式 SDTI", value: officialSdti.toFixed(2), hint: "对本套正式卷的系统观察，不是 frozen_test", tone: "is-accent" }
+    ? { label: "候选卷 SDTI", value: officialSdti.toFixed(2), hint: "版本验证结果，不代表封存测试成绩", tone: "is-accent" }
     : null;
   const candidates = [
     officialCard,
-    unofficial ? { label: "非正式 SDTI", value: Number(split.sdti).toFixed(2), hint: "内部实测，不是正式分", tone: officialCard ? "is-muted" : "is-accent" } : null,
     heroIfReady(clearanceHero(snapshot)),
-    heroIfReady(fieldCompletenessHero(snapshot)),
     heroIfReady(toolkitHero("retrieval_ndcg@10", "检索 nDCG@10", "这次任务还没有检索对照")),
   ].filter(Boolean);
-  const pendingOfficial = officialSdti != null ? "" : `<aside class="eval-pending-note"><span class="status-badge is-pending">未出分</span><div><strong>正式 SDTI</strong><small>${goldReady ? "考卷已就位。点「开始正式评测」真跑采集与评分。" : "正式考卷尚未写入入口。"}</small></div></aside>`;
+  const pendingOfficial = officialSdti != null ? "" : `<aside class="eval-pending-note"><span class="status-badge is-pending">待验证</span><div><strong>候选卷 SDTI</strong><small>${goldReady ? "候选卷已就绪，可运行完整采集与评分。" : "候选卷数据尚未就绪。"}</small></div></aside>`;
   cards.innerHTML = (candidates.length ? candidates.map((row) => `<article class="eval-hero-card ${row.tone}"><strong>${escapeHtml(String(row.value))}</strong><span>${escapeHtml(row.label)}</span><small>${escapeHtml(row.hint)}</small></article>`).join("") : "") + pendingOfficial;
   const runButton = document.querySelector("#official-eval-run");
   if (runButton) {
     runButton.hidden = !goldReady;
-    runButton.textContent = officialSdti != null ? "重新跑正式评测" : "开始正式评测";
+    runButton.textContent = officialSdti != null ? "重新运行候选卷验证" : "运行候选卷验证";
     runButton.disabled = false;
   }
 }
@@ -2206,16 +2259,14 @@ function renderTaskMetrics(overview, snapshot) {
   const split = overview?.development_split;
   const chips = [];
   if (split?.available) {
-    if (split.retrieval_f1 != null) chips.push(["内部实测 检索 F1", Number(split.retrieval_f1).toFixed(3)]);
-    if (split.faithfulness != null) chips.push(["内部实测 Faithfulness", Number(split.faithfulness).toFixed(3)]);
+    if (split.retrieval_f1 != null) chips.push(["开发集 检索 F1", Number(split.retrieval_f1).toFixed(3)]);
+    if (split.faithfulness != null) chips.push(["开发集 Faithfulness", Number(split.faithfulness).toFixed(3)]);
   }
   const extra = [
     ["integration_macro_f1", "整合 Macro-F1"],
     ["task_fitness", "任务适配分"],
   ];
   extra.forEach(([key, label]) => {
-    const alreadyHero = key === "integration_macro_f1" && metricPercentValue(metricByName(snapshot?.metrics, "字段完整率")) != null;
-    if (alreadyHero) return;
     const text = formatToolkitDisplay(toolkitMetric(key));
     if (text) chips.push([label, text]);
   });
@@ -2336,13 +2387,13 @@ async function refreshSystemEvaluation() {
     state.result = result;
     resultsPanel.hidden = false;
     renderResult(result);
-    showToast("已从最近一次任务恢复评测，消融对照已按同表反事实填入");
+    showToast("已从最近一次任务恢复评测报告");
     return;
   }
   const history = loadEvaluationHistory();
   const snapshot = pickBestEvaluationSnapshot(history[0] || null, history);
   renderSystemEvaluationDashboard(snapshot, history);
-  showToast(snapshot ? "后端已无该任务缓存，已用本机快照重算同表消融" : "请先运行一次真实数据任务");
+  showToast(snapshot ? "后端已无该任务缓存，当前显示本机保存的历史观测" : "请先运行一次真实数据任务");
 }
 
 function revealEvaluationBoardIfReady() {
@@ -2509,21 +2560,43 @@ function renderScientificUsability(analysis) {
 function renderDictionary(columns) {
   document.querySelector(".quality-grid")?.classList.toggle("is-empty-dictionary", columns.length === 0);
   document.querySelector("#dictionary-count").textContent = `${columns.length} 个字段`;
-  document.querySelector("#dictionary-table tbody").innerHTML = columns.length ? columns.map((column) => `<tr>
+  const rowMarkup = (column) => `<tr>
     <td><code>${escapeHtml(column.name)}</code></td><td>${escapeHtml(column.label_zh)}</td>
     <td>${escapeHtml(TYPE_TRANSLATIONS[column.data_type] || column.data_type)}</td><td>${escapeHtml(column.role)}</td><td>${escapeHtml(column.description)}</td>
-  </tr>`).join("") : '<tr><td colspan="5" class="muted-cell">当前任务尚未形成字段字典。</td></tr>';
+  </tr>`;
+  const visible = columns.slice(0, 6);
+  const remainder = columns.slice(6);
+  document.querySelector("#dictionary-table tbody").innerHTML = visible.length ? visible.map(rowMarkup).join("") : '<tr><td colspan="5" class="muted-cell">当前任务尚未形成字段字典。</td></tr>';
+  const more = document.querySelector("#dictionary-more");
+  const moreBody = document.querySelector("#dictionary-table-more tbody");
+  if (more && moreBody) {
+    more.hidden = remainder.length === 0;
+    more.open = false;
+    moreBody.innerHTML = remainder.map(rowMarkup).join("");
+    document.querySelector("#dictionary-more-label").textContent = `查看其余 ${remainder.length} 个字段`;
+  }
 }
 
 function renderSources(sources, candidates, dataset) {
   const entryCount = new Set(sources.map((source) => `${canonicalDatabaseName(source.source_name)}:${source.accession || source.source_id}`)).size;
   document.querySelector("#source-count").textContent = `${sources.length} 个来源文件 · ${entryCount} 个入口`;
-  document.querySelector("#source-table tbody").innerHTML = sources.length ? sources.map((source) => `<tr class="source-table-row" data-source-db="${escapeHtml(canonicalDatabaseName(source.source_name))}">
+  const rowMarkup = (source) => `<tr class="source-table-row" data-source-db="${escapeHtml(canonicalDatabaseName(source.source_name))}">
     <td><strong>${escapeHtml(source.source_name)}</strong><small>${escapeHtml(source.source_id)}</small></td>
     <td>${escapeHtml(source.accession)}</td><td>${escapeHtml(SOURCE_STATUS_TRANSLATIONS[source.status] || source.status)}</td>
     <td><code>${escapeHtml(source.checksum || "未提供")}</code></td>
     <td><a href="${escapeHtml(source.url)}" target="_blank" rel="noreferrer">官方地址 ↗</a></td>
-  </tr>`).join("") : '<tr><td colspan="5" class="muted-cell">当前没有已登记来源。</td></tr>';
+  </tr>`;
+  const visible = sources.slice(0, 5);
+  const remainder = sources.slice(5);
+  document.querySelector("#source-table tbody").innerHTML = visible.length ? visible.map(rowMarkup).join("") : '<tr><td colspan="5" class="muted-cell">当前没有已登记来源。</td></tr>';
+  const more = document.querySelector("#source-more");
+  const moreBody = document.querySelector("#source-table-more tbody");
+  if (more && moreBody) {
+    more.hidden = remainder.length === 0;
+    more.open = false;
+    moreBody.innerHTML = remainder.map(rowMarkup).join("");
+    document.querySelector("#source-more-label").textContent = `查看其余 ${remainder.length} 个来源`;
+  }
   renderLineage(sources, candidates || [], dataset);
 }
 
@@ -2551,8 +2624,8 @@ function renderLineage(sources, candidates, dataset) {
       || (activeSourceId.startsWith("cbioportal:") && lower.includes("cbio"));
   };
   const primary = sourceNodes.find(([name]) => isPrimary(name))?.[0] || sourceNodes[0][0];
-  state.lineage = { sources, candidates, primary, selected: null, hover: null, view: "all", paused: false };
-  const height = Math.max(250, sourceNodes.length * 76 + 56);
+  state.lineage = { sources, candidates, primary, selected: null, hover: null, view: "primary", paused: true };
+  const height = Math.max(210, sourceNodes.length * 64 + 40);
   const middle = height / 2;
   const yStart = middle - ((sourceNodes.length - 1) * 64) / 2;
   const edges = sourceNodes.map(([name], index) => {
@@ -2610,7 +2683,7 @@ function updateLineageInteraction() {
   const filterName = state.lineage.view === "primary" ? state.lineage.primary : state.lineage.selected;
   panel.classList.toggle("is-paused", state.lineage.paused);
   updateLineageVisual();
-  const rows = [...document.querySelectorAll("#source-table tbody .source-table-row")];
+  const rows = [...document.querySelectorAll(".source-table-row")];
   rows.forEach((row) => {
     const visible = !filterName || row.dataset.sourceDb === filterName;
     row.hidden = !visible;
@@ -2619,6 +2692,8 @@ function updateLineageInteraction() {
   const visibleCount = rows.filter((row) => !row.hidden).length;
   document.querySelector("#source-filter-status").textContent = filterName ? `当前显示 ${filterName}：${visibleCount} 个已登记来源` : `显示全部 ${rows.length} 个已登记来源`;
   document.querySelector("#lineage-clear-filter").hidden = !filterName;
+  const sourceMore = document.querySelector("#source-more");
+  if (sourceMore && filterName && rows.some((row) => row.closest("#source-more") && !row.hidden)) sourceMore.open = true;
   document.querySelector("#lineage-show-all").setAttribute("aria-pressed", String(state.lineage.view === "all" && !state.lineage.selected));
   document.querySelector("#lineage-show-primary").setAttribute("aria-pressed", String(state.lineage.view === "primary"));
   document.querySelector("#lineage-toggle-animation").setAttribute("aria-pressed", String(state.lineage.paused));
@@ -2716,49 +2791,7 @@ function showToast(message) {
   window.setTimeout(() => { toast.hidden = true; }, 2600);
 }
 
-document.querySelector("#evaluation-refresh")?.addEventListener("click", () => {
-  refreshSystemEvaluation().catch((error) => showToast(error.message));
-});
-
-document.querySelector("#official-eval-run")?.addEventListener("click", async () => {
-  const button = document.querySelector("#official-eval-run");
-  const status = document.querySelector("#official-eval-status");
-  if (button) button.disabled = true;
-  if (status) status.textContent = "正在对本套正式卷采集观察并评分…";
-  try {
-    const response = await fetchApi("/api/evaluation/official-run", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ retrieval: "planner", use_qwen: false }),
-    });
-    const payload = await readJson(response);
-    const sdti = payload?.metrics?.sdti?.value;
-    if (status) {
-      status.textContent = sdti == null
-        ? `评测结束：${payload?.evaluation_status || "无分"}。${payload?.notice || ""}`
-        : `正式 SDTI ${Number(sdti).toFixed(2)}（${payload.evaluation_id}）`;
-    }
-    await loadEvaluationOverview();
-    renderSystemEvaluationDashboard(lastEvaluationSnapshot);
-  } catch (error) {
-    if (status) status.textContent = error.message || "正式评测失败";
-  } finally {
-    if (button) button.disabled = false;
-  }
-});
-
-document.querySelectorAll('a[href="#system-evaluation"]').forEach((anchor) => {
-  anchor.addEventListener("click", (event) => {
-    if (resultsPanel.hidden) {
-      if (revealEvaluationBoardIfReady()) return;
-      event.preventDefault();
-      showToast("评测对照会在跑完任务后出现在结果最底部");
-    }
-  });
-});
-
 checkConfiguration();
-restoreSystemEvaluationDashboard().catch(() => {});
 
 // Guided research-planning workspace. This keeps the planning flow separate from
 // the legacy advanced workbench while using the same audited backend APIs.
@@ -2951,7 +2984,7 @@ function renderPlannerQuestions(payload) {
   const selectedId = plannerState.selectedCandidateId || candidates[0]?.candidate_id;
   summary.textContent = plannerState.contract
     ? "已按最优一项继续；不满意可以换一道题。"
-    : "已自动选好最匹配的一项；其余题目可点「换一道题」。";
+    : "系统会自动采用证据最充分的一项；其余题目可点「换一道题」。";
   if (!candidates.length) {
     list.innerHTML = `<div class="planner-error">没有生成候选科研问题。系统不会用预置 benchmark 答案替代真实规划结果。</div>`;
     return;

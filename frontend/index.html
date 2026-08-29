@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="千问驱动的乳腺癌科研数据智能体：从科研问题、真实数据库工具调用到可阅读、可追溯的科研数据集。" />
     <title>千问乳腺癌科研数据智能体</title>
-    <link rel="stylesheet" href="/styles.css?v=20260829-gap-repair-1" />
+    <link rel="stylesheet" href="/styles.css?v=20260830-research-workbench-5" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">跳至正文</a>
@@ -63,7 +63,7 @@
           </section>
 
           <section id="planner-results" class="planner-results" hidden>
-            <div class="planner-result-heading"><div><span>一条龙研究规划</span><h2 id="planner-result-title">正在为你整理研究方案</h2></div><p id="planner-result-summary"></p></div>
+            <div class="planner-result-heading"><div><span>研究规划结果</span><h2 id="planner-result-title">正在整理研究方案</h2></div><p id="planner-result-summary"></p></div>
             <div id="planner-flow-summary" class="planner-flow-summary"></div>
             <div id="planner-question-list" class="planner-question-list"></div>
             <div id="planner-contract-card" class="planner-contract-card" hidden></div>
@@ -114,7 +114,6 @@
         <a href="#quality-gates">质量门</a>
         <a href="#research-data">分析矩阵</a>
         <a href="#provenance">来源</a>
-        <a href="#system-evaluation">评测</a>
       </nav>
       <div id="system-status" class="system-status"><span class="status-dot"></span><span>正在连接</span></div>
     </header>
@@ -217,7 +216,6 @@
           <a href="#research-data">矩阵</a>
           <a href="#readiness">适用性</a>
           <a href="#provenance">溯源</a>
-          <a href="#system-evaluation">评测</a>
         </nav>
 
         <section class="result-overview">
@@ -253,7 +251,7 @@
             <article>
               <h3>必需变量与覆盖</h3>
               <div id="study-variable-coverage" class="coverage-summary"></div>
-              <div class="table-wrap"><table id="study-variable-table"><thead><tr><th>变量</th><th>分层</th><th>角色</th><th>是否必需</th><th>覆盖率</th><th>匹配字段</th><th>说明</th></tr></thead><tbody></tbody></table></div>
+              <details class="report-drawer variable-report-drawer"><summary>查看变量覆盖明细</summary><div class="table-wrap"><table id="study-variable-table"><thead><tr><th>变量</th><th>分层</th><th>角色</th><th>是否必需</th><th>覆盖率</th><th>匹配字段</th><th>说明</th></tr></thead><tbody></tbody></table></div></details>
             </article>
             <article>
               <h3>数据源建议</h3>
@@ -313,7 +311,7 @@
             <div><p class="section-kicker">06 · Quality Gate</p><h2>四层质量门准入判定</h2></div>
             <span id="quality-gate-overall" class="status-badge"></span>
           </div>
-          <p id="quality-gate-note" class="section-note">依次核验来源可信、字段质量、实体一致性与科研适用性。队列 F1 在正式评测前不填成绩。</p>
+          <p id="quality-gate-note" class="section-note">依次核验来源可信、主要字段质量、实体一致性与科研适用性；未观察到的指标不补值。</p>
           <div id="quality-gate-metrics" class="quality-gate-metrics"></div>
           <div id="quality-gate-layers" class="quality-gate-layers"></div>
         </section>
@@ -373,44 +371,52 @@
               <div id="outcome-bars" class="outcome-bars"></div>
             </div>
             <div id="readiness-facts" class="readiness-facts"></div>
-          <div class="quality-detail">
-            <h3>本次实际清洗动作</h3>
-            <ul id="cleaning-action-list" class="message-list cleaning-list"></ul>
-          </div>
-          <h3>风险提示</h3><ul id="warning-list" class="message-list warning-list"></ul>
-          <h3>下一步建议</h3><ul id="recommendation-list" class="message-list recommendation-list"></ul>
+            <details class="report-drawer compact-report-drawer readiness-audit">
+              <summary>技术审计与后续建议</summary>
+              <div class="quality-detail">
+                <h3>清洗动作</h3>
+                <ul id="cleaning-action-list" class="message-list cleaning-list"></ul>
+              </div>
+              <h3>风险提示</h3><ul id="warning-list" class="message-list warning-list"></ul>
+              <h3>下一步建议</h3><ul id="recommendation-list" class="message-list recommendation-list"></ul>
+            </details>
           </article>
           <article class="panel dictionary-panel">
             <div class="section-heading"><div><p class="section-kicker">09 · 中文字段字典</p><h2>变量定义</h2></div><span id="dictionary-count" class="count-tag"></span></div>
             <div class="table-wrap"><table id="dictionary-table"><thead><tr><th>字段名</th><th>中文标注</th><th>数据类型</th><th>科研用途</th><th>说明</th></tr></thead><tbody></tbody></table></div>
+            <details id="dictionary-more" class="report-drawer compact-report-drawer" hidden><summary id="dictionary-more-label">查看其余字段</summary><div class="table-wrap"><table id="dictionary-table-more"><thead><tr><th>字段名</th><th>中文标注</th><th>数据类型</th><th>科研用途</th><th>说明</th></tr></thead><tbody></tbody></table></div></details>
           </article>
         </section>
 
-        <section id="review-queue-panel" class="panel">
-          <div class="section-heading"><div><p class="section-kicker">Review Queue</p><h2>人工审核队列</h2></div><span class="count-tag">ACCEPT / REJECT / EDIT / DEFER</span></div>
+        <details id="review-queue-panel" class="panel review-queue-panel">
+          <summary class="review-queue-summary"><span>人工审核队列</span><small>仅在需要人工确认时展开</small></summary>
           <p class="section-note">身份关联、HER2 歧义、高风险修复和缺失 provenance 不得由模型单独决定。</p>
           <div id="review-queue-list" class="planner-source-list"><div class="empty-state">当前任务还没有待审核项。质量门 REVIEW 或低置信匹配出现后会列在这里。</div></div>
-        </section>
+        </details>
 
         <section id="provenance" class="panel">
           <div class="section-heading"><div><p class="section-kicker">10 · 数据溯源</p><h2>来源登记与官方溯源</h2></div><span id="source-count" class="count-tag"></span></div>
+          <details class="report-drawer lineage-report-drawer">
+            <summary>查看完整来源关系图</summary>
           <div class="lineage-panel">
             <div class="lineage-heading">
               <div><strong>科研问题 → 多源检索 → 主科研数据集</strong><span>连线表示检索与选择关系，不表示跨患者拼接。</span></div>
               <div class="lineage-toolbar" role="group" aria-label="数据溯源图控制">
-                <button id="lineage-show-all" type="button" aria-pressed="true">全部来源</button>
-                <button id="lineage-show-primary" type="button" aria-pressed="false">仅主路径</button>
+                <button id="lineage-show-all" type="button" aria-pressed="false">全部来源</button>
+                <button id="lineage-show-primary" type="button" aria-pressed="true">仅主路径</button>
                 <button id="lineage-toggle-animation" type="button" aria-pressed="false">暂停动画</button>
               </div>
             </div>
             <div id="lineage-graph" class="lineage-graph" aria-label="数据溯源点线图"></div>
             <div id="lineage-detail" class="lineage-detail" aria-live="polite"></div>
           </div>
+          </details>
           <div class="source-table-toolbar">
             <span id="source-filter-status">显示全部已登记来源</span>
             <button id="lineage-clear-filter" type="button" hidden>清除筛选</button>
           </div>
           <div class="table-wrap"><table id="source-table"><thead><tr><th>数据库</th><th>数据编号（Accession）</th><th>状态</th><th>校验值</th><th>官方地址</th></tr></thead><tbody></tbody></table></div>
+          <details id="source-more" class="report-drawer compact-report-drawer" hidden><summary id="source-more-label">查看其余来源</summary><div class="table-wrap"><table id="source-table-more"><thead><tr><th>数据库</th><th>数据编号（Accession）</th><th>状态</th><th>校验值</th><th>官方地址</th></tr></thead><tbody></tbody></table></div></details>
         </section>
 
         <details class="audit-drawer">
@@ -461,33 +467,6 @@
             <div id="candidate-empty" class="empty-state" hidden>当前仅生成检索计划，或工具尚未返回候选队列。</div>
           </section>
         </details>
-
-        <section id="system-evaluation" class="panel evaluation-panel">
-          <div class="section-heading">
-            <div><p class="section-kicker">评测看板</p><h2>结果对照</h2></div>
-            <span id="evaluation-status" class="status-badge is-pending">待跑</span>
-          </div>
-          <div id="evaluation-badges" class="eval-badges"></div>
-          <p id="evaluation-official-note" class="eval-boundary">正式考卷已写入入口。点「开始正式评测」会采集系统观察并算出正式 SDTI。</p>
-          <p id="evaluation-howto" class="eval-howto">错误清洗检查、字段完整、检索对照：跑一次「运行研究协议」会自动出现。正式 SDTI 需要对本套正式卷点下面按钮真跑。</p>
-          <div class="eval-run-row">
-            <button id="official-eval-run" type="button">开始正式评测</button>
-            <span id="official-eval-status" class="eval-run-status"></span>
-          </div>
-          <div id="development-split-cards" class="eval-hero-cards"></div>
-          <div id="evaluation-task-metrics" class="eval-task-metrics"></div>
-          <div id="evaluation-retrieval-layer" class="eval-retrieval-layer"></div>
-          <div id="evaluation-protocol" hidden></div>
-          <div id="evaluation-meta" hidden></div>
-          <div id="evaluation-metric-cards" hidden></div>
-          <div id="evaluation-bars" hidden></div>
-          <div id="evaluation-ablation" hidden></div>
-          <div id="evaluation-history" hidden></div>
-          <div id="evaluation-safety" hidden></div>
-          <div id="evaluation-artifacts" hidden></div>
-          <div id="evaluation-probe-meta" hidden></div>
-          <div id="evaluation-probe-bars" hidden></div>
-        </section>
 
       </div>
 
@@ -543,6 +522,6 @@
     <div id="toast" class="toast" hidden role="status" aria-live="polite"></div>
     <footer><span>千问科研数据智能体</span><span>模型负责规划；规则负责安全边界；数据须真实可追溯</span></footer>
     <!-- 输入你真正想研究的问题 规划与真实检索入口 先明确研究需要什么数据 每一步筛选都能解释清楚 患者编号能不能安全对上 -->
-    <script src="/app.js?v=20260829-gap-repair-1" defer></script>
+    <script src="/app.js?v=20260830-research-workbench-5" defer></script>
   </body>
 </html>

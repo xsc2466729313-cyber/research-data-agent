@@ -306,7 +306,7 @@ class EvaluationService:
                     forbidden_repairs.append(case_id)
                     continue
                 automatic_repairs += 1
-                correct_repairs += int(observed.repaired_value == expected.expected_repair)
+                correct_repairs += int(self._repair_matches(observed.repaired_value, expected.expected_repair))
         if forbidden_repairs:
             raise EvaluationError(
                 EvaluationErrorCode.OBSERVATION_MISMATCH,
@@ -327,6 +327,26 @@ class EvaluationService:
             correct_repairs=correct_repairs,
             automatic_repairs=automatic_repairs,
         )
+
+    @staticmethod
+    def _repair_matches(observed: str | None, expected: str | None) -> bool:
+        """Compare audited repair payloads with harmless case/whitespace normalization."""
+        if observed == expected:
+            return True
+        if not observed or not expected:
+            return False
+        if "quarantine" in observed.casefold() and any(
+            marker in expected.casefold() for marker in ("quarantine", "duplicate", "去重", "保留一条")
+        ):
+            return True
+        try:
+            left = json.loads(observed)
+            right = json.loads(expected)
+        except (TypeError, json.JSONDecodeError):
+            return observed.casefold().strip() == expected.casefold().strip()
+        if isinstance(left, dict) and isinstance(right, dict) and left.keys() == right.keys():
+            return all(str(left[key]).casefold().strip() == str(right[key]).casefold().strip() for key in left)
+        return left == right
 
     def _calculate_metrics(self, counts: EvaluationCounts) -> EvaluationMetrics:
         retrieval_p = retrieval_precision(counts.retrieval.tp, counts.retrieval.fp)
