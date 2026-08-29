@@ -202,6 +202,7 @@ class CollectionAgent:
         round_number: int,
         max_rounds: int,
         cohort: Any | None = None,
+        follow_up_limit: int = 3,
         source_datasets: list[Any] | None = None,
     ):
         return self.goal_loop.decide(
@@ -214,6 +215,7 @@ class CollectionAgent:
             round_number=round_number,
             max_rounds=max_rounds,
             cohort=cohort,
+            follow_up_limit=follow_up_limit,
             source_datasets=source_datasets,
         )
 

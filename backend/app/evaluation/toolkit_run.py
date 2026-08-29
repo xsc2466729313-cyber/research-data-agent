@@ -32,9 +32,36 @@ DIRTY_TOKENS = {
 }
 
 AUDIT_COLUMNS = {"source_id", "raw_characteristics", "study_id"}
+MISSING_CELL_TOKENS = {
+    "",
+    "—",
+    "–",
+    "-",
+    ".",
+    "NONE",
+    "MISSING",
+    "<缺失>",
+}
 
 
-def _metric(key: str, label: str, value: float | None, *, unit: str = "percent", target: float, reason: str) -> OverviewMetric:
+def _is_missing_cell(text: str) -> bool:
+    stripped = str(text or "").strip()
+    if not stripped:
+        return True
+    return stripped.upper() in MISSING_CELL_TOKENS or stripped in {"—", "–"}
+
+
+def _metric(
+    key: str,
+    label: str,
+    value: float | None,
+    *,
+    unit: str = "percent",
+    target: float,
+    reason: str,
+    headline: str | None = None,
+    plain_meaning: str | None = None,
+) -> OverviewMetric:
     if value is None:
         display = None
     elif unit == "score":
@@ -51,6 +78,8 @@ def _metric(key: str, label: str, value: float | None, *, unit: str = "percent",
         unit=unit,
         status="TOOLKIT_RUN" if value is not None else "NOT_EVALUATED",
         reason=reason,
+        headline=headline,
+        plain_meaning=plain_meaning,
     )
 
 
@@ -60,28 +89,35 @@ def _f1_from_counts(tp: int, fp: int, fn: int) -> dict[str, float]:
     return TOOLKIT.precision_recall_f1(gold, pred)
 
 
-def _cleaning_score(task: Any) -> tuple[float | None, str]:
+def _cleaning_score(task: Any) -> tuple[float | None, str, str | None, str | None]:
     dataset = getattr(task, "modeling_dataset", None)
     rows = list(getattr(dataset, "rows", None) or [])
     if not rows:
-        return None, "当前任务没有宽表，无法按工具包 cell 公式检测残留脏值。"
+        return None, "当前任务没有宽表，无法按工具包 cell 公式检测残留脏值。空表不算满分。", None, None
     dirty: set[tuple[int, str]] = set()
-    total = 0
+    filled = 0
     for index, row in enumerate(rows):
         for key, value in row.items():
             if key in AUDIT_COLUMNS or str(key).startswith("raw_"):
                 continue
-            total += 1
             text = "" if value is None else str(value).strip()
+            if _is_missing_cell(text):
+                continue
+            filled += 1
             if text.upper() in DIRTY_TOKENS:
                 dirty.add((index, str(key)))
-    if total <= 0:
-        return None, "没有可检测的业务单元格。"
-    # 工具包 Cleaning 的外部 Gold 是 Hospital/Flights/Beers。这里只报告域内残留脏值清除率。
-    remaining = len(dirty) / total
+    if filled <= 0:
+        return None, "没有已填写的业务单元格，不能把空表或全缺失表算成清洗满分。", None, None
+    remaining = len(dirty) / filled
     score = 1.0 - remaining
     cleaned = int(getattr(getattr(task, "readiness", None), "cleaned_value_count", 0) or 0)
-    return score, f"域内残留脏词 {len(dirty)}/{total}；已执行清洗 {cleaned} 处。不是 Hospital/Flights/Beers 的外部 Cell-F1。"
+    reason = (
+        f"已填业务格 {filled} 个，残留脏词 {len(dirty)} 个；已执行清洗 {cleaned} 处。"
+        "这不是字段覆盖，也不是 Hospital/Flights/Beers 的外部 Cell-F1。"
+    )
+    if score >= 1.0:
+        return score, reason, "未发现错误清洗", "已填单元格里没有 NA/NULL 等脏残留；必要字段仍可能缺失。"
+    return score, reason, f"{score * 100:.1f}%", reason
 
 
 def _retrieval_ndcg(task: Any) -> tuple[float | None, str]:
@@ -161,7 +197,7 @@ def run_toolkit_evaluation(task: Any | None) -> dict[str, Any]:
                 _metric("quality_gate", "Quality Gate", None, unit="score", target=1.0, reason="需质量门报告"),
             ],
         }
-    cleaning, cleaning_note = _cleaning_score(task)
+    cleaning, cleaning_note, cleaning_headline, cleaning_meaning = _cleaning_score(task)
     ndcg, ndcg_note = _retrieval_ndcg(task)
     schema, schema_note = _schema_f1(task)
     entity, entity_note = _entity_f1(task)
@@ -175,7 +211,15 @@ def run_toolkit_evaluation(task: Any | None) -> dict[str, Any]:
         else "；".join(item for item in (schema_note, entity_note) if item)
     )
     metrics = [
-        _metric("cleaning_retention", "清洗残留清除率", cleaning, target=0.9, reason=cleaning_note),
+        _metric(
+            "cleaning_retention",
+            "清洗残留清除率",
+            cleaning,
+            target=0.9,
+            reason=cleaning_note,
+            headline=cleaning_headline,
+            plain_meaning=cleaning_meaning,
+        ),
         _metric("retrieval_ndcg@10", "检索 nDCG@10", ndcg, target=0.5, reason=ndcg_note),
         _metric("integration_macro_f1", "整合 Macro-F1", integration, target=0.7, reason=integration_reason),
         _metric("task_fitness", "任务适配 Fitness", fitness, unit="score", target=70.0, reason=fitness_note),

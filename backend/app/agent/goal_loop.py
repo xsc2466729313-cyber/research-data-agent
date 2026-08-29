@@ -226,15 +226,54 @@ STRATEGIES: tuple[MethodStrategy, ...] = (
         tool_name="search_trials",
         source_name="ClinicalTrials.gov",
         priority=8,
-        diagnoses=frozenset({"missing_evidence", "outcome_mismatch", "residual_gaps"}),
+        diagnoses=frozenset({"missing_evidence", "outcome_mismatch", "residual_gaps", "no_patient_table"}),
         primary_cohort=False,
         has_response=False,
         has_mutation=False,
         argument_builder=lambda spec, max_records: {
             "condition": spec.disease,
             "query_terms": " ".join(spec.drugs + spec.genes),
+            "nct_id": "NCT01042379" if any(token in spec.research_goal for token in ("试验", "NCT", "登记", "I-SPY")) else None,
             "max_trials": 10,
         },
+    ),
+    MethodStrategy(
+        strategy_id="context.depmap",
+        label="检索 DepMap 细胞系药敏（AUC/IC50，不得当患者疗效）",
+        tool_name="search_depmap",
+        source_name="DepMap",
+        priority=8,
+        diagnoses=frozenset({"outcome_mismatch", "residual_gaps", "no_patient_table"}),
+        primary_cohort=False,
+        has_response=True,
+        has_mutation=False,
+        argument_builder=lambda spec, max_records: {
+            "query": f"{spec.disease} cell line AUC IC50",
+            "drug": spec.drugs[0] if spec.drugs else None,
+            "max_records": min(max_records, 80),
+        },
+        applicable=lambda spec: any(
+            token in spec.research_goal.casefold() for token in ("细胞系", "auc", "ic50", "depmap", "药敏")
+        ),
+    ),
+    MethodStrategy(
+        strategy_id="context.paper_extract",
+        label="从开放论文提取表格与图注（不从图像素读数）",
+        tool_name="extract_paper_assets",
+        source_name="Europe PMC",
+        priority=9,
+        diagnoses=frozenset(
+            {"missing_evidence", "residual_gaps", "missing_same_cohort_exposure", "no_patient_table"}
+        ),
+        primary_cohort=False,
+        has_response=False,
+        has_mutation=False,
+        argument_builder=lambda spec, max_records: {
+            "query": " ".join(["Breast Cancer", *spec.genes[:3], "table"]).strip(),
+            "max_records": 5,
+        },
+        applicable=lambda spec: "evidence" in (spec.required_data_types or [])
+        or any(token in spec.research_goal for token in ("文献", "论文", "图注", "表格", "PMC")),
     ),
     MethodStrategy(
         strategy_id="context.civic",
@@ -454,7 +493,7 @@ class GoalLoopController:
         diagnosis: Diagnosis,
         attempted_calls: set[str],
         max_records: int,
-        limit: int = 2,
+        limit: int = 3,
     ) -> list[CollectionSearchAction]:
         if diagnosis == "all_met":
             return []
@@ -498,7 +537,7 @@ class GoalLoopController:
         round_number: int,
         max_rounds: int,
         cohort: Any | None = None,
-        follow_up_limit: int = 2,
+        follow_up_limit: int = 3,
         source_datasets: list[Any] | None = None,
     ) -> LoopDecision:
         goals = self.evaluate_goals(
@@ -618,6 +657,24 @@ class GoalLoopController:
             for strategy in STRATEGIES
             if diagnosis in strategy.diagnoses and strategy.applicable(spec)
         ]
+        goal = spec.research_goal or ""
+        folded = goal.casefold()
+        if any(token in folded for token in ("细胞系", "auc", "ic50", "depmap", "药敏", "ccle")):
+            ranked = [item for item in ranked if item.tool_name == "search_depmap" or not item.primary_cohort]
+            ranked.sort(key=lambda item: (0 if item.tool_name == "search_depmap" else item.priority))
+            return ranked
+        if any(token in goal for token in ("试验", "NCT", "登记", "I-SPY")):
+            ranked = [item for item in ranked if item.tool_name == "search_trials" or item.strategy_id.startswith("discover.")]
+            ranked.sort(key=lambda item: (0 if item.tool_name == "search_trials" else item.priority))
+            return ranked
+        if "evidence" in (spec.required_data_types or []) or any(
+            token in goal for token in ("文献", "论文", "图注", "表格", "PMC")
+        ):
+            papers = [item for item in ranked if item.tool_name == "extract_paper_assets"]
+            rest = [item for item in ranked if item.tool_name != "extract_paper_assets"]
+            rest.sort(key=lambda item: item.priority)
+            if papers:
+                return [*papers, *rest]
         if diagnosis == "missing_same_cohort_exposure":
             dual = [item for item in ranked if item.primary_cohort and item.has_response and item.has_mutation]
             web_discovery = [item for item in ranked if item.strategy_id.startswith("discover.")]

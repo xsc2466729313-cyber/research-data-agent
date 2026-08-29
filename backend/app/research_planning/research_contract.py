@@ -57,6 +57,7 @@ class ResearchContractBuilder:
             validation_status=status,
             validation_warnings=warnings,
             created_at=datetime.now(timezone.utc),
+            lifecycle_status="DRAFT",
         )
 
     @staticmethod

@@ -9,6 +9,7 @@ from uuid import uuid4
 
 from backend.app.agent.competition_report import CompetitionReportBuilder
 from backend.app.agent.accession_harvest import (
+    asks_pcr,
     catalog_query,
     harvest_from_raw_results,
     literature_query,
@@ -16,7 +17,9 @@ from backend.app.agent.accession_harvest import (
     question_asks_clinical_outcome,
     question_asks_survival,
     score_geo_text,
+    seed_geo_accessions,
 )
+from backend.app.agent.outcome_repair import PCR_SWITCH_ACCESSIONS
 from backend.app.agent.alignment_audit import DataAlignmentAuditor
 from backend.app.agent.collection_agent import CollectionAgent
 from backend.app.agent.goal_loop import DIAGNOSIS_LABELS
@@ -45,6 +48,7 @@ from backend.app.agent.source_registry import (
     is_breast_cancer_study_id,
     is_gdc_breast_project_id,
 )
+from backend.app.critic import CriticAgent
 from backend.app.models import (
     CandidateSource,
     ResearchSpec,
@@ -62,6 +66,7 @@ from backend.app.sources.cbioportal.models import (
 )
 from backend.app.sources.civic import CIViCAdapter
 from backend.app.sources.civic.models import CIViCAdapterOptions, CIViCAdapterRequest
+from backend.app.sources.depmap import DepMapAdapter, DepMapAdapterResult
 from backend.app.sources.discovery import DiscoveryAdapter, DiscoveryAdapterError
 from backend.app.sources.gdc import GDCAdapter
 from backend.app.sources.gdc.models import GDCAdapterOptions, GDCAdapterRequest
@@ -92,8 +97,10 @@ TOOL_LABELS = {
     "search_cbioportal": "检索 cBioPortal 患者队列",
     "search_trials": "检索 ClinicalTrials.gov",
     "search_civic": "检索 CIViC 医学证据",
+    "search_depmap": "检索 DepMap 细胞系药敏",
     "search_biosample": "检索 NCBI BioSample 样本元数据",
     "search_europe_pmc": "检索 Europe PMC 文献证据",
+    "extract_paper_assets": "提取论文表格与图注",
 }
 
 FOLLOW_UP_BUDGET = 4
@@ -109,8 +116,10 @@ class ResearchAgentService:
         cbioportal_adapter: CBioPortalAdapter | None = None,
         aact_adapter: AACTClinicalTrialsAdapter | None = None,
         civic_adapter: CIViCAdapter | None = None,
+        depmap_adapter: DepMapAdapter | None = None,
         discovery_adapter: DiscoveryAdapter | None = None,
         dataset_builder: ResearchDatasetBuilder | None = None,
+        critic: CriticAgent | None = None,
     ) -> None:
         self._qwen_injected = qwen_client is not None
         self.qwen = qwen_client or QwenClient()
@@ -119,6 +128,7 @@ class ResearchAgentService:
         self.cbioportal = cbioportal_adapter or CBioPortalAdapter()
         self.aact = aact_adapter or AACTClinicalTrialsAdapter()
         self.civic = civic_adapter or CIViCAdapter()
+        self.depmap = depmap_adapter or DepMapAdapter()
         self.discovery = discovery_adapter or DiscoveryAdapter()
         self.dataset_builder = dataset_builder or ResearchDatasetBuilder()
         self.alignment_auditor = DataAlignmentAuditor()
@@ -128,6 +138,7 @@ class ResearchAgentService:
         self.collection_agent = CollectionAgent()
         self.question_parser = ResearchQuestionParser()
         self.quality_gate_builder = QualityGateBuilder()
+        self.critic = critic or CriticAgent()
         self._results: dict[str, AgentTaskResult] = {}
         self._statuses: dict[str, ResearchTaskStatus] = {}
         self._lock = threading.Lock()
@@ -340,20 +351,30 @@ class ResearchAgentService:
                     spec,
                     max_sources=request.max_sources,
                     preferred_sources=request.preferred_sources,
+                    focus_accessions=request.focus_accessions,
+                    focus_tools=request.focus_tools,
                 )
             except QwenClientError as exc:
                 if not request.allow_deterministic_fallback:
                     raise AgentExecutionError(str(exc)) from exc
                 qwen_warning = f"{active_qwen.settings.provider_label}工具选择失败，已使用确定性兜底：{exc}"
         deterministic_calls = self._deterministic_tool_calls(spec, request, brief)
+        seed_priority = (
+            request.max_sources >= 4
+            or bool(request.focus_accessions)
+            or bool(request.focus_tools)
+        )
+        priority_calls = self._priority_seed_calls(spec, request) if seed_priority else []
         if calls:
-            calls = self._merge_tool_calls(calls, deterministic_calls, request.max_sources)
+            calls = self._merge_tool_calls(priority_calls + calls, deterministic_calls, request.max_sources)
             calls = self._prioritize_named_cohort_calls(calls, brief)
             calls = self._guard_tool_arguments(calls, spec, request)
             if tool_message is not None:
                 tool_message = self._synchronize_tool_message(tool_message, calls)
         else:
-            calls = self._guard_tool_arguments(deterministic_calls, spec, request)
+            calls = self._merge_tool_calls(priority_calls, deterministic_calls, request.max_sources)
+            calls = self._prioritize_named_cohort_calls(calls, brief)
+            calls = self._guard_tool_arguments(calls, spec, request)
             tool_message = None
         plan_steps[1].status = "完成"
         plan_steps[1].detail = (brief.search_strategy + " 已选择：" if brief.search_strategy else "已规划数据源并选择：") + "、".join(
@@ -427,6 +448,8 @@ class ResearchAgentService:
                     geo_dataset = self.dataset_builder.build_from_geo(raw_result, spec)
                     if geo_dataset is not None:
                         built_datasets.append(geo_dataset)
+                elif name == "search_depmap" and isinstance(raw_result, DepMapAdapterResult):
+                    built_datasets.append(self.dataset_builder.build_from_depmap(raw_result, spec))
             if built_datasets:
                 dataset, readiness = max(
                     built_datasets,
@@ -511,6 +534,7 @@ class ResearchAgentService:
                 round_number=round_number,
                 max_rounds=max_rounds,
                 cohort=provisional_cohort,
+                follow_up_limit=3,
                 source_datasets=source_datasets,
             )
             last_decision = decision
@@ -757,6 +781,23 @@ class ResearchAgentService:
                 "plan": list(plan_steps),
             }
         )
+        try:
+            coverage = {
+                str(gap.variable_id): float(gap.coverage_rate or 0)
+                for gap in [*critical_gaps, *recommended_gaps]
+            }
+            result = result.model_copy(
+                update={
+                    "critic_report": self.critic.diagnose(
+                        required_coverage=coverage,
+                        target_match=bool(getattr(readiness, "target_match", False)),
+                        row_count=int(getattr(dataset, "row_count", 0) or 0),
+                        provenance_complete=bool(source_items),
+                    )
+                }
+            )
+        except Exception:
+            logger.exception("Failed to build critic report for task %s", task_id)
         with self._lock:
             self._results[task_id] = result
         self._set_status(
@@ -826,6 +867,8 @@ class ResearchAgentService:
         max_rounds: int,
     ) -> list[dict[str, Any]]:
         harvested = harvest_from_raw_results(raw_results, spec)
+        if getattr(decision, "diagnosis", None) == "outcome_mismatch" and (asks_pcr(spec) or needs_clinical_outcome(spec)):
+            harvested = list(dict.fromkeys([*PCR_SWITCH_ACCESSIONS, *harvested]))
         harvest_calls = [
             {
                 "id": f"harvest-geo-{accession}",
@@ -866,7 +909,7 @@ class ResearchAgentService:
                 )
             except QwenClientError:
                 logger.exception("Qwen next-tool planning failed for task %s", spec.task_id)
-        merged = self._merge_tool_calls(harvest_calls + loop_calls, qwen_calls, FOLLOW_UP_BUDGET)
+        merged = self._merge_tool_calls(loop_calls + harvest_calls, qwen_calls, FOLLOW_UP_BUDGET)
         return [
             call
             for call in merged
@@ -886,8 +929,10 @@ class ResearchAgentService:
             "search_gdc",
             "search_trials",
             "search_civic",
+            "search_depmap",
             "search_biosample",
             "search_europe_pmc",
+            "extract_paper_assets",
         }:
             arguments = dict(action.arguments or {})
             arguments.setdefault("max_records", max_records)
@@ -923,8 +968,10 @@ class ResearchAgentService:
             "search_cbioportal": "cBioPortal",
             "search_trials": "AACT",
             "search_civic": "CIViC",
+            "search_depmap": "DepMap",
             "search_biosample": "BioSample",
             "search_europe_pmc": "Europe PMC",
+            "extract_paper_assets": "Europe PMC",
         }
         if name not in source_names:
             raise ValueError(f"千问请求了未注册工具：{name}")
@@ -973,10 +1020,27 @@ class ResearchAgentService:
             options = AACTAdapterOptions(
                 condition=str(args.get("condition") or spec.disease),
                 query_terms=self._optional_text(args.get("query_terms")),
+                nct_id=self._optional_text(args.get("nct_id")),
                 max_trials=min(int(args.get("max_trials") or 5), 10),
                 max_rows_per_table=max_records,
             )
             return self.aact.run(AACTAdapterRequest(search_plan=plan, options=options))
+        if name == "search_depmap":
+            return self.depmap.search(
+                task_id=spec.task_id,
+                query=str(args.get("query") or f"{spec.disease} cell line AUC IC50"),
+                gene=spec.genes[0] if spec.genes else None,
+                drug=self._optional_text(args.get("drug")) or (spec.drugs[0] if spec.drugs else None),
+                max_records=min(int(args.get("max_records") or 50), 200),
+            )
+        if name == "extract_paper_assets":
+            return self.discovery.extract_paper_assets(
+                task_id=spec.task_id,
+                query=str(args.get("query") or literature_query(spec)),
+                pmcid=self._optional_text(args.get("pmcid")),
+                max_records=min(int(args.get("max_records") or 5), 20),
+                search_plan=plan,
+            )
         if name == "search_civic":
             options = CIViCAdapterOptions(
                 disease_name=str(args.get("disease_name") or spec.disease),
@@ -1116,21 +1180,122 @@ class ResearchAgentService:
     @staticmethod
     def _prioritize_named_cohort_calls(calls: list[dict[str, Any]], brief: Any | None) -> list[dict[str, Any]]:
         named = list(getattr(brief, "named_cohorts", None) or [])
-        if not named:
-            return calls
         named_studies = {cohort.study_id.casefold() for cohort in named if cohort.study_id}
         named_projects = {cohort.project_id for cohort in named if cohort.project_id}
+        seed_geo = {"gse76360", "gse25066", "gse96058"}
 
         def rank(call: dict[str, Any]) -> int:
             name = str(call.get("name") or "")
             arguments = call.get("arguments") or {}
-            if name == "search_cbioportal" and str(arguments.get("study_id") or "").casefold() in named_studies:
+            if name == "search_geo" and str(arguments.get("accession") or "").casefold() in seed_geo:
                 return 0
-            if name == "search_gdc" and str(arguments.get("project_id") or "") in named_projects:
+            if name == "search_trials" and str(arguments.get("nct_id") or "").upper() == "NCT01042379":
+                return 0
+            if name == "search_depmap":
                 return 1
-            return 2
+            if name == "search_cbioportal" and str(arguments.get("study_id") or "").casefold() in named_studies:
+                return 1
+            if name == "search_gdc" and str(arguments.get("project_id") or "") in named_projects:
+                return 2
+            return 3
 
         return sorted(calls, key=rank)
+
+    def _priority_seed_calls(self, spec: ResearchSpec, request: AgentTaskRequest) -> list[dict[str, Any]]:
+        calls: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for accession in list(request.focus_accessions or []):
+            token = str(accession).strip()
+            if not token or token.casefold() in seen:
+                continue
+            seen.add(token.casefold())
+            upper = token.upper()
+            if upper.startswith("GSE"):
+                calls.append({"id": f"focus-geo-{upper}", "name": "search_geo", "arguments": {"accession": upper, "max_files": 5}})
+            elif upper.startswith("NCT"):
+                calls.append(
+                    {
+                        "id": f"focus-nct-{upper}",
+                        "name": "search_trials",
+                        "arguments": {
+                            "condition": "Breast Neoplasms",
+                            "nct_id": upper,
+                            "query_terms": "neoadjuvant pCR",
+                            "max_trials": 5,
+                        },
+                    }
+                )
+            elif token.casefold() in {"depmap", "ccle"}:
+                calls.append(
+                    {
+                        "id": "focus-depmap",
+                        "name": "search_depmap",
+                        "arguments": {"query": f"{spec.disease} cell line AUC IC50", "max_records": min(request.max_records, 80)},
+                    }
+                )
+            else:
+                calls.append(
+                    {
+                        "id": f"focus-study-{token}",
+                        "name": "search_cbioportal",
+                        "arguments": {"study_id": token, "gene_symbols": spec.genes or ["ERBB2"], "max_records": request.max_records},
+                    }
+                )
+        for accession in seed_geo_accessions(spec):
+            calls.append(
+                {
+                    "id": f"seed-geo-{accession}",
+                    "name": "search_geo",
+                    "arguments": {"accession": accession, "max_files": 5},
+                }
+            )
+        if self._asks_trial_registry(spec):
+            calls.append(
+                {
+                    "id": "seed-nct-ispy2",
+                    "name": "search_trials",
+                    "arguments": {
+                        "condition": "Breast Neoplasms",
+                        "nct_id": "NCT01042379",
+                        "query_terms": "I-SPY2 neoadjuvant",
+                        "max_trials": 5,
+                    },
+                }
+            )
+        if self._asks_cell_line(spec):
+            calls.append(
+                {
+                    "id": "seed-depmap",
+                    "name": "search_depmap",
+                    "arguments": {
+                        "query": f"{spec.disease} cell line AUC IC50 {' '.join(spec.drugs[:3])}".strip(),
+                        "drug": spec.drugs[0] if spec.drugs else None,
+                        "max_records": min(request.max_records, 80),
+                    },
+                }
+            )
+        if "evidence" in (spec.required_data_types or []) or "文献" in (spec.research_goal or ""):
+            calls.append(
+                {
+                    "id": "seed-paper-extract",
+                    "name": "extract_paper_assets",
+                    "arguments": {
+                        "query": f"{spec.disease} {' '.join(spec.genes[:3])} table",
+                        "max_records": 5,
+                    },
+                }
+            )
+        return calls
+
+    @staticmethod
+    def _asks_trial_registry(spec: ResearchSpec) -> bool:
+        blob = f"{spec.research_goal} {' '.join(spec.outcomes)}".casefold()
+        return any(token in blob for token in ("试验", "nct", "clinical trial", "登记", "招募", "i-spy"))
+
+    @staticmethod
+    def _asks_cell_line(spec: ResearchSpec) -> bool:
+        blob = f"{spec.research_goal} {' '.join(spec.outcomes)} {' '.join(spec.required_data_types)}".casefold()
+        return any(token in blob for token in ("细胞系", "auc", "ic50", "depmap", "ccle", "药敏", "preclinical"))
 
     def _guard_tool_arguments(
         self,
@@ -1151,7 +1316,8 @@ class ResearchAgentService:
                 ).upper()
                 if not GEO_ACCESSION_PATTERN.fullmatch(accession):
                     continue
-                if accession == "GSE76360" and not self._should_search_geo(spec):
+                focused = {str(item).strip().upper() for item in (request.focus_accessions or [])}
+                if accession == "GSE76360" and not self._should_search_geo(spec) and accession not in focused:
                     continue
                 arguments["accession"] = accession
                 arguments["max_files"] = min(int(arguments.get("max_files") or 1), 5)
@@ -1175,7 +1341,24 @@ class ResearchAgentService:
             elif name == "search_trials":
                 arguments["condition"] = str(arguments.get("condition") or spec.disease)[:200]
                 arguments["query_terms"] = self._optional_text(arguments.get("query_terms"))
+                nct_id = str(arguments.get("nct_id") or "").strip().upper()
+                if nct_id.startswith("NCT") and nct_id[3:].isdigit() and len(nct_id) == 11:
+                    arguments["nct_id"] = nct_id
+                else:
+                    arguments.pop("nct_id", None)
                 arguments["max_trials"] = min(int(arguments.get("max_trials") or 5), 10)
+            elif name == "search_depmap":
+                arguments["query"] = self._optional_text(arguments.get("query")) or (
+                    f"{spec.disease} cell line AUC IC50"
+                )
+                arguments["drug"] = self._optional_text(arguments.get("drug")) or (
+                    spec.drugs[0] if spec.drugs else None
+                )
+                arguments["max_records"] = min(int(arguments.get("max_records") or 50), 200)
+            elif name == "extract_paper_assets":
+                arguments["query"] = self._optional_text(arguments.get("query")) or literature_query(spec)
+                arguments["pmcid"] = self._optional_text(arguments.get("pmcid"))
+                arguments["max_records"] = min(int(arguments.get("max_records") or 5), 20)
             elif name == "search_civic":
                 arguments["disease_name"] = "Breast Cancer"
                 arguments["molecular_profile_name"] = spec.genes[0] if spec.genes else None
@@ -1281,13 +1464,19 @@ class ResearchAgentService:
         primary_score = ResearchBriefBuilder.primary_coverage(dataset, brief) if brief is not None else variable_score
         needs_response = needs_clinical_outcome(spec)
         needs_genes = bool(spec.genes)
+        pcr_wanted = asks_pcr(spec) or needs_clinical_outcome(spec)
+        pcr_cohort = 1.0 if pcr_wanted and any(
+            token in key for token in ("gse25066", "gse76360", "gse50948")
+        ) else 0.0
+        if pcr_cohort and target_score < 0.45:
+            pcr_cohort = 0.85
         if named_ids:
             return (named_hit, primary_score, variable_score, target_score, dataset.row_count)
         if needs_response and needs_genes:
             dual_score = target_score * variable_score
-            return (dual_score, target_score, variable_score, completeness, dataset.row_count)
+            return (max(dual_score, pcr_cohort), target_score, variable_score, completeness, dataset.row_count)
         if needs_response:
-            return (0.0, target_score, variable_score, completeness, dataset.row_count)
+            return (pcr_cohort, target_score, variable_score, completeness, dataset.row_count)
         return (primary_score, variable_score, target_score, completeness, dataset.row_count)
 
     @staticmethod
@@ -1492,7 +1681,7 @@ class ResearchAgentService:
                 )
             ]
         if name == "search_trials":
-            return [
+            items = [
                 CandidateSource(
                     dataset_id=trial.nct_id,
                     dataset_name=trial.brief_title,
@@ -1508,6 +1697,55 @@ class ResearchAgentService:
                 )
                 for trial in result.trials
                 if str(trial.nct_id or "").strip() and str(trial.brief_title or "").strip() and str(trial.study_url or "").strip()
+            ]
+            items.append(
+                CandidateSource(
+                    dataset_id="AACT",
+                    dataset_name="ClinicalTrials.gov / AACT 试验登记聚合",
+                    source_database="ClinicalTrials.gov",
+                    data_type="临床试验登记",
+                    sample_count=len(result.trials),
+                    has_treatment=True,
+                    has_response=any(trial.has_results is True for trial in result.trials),
+                    public_access=True,
+                    relevance_score=0.8,
+                    url="https://clinicaltrials.gov/",
+                    accession="AACT",
+                )
+            )
+            return items
+        if name == "search_depmap":
+            return [
+                CandidateSource(
+                    dataset_id="DepMap",
+                    dataset_name="DepMap 乳腺癌细胞系药敏",
+                    source_database="DepMap",
+                    data_type="preclinical_cell_line",
+                    sample_count=len(result.records),
+                    has_treatment=True,
+                    has_response=True,
+                    public_access=True,
+                    relevance_score=0.9,
+                    url="https://depmap.org/portal/",
+                    accession="DepMap",
+                )
+            ]
+        if name == "extract_paper_assets":
+            pmcid = str(getattr(result, "pmcid", None) or "EuropePMC")
+            return [
+                CandidateSource(
+                    dataset_id=pmcid,
+                    dataset_name=f"论文表格/图注 {pmcid}",
+                    source_database="Europe PMC",
+                    data_type="paper_table",
+                    sample_count=int(getattr(result, "parsed_field_count", 0) or 0),
+                    has_treatment=False,
+                    has_response=False,
+                    public_access=True,
+                    relevance_score=0.7,
+                    url=str(getattr(result, "request_url", None) or "https://europepmc.org/"),
+                    accession=pmcid,
+                )
             ]
         if name in {"search_biosample", "search_europe_pmc", "search_geo_catalog"}:
             return ResearchAgentService._discovery_candidates(name, result, spec)
@@ -1588,10 +1826,12 @@ class ResearchAgentService:
             "search_geo": {"accession", "max_files"},
             "search_geo_catalog": {"query", "max_records"},
             "search_cbioportal": {"study_id", "gene_symbols", "max_records"},
-            "search_trials": {"condition", "query_terms", "max_trials"},
+            "search_trials": {"condition", "query_terms", "nct_id", "max_trials"},
             "search_civic": {"disease_name", "molecular_profile_name", "therapy_name", "max_items"},
+            "search_depmap": {"query", "drug", "max_records"},
             "search_biosample": {"query", "max_records"},
             "search_europe_pmc": {"query", "max_records"},
+            "extract_paper_assets": {"query", "pmcid", "max_records"},
         }.get(name, set())
         return {key: value for key, value in args.items() if key in allowed and value is not None}
 

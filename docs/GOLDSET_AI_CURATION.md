@@ -135,7 +135,7 @@ reasons / source_id / required_action / status
 3. 建立版本化 `GoldSetManifest` 和内容 checksum。
 4. 通过阶段 07 评测器的所有前置检查。
 
-仓库内的 `goldset/templates/*.csv` 仍然只有表头，因此当前仍无真实系统评测成绩。
+仓库内的 `goldset/templates/*.csv` 已由 xsc 写入 held-out 正式考卷，并已对本卷采集观察（SDTI 63.36，`publish_allowed=false`）。manifest 仍 `frozen=false`，不是 sealed `frozen_test`。development 观察分不得填入正式栏。
 
 ## 测试
 

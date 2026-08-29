@@ -1,0 +1,331 @@
+{
+  "medical_rules": "configs/medical_rules.yaml",
+  "canonical_schema": "configs/canonical_schema.yaml",
+  "findings": [
+    {
+      "rule_id": "ALL_ROWS_APPROVED",
+      "passed": "true",
+      "detail": "ok"
+    },
+    {
+      "rule_id": "HER2_IHC_2PLUS",
+      "passed": "true",
+      "detail": "IHC 2+ must stay Equivocal and not auto-transform to Positive."
+    },
+    {
+      "rule_id": "ERBB2_CNA_NOT_IHC",
+      "passed": "true",
+      "detail": "ERBB2 CNA must not be labeled HER2 Positive."
+    },
+    {
+      "rule_id": "CROSS_DOMAIN_RESPONSE",
+      "passed": "true",
+      "detail": "Cell-line AUC must not be stored as patient pCR."
+    },
+    {
+      "rule_id": "HIGH_RISK_e01_ihc2_to_positive",
+      "passed": "true",
+      "detail": "High-risk error must not allow automatic repair."
+    },
+    {
+      "rule_id": "HIGH_RISK_e02_cna_as_ihc",
+      "passed": "true",
+      "detail": "High-risk error must not allow automatic repair."
+    },
+    {
+      "rule_id": "HIGH_RISK_e03_cross_study_id",
+      "passed": "true",
+      "detail": "High-risk error must not allow automatic repair."
+    },
+    {
+      "rule_id": "HIGH_RISK_e04_auc_as_pcr",
+      "passed": "true",
+      "detail": "High-risk error must not allow automatic repair."
+    },
+    {
+      "rule_id": "HIGH_RISK_e16_join_without_crosswalk",
+      "passed": "true",
+      "detail": "High-risk error must not allow automatic repair."
+    },
+    {
+      "rule_id": "NO_HIGH_RISK_AUTO_REPAIR",
+      "passed": "true",
+      "detail": "ok"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f01_ihc3_positive",
+      "passed": "true",
+      "detail": "her2_status"
+    },
+    {
+      "rule_id": "SCHEMA_VALUE_f01_ihc3_positive",
+      "passed": "true",
+      "detail": "her2_status=Positive"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f02_ihc3_assay",
+      "passed": "true",
+      "detail": "her2_assay"
+    },
+    {
+      "rule_id": "SCHEMA_VALUE_f02_ihc3_assay",
+      "passed": "true",
+      "detail": "her2_assay=IHC"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f03_ihc3_raw",
+      "passed": "true",
+      "detail": "her2_raw_value"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f04_ihc2_equivocal",
+      "passed": "true",
+      "detail": "her2_status"
+    },
+    {
+      "rule_id": "SCHEMA_VALUE_f04_ihc2_equivocal",
+      "passed": "true",
+      "detail": "her2_status=Equivocal"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f05_ihc2_assay",
+      "passed": "true",
+      "detail": "her2_assay"
+    },
+    {
+      "rule_id": "SCHEMA_VALUE_f05_ihc2_assay",
+      "passed": "true",
+      "detail": "her2_assay=IHC"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f06_ihc2_raw",
+      "passed": "true",
+      "detail": "her2_raw_value"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f07_ihc1_negative",
+      "passed": "true",
+      "detail": "her2_status"
+    },
+    {
+      "rule_id": "SCHEMA_VALUE_f07_ihc1_negative",
+      "passed": "true",
+      "detail": "her2_status=Negative"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f08_ihc0_negative",
+      "passed": "true",
+      "detail": "her2_status"
+    },
+    {
+      "rule_id": "SCHEMA_VALUE_f08_ihc0_negative",
+      "passed": "true",
+      "detail": "her2_status=Negative"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f09_fish_amp",
+      "passed": "true",
+      "detail": "her2_status"
+    },
+    {
+      "rule_id": "SCHEMA_VALUE_f09_fish_amp",
+      "passed": "true",
+      "detail": "her2_status=Positive"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f10_fish_assay",
+      "passed": "true",
+      "detail": "her2_assay"
+    },
+    {
+      "rule_id": "SCHEMA_VALUE_f10_fish_assay",
+      "passed": "true",
+      "detail": "her2_assay=FISH"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f11_cna_gene",
+      "passed": "true",
+      "detail": "gene"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f12_cna_not_ihc",
+      "passed": "true",
+      "detail": "her2_status"
+    },
+    {
+      "rule_id": "SCHEMA_VALUE_f12_cna_not_ihc",
+      "passed": "true",
+      "detail": "her2_status=Unknown"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f13_er_pos",
+      "passed": "true",
+      "detail": "er_status"
+    },
+    {
+      "rule_id": "SCHEMA_VALUE_f13_er_pos",
+      "passed": "true",
+      "detail": "er_status=Positive"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f14_er_plus",
+      "passed": "true",
+      "detail": "er_status"
+    },
+    {
+      "rule_id": "SCHEMA_VALUE_f14_er_plus",
+      "passed": "true",
+      "detail": "er_status=Positive"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f15_er_cn",
+      "passed": "true",
+      "detail": "er_status"
+    },
+    {
+      "rule_id": "SCHEMA_VALUE_f15_er_cn",
+      "passed": "true",
+      "detail": "er_status=Positive"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f16_pr_neg",
+      "passed": "true",
+      "detail": "pr_status"
+    },
+    {
+      "rule_id": "SCHEMA_VALUE_f16_pr_neg",
+      "passed": "true",
+      "detail": "pr_status=Negative"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f17_gene_her2",
+      "passed": "true",
+      "detail": "gene"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f18_gene_pik3ca",
+      "passed": "true",
+      "detail": "gene"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f19_mut_pik3ca",
+      "passed": "true",
+      "detail": "mutation_status"
+    },
+    {
+      "rule_id": "SCHEMA_VALUE_f19_mut_pik3ca",
+      "passed": "true",
+      "detail": "mutation_status=Mutated"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f20_drug_herceptin",
+      "passed": "true",
+      "detail": "drug"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f21_pcr_yes",
+      "passed": "true",
+      "detail": "response"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f22_pcr_domain",
+      "passed": "true",
+      "detail": "response_domain"
+    },
+    {
+      "rule_id": "SCHEMA_VALUE_f22_pcr_domain",
+      "passed": "true",
+      "detail": "response_domain=clinical"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f23_rd",
+      "passed": "true",
+      "detail": "response"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f24_auc_domain",
+      "passed": "true",
+      "detail": "response_domain"
+    },
+    {
+      "rule_id": "SCHEMA_VALUE_f24_auc_domain",
+      "passed": "true",
+      "detail": "response_domain=preclinical_cell_line"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f25_auc_not_pcr",
+      "passed": "true",
+      "detail": "response"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f26_disease",
+      "passed": "true",
+      "detail": "disease"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f27_source",
+      "passed": "true",
+      "detail": "source_id"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f28_patient",
+      "passed": "true",
+      "detail": "patient_id"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f29_sample",
+      "passed": "true",
+      "detail": "sample_id"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f30_her2_pos_text",
+      "passed": "true",
+      "detail": "her2_status"
+    },
+    {
+      "rule_id": "SCHEMA_VALUE_f30_her2_pos_text",
+      "passed": "true",
+      "detail": "her2_status=Positive"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f31_unknown_er",
+      "passed": "true",
+      "detail": "er_status"
+    },
+    {
+      "rule_id": "SCHEMA_VALUE_f31_unknown_er",
+      "passed": "true",
+      "detail": "er_status=Unknown"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f32_civic_domain",
+      "passed": "true",
+      "detail": "response_domain"
+    },
+    {
+      "rule_id": "SCHEMA_VALUE_f32_civic_domain",
+      "passed": "true",
+      "detail": "response_domain=knowledge_evidence"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f33_stage",
+      "passed": "true",
+      "detail": "stage"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f34_treatment",
+      "passed": "true",
+      "detail": "treatment"
+    },
+    {
+      "rule_id": "SCHEMA_FIELD_f35_subtype_her2",
+      "passed": "true",
+      "detail": "subtype"
+    },
+    {
+      "rule_id": "INDEPENDENT_REVIEWER",
+      "passed": "true",
+      "detail": "development-draft-builder vs xsc"
+    }
+  ]
+}

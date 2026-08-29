@@ -1,0 +1,159 @@
+{
+  "method": "live_official_http_v1; curl GET fallback if Python httpx is blocked; CIViC via production GraphQL POST; extra official pages outside allowlist",
+  "allowlist": [
+    {
+      "kind": "allowlist",
+      "method": "live_official_http_v1",
+      "source_id": "geo:GSE76360",
+      "accession": "GSE76360",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE76360",
+      "status": "verified",
+      "http_status": 200,
+      "checked_url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE76360",
+      "response_sha256": "66418528c9106a05721860a66f0f768cc8d21ed1cf1d5cfa608378e5936e866d",
+      "reason": "Accession was found in a successful response from an allowlisted official host.",
+      "checked_at": "2026-08-29T09:19:25.869920+00:00"
+    },
+    {
+      "kind": "allowlist",
+      "method": "live_official_http_v1",
+      "source_id": "geo:GSE25066",
+      "accession": "GSE25066",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE25066",
+      "status": "verified",
+      "http_status": 200,
+      "checked_url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE25066",
+      "response_sha256": "f4d4077eb3b3527cc4861822dffcff6f67c5d1b2f96a1d2e6c0fb9d63d5c1b88",
+      "reason": "Accession was found in a successful response from an allowlisted official host.",
+      "checked_at": "2026-08-29T09:19:27.199860+00:00"
+    },
+    {
+      "kind": "allowlist",
+      "method": "live_official_http_v1",
+      "source_id": "geo:GSE96058",
+      "accession": "GSE96058",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE96058",
+      "status": "verified",
+      "http_status": 200,
+      "checked_url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE96058",
+      "response_sha256": "e4c82bd7e4c4fb6289699d59db8c4f022e07e0f9ca82809bae71c21afef93515",
+      "reason": "Accession was found in a successful response from an allowlisted official host.",
+      "checked_at": "2026-08-29T09:19:28.213173+00:00"
+    },
+    {
+      "kind": "allowlist",
+      "method": "live_official_http_v1",
+      "source_id": "cbioportal:brca_metabric",
+      "accession": "brca_metabric",
+      "url": "https://www.cbioportal.org/api/studies/brca_metabric",
+      "status": "verified",
+      "http_status": 200,
+      "checked_url": "https://www.cbioportal.org/api/studies/brca_metabric",
+      "response_sha256": "c8b6de97e345f605c6d3db3cbcb035782bdc91ca2772a5012b914ad0d2afef78",
+      "reason": "Accession was found in a successful response from an allowlisted official host.",
+      "checked_at": "2026-08-29T09:19:29.517128+00:00"
+    },
+    {
+      "kind": "allowlist",
+      "method": "live_official_http_v1",
+      "source_id": "cbioportal:breast_alpelisib_2020",
+      "accession": "breast_alpelisib_2020",
+      "url": "https://www.cbioportal.org/api/studies/breast_alpelisib_2020",
+      "status": "verified",
+      "http_status": 200,
+      "checked_url": "https://www.cbioportal.org/api/studies/breast_alpelisib_2020",
+      "response_sha256": "39d2316efe46aae6384dd300779b069a7382821b90c87bd0cff7499237ed22f0",
+      "reason": "Accession was found in a successful response from an allowlisted official host.",
+      "checked_at": "2026-08-29T09:19:30.573899+00:00"
+    },
+    {
+      "kind": "allowlist",
+      "method": "live_official_http_v1",
+      "source_id": "cbioportal:brca_mskcc_2019",
+      "accession": "brca_mskcc_2019",
+      "url": "https://www.cbioportal.org/api/studies/brca_mskcc_2019",
+      "status": "verified",
+      "http_status": 200,
+      "checked_url": "https://www.cbioportal.org/api/studies/brca_mskcc_2019",
+      "response_sha256": "904050d0b25ea369d4323f72eceb1f927cac4c539b79806e52c62ec7ddc53225",
+      "reason": "Accession was found in a successful response from an allowlisted official host.",
+      "checked_at": "2026-08-29T09:19:31.263082+00:00"
+    },
+    {
+      "kind": "allowlist",
+      "method": "live_official_http_v1",
+      "source_id": "gdc:TCGA-BRCA",
+      "accession": "TCGA-BRCA",
+      "url": "https://api.gdc.cancer.gov/projects/TCGA-BRCA",
+      "status": "verified",
+      "http_status": 200,
+      "checked_url": "https://api.gdc.cancer.gov/projects/TCGA-BRCA",
+      "response_sha256": "91147b70ed98c163c2a2d300bf3f42b33178b1b4838f6b962ac5de27aa5ef6b4",
+      "reason": "Accession was found in a successful response from an allowlisted official host.",
+      "checked_at": "2026-08-29T09:19:31.603588+00:00"
+    },
+    {
+      "kind": "allowlist",
+      "method": "curl_get_official_fallback",
+      "source_id": "aact:NCT01042379",
+      "accession": "NCT01042379",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT01042379",
+      "status": "verified",
+      "http_status": 200,
+      "checked_url": "https://clinicaltrials.gov/api/v2/studies/NCT01042379",
+      "response_sha256": "70a5be7ebd55678b482b283c54e26820657ca0a5a6abddf489893aebd422a86b",
+      "reason": "Official marker found via curl GET after Python httpx was blocked.",
+      "checked_at": "2026-08-29T09:19:35.421923+00:00"
+    }
+  ],
+  "civic_graphql": {
+    "kind": "civic_graphql_post_v2",
+    "source_id": "civic:evidence-7316",
+    "accession": "7316",
+    "url": "https://civicdb.org/api/graphql",
+    "status": "verified",
+    "http_status": 200,
+    "checked_url": "https://civicdb.org/api/graphql",
+    "response_sha256": "61f066daacc43049f84c2b9941d425f09a9e27df2565e482c24cc53092a33026",
+    "reason": "CIViC v2 GraphQL returned ACCEPTED evidence 7316 on civicdb.org.",
+    "checked_at": "2026-08-29T09:19:36.771188+00:00"
+  },
+  "extra_official_pages": [
+    {
+      "kind": "extra_official_page",
+      "method": "httpx_get",
+      "source_id": "depmap:portal",
+      "dataset_id": "DepMap",
+      "url": "https://depmap.org/portal/",
+      "status": "verified",
+      "http_status": 200,
+      "checked_url": "https://depmap.org/portal/",
+      "response_sha256": "186bdd233e7a34541c4c301cc00247e4548c453392d6b4cb79b8ffd8f274e185",
+      "reason": "DepMap 不在 goldset_rules allowlist；额外核验 Broad 官方门户。"
+    },
+    {
+      "kind": "extra_official_page",
+      "method": "httpx_get",
+      "source_id": "aact:home",
+      "dataset_id": "AACT",
+      "url": "https://aact.ctti-clinicaltrials.org/",
+      "status": "verified",
+      "http_status": 200,
+      "checked_url": "https://aact.ctti-clinicaltrials.org/",
+      "response_sha256": "8d4892afb0d5b3ed771b56c84864154694215c935e300e70cce589c1ea7924bd",
+      "reason": "AACT 是 ClinicalTrials.gov 公开聚合层；具体 NCT 已走 allowlist。"
+    },
+    {
+      "kind": "extra_official_page",
+      "method": "httpx_get",
+      "source_id": "civic:home",
+      "dataset_id": "CIViC",
+      "url": "https://civicdb.org/",
+      "status": "verified",
+      "http_status": 200,
+      "checked_url": "https://civicdb.org/",
+      "response_sha256": "0bc8d97bb9c0e295d977727527b82a92c72a1f6d9b2214ea341c7cfdfd1e09c9",
+      "reason": "Gold 行 dataset_id=CIViC 指向知识库而非单个 EID；具体证据走 GraphQL。"
+    }
+  ]
+}

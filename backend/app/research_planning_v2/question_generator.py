@@ -20,7 +20,10 @@ class QuestionGeneratorV2:
         extraction: StructuredExtractionV2 | None = None,
     ) -> tuple[list[QuestionCandidate], str]:
         candidates = self.formulation.formulate(topic, papers)
-        source = "EVIDENCE_AGENT" if papers and any(item.literature_evidence for item in candidates) else "GENERIC_FALLBACK"
         if extraction and extraction.research_type != "association":
             candidates = [item.model_copy(update={"research_type": extraction.research_type}) for item in candidates]
+        if any(item.generation_source == "EVIDENCE_AGENT" for item in candidates):
+            source = "EVIDENCE_AGENT"
+        else:
+            source = "GENERIC_FALLBACK"
         return candidates, source

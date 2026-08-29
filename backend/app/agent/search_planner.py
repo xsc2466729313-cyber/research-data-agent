@@ -305,11 +305,97 @@ class FieldDrivenSearchPlanner:
                 {"query": " ".join(["Breast Cancer", *genes, *terms[:8]]).strip(), "max_records": 20},
             )
         )
+        if any(token in spec.research_goal.casefold() for token in ("细胞系", "auc", "ic50", "depmap", "药敏")):
+            aux_early.append(
+                (
+                    "search_depmap",
+                    {
+                        "query": " ".join(["Breast Cancer cell line", *spec.drugs[:2], "AUC IC50"]).strip(),
+                        "drug": spec.drugs[0] if spec.drugs else None,
+                        "max_records": 50,
+                    },
+                )
+            )
+        if any(token in spec.research_goal for token in ("试验", "NCT", "登记", "招募")):
+            aux_early.append(
+                (
+                    "search_trials",
+                    {
+                        "condition": "Breast Neoplasms",
+                        "nct_id": "NCT01042379",
+                        "query_terms": "I-SPY2 neoadjuvant",
+                        "max_trials": 5,
+                    },
+                )
+            )
+        if "evidence" in (spec.required_data_types or []) or any(
+            token in spec.research_goal for token in ("文献", "论文", "图注", "表格", "PMC")
+        ):
+            aux_late.append(
+                (
+                    "extract_paper_assets",
+                    {"query": " ".join(["Breast Cancer", *genes, *terms[:6], "table"]).strip(), "max_records": 5},
+                )
+            )
         lead = 1 if cohort_calls and cohort_calls[0][0] == "search_geo" else min(2, len(cohort_calls))
         candidates = cohort_calls[:lead] + discovery + aux_early + cohort_calls[lead:] + aux_late
+        focus = [str(item).strip() for item in getattr(request, "focus_accessions", []) or [] if str(item).strip()]
+        focus_tools = {str(item).casefold() for item in getattr(request, "focus_tools", []) or []}
+        forced: list[tuple[str, dict[str, Any]]] = []
+        for accession in focus:
+            upper = accession.upper()
+            if upper.startswith("GSE"):
+                forced.append(("search_geo", {"accession": upper, "max_files": 5}))
+            elif upper.startswith("NCT"):
+                forced.append(
+                    (
+                        "search_trials",
+                        {
+                            "condition": spec.disease or "Breast Neoplasms",
+                            "nct_id": upper,
+                            "query_terms": " ".join(spec.drugs + spec.genes),
+                            "max_trials": 10,
+                        },
+                    )
+                )
+            elif accession.casefold() in {"depmap", "ccle"}:
+                forced.append(("search_depmap", {"query": f"{spec.disease} cell line AUC IC50", "max_records": 80}))
+            else:
+                forced.append(("search_cbioportal", {"study_id": accession, "gene_symbols": genes or ["ERBB2"], "max_records": getattr(request, "max_records", 200)}))
+        if forced:
+            candidates = forced + candidates
         preferred = {value.casefold() for value in getattr(request, "preferred_sources", []) or []}
+        preferred |= focus_tools
         if preferred:
-            candidates.sort(key=lambda item: 0 if any(token in item[0].casefold() for token in preferred) else 1)
+            source_to_tool = {
+                "ncbi geo": "search_geo",
+                "geo": "search_geo",
+                "search_geo": "search_geo",
+                "clinicaltrials.gov": "search_trials",
+                "search_trials": "search_trials",
+                "aact": "search_trials",
+                "depmap": "search_depmap",
+                "search_depmap": "search_depmap",
+                "civic": "search_civic",
+                "cbioportal": "search_cbioportal",
+                "gdc / tcga": "search_gdc",
+                "gdc": "search_gdc",
+            }
+
+            def _preferred_rank(item: tuple[str, dict[str, Any]]) -> int:
+                name, args = item
+                blob = f"{name} {args}".casefold()
+                for token in preferred:
+                    mapped = source_to_tool.get(token, token)
+                    if mapped == name or token in blob or token in name.casefold():
+                        return 0
+                    if token.startswith("gse") and str(args.get("accession") or "").casefold() == token:
+                        return 0
+                    if token.startswith("nct") and str(args.get("nct_id") or "").casefold() == token:
+                        return 0
+                return 1
+
+            candidates.sort(key=_preferred_rank)
         return [
             {"id": f"rule-call-{index + 1}", "name": name, "arguments": args}
             for index, (name, args) in enumerate(candidates)

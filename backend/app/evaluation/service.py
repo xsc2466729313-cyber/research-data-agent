@@ -68,11 +68,24 @@ class EvaluationService:
         else:
             assert request.gold_set is not None
             assert request.observations is not None
-            self._validate_gold_set(request.gold_set)
+            self._validate_gold_set(
+                request.gold_set,
+                allow_reviewed_unfrozen=request.allow_reviewed_unfrozen,
+            )
             counts = self._derive_counts(request.gold_set, request.observations)
             metrics = self._calculate_metrics(counts)
             status = self._overall_status(metrics)
             safety = self._assess_safety(request, metrics, counts, status)
+            if request.allow_reviewed_unfrozen:
+                notice = (
+                    "本分为 xsc 已审核写入的 official_candidate 正式卷实测，"
+                    "不是 sealed frozen_test；不得把 development 分册成绩填入本栏。"
+                )
+            else:
+                notice = (
+                    "指标仅代表该冻结 Gold Set 与本次系统观察的评测结果；"
+                    "不得将测试 fixture 或未审核数据冒充真实系统成绩。"
+                )
             result = EvaluationResult(
                 evaluation_id=request.evaluation_id,
                 evaluation_status=status,
@@ -89,10 +102,7 @@ class EvaluationService:
                 safety=safety,
                 input_sha256=input_sha256,
                 evaluated_at=datetime.now(timezone.utc),
-                notice=(
-                    "指标仅代表该冻结 Gold Set 与本次系统观察的评测结果；"
-                    "不得将测试 fixture 或未审核数据冒充真实系统成绩。"
-                ),
+                notice=notice,
             )
         artifacts = self.writer.write(result)
         return result.model_copy(update={"artifacts": artifacts})
@@ -151,7 +161,12 @@ class EvaluationService:
             ),
         )
 
-    def _validate_gold_set(self, bundle: GoldSetBundle) -> None:
+    def _validate_gold_set(
+        self,
+        bundle: GoldSetBundle,
+        *,
+        allow_reviewed_unfrozen: bool = False,
+    ) -> None:
         missing_sets = [
             name
             for name, rows in (
@@ -168,16 +183,25 @@ class EvaluationService:
                 details={"empty_sets": missing_sets},
             )
         manifest = bundle.manifest
-        missing_validation = [
-            name
-            for name, complete in (
-                ("frozen", manifest.frozen),
-                ("deterministic_rules_verified", manifest.deterministic_rules_verified),
-                ("source_references_verified", manifest.source_references_verified),
-                ("high_risk_review_complete", manifest.high_risk_review_complete),
-            )
-            if not complete
-        ]
+        if allow_reviewed_unfrozen:
+            missing_validation = [
+                name
+                for name, complete in (
+                    ("high_risk_review_complete", manifest.high_risk_review_complete),
+                )
+                if not complete
+            ]
+        else:
+            missing_validation = [
+                name
+                for name, complete in (
+                    ("frozen", manifest.frozen),
+                    ("deterministic_rules_verified", manifest.deterministic_rules_verified),
+                    ("source_references_verified", manifest.source_references_verified),
+                    ("high_risk_review_complete", manifest.high_risk_review_complete),
+                )
+                if not complete
+            ]
         if missing_validation:
             raise EvaluationError(
                 EvaluationErrorCode.INVALID_GOLD_SET,
@@ -446,6 +470,8 @@ class EvaluationService:
             )
         if status != EvaluationStatus.EVALUATED:
             blockers.append("核心指标未全部完成评测")
+        if request.allow_reviewed_unfrozen:
+            blockers.append("尚未 sealed frozen_test，禁止当作冻结赛题自动发布")
 
         if redlines:
             gate = SafetyGate.FAIL

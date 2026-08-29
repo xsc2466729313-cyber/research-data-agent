@@ -1,0 +1,403 @@
+{
+  "question_id": "q11_her2_ihc_vs_erbb2_cna",
+  "task_id": "agent-d5a380737332",
+  "used_qwen": true,
+  "used_model": true,
+  "agent_mode": "千问科研数据智能体",
+  "model_name": "qwen3.8-max",
+  "status": "完成",
+  "ids": [
+    "brca_metabric",
+    "brca_tcga_pan_can_atlas_2018",
+    "TCGA-BRCA",
+    "CIViC",
+    "CIViC-BREAST-CANCER",
+    "CIViC:EID11249",
+    "40810081",
+    "40913387",
+    "41757801",
+    "41998762",
+    "41786905",
+    "42125714",
+    "42232721",
+    "41675290",
+    "PMC13296546",
+    "42123709",
+    "cbioportal:brca_metabric:study_metadata:0db8e459111b",
+    "cbioportal:brca_metabric:molecular_profiles:bbcf05920051",
+    "cbioportal:brca_metabric:sample_lists:3b1e49268d04",
+    "cbioportal:brca_metabric:genes:03ca42b62e3b",
+    "cbioportal:brca_metabric:mutations:85d82dbd8009",
+    "cbioportal:brca_metabric:discrete_cna:b27faa529cf9",
+    "cbioportal:brca_metabric:clinical_sample:606af9e2290b",
+    "cbioportal:brca_metabric:clinical_patient:71386ec86350",
+    "cbioportal:brca_tcga_pan_can_atlas_2018:study_metadata:4db267861884",
+    "cbioportal:brca_tcga_pan_can_atlas_2018:molecular_profiles:e4861fe53ad5",
+    "cbioportal:brca_tcga_pan_can_atlas_2018:sample_lists:c0486a3a6764",
+    "cbioportal:brca_tcga_pan_can_atlas_2018:genes:03ca42b62e3b",
+    "cbioportal:brca_tcga_pan_can_atlas_2018:mutations:c4fddefa90cb",
+    "cbioportal:brca_tcga_pan_can_atlas_2018:discrete_cna:2b1dcbccc0ae",
+    "cbioportal:brca_tcga_pan_can_atlas_2018:clinical_sample:05bcdb2207a0",
+    "cbioportal:brca_tcga_pan_can_atlas_2018:clinical_patient:2bd93e0233fe",
+    "gdc:f40c0625-045a-4df8-a17e-ebbdc634567b",
+    "gdc:ae4e23d8-78a4-474f-9ccb-4242fff41438",
+    "gdc:2fbe34fd-cea9-4d4e-90f3-2f7afc54c5c6",
+    "gdc:b9fef882-4ff3-439e-b997-0b572984f3c0",
+    "gdc:044e5f26-5496-44d1-9191-e69448047a16",
+    "EID11249",
+    "civic:EID11249",
+    "EID1113",
+    "civic:EID1113",
+    "EID1122",
+    "civic:EID1122",
+    "EID528",
+    "civic:EID528",
+    "EID529",
+    "civic:EID529",
+    "europepmc:PMC13296546",
+    "PMID:42123709",
+    "europepmc:42123709",
+    "PMID:41998762",
+    "europepmc:41998762",
+    "PMID:41786905",
+    "europepmc:41786905",
+    "PMID:41757801",
+    "europepmc:41757801",
+    "PMID:40913387",
+    "europepmc:40913387",
+    "PMID:42125714",
+    "europepmc:42125714",
+    "PMID:42232721",
+    "europepmc:42232721",
+    "PMID:40810081",
+    "europepmc:40810081",
+    "PMID:41675290",
+    "europepmc:41675290"
+  ],
+  "tools": [
+    {
+      "tool_name": "search_cbioportal",
+      "status": "完成",
+      "arguments": {
+        "study_id": "brca_metabric",
+        "gene_symbols": [
+          "ERBB2"
+        ],
+        "max_records": 4000
+      },
+      "record_count": 10264
+    },
+    {
+      "tool_name": "search_cbioportal",
+      "status": "完成",
+      "arguments": {
+        "study_id": "brca_tcga_pan_can_atlas_2018",
+        "gene_symbols": [
+          "ERBB2"
+        ],
+        "max_records": 4000
+      },
+      "record_count": 9134
+    },
+    {
+      "tool_name": "search_gdc",
+      "status": "完成",
+      "arguments": {
+        "project_id": "TCGA-BRCA",
+        "data_types": [
+          "Clinical Supplement",
+          "Masked Somatic Mutation",
+          "Gene Expression Quantification"
+        ],
+        "max_files": 5
+      },
+      "record_count": 5
+    },
+    {
+      "tool_name": "search_geo_catalog",
+      "status": "完成",
+      "arguments": {
+        "query": "breast cancer HER2 IHC ERBB2 FISH copy number",
+        "max_records": 10
+      },
+      "record_count": 0
+    },
+    {
+      "tool_name": "search_civic",
+      "status": "完成",
+      "arguments": {
+        "disease_name": "Breast Cancer",
+        "molecular_profile_name": "ERBB2",
+        "max_items": 5
+      },
+      "record_count": 23
+    },
+    {
+      "tool_name": "search_europe_pmc",
+      "status": "完成",
+      "arguments": {
+        "query": "HER2 IHC score ERBB2 FISH ratio breast cancer concordance",
+        "max_records": 10
+      },
+      "record_count": 10
+    }
+  ],
+  "source_items": [
+    {
+      "source_id": "cbioportal:brca_metabric:study_metadata:0db8e459111b",
+      "accession": "brca_metabric",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:molecular_profiles:bbcf05920051",
+      "accession": "brca_metabric",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:sample_lists:3b1e49268d04",
+      "accession": "brca_metabric",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:genes:03ca42b62e3b",
+      "accession": "brca_metabric",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:mutations:85d82dbd8009",
+      "accession": "brca_metabric",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:discrete_cna:b27faa529cf9",
+      "accession": "brca_metabric",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:clinical_sample:606af9e2290b",
+      "accession": "brca_metabric",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:clinical_patient:71386ec86350",
+      "accession": "brca_metabric",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga_pan_can_atlas_2018:study_metadata:4db267861884",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga_pan_can_atlas_2018:molecular_profiles:e4861fe53ad5",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga_pan_can_atlas_2018:sample_lists:c0486a3a6764",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga_pan_can_atlas_2018:genes:03ca42b62e3b",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga_pan_can_atlas_2018:mutations:c4fddefa90cb",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga_pan_can_atlas_2018:discrete_cna:2b1dcbccc0ae",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga_pan_can_atlas_2018:clinical_sample:05bcdb2207a0",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga_pan_can_atlas_2018:clinical_patient:2bd93e0233fe",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "status": "cached"
+    },
+    {
+      "source_id": "gdc:f40c0625-045a-4df8-a17e-ebbdc634567b",
+      "accession": "TCGA-BRCA",
+      "status": "discovered"
+    },
+    {
+      "source_id": "gdc:ae4e23d8-78a4-474f-9ccb-4242fff41438",
+      "accession": "TCGA-BRCA",
+      "status": "discovered"
+    },
+    {
+      "source_id": "gdc:2fbe34fd-cea9-4d4e-90f3-2f7afc54c5c6",
+      "accession": "TCGA-BRCA",
+      "status": "discovered"
+    },
+    {
+      "source_id": "gdc:b9fef882-4ff3-439e-b997-0b572984f3c0",
+      "accession": "TCGA-BRCA",
+      "status": "discovered"
+    },
+    {
+      "source_id": "gdc:044e5f26-5496-44d1-9191-e69448047a16",
+      "accession": "TCGA-BRCA",
+      "status": "discovered"
+    },
+    {
+      "source_id": "civic:EID11249",
+      "accession": "EID11249",
+      "status": "cached"
+    },
+    {
+      "source_id": "civic:EID1113",
+      "accession": "EID1113",
+      "status": "cached"
+    },
+    {
+      "source_id": "civic:EID1122",
+      "accession": "EID1122",
+      "status": "cached"
+    },
+    {
+      "source_id": "civic:EID528",
+      "accession": "EID528",
+      "status": "cached"
+    },
+    {
+      "source_id": "civic:EID529",
+      "accession": "EID529",
+      "status": "cached"
+    },
+    {
+      "source_id": "europepmc:PMC13296546",
+      "accession": "PMC13296546",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:42123709",
+      "accession": "PMID:42123709",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:41998762",
+      "accession": "PMID:41998762",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:41786905",
+      "accession": "PMID:41786905",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:41757801",
+      "accession": "PMID:41757801",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:40913387",
+      "accession": "PMID:40913387",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:42125714",
+      "accession": "PMID:42125714",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:42232721",
+      "accession": "PMID:42232721",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:40810081",
+      "accession": "PMID:40810081",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:41675290",
+      "accession": "PMID:41675290",
+      "status": "retrieved"
+    }
+  ],
+  "candidate_sources": [
+    {
+      "dataset_id": "brca_metabric",
+      "accession": "brca_metabric",
+      "source_database": "cBioPortal"
+    },
+    {
+      "dataset_id": "brca_tcga_pan_can_atlas_2018",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "source_database": "cBioPortal"
+    },
+    {
+      "dataset_id": "TCGA-BRCA",
+      "accession": "TCGA-BRCA",
+      "source_database": "GDC"
+    },
+    {
+      "dataset_id": "CIViC-BREAST-CANCER",
+      "accession": "CIViC:EID11249",
+      "source_database": "CIViC"
+    },
+    {
+      "dataset_id": "40810081",
+      "accession": "40810081",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "40913387",
+      "accession": "40913387",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "41757801",
+      "accession": "41757801",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "41998762",
+      "accession": "41998762",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "41786905",
+      "accession": "41786905",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "42125714",
+      "accession": "42125714",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "42232721",
+      "accession": "42232721",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "41675290",
+      "accession": "41675290",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "PMC13296546",
+      "accession": "PMC13296546",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "42123709",
+      "accession": "42123709",
+      "source_database": "Europe PMC"
+    }
+  ],
+  "row_count": 342,
+  "analysis_ready": false,
+  "notice": "主结果来自真实公开数据库工具；仅规划模式不会生成或冒充患者数据。 千问负责科研问题结构化、工具选择和数据层总结；医学安全规则与发布门控不由模型覆盖。",
+  "max_collection_rounds": 4
+}

@@ -34,10 +34,15 @@ def test_bundled_goldset_templates_have_exact_headers_and_no_fake_scores() -> No
     assert inspection.status.value == "NOT_EVALUATED"
     assert inspection.required_headers == REQUIRED_HEADERS
     assert inspection.row_counts == {
-        "retrieval_gold.csv": 0,
-        "field_gold.csv": 0,
-        "error_gold.csv": 0,
+        "retrieval_gold.csv": 50,
+        "field_gold.csv": 26,
+        "error_gold.csv": 18,
     }
+    templates = ROOT / "goldset" / "templates"
+    for filename in REQUIRED_HEADERS:
+        text = (templates / filename).read_text(encoding="utf-8-sig")
+        assert "66.94" not in text
+        assert "SDTI" not in text
 
 
 def test_goldset_loader_parses_template_compatible_csv_rows(tmp_path: Path) -> None:

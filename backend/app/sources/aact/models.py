@@ -27,10 +27,21 @@ class TrialResultsStatus(str, Enum):
 class AACTAdapterOptions(ApiModel):
     condition: str = Field(default="Breast Cancer", min_length=1, max_length=256)
     query_terms: str | None = Field(default=None, min_length=1, max_length=1000)
+    nct_id: str | None = Field(default=None, min_length=11, max_length=11)
     max_trials: int = Field(default=5, ge=1, le=25)
     max_rows_per_table: int = Field(default=10_000, ge=1, le=50_000)
     page_token: str | None = Field(default=None, min_length=1, max_length=4096)
     refresh_cache: bool = False
+
+    @field_validator("nct_id")
+    @classmethod
+    def validate_nct_id(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        text = value.strip().upper()
+        if not text.startswith("NCT") or not text[3:].isdigit() or len(text) != 11:
+            raise ValueError("nct_id must look like NCT12345678")
+        return text
 
     @field_validator("condition", "query_terms", "page_token", mode="before")
     @classmethod

@@ -63,6 +63,8 @@ class AACTClinicalTrialsAdapter:
     def run(self, request: AACTAdapterRequest) -> AACTAdapterResult:
         self._validate_input(request)
         options = request.options
+        if options.nct_id:
+            return self._run_nct(request, options.nct_id)
         parameters: dict[str, Any] = {
             "query.cond": options.condition,
             "pageSize": options.max_trials,
@@ -511,6 +513,71 @@ class AACTClinicalTrialsAdapter:
             row_count=len(visible_rows),
             upstream_row_count=len(rows),
             truncated=len(rows) > len(visible_rows),
+        )
+
+    def _run_nct(self, request: AACTAdapterRequest, nct_id: str) -> AACTAdapterResult:
+        options = request.options
+        url = self.STUDY_API_URL.format(nct_id=nct_id)
+        try:
+            response = self.client.get(url)
+        except httpx.TimeoutException as exc:
+            raise AACTAdapterError(
+                AACTErrorCode.TIMEOUT,
+                f"ClinicalTrials.gov study {nct_id} timed out.",
+                retryable=True,
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise AACTAdapterError(
+                AACTErrorCode.NETWORK_ERROR,
+                f"ClinicalTrials.gov study {nct_id} request failed.",
+                retryable=True,
+            ) from exc
+        if response.status_code >= 400:
+            raise AACTAdapterError(
+                AACTErrorCode.REMOTE_ERROR,
+                f"ClinicalTrials.gov study {nct_id} returned HTTP {response.status_code}.",
+                upstream_status=response.status_code,
+            )
+        try:
+            raw_study = response.json()
+        except ValueError as exc:
+            raise AACTAdapterError(
+                AACTErrorCode.INVALID_RESPONSE,
+                f"ClinicalTrials.gov study {nct_id} is not JSON.",
+            ) from exc
+        if not isinstance(raw_study, dict) or "protocolSection" not in raw_study:
+            raise AACTAdapterError(
+                AACTErrorCode.INVALID_RESPONSE,
+                f"ClinicalTrials.gov study {nct_id} has no protocolSection.",
+            )
+        trace = AACTRequestTrace(method="GET", url=url, parameters={"nctId": nct_id})
+        trial = self._build_trial(
+            task_id=request.search_plan.task_id,
+            raw_study=raw_study,
+            cache_hit=False,
+            refresh=options.refresh_cache,
+        )
+        table_rows: dict[AACTTableName, list[dict[str, Any]]] = {name: [] for name in AACTTableName}
+        self._append_study_rows(raw_study=raw_study, trial=trial, table_rows=table_rows)
+        tables = [
+            self._table(table_name=table_name, rows=table_rows[table_name], max_rows=options.max_rows_per_table)
+            for table_name in AACTTableName
+        ]
+        return AACTAdapterResult(
+            task_id=request.search_plan.task_id,
+            condition=options.condition,
+            total_count=1,
+            next_page_token=None,
+            search_request=trace,
+            trials=[trial],
+            tables=tables,
+            source_items=[trial.source_item],
+            cache_hit=False,
+            queried_at=datetime.now(timezone.utc),
+            notice=(
+                f"已按官方 NCT 编号 {nct_id} 读取 ClinicalTrials.gov v2 研究记录。"
+                "results_status=not_reported 仅表示未发现结果区。"
+            ),
         )
 
     def _write_trial_payload(

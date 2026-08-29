@@ -261,6 +261,38 @@ class QwenClient:
                 },
             },
         },
+        {
+            "type": "function",
+            "function": {
+                "name": "search_depmap",
+                "description": "检索 DepMap 乳腺癌细胞系药敏（AUC/IC50）。结果的 response_domain 必须是 preclinical_cell_line，不能当作患者疗效。",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "例如 breast cancer cell line lapatinib AUC"},
+                        "drug": {"type": "string"},
+                        "max_records": {"type": "integer", "minimum": 1, "maximum": 200},
+                    },
+                    "required": ["query"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "extract_paper_assets",
+                "description": "从 Europe PMC 开放全文 XML 提取表格单元格与图注。不从图像素读数。",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string"},
+                        "pmcid": {"type": "string", "description": "例如 PMC1234567"},
+                        "max_records": {"type": "integer", "minimum": 1, "maximum": 20},
+                    },
+                    "required": ["query"],
+                },
+            },
+        },
     ]
 
     def __init__(
@@ -345,17 +377,24 @@ class QwenClient:
         *,
         max_sources: int,
         preferred_sources: list[str],
+        focus_accessions: list[str] | None = None,
+        focus_tools: list[str] | None = None,
     ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+        focus = [str(item).strip() for item in (focus_accessions or []) if str(item).strip()]
         instruction = {
             "任务": "为科研问题选择真实数据工具",
             "research_spec": spec.model_dump(mode="json"),
             "最多检索入口数": max_sources,
             "用户指定来源": preferred_sources,
+            "必须优先拉取的队列": focus,
+            "必须优先调用的工具": list(focus_tools or []),
             "选择原则": [
-                "需要患者级科研宽表时优先 cBioPortal",
+                "若问题要病理完全缓解 pCR / 新辅助治疗响应，必须调用 search_geo，accession 用 GSE25066、GSE76360 或 GSE50948；禁止只用 METABRIC/TCGA 生存队列交差",
+                "METABRIC 的 OS/RFS 不能当作患者 pCR；细胞系 AUC/IC50 不能当作患者 pCR",
+                "缺 HER2 临床状态时，从 GEO 样本特征或 cBioPortal HER2_STATUS/HER2_IHC 对齐 her2_status；IHC 2+ 不得写成 Positive",
+                "需要患者级科研宽表且本题要生存结局时再优先 cBioPortal",
                 "不知道具体 GSE 时先调用 search_geo_catalog 按关键词检索 GEO 目录",
                 "文献里提到的 GSE/NCT 再用 search_geo 或 search_trials 拉取",
-                "治疗响应表达队列可选择 GEO，且必须使用真实 accession",
                 "TCGA 临床或组学文件选择 GDC",
                 "临床试验关系选择 ClinicalTrials.gov",
                 "知识证据选择 CIViC，不能替代患者队列",
@@ -412,10 +451,15 @@ class QwenClient:
             "本轮最多调用": max_calls,
             "选择原则": [
                 "像独立研究员一样换查询词、换数据库、换研究入口，不要重复已经尝试过的完全相同调用",
+                "缺 pCR / 治疗响应、或当前是生存队列时，必须 search_geo：GSE25066、GSE76360、GSE50948，禁止再用 METABRIC 生存表空转",
+                "缺 HER2 状态时继续拉带 her2_status / HER2 IHC 的临床或 GEO 特征，IHC 2+ 不得写成 Positive",
                 "缺患者主表或缺治疗响应时，先 search_geo_catalog 再 search_geo",
                 "文献摘要里出现的 GSE 必须再调用 search_geo；出现的 NCT 可调用 search_trials",
                 "缺同队列分子暴露时继续搜索同时含突变和响应的独立研究，禁止建议把不同研究的患者拼成一行",
                 "不得虚构 accession、study_id 或 PMID",
+                "细胞系/AUC/IC50/药敏题调用 search_depmap，response_domain 只能是 preclinical_cell_line，不得当患者 pCR",
+                "试验或 NCT 题调用 search_trials，已知 NCT01042379 时应带 nct_id",
+                "证据/论文表格题调用 extract_paper_assets，只抽 HTML/JATS 表和图注，禁止从图像素读数",
                 "如果没有尚未尝试且能缩小缺口的检索，返回空 tool_calls",
             ],
         }

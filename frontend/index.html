@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="千问驱动的乳腺癌科研数据智能体：从科研问题、真实数据库工具调用到可阅读、可追溯的科研数据集。" />
     <title>千问乳腺癌科研数据智能体</title>
-    <link rel="stylesheet" href="/styles.css?v=20260829-user-ui-3" />
+    <link rel="stylesheet" href="/styles.css?v=20260829-gap-repair-1" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">跳至正文</a>
@@ -48,9 +48,9 @@
             <h1>告诉我你想研究的方向</h1>
             <p>输入研究方向后，系统查找真实来源、生成研究方案，并整理可追溯的数据结果。</p>
             <div class="planner-prompt-grid" aria-label="研究方向示例">
-              <button type="button" data-planner-example="哪些因素会影响乳腺癌新辅助治疗的疗效？"><strong>新辅助治疗疗效</strong><span>哪些因素会影响乳腺癌新辅助治疗的疗效？</span><small>点击后自动完成研究规划</small></button>
-              <button type="button" data-planner-example="哪些生物标志物可以预测乳腺癌患者的治疗效果？"><strong>生物标志物</strong><span>哪些生物标志物可以预测乳腺癌患者的治疗效果？</span><small>点击后自动完成研究规划</small></button>
-              <button type="button" data-planner-example="不同乳腺癌分子亚型的治疗响应是否存在差异？"><strong>分子亚型差异</strong><span>不同乳腺癌分子亚型的治疗响应是否存在差异？</span><small>点击后自动完成研究规划</small></button>
+              <button type="button" data-planner-example="哪些因素会影响乳腺癌新辅助治疗的疗效？"><strong>新辅助治疗疗效</strong><span>哪些因素会影响乳腺癌新辅助治疗的疗效？</span><small>输入后会自动推荐问题并开始找数据</small></button>
+              <button type="button" data-planner-example="哪些生物标志物可以预测乳腺癌患者的治疗效果？"><strong>生物标志物</strong><span>哪些生物标志物可以预测乳腺癌患者的治疗效果？</span><small>输入后会自动推荐问题并开始找数据</small></button>
+              <button type="button" data-planner-example="不同乳腺癌分子亚型的治疗响应是否存在差异？"><strong>分子亚型差异</strong><span>不同乳腺癌分子亚型的治疗响应是否存在差异？</span><small>输入后会自动推荐问题并开始找数据</small></button>
             </div>
           </section>
 
@@ -66,6 +66,7 @@
             <div class="planner-result-heading"><div><span>一条龙研究规划</span><h2 id="planner-result-title">正在为你整理研究方案</h2></div><p id="planner-result-summary"></p></div>
             <div id="planner-flow-summary" class="planner-flow-summary"></div>
             <div id="planner-question-list" class="planner-question-list"></div>
+            <div id="planner-contract-card" class="planner-contract-card" hidden></div>
           </section>
         </div>
 
@@ -85,15 +86,19 @@
           <button class="is-active" type="button" data-planner-tab="evidence">研究依据</button>
           <button type="button" data-planner-tab="contract">研究方案</button>
           <button type="button" data-planner-tab="sources">数据准备</button>
+          <button type="button" data-planner-tab="coverage">覆盖矩阵</button>
         </div>
         <div id="planner-panel-evidence" class="planner-right-panel is-active" data-planner-panel="evidence">
           <div class="planner-empty"><span>≡</span><strong>还没有研究依据</strong><p>开始研究后，相关论文、研究方法和公开数据编号会显示在这里。</p></div>
         </div>
         <div id="planner-panel-contract" class="planner-right-panel" data-planner-panel="contract">
-          <div class="planner-empty"><span>◈</span><strong>尚未生成 Research Blueprint</strong><p>选择候选问题后，系统会列出 Required、Recommended 和 Optional 字段。</p></div>
+          <div class="planner-empty"><span>◈</span><strong>还没有研究方案</strong><p>系统会自动明确研究对象、观察指标和需要收集的字段。</p></div>
         </div>
         <div id="planner-panel-sources" class="planner-right-panel" data-planner-panel="sources">
-          <div class="planner-empty"><span>◇</span><strong>尚未生成 Source Plan</strong><p>数据源规划会展示单 cohort 覆盖率、fallback 和安全 Join Policy。</p></div>
+          <div class="planner-empty"><span>◇</span><strong>尚未生成来源方案</strong><p>确认研究方案后，会展示候选数据集、覆盖率和安全合并策略。</p></div>
+        </div>
+        <div id="planner-panel-coverage" class="planner-right-panel" data-planner-panel="coverage">
+          <div class="planner-empty"><span>□</span><strong>尚未生成覆盖矩阵</strong><p>每个必要字段会标明哪些来源已经覆盖。</p></div>
         </div>
       </aside>
     </section>
@@ -109,6 +114,7 @@
         <a href="#quality-gates">质量门</a>
         <a href="#research-data">分析矩阵</a>
         <a href="#provenance">来源</a>
+        <a href="#system-evaluation">评测</a>
       </nav>
       <div id="system-status" class="system-status"><span class="status-dot"></span><span>正在连接</span></div>
     </header>
@@ -140,6 +146,12 @@
         <form id="research-form">
           <label for="question">研究问题</label>
           <textarea id="question" rows="4" required>研究 HER2 阳性乳腺癌中 PIK3CA 突变是否影响治疗响应，并整理患者级科研数据集</textarea>
+          <div id="demo-question-chips" class="demo-question-chips" aria-label="换题演示">
+            <button type="button" data-demo-question="哪些因素会影响乳腺癌新辅助治疗后的病理完全缓解（pCR）？需要患者级临床结局。">① 新辅助 pCR</button>
+            <button type="button" data-demo-question="研究 HER2 阳性或激素受体阳性乳腺癌中 PIK3CA 突变与治疗响应的关系，要求同一患者同时有突变和临床响应。">② 同患者突变+响应</button>
+            <button type="button" data-demo-question="整理乳腺癌细胞系对靶向药物的药敏（AUC/IC50），不得当作患者疗效。">③ 细胞系药敏</button>
+          </div>
+          <p class="section-note">可选示例。主路径是提交问题后系统自主解析、选工具、多轮按缺口补搜，达到目标或轮次门限才停。</p>
           <div class="form-grid">
             <label>执行模式
               <select id="data-mode">
@@ -182,7 +194,7 @@
           <div class="switch-row">
             <label class="switch-control"><input id="use-qwen" type="checkbox" checked /><span><strong>启用模型规划</strong><small>问题解析、工具调用与结果摘要</small></span></label>
             <label class="switch-control"><input id="allow-fallback" type="checkbox" checked /><span><strong>允许确定性兜底</strong><small>模型不可用时生成可审查的确定性计划</small></span></label>
-            <label class="switch-control"><input id="closed-loop" type="checkbox" checked /><span><strong>启用闭环自我修正</strong><small>固定两轮：根据第一轮结果补充验证并比较指标</small></span></label>
+            <label class="switch-control"><input id="closed-loop" type="checkbox" checked /><span><strong>启用闭环自我修正</strong><small>任务内按缺口多轮换方法；完成后再跑两轮对照</small></span></label>
           </div>
           <div class="form-actions">
             <p>系统会按研究问题自主检索公开数据库、文献中的 GSE/NCT，并换方法补全；达到目标或轮次门限后停止。新增入口不构成跨研究患者合并。</p>
@@ -205,12 +217,13 @@
           <a href="#research-data">矩阵</a>
           <a href="#readiness">适用性</a>
           <a href="#provenance">溯源</a>
+          <a href="#system-evaluation">评测</a>
         </nav>
 
         <section class="result-overview">
           <article><span>任务状态</span><strong id="result-status">—</strong></article>
           <article><span>执行模式</span><strong id="agent-mode">—</strong></article>
-          <article><span>推理模型</span><strong id="model-name">—</strong></article>
+          <article><span>本次是否调用千问</span><strong id="qwen-used-flag">—</strong></article>
           <article><span>分析矩阵</span><strong id="dataset-size">—</strong></article>
         </section>
 
@@ -300,14 +313,14 @@
             <div><p class="section-kicker">06 · Quality Gate</p><h2>四层质量门准入判定</h2></div>
             <span id="quality-gate-overall" class="status-badge"></span>
           </div>
-          <p id="quality-gate-note" class="section-note">依次核验来源可信、字段质量、实体一致性与科研适用性；Gold Set 未加载时 Cohort F1 保持未评测。</p>
+          <p id="quality-gate-note" class="section-note">依次核验来源可信、字段质量、实体一致性与科研适用性。队列 F1 在正式评测前不填成绩。</p>
           <div id="quality-gate-metrics" class="quality-gate-metrics"></div>
           <div id="quality-gate-layers" class="quality-gate-layers"></div>
         </section>
 
         <section id="closed-loop-panel" class="panel closed-loop-primary" hidden>
           <div class="section-heading">
-            <div><p class="section-kicker">Closed-Loop Iteration</p><h2>两轮闭环修正</h2></div>
+            <div><p class="section-kicker">缺口修正</p><h2>闭环修正结果</h2></div>
             <span id="closed-loop-status" class="status-badge"></span>
           </div>
           <p id="closed-loop-stop-reason" class="section-note"></p>
@@ -343,7 +356,7 @@
             <div class="section-heading"><div><p class="section-kicker">08 · 可科研性检查</p><h2>科研适用性评估</h2></div><span id="readiness-status" class="status-badge"></span></div>
             <div id="research-metrics" class="research-metrics" aria-label="科研数据核心指标"></div>
             <div id="value-assessment" class="value-assessment" aria-label="数据价值判断"></div>
-            <div id="scientific-usability" class="scientific-usability">
+            <div id="scientific-usability" class="scientific-usability" hidden>
               <div class="scientific-heading">
                 <div>
                   <h3>初步分析</h3>
@@ -355,7 +368,7 @@
               <div id="scientific-usability-findings" class="scientific-findings"></div>
               <ul id="scientific-usability-caveats" class="message-list scientific-caveats"></ul>
             </div>
-            <div class="outcome-visual">
+            <div id="outcome-visual" class="outcome-visual" hidden>
               <div class="outcome-visual-heading"><h3>研究结局分布</h3><span id="outcome-total"></span></div>
               <div id="outcome-bars" class="outcome-bars"></div>
             </div>
@@ -371,6 +384,12 @@
             <div class="section-heading"><div><p class="section-kicker">09 · 中文字段字典</p><h2>变量定义</h2></div><span id="dictionary-count" class="count-tag"></span></div>
             <div class="table-wrap"><table id="dictionary-table"><thead><tr><th>字段名</th><th>中文标注</th><th>数据类型</th><th>科研用途</th><th>说明</th></tr></thead><tbody></tbody></table></div>
           </article>
+        </section>
+
+        <section id="review-queue-panel" class="panel">
+          <div class="section-heading"><div><p class="section-kicker">Review Queue</p><h2>人工审核队列</h2></div><span class="count-tag">ACCEPT / REJECT / EDIT / DEFER</span></div>
+          <p class="section-note">身份关联、HER2 歧义、高风险修复和缺失 provenance 不得由模型单独决定。</p>
+          <div id="review-queue-list" class="planner-source-list"><div class="empty-state">当前任务还没有待审核项。质量门 REVIEW 或低置信匹配出现后会列在这里。</div></div>
         </section>
 
         <section id="provenance" class="panel">
@@ -443,6 +462,33 @@
           </section>
         </details>
 
+        <section id="system-evaluation" class="panel evaluation-panel">
+          <div class="section-heading">
+            <div><p class="section-kicker">评测看板</p><h2>结果对照</h2></div>
+            <span id="evaluation-status" class="status-badge is-pending">待跑</span>
+          </div>
+          <div id="evaluation-badges" class="eval-badges"></div>
+          <p id="evaluation-official-note" class="eval-boundary">正式考卷已写入入口。点「开始正式评测」会采集系统观察并算出正式 SDTI。</p>
+          <p id="evaluation-howto" class="eval-howto">错误清洗检查、字段完整、检索对照：跑一次「运行研究协议」会自动出现。正式 SDTI 需要对本套正式卷点下面按钮真跑。</p>
+          <div class="eval-run-row">
+            <button id="official-eval-run" type="button">开始正式评测</button>
+            <span id="official-eval-status" class="eval-run-status"></span>
+          </div>
+          <div id="development-split-cards" class="eval-hero-cards"></div>
+          <div id="evaluation-task-metrics" class="eval-task-metrics"></div>
+          <div id="evaluation-retrieval-layer" class="eval-retrieval-layer"></div>
+          <div id="evaluation-protocol" hidden></div>
+          <div id="evaluation-meta" hidden></div>
+          <div id="evaluation-metric-cards" hidden></div>
+          <div id="evaluation-bars" hidden></div>
+          <div id="evaluation-ablation" hidden></div>
+          <div id="evaluation-history" hidden></div>
+          <div id="evaluation-safety" hidden></div>
+          <div id="evaluation-artifacts" hidden></div>
+          <div id="evaluation-probe-meta" hidden></div>
+          <div id="evaluation-probe-bars" hidden></div>
+        </section>
+
       </div>
 
     </main>
@@ -478,6 +524,13 @@
       </form>
     </dialog>
 
+    <dialog id="evidence-drawer-dialog" class="raw-dialog" aria-labelledby="evidence-drawer-title">
+      <div class="raw-dialog-heading">
+        <div><p class="section-kicker">单元格 Evidence</p><h2 id="evidence-drawer-title">字段来源</h2></div>
+        <button id="evidence-drawer-close" type="button" aria-label="关闭字段证据">×</button>
+      </div>
+      <div id="evidence-drawer-body" class="planner-contract-stack"></div>
+    </dialog>
     <dialog id="raw-characteristics-dialog" class="raw-dialog" aria-labelledby="raw-dialog-title">
       <div class="raw-dialog-heading">
         <div><p class="section-kicker">样本审计信息</p><h2 id="raw-dialog-title">原始样本特征</h2></div>
@@ -490,6 +543,6 @@
     <div id="toast" class="toast" hidden role="status" aria-live="polite"></div>
     <footer><span>千问科研数据智能体</span><span>模型负责规划；规则负责安全边界；数据须真实可追溯</span></footer>
     <!-- 输入你真正想研究的问题 规划与真实检索入口 先明确研究需要什么数据 每一步筛选都能解释清楚 患者编号能不能安全对上 -->
-    <script src="/app.js?v=20260829-user-ui-3" defer></script>
+    <script src="/app.js?v=20260829-gap-repair-1" defer></script>
   </body>
 </html>

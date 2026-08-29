@@ -94,6 +94,9 @@ class QuestionCandidate(ApiModel):
     literature_evidence: list[EvidenceReference] = Field(default_factory=list)
     recommendation_reason: str
     rank: int = Field(ge=1)
+    generation_source: Literal["EVIDENCE_AGENT", "GENERIC_FALLBACK", "LEGACY_TEMPLATE"] = "GENERIC_FALLBACK"
+    perspectives: list[str] = Field(default_factory=list)
+    unresolved_questions: list[str] = Field(default_factory=list)
 
 
 class QuestionCandidateList(ApiModel):
@@ -138,3 +141,16 @@ class ResearchContract(ApiModel):
     ]
     validation_warnings: list[str] = Field(default_factory=list)
     created_at: datetime
+    lifecycle_status: Literal["DRAFT", "USER_CONFIRMED", "FROZEN"] = "DRAFT"
+    data_granularity: Literal["patient", "sample", "cell_line", "trial", "publication"] = "patient"
+    response_domain: Literal["clinical", "preclinical", "none"] = "clinical"
+    prohibited_operations: list[str] = Field(
+        default_factory=lambda: [
+            "cross_cohort_patient_join_without_crosswalk",
+            "treat_preclinical_response_as_clinical",
+            "auto_merge_low_confidence_identity",
+            "map_her2_ihc_2plus_to_positive",
+            "equate_erbb2_cna_with_her2_ihc",
+        ]
+    )
+    frozen_at: datetime | None = None

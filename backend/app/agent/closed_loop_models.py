@@ -13,7 +13,7 @@ class ClosedLoopRequest(ApiModel):
     """Input contract for an auditable, bounded self-correction run."""
 
     initial_request: AgentTaskRequest
-    max_iterations: int = Field(default=2, ge=2, le=4)
+    max_iterations: int = Field(default=3, ge=2, le=4)
     require_two_rounds: bool = True
     min_improvement: float = Field(default=0.01, ge=0, le=1)
     stop_on_no_improvement: bool = True
@@ -37,6 +37,8 @@ class ClosedLoopDiagnosis(ApiModel):
     severity: str
     evidence: list[str] = Field(default_factory=list)
     unresolved_fields: list[str] = Field(default_factory=list)
+    recommended_tools: list[str] = Field(default_factory=list)
+    repair_kind: str = ""
 
 
 class ClosedLoopAction(ApiModel):
@@ -79,6 +81,13 @@ class ClosedLoopIteration(ApiModel):
     audit: ClosedLoopAudit
 
 
+class ClosedLoopHighlightCard(ApiModel):
+    label: str
+    value: str
+    hint: str = ""
+    tone: str = "neutral"
+
+
 class ClosedLoopResponse(ApiModel):
     loop_id: str
     status: str
@@ -89,3 +98,10 @@ class ClosedLoopResponse(ApiModel):
     improvement_summary: list[str] = Field(default_factory=list)
     unresolved_items: list[str] = Field(default_factory=list)
     audit_notice: str
+    improved: bool = False
+    presentation: str = "best_only"
+    best_iteration: int = Field(default=1, ge=1)
+    user_notice: str = ""
+    highlight_cards: list[ClosedLoopHighlightCard] = Field(default_factory=list)
+    display_iterations: list[int] = Field(default_factory=list)
+    attempted_repairs: list[str] = Field(default_factory=list)

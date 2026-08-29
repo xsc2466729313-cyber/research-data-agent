@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+from datetime import datetime, timezone
 
 from backend.app.literature import LiteratureAgent, LiteratureScan, LiteratureScanRequest
 from backend.app.rag import (
@@ -135,10 +136,28 @@ class ResearchPlanningService:
             candidate = candidate.model_copy(update=updates)
         papers = list(getattr(scan, "papers", []) or [])
         contract = self.contract_builder.build(topic, candidate, papers)
+        contract = contract.model_copy(update={"lifecycle_status": "USER_CONFIRMED"})
         self.rag_index.index_contract(contract)
         with self._lock:
             self._contracts[contract.contract_id] = contract
         return contract
+
+    def freeze_contract(self, contract_id: str) -> ResearchContract:
+        contract = self.get_contract(contract_id)
+        frozen = contract.model_copy(
+            update={
+                "lifecycle_status": "FROZEN",
+                "frozen_at": datetime.now(timezone.utc),
+                "validation_warnings": [
+                    *contract.validation_warnings,
+                    "用户已冻结 Research Contract；后续取数必须对照该需求，不得改写医学安全规则。",
+                ],
+            }
+        )
+        self.rag_index.index_contract(frozen)
+        with self._lock:
+            self._contracts[contract_id] = frozen
+        return frozen
 
     def build_rag_index(self, topic_id: str, request: RAGIndexRequest) -> RAGIndexReport:
         topic = self._topic(topic_id)

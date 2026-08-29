@@ -283,3 +283,76 @@ def test_independent_clinical_table_stops_without_joining() -> None:
 
     assert decision.action == "stop_pass"
     assert any(goal.goal_id == "covariate_pack" and goal.met for goal in decision.goals)
+
+
+def test_cell_line_question_follow_up_prefers_depmap() -> None:
+    loop = GoalLoopController()
+    spec = ResearchSpec(
+        task_id="depmap-loop",
+        research_goal="整理乳腺癌细胞系对靶向药物的药敏（AUC/IC50），不得当作患者疗效",
+        disease="Breast Cancer",
+        genes=["PIK3CA"],
+        drugs=["Alpelisib"],
+        outcomes=["AUC"],
+        required_data_types=["preclinical"],
+    )
+    decision = loop.decide(
+        spec=spec,
+        dataset=_dataset("empty", 0),
+        readiness=AnalysisReadinessReport(
+            status="无主表",
+            analysis_ready=False,
+            row_count=0,
+            feature_count=0,
+            split_strategy="按细胞系编号划分",
+            target_match=False,
+        ),
+        gaps=[],
+        attempted_calls=set(),
+        max_records=50,
+        round_number=1,
+        max_rounds=5,
+    )
+    assert decision.action == "continue"
+    assert decision.actions
+    assert decision.actions[0].tool_name == "search_depmap"
+
+
+def test_paper_question_follow_up_prefers_extract() -> None:
+    loop = GoalLoopController()
+    spec = ResearchSpec(
+        task_id="paper-loop",
+        research_goal="从开放论文表格与图注中整理乳腺癌治疗响应证据",
+        disease="Breast Cancer",
+        genes=["PIK3CA"],
+        outcomes=["treatment_response"],
+        required_data_types=["clinical", "evidence"],
+    )
+    decision = loop.decide(
+        spec=spec,
+        dataset=_dataset("stub", 1, "treatment_response"),
+        readiness=AnalysisReadinessReport(
+            status="解释层不足",
+            analysis_ready=True,
+            row_count=1,
+            feature_count=1,
+            split_strategy="按患者编号分组",
+            target_match=True,
+            requested_variable_coverage_rate=1.0,
+        ),
+        gaps=[
+            CollectionGap(
+                variable_id="evidence",
+                label="文献证据",
+                role="证据",
+                required=True,
+                coverage_rate=0.0,
+                reason="尚未抽取论文表/图注",
+            )
+        ],
+        attempted_calls=set(),
+        max_records=20,
+        round_number=1,
+        max_rounds=5,
+    )
+    assert any(action.tool_name == "extract_paper_assets" for action in decision.actions)

@@ -24,7 +24,7 @@ from backend.app.agent import (
     ResearchAgentService,
 )
 from backend.app.agent.collection_agent import CollectionAgent
-from backend.app.agent.models import CollectionGap
+from backend.app.agent.models import CollectionGap, AnalysisReadinessReport, ModelingDataset
 from backend.app.agent.models import DatasetColumn
 from backend.app.agent.dataset_builder import ResearchDatasetBuilder
 from backend.app.agent.study_design import StudyDesignBuilder
@@ -389,8 +389,8 @@ def test_autonomous_follow_up_converts_catalog_hits_into_geo_fetch() -> None:
     )
 
     assert calls
-    assert calls[0]["name"] == "search_geo"
-    assert calls[0]["arguments"]["accession"] == "GSE50948"
+    accessions = [str(call["arguments"].get("accession") or "") for call in calls if call["name"] == "search_geo"]
+    assert "GSE50948" in accessions
 
 
 def test_hr_positive_her2_negative_pi3k_question_skips_her2_geo_response_cohort() -> None:
@@ -631,6 +631,90 @@ def test_geo_series_matrix_builds_baseline_response_cohort(tmp_path: Path) -> No
     assert readiness.target_missing_rate == 0
     assert readiness.requested_variable_coverage_rate == 0
     assert any("治疗后配对样本" in action for action in readiness.cleaning_actions)
+
+
+def test_gse25066_maps_pcr_rd_and_her2_ihc_without_promoting_two_plus(tmp_path: Path) -> None:
+    matrix = tmp_path / "GSE25066_series_matrix.txt.gz"
+    lines = [
+        '!Sample_title\t"A"\t"B"\t"C"',
+        '!Sample_geo_accession\t"GSM1"\t"GSM2"\t"GSM3"',
+        '!Sample_characteristics_ch1\t"subject id: 1"\t"subject id: 2"\t"subject id: 3"',
+        '!Sample_characteristics_ch1\t"pathologic_response_pcr_rd: pCR"\t"pathologic_response_pcr_rd: RD"\t"pathologic_response_pcr_rd: pCR"',
+        '!Sample_characteristics_ch1\t"her2_status_ihc: 3+"\t"her2_status_ihc: 2+"\t"her2_status_ihc: Neg"',
+        '!series_matrix_table_begin',
+    ]
+    with gzip.open(matrix, "wt", encoding="utf-8") as handle:
+        handle.write("\n".join(lines))
+    source = SourceItem(
+        source_id="geo:GSE25066:test",
+        task_id="task-gse25066",
+        source_name="NCBI GEO",
+        source_type="database",
+        accession="GSE25066",
+        url="https://ftp.ncbi.nlm.nih.gov/test",
+        file_type="series_matrix",
+        local_path=str(matrix),
+        checksum="sha256:test",
+        status="downloaded",
+    )
+    geo = GEOAdapterResult(
+        task_id="task-gse25066",
+        accession="GSE25066",
+        portal_url="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE25066",
+        availability=[],
+        resources=[
+            GEOResourceRecord(
+                accession="GSE25066",
+                resource_type=GEOResourceType.SERIES_MATRIX,
+                file_name=matrix.name,
+                download_url=source.url,
+                status="downloaded",
+                file_size=matrix.stat().st_size,
+                source_item=source,
+            )
+        ],
+        source_items=[source],
+        cache_hit=GEOCacheStatus(accession_directory=False, resource_directories={}),
+        queried_at=datetime.now(timezone.utc),
+        notice="test",
+    )
+    spec = ResearchSpec(
+        task_id="task-gse25066",
+        research_goal="研究乳腺癌新辅助治疗病理完全缓解（pCR）与 HER2 状态",
+        disease="Breast Cancer",
+        genes=[],
+        outcomes=["pCR"],
+        required_data_types=["clinical", "treatment_response"],
+    )
+    built = ResearchDatasetBuilder().build_from_geo(geo, spec)
+    assert built is not None
+    dataset, readiness = built
+    assert dataset.target_column in {"pcr", "treatment_response"}
+    assert readiness.target_match is True
+    her2 = [row.get("her2_status") for row in dataset.rows]
+    assert any(value == "2+" for value in her2)
+    assert ResearchDatasetBuilder._receptor_polarity("2+") == "equivocal"
+    assert all(row.get("pcr") or row.get("treatment_response") for row in dataset.rows)
+
+
+def test_focus_accessions_seed_geo_calls_when_max_sources_is_two() -> None:
+    service = ResearchAgentService()
+    request = AgentTaskRequest(
+        question="研究乳腺癌新辅助治疗病理完全缓解（pCR）需要患者级结局",
+        use_qwen=False,
+        data_mode="plan_only",
+        max_sources=2,
+        max_records=100,
+        focus_accessions=["GSE25066", "GSE76360"],
+        iterative_collection=False,
+    )
+    spec = service._deterministic_spec(request.question, "focus-seed-test")
+    spec = service._enrich_research_spec(spec, request.question)
+    calls = service._priority_seed_calls(spec, request)
+    guarded = service._guard_tool_arguments(calls, spec, request)
+    accessions = [str((call.get("arguments") or {}).get("accession") or "") for call in guarded]
+    assert "GSE25066" in accessions
+    assert "GSE76360" in accessions or accessions[0] == "GSE25066"
 
 
 def test_plan_only_exports_metadata_and_quality_report_without_rows() -> None:
@@ -925,3 +1009,283 @@ def test_empty_geo_outcome_column_is_not_treated_as_matched_target(tmp_path: Pat
     assert readiness.target_match is False
     names = {column.name for column in dataset.columns}
     assert "treatment_response" not in names
+
+
+def test_pcr_question_seeds_named_geo_when_source_budget_allows() -> None:
+    question = "研究三阴性乳腺癌中 BRCA1/BRCA2 突变与新辅助化疗病理完全缓解（pCR）的关系，并整理患者级科研数据集"
+    request = AgentTaskRequest(
+        question=question,
+        use_qwen=False,
+        data_mode="plan_only",
+        max_sources=8,
+        max_records=200,
+    )
+    service = ResearchAgentService()
+    spec = service._enrich_research_spec(service._deterministic_spec(question, "task-seed-pcr"), question)
+    seeds = service._priority_seed_calls(spec, request)
+    accessions = [
+        str(call["arguments"].get("accession") or "")
+        for call in seeds
+        if call["name"] == "search_geo"
+    ]
+    merged = service._merge_tool_calls(seeds, service._deterministic_tool_calls(spec, request), request.max_sources)
+    merged = service._prioritize_named_cohort_calls(merged, None)
+    merged_geo = [
+        str(call["arguments"].get("accession") or "")
+        for call in merged
+        if call["name"] == "search_geo"
+    ]
+    assert "GSE76360" in accessions
+    assert "GSE25066" in accessions
+    assert merged_geo[:2] == ["GSE76360", "GSE25066"]
+
+
+def test_trial_question_seeds_ispy2_nct() -> None:
+    question = "检索 I-SPY2 新辅助乳腺癌临床试验 NCT01042379 的登记信息"
+    request = AgentTaskRequest(question=question, use_qwen=False, data_mode="plan_only", max_sources=8)
+    service = ResearchAgentService()
+    spec = service._enrich_research_spec(service._deterministic_spec(question, "task-seed-nct"), question)
+    seeds = service._priority_seed_calls(spec, request)
+    trial = next(call for call in seeds if call["name"] == "search_trials")
+    assert trial["arguments"]["nct_id"] == "NCT01042379"
+
+
+def test_cell_line_question_seeds_depmap() -> None:
+    question = "整理乳腺癌细胞系对靶向药物的药敏（AUC/IC50），不得当作患者疗效。"
+    request = AgentTaskRequest(question=question, use_qwen=False, data_mode="plan_only", max_sources=8)
+    service = ResearchAgentService()
+    spec = service._enrich_research_spec(service._deterministic_spec(question, "task-seed-depmap"), question)
+    seeds = service._priority_seed_calls(spec, request)
+    assert any(call["name"] == "search_depmap" for call in seeds)
+    planned = service._deterministic_tool_calls(spec, request)
+    assert any(call["name"] == "search_depmap" for call in planned)
+
+
+def test_alpelisib_question_does_not_seed_her2_response_geo() -> None:
+    question = "PIK3CA 突变的 HR+/HER2- 乳腺癌患者，使用阿培利司后的响应是否优于野生型？"
+    request = AgentTaskRequest(question=question, use_qwen=False, data_mode="plan_only", max_sources=8)
+    service = ResearchAgentService()
+    spec = service._enrich_research_spec(service._deterministic_spec(question, "task-no-her2-geo"), question)
+    seeds = service._priority_seed_calls(spec, request)
+    accessions = {
+        str(call["arguments"].get("accession") or "")
+        for call in seeds
+        if call["name"] == "search_geo"
+    }
+    assert "GSE76360" not in accessions
+    assert "GSE25066" not in accessions
+
+
+def _empty_dataset(name: str = "empty") -> ModelingDataset:
+    return ModelingDataset(
+        name=name,
+        unit_of_analysis="患者",
+        columns=[],
+        rows=[],
+        row_count=0,
+        patient_count=0,
+        sample_count=0,
+    )
+
+
+def _gap_readiness() -> AnalysisReadinessReport:
+    return AnalysisReadinessReport(
+        status="研究结局不匹配",
+        analysis_ready=False,
+        row_count=0,
+        feature_count=0,
+        split_strategy="按患者编号分组",
+        target_match=False,
+        requested_variable_coverage_rate=0.0,
+    )
+
+
+def test_pcr_gap_follow_up_emits_response_geo_queue() -> None:
+    question = "研究三阴性乳腺癌中 BRCA1/BRCA2 突变与新辅助化疗病理完全缓解（pCR）的关系"
+    service = ResearchAgentService()
+    spec = service._enrich_research_spec(service._deterministic_spec(question, "task-follow-pcr"), question)
+    request = AgentTaskRequest(question=question, use_qwen=False, data_mode="plan_only", max_sources=8)
+    decision = service.collection_agent.decide(
+        spec=spec,
+        dataset=_empty_dataset("METABRIC"),
+        readiness=_gap_readiness(),
+        gaps=[
+            CollectionGap(
+                variable_id="outcome",
+                label="研究结局",
+                role="结局",
+                required=True,
+                coverage_rate=0.0,
+                reason="当前主表无 pCR",
+            )
+        ],
+        attempted_calls=set(),
+        max_records=200,
+        round_number=1,
+        max_rounds=8,
+    )
+    calls = service._autonomous_follow_up_calls(
+        spec=spec,
+        request=request,
+        decision=decision,
+        raw_results=[],
+        critical=[],
+        dataset=_empty_dataset(),
+        readiness=_gap_readiness(),
+        attempted_calls=set(),
+        qwen_client=None,
+        round_number=1,
+        max_rounds=8,
+    )
+    geo = [str(call["arguments"].get("accession") or "") for call in calls if call["name"] == "search_geo"]
+    assert decision.action == "continue"
+    assert any(accession in {"GSE76360", "GSE25066"} for accession in geo)
+
+
+def test_cell_line_gap_follow_up_emits_depmap() -> None:
+    question = "整理乳腺癌细胞系对靶向药物的药敏（AUC/IC50），不得当作患者疗效。"
+    service = ResearchAgentService()
+    spec = service._enrich_research_spec(service._deterministic_spec(question, "task-follow-depmap"), question)
+    request = AgentTaskRequest(question=question, use_qwen=False, data_mode="plan_only", max_sources=8)
+    decision = service.collection_agent.decide(
+        spec=spec,
+        dataset=_empty_dataset("none"),
+        readiness=_gap_readiness(),
+        gaps=[],
+        attempted_calls=set(),
+        max_records=80,
+        round_number=1,
+        max_rounds=8,
+    )
+    calls = service._autonomous_follow_up_calls(
+        spec=spec,
+        request=request,
+        decision=decision,
+        raw_results=[],
+        critical=[],
+        dataset=_empty_dataset(),
+        readiness=_gap_readiness(),
+        attempted_calls=set(),
+        qwen_client=None,
+        round_number=1,
+        max_rounds=8,
+    )
+    assert any(call["name"] == "search_depmap" for call in calls)
+
+
+def test_trial_gap_follow_up_emits_nct() -> None:
+    question = "检索 I-SPY2 新辅助乳腺癌临床试验 NCT01042379 的登记信息"
+    service = ResearchAgentService()
+    spec = service._enrich_research_spec(service._deterministic_spec(question, "task-follow-nct"), question)
+    request = AgentTaskRequest(question=question, use_qwen=False, data_mode="plan_only", max_sources=8)
+    decision = service.collection_agent.decide(
+        spec=spec,
+        dataset=_empty_dataset("none"),
+        readiness=_gap_readiness(),
+        gaps=[
+            CollectionGap(
+                variable_id="evidence",
+                label="试验证据",
+                role="证据",
+                required=True,
+                coverage_rate=0.0,
+                reason="尚未落到指定 NCT",
+            )
+        ],
+        attempted_calls=set(),
+        max_records=50,
+        round_number=1,
+        max_rounds=8,
+    )
+    calls = service._autonomous_follow_up_calls(
+        spec=spec,
+        request=request,
+        decision=decision,
+        raw_results=[],
+        critical=[],
+        dataset=_empty_dataset(),
+        readiness=_gap_readiness(),
+        attempted_calls=set(),
+        qwen_client=None,
+        round_number=1,
+        max_rounds=8,
+    )
+    trials = [call for call in calls if call["name"] == "search_trials"]
+    assert any(str(call["arguments"].get("nct_id") or "") == "NCT01042379" for call in trials)
+
+
+def test_evidence_gap_follow_up_emits_paper_extract() -> None:
+    question = "从开放论文表格与图注中整理乳腺癌 PIK3CA 与治疗响应的文献证据"
+    service = ResearchAgentService()
+    spec = service._enrich_research_spec(service._deterministic_spec(question, "task-follow-paper"), question)
+    spec = spec.model_copy(update={"required_data_types": list(dict.fromkeys([*spec.required_data_types, "evidence"]))})
+    request = AgentTaskRequest(question=question, use_qwen=False, data_mode="plan_only", max_sources=8)
+    decision = service.collection_agent.decide(
+        spec=spec,
+        dataset=ModelingDataset(
+            name="stub",
+            unit_of_analysis="患者",
+            columns=[],
+            rows=[{}],
+            row_count=1,
+            patient_count=1,
+            sample_count=1,
+            target_column="treatment_response",
+        ),
+        readiness=AnalysisReadinessReport(
+            status="解释层不足",
+            analysis_ready=True,
+            row_count=1,
+            feature_count=1,
+            split_strategy="按患者编号分组",
+            target_match=True,
+            requested_variable_coverage_rate=1.0,
+        ),
+        gaps=[
+            CollectionGap(
+                variable_id="evidence",
+                label="文献证据",
+                role="证据",
+                required=True,
+                coverage_rate=0.0,
+                reason="尚未抽取论文表/图注",
+            )
+        ],
+        attempted_calls=set(),
+        max_records=20,
+        round_number=1,
+        max_rounds=8,
+    )
+    calls = service._autonomous_follow_up_calls(
+        spec=spec,
+        request=request,
+        decision=decision,
+        raw_results=[],
+        critical=[],
+        dataset=_empty_dataset(),
+        readiness=_gap_readiness(),
+        attempted_calls=set(),
+        qwen_client=None,
+        round_number=1,
+        max_rounds=8,
+    )
+    assert any(call["name"] == "extract_paper_assets" for call in calls)
+
+
+def test_qwen_seed_merge_respects_max_sources() -> None:
+    question = "研究三阴性乳腺癌中 BRCA1/BRCA2 突变与新辅助化疗病理完全缓解（pCR）的关系"
+    service = ResearchAgentService()
+    spec = service._enrich_research_spec(service._deterministic_spec(question, "task-merge-cap"), question)
+    request = AgentTaskRequest(question=question, use_qwen=False, max_sources=4)
+    qwen_calls = [
+        {"id": "qwen-1", "name": "search_cbioportal", "arguments": {"study_id": "brca_metabric"}},
+        {"id": "qwen-2", "name": "search_geo_catalog", "arguments": {"query": "breast pCR"}},
+    ]
+    merged = service._merge_tool_calls(
+        service._priority_seed_calls(spec, request) + qwen_calls,
+        service._deterministic_tool_calls(spec, request),
+        request.max_sources,
+    )
+    assert len(merged) <= 4
+    accessions = [str(call["arguments"].get("accession") or "") for call in merged if call["name"] == "search_geo"]
+    assert "GSE76360" in accessions or "GSE25066" in accessions

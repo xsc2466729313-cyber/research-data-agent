@@ -22,6 +22,7 @@ from backend.app.agent.models import (
 )
 from backend.app.models import ResearchSpec
 from backend.app.sources.cbioportal.models import CBioPortalAdapterResult
+from backend.app.sources.depmap.models import DepMapAdapterResult
 from backend.app.sources.geo.models import GEOAdapterResult, GEOResourceType
 
 
@@ -165,12 +166,28 @@ ATTRIBUTE_ALIASES = {
     "MEASURABLE_DISEASE": "measurable_disease",
     "WEEKS_ON_STUDY": "weeks_on_study",
     "HER2_STATUS": "her2_status",
+    "HER2_IHC": "her2_status",
+    "IHC_HER2": "her2_status",
+    "HER2_IHC_SCORE": "her2_status",
+    "HER2_STATUS_IHC": "her2_status",
     "OS_STATUS": "os_status",
     "OS_MONTHS": "os_months",
+    "OS": "os_status",
+    "OVERALL_SURVIVAL": "os_months",
+    "OVERALL_SURVIVAL_MONTHS": "os_months",
     "DFS_STATUS": "dfs_status",
     "DFS_MONTHS": "dfs_months",
+    "DFS": "dfs_status",
     "RFS_STATUS": "dfs_status",
     "RFS_MONTHS": "dfs_months",
+    "RFS": "dfs_status",
+    "DISEASE_FREE_SURVIVAL": "dfs_months",
+    "DISEASE_FREE_SURVIVAL_MONTHS": "dfs_months",
+    "DSS_STATUS": "dss_status",
+    "DSS_MONTHS": "dss_months",
+    "DSS": "dss_status",
+    "DISEASE_SPECIFIC_SURVIVAL": "dss_months",
+    "VITAL_STATUS": "vital_status",
     "PCR": "pcr",
     "PCR_RESPONSE": "pcr",
     "PCR_STATUS": "pcr",
@@ -295,13 +312,22 @@ GEO_FIELD_SYNONYMS: dict[str, tuple[str, ...]] = {
         "residual_cancer_burden",
         "rcb_class",
         "miller_payne",
+        "pathologic_response_pcr_rd",
+        "pcr_rd",
+        "pcr_vs_rd",
     ),
-    "pcr": (
-        "pcr",
-        "pcr_status",
-        "pathological_complete_response",
-        "pathologic_complete_response",
-    ),
+            "pcr": (
+                "pcr",
+                "pcr_status",
+                "pcr_yes_no",
+                "pathological_complete_response",
+                "pathologic_complete_response",
+                "pathologic_response",
+                "pathologic_response_pcr_rd",
+                "pcr_rd",
+                "pcr_vs_rd",
+                "residual_disease_pcr",
+            ),
     "disease": ("patient_status", "disease", "diagnosis", "cancer_type", "disease_state"),
     "treatment": (
         "treatment",
@@ -332,9 +358,18 @@ GEO_FIELD_SYNONYMS: dict[str, tuple[str, ...]] = {
         "sampling_timepoint",
         "treatment_timepoint",
     ),
-    "her2_status": ("her2_status", "her2", "her2_ihc", "erbb2_status"),
-    "er_status": ("er_status", "er", "estrogen_receptor"),
-    "pr_status": ("pr_status", "pr", "progesterone_receptor"),
+    "her2_status": (
+        "her2_status",
+        "her2",
+        "her2_ihc",
+        "erbb2_status",
+        "her2_status_ihc",
+        "her2_ihc_status",
+        "her2_ihc_score",
+        "ihc_her2",
+    ),
+    "er_status": ("er_status", "er", "estrogen_receptor", "er_status_ihc", "er_ihc"),
+    "pr_status": ("pr_status", "pr", "progesterone_receptor", "pr_status_ihc", "pr_ihc"),
     "subtype": ("subtype", "molecular_subtype", "breast_cancer_subtype"),
     "stage": ("stage", "tumor_stage", "ajcc_stage"),
     "age": ("age", "age_at_diagnosis", "age_years"),
@@ -355,6 +390,10 @@ _PCR_FIELD_NAMES = {
     "pcr_status",
     "pathological_complete_response",
     "pathologic_complete_response",
+    "pathologic_response_pcr_rd",
+    "pcr_rd",
+    "pcr_vs_rd",
+    "residual_disease_pcr",
 }
 
 
@@ -379,6 +418,81 @@ class ResearchDatasetBuilder:
             split_strategy="获得患者级数据后按患者编号分组，避免同一患者跨分析分区。",
             warnings=["当前工具结果不包含可构建患者/样本级宽表的记录。"],
             recommendations=["优先调用含研究结局的患者队列；知识证据和试验目录不能替代患者数据。"],
+        )
+        return dataset, report
+
+    def build_from_depmap(
+        self,
+        result: DepMapAdapterResult,
+        spec: ResearchSpec,
+    ) -> tuple[ModelingDataset, AnalysisReadinessReport]:
+        blob = f"{spec.research_goal} {' '.join(spec.outcomes)}".casefold()
+        cell_line_question = any(
+            token in blob for token in ("细胞系", "auc", "ic50", "depmap", "ccle", "药敏")
+        )
+        rows = []
+        for record in result.records:
+            rows.append(
+                {
+                    "study_id": "DepMap",
+                    "sample_id": record.model_id,
+                    "cell_line_id": record.model_id,
+                    "cell_line_name": record.cell_line_name,
+                    "disease": "Breast Cancer",
+                    "drug": record.drug,
+                    "auc": record.auc,
+                    "ic50": record.ic50,
+                    "response_domain": "preclinical_cell_line",
+                    "source_id": record.source_id,
+                    "raw_field": "DepMap.Model",
+                    "raw_value": record.cell_line_name,
+                }
+            )
+        columns = [
+            DatasetColumn(name="study_id", label_zh="研究编号", data_type="string", role="id", description="DepMap"),
+            DatasetColumn(name="cell_line_id", label_zh="细胞系编号", data_type="string", role="id", description="DepMap ModelID"),
+            DatasetColumn(name="cell_line_name", label_zh="细胞系名称", data_type="string", role="feature", description="细胞系"),
+            DatasetColumn(name="drug", label_zh="药物", data_type="string", role="exposure", description="药敏药物"),
+            DatasetColumn(name="auc", label_zh="AUC", data_type="number", role="outcome", description="细胞系药敏 AUC"),
+            DatasetColumn(name="ic50", label_zh="IC50", data_type="number", role="outcome", description="细胞系药敏 IC50"),
+            DatasetColumn(
+                name="response_domain",
+                label_zh="响应域",
+                data_type="string",
+                role="guard",
+                description="固定 preclinical_cell_line",
+            ),
+            DatasetColumn(name="source_id", label_zh="来源编号", data_type="string", role="audit", description="DepMap"),
+            DatasetColumn(name="raw_field", label_zh="原始字段", data_type="string", role="audit", description="原始字段"),
+            DatasetColumn(name="raw_value", label_zh="原始值", data_type="string", role="audit", description="原始值"),
+        ]
+        dataset = ModelingDataset(
+            name="DepMap 乳腺癌细胞系药敏",
+            unit_of_analysis="细胞系",
+            columns=columns,
+            rows=rows,
+            row_count=len(rows),
+            patient_count=0,
+            sample_count=len(rows),
+            target_column="auc" if cell_line_question else None,
+            study_key="DepMap",
+        )
+        warnings = ["response_domain=preclinical_cell_line；AUC/IC50 不得解释为患者 pCR 或临床疗效。"]
+        recommendations = ["细胞系药敏与患者队列必须分表保留，禁止混域合并。"]
+        if not cell_line_question:
+            warnings.append("本题主目标是患者/样本队列；DepMap 仅作为前临床对照表。")
+        report = AnalysisReadinessReport(
+            status="可分析" if cell_line_question and len(rows) >= 8 else "领域隔离",
+            analysis_ready=bool(cell_line_question and len(rows) >= 8),
+            row_count=len(rows),
+            feature_count=len(columns),
+            target_column=dataset.target_column,
+            target_match=cell_line_question,
+            target_match_rate=1.0 if cell_line_question and rows else 0.0,
+            field_completeness_rate=1.0 if rows else 0.0,
+            split_strategy="按细胞系编号划分；不得与患者编号对齐。",
+            warnings=warnings,
+            recommendations=recommendations,
         )
         return dataset, report
 
@@ -662,6 +776,8 @@ class ResearchDatasetBuilder:
         spec: ResearchSpec,
     ) -> ModelingDataset:
         rows, _derive_actions = self._derive_same_cohort_fields(rows, spec)
+        rows, _map_actions = self._map_outcome_synonyms(rows, spec)
+        rows, _her2_actions = self._map_her2_synonyms(rows)
         ordered_names = self._ordered_columns(rows, spec)
         columns = [self._describe_column(name, rows, spec) for name in ordered_names]
         normalized_rows = [{name: row.get(name) for name in ordered_names} for row in rows]
@@ -822,6 +938,9 @@ class ResearchDatasetBuilder:
         text = str(value).strip()
         if not text or text.upper() in {"NA", "N/A", "NULL", "UNKNOWN", "[NOT AVAILABLE]", "NOT AVAILABLE"}:
             return None, bool(text)
+        compact = text.casefold().replace(" ", "")
+        if compact in {"2+", "ihc2+", "2"}:
+            return text, False
         normalized = VALUE_NORMALIZATION.get(text.upper())
         if normalized is not None:
             return normalized, normalized != text
@@ -850,7 +969,7 @@ class ResearchDatasetBuilder:
                 field, value_text = cls._split_characteristic_piece(piece)
                 if not field:
                     continue
-                normalized_field = re.sub(r"[^a-z0-9]+", "_", field.casefold()).strip("_")
+                normalized_field = cls._normalize_attribute(field) or re.sub(r"[^a-z0-9]+", "_", field.casefold()).strip("_")
                 if not normalized_field:
                     continue
                 value, changed = cls._clean_value(value_text)
@@ -1015,6 +1134,96 @@ class ResearchDatasetBuilder:
                 f"对 {accession} 均匀治疗队列补全研究级方案字段，并保留样本原始特征备查。"
             )
         return rows, actions
+
+    @classmethod
+    def _map_outcome_synonyms(
+        cls,
+        rows: list[dict[str, Any]],
+        spec: ResearchSpec,
+    ) -> tuple[list[dict[str, Any]], list[str]]:
+        if not rows:
+            return rows, []
+        actions: list[str] = []
+        survival_aliases = {
+            "overall_survival": "os_months",
+            "overall_survival_months": "os_months",
+            "os": "os_status",
+            "dss": "dss_status",
+            "rfs": "dfs_status",
+            "rfs_status": "dfs_status",
+            "rfs_months": "dfs_months",
+            "disease_free_survival": "dfs_months",
+            "disease_free_survival_months": "dfs_months",
+            "disease_specific_survival": "dss_months",
+        }
+        pcr_aliases = {
+            "pathological_complete_response": "pcr",
+            "pathologic_complete_response": "pcr",
+            "pathologic_response_pcr_rd": "pcr",
+            "pcr_status": "pcr",
+            "pcr_yes_no": "pcr",
+            "pcr_rd": "pcr",
+            "pathologic_response": "treatment_response",
+            "response_at_surgery": "treatment_response",
+        }
+        survival_n = 0
+        pcr_n = 0
+        want_pcr = asks_pcr(spec) or needs_clinical_outcome(spec)
+        want_survival = asks_survival(spec) or "survival" in (spec.outcomes or [])
+        for row in rows:
+            if want_survival:
+                for raw_name, canonical in survival_aliases.items():
+                    if cls._has_filled(row.get(raw_name)) and not cls._has_filled(row.get(canonical)):
+                        row[canonical] = row.get(raw_name)
+                        row.setdefault("raw_field", raw_name)
+                        row.setdefault("raw_value", row.get(raw_name))
+                        survival_n += 1
+            if want_pcr:
+                for forbidden in ("os_status", "os_months", "dfs_status", "dfs_months", "dss_status", "dss_months", "auc", "ic50"):
+                    if forbidden in row and not cls._has_filled(row.get("pcr")):
+                        continue
+                for raw_name, canonical in pcr_aliases.items():
+                    if cls._has_filled(row.get(raw_name)) and not cls._has_filled(row.get(canonical)):
+                        row[canonical] = row.get(raw_name)
+                        row.setdefault("raw_field", raw_name)
+                        row.setdefault("raw_value", row.get(raw_name))
+                        pcr_n += 1
+                if cls._has_filled(row.get("pcr")) and not cls._has_filled(row.get("treatment_response")):
+                    row["treatment_response"] = row.get("pcr")
+        if survival_n:
+            actions.append(f"将 OS/RFS/DSS 同义列映射到 canonical 生存字段 {survival_n} 行，保留原始列。")
+        if pcr_n:
+            actions.append(f"将病理响应同义列映射到 pCR/treatment_response {pcr_n} 行；未使用生存或 AUC。")
+        return rows, actions
+
+    @classmethod
+    def _map_her2_synonyms(cls, rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[str]]:
+        if not rows:
+            return rows, []
+        aliases = (
+            "her2_ihc",
+            "her2_status_ihc",
+            "her2_ihc_status",
+            "her2_ihc_score",
+            "ihc_her2",
+            "erbb2_status",
+        )
+        mapped = 0
+        for row in rows:
+            if cls._has_filled(row.get("her2_status")):
+                continue
+            for name in aliases:
+                raw = row.get(name)
+                if not cls._has_filled(raw):
+                    continue
+                row["her2_status"] = raw
+                row.setdefault("raw_field", name)
+                row.setdefault("raw_value", raw)
+                mapped += 1
+                break
+        if not mapped:
+            return rows, []
+        return rows, [f"将 HER2 IHC/临床同义列映射到 her2_status {mapped} 行；IHC 2+ 保持原值，不判为阳性。"]
 
     @staticmethod
     def _filter_rows_for_research_spec(
@@ -1295,9 +1504,9 @@ class ResearchDatasetBuilder:
         if asks_pcr(spec):
             priority = ["pcr", "pcr_binary", "treatment_response", "response"]
         elif asks_survival(spec) or "survival" in spec.outcomes:
-            priority = ["os_status", "os_months", "dfs_status", "dfs_months"]
+            priority = ["os_status", "os_months", "dfs_status", "dfs_months", "dss_status", "dss_months", "vital_status"]
         elif needs_clinical_outcome(spec):
-            priority = ["treatment_response", "pcr", "pcr_binary", "response"]
+            priority = ["treatment_response", "pcr", "pcr_binary", "response", "pathological_complete_response"]
         else:
             priority = []
             for gene in spec.genes:
@@ -1357,7 +1566,7 @@ class ResearchDatasetBuilder:
             role = "标识符"
         elif name in {"source_id", "raw_characteristics"}:
             role = "审计信息"
-        elif name in {"pcr", "pcr_binary", "treatment_response", "response", "os_status", "dfs_status"}:
+        elif name in {"pcr", "pcr_binary", "treatment_response", "response", "os_status", "dfs_status", "dss_status"}:
             role = "研究结局"
         elif name in derived_names or name.endswith("_altered"):
             role = "同队列派生"

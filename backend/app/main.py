@@ -45,6 +45,7 @@ from backend.app.evaluation.models import (
     EvaluationResult,
     GoldSetTemplateInspection,
 )
+from backend.app.evaluation.official_run import OfficialEvaluationLaunch, run_official_evaluation
 from backend.app.goldset import GoldSetCurationError, GoldSetCurationService
 from backend.app.goldset.models import (
     ErrorConstructionRequest,
@@ -98,7 +99,14 @@ from backend.app.quality_v2 import (
     RepairCandidateResult,
 )
 from backend.app.quality_v2.models import SafeApplyResult
-from backend.app.source_broker.models import SourcePlanningResult, SourcePlanRequest
+from backend.app.requirement_agent import RequirementAgentService
+from backend.app.contracts.models import ContractFreezeRequest
+from backend.app.parsers import ParserRegistry
+from backend.app.critic import CriticAgent
+from backend.app.rules import RulePackEngine
+from backend.app.source_registry_v2 import WeightedSetCoverOptimizer
+from backend.app.source_broker import SourcePlanningResult, SourcePlanRequest
+from backend.app.v3_api import mount_v3_routes
 from backend.app.integration import (
     IntegrationError,
     EntityMatcherV3,
@@ -188,6 +196,11 @@ mock_export_service = MockDatasetExportService()
 research_agent_service = ResearchAgentService()
 closed_loop_service = ClosedLoopService(research_agent_service)
 research_planning_service = ResearchPlanningService()
+requirement_agent_service = RequirementAgentService(planning=research_planning_service)
+parser_registry = ParserRegistry()
+critic_agent = CriticAgent()
+rule_pack_engine = RulePackEngine()
+source_optimizer = WeightedSetCoverOptimizer()
 qwen_session_registry = QwenSessionRegistry()
 agent_export_service = AgentDatasetExportService()
 api_check_service = ApiCheckService()
@@ -196,6 +209,16 @@ retrieval_service_v2 = RetrievalServiceV2()
 research_planning_v2_service = ResearchPlanningV2Service()
 quality_v2_service = QualityV2Service()
 GOLDSET_TEMPLATE_DIR = Path(__file__).resolve().parents[2] / "goldset" / "templates"
+
+mount_v3_routes(
+    app,
+    requirement_agent=requirement_agent_service,
+    parser_registry=parser_registry,
+    retrieval_service=retrieval_service_v2,
+    critic=critic_agent,
+    rules=rule_pack_engine,
+    optimizer=source_optimizer,
+)
 
 
 def get_gdc_adapter() -> GDCAdapter:
@@ -287,7 +310,7 @@ def health() -> dict[str, str]:
         "status": "ok",
         "mode": (
             "qwen-agent+function-calling+live-adapters+research-dataset+"
-            "traceability+quality-gate"
+            "traceability+quality-gate+v3-mainline"
         ),
         "version": app.version,
     }
@@ -603,6 +626,20 @@ def get_research_contract(
 ) -> ResearchContract:
     try:
         return service.get_contract(contract_id)
+    except ResearchPlanningNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/api/research/contracts/{contract_id}/freeze", response_model=ResearchContract)
+def freeze_planning_contract(
+    contract_id: str,
+    payload: ContractFreezeRequest,
+    service: Annotated[ResearchPlanningService, Depends(get_research_planning_service)],
+) -> ResearchContract:
+    if not payload.confirmed:
+        raise HTTPException(status_code=422, detail="冻结 Research Contract 需要 confirmed=true。")
+    try:
+        return service.freeze_contract(contract_id)
     except ResearchPlanningNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -926,6 +963,24 @@ def run_evaluation(
         return service.run(payload)
     except EvaluationError as exc:
         raise HTTPException(status_code=exc.http_status, detail=exc.as_dict()) from exc
+
+
+@app.post("/api/evaluation/official-run", response_model=EvaluationResult)
+def run_official_goldset_evaluation(
+    payload: OfficialEvaluationLaunch | None = None,
+) -> EvaluationResult:
+    body = payload or OfficialEvaluationLaunch()
+    retrieval = body.retrieval if body.retrieval in {"planner", "agent"} else "planner"
+    try:
+        return run_official_evaluation(
+            evaluation_id=body.evaluation_id,
+            retrieval=retrieval,
+            use_qwen=body.use_qwen,
+        )
+    except EvaluationError as exc:
+        raise HTTPException(status_code=exc.http_status, detail=exc.as_dict()) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.get("/api/evaluation/artifacts/{evaluation_id}/{artifact_name}")

@@ -20,6 +20,9 @@ class AgentTaskRequest(ApiModel):
     allow_deterministic_fallback: bool = True
     data_mode: AgentDataMode = AgentDataMode.LIVE
     preferred_sources: list[str] = Field(default_factory=list, max_length=20)
+    focus_accessions: list[str] = Field(default_factory=list, max_length=20)
+    focus_tools: list[str] = Field(default_factory=list, max_length=20)
+    remap_outcome_aliases: bool = False
     # This is a budget for retrieval entries, not the number of database
     # types. One task may inspect several GEO accessions or cBioPortal studies.
     max_sources: int = Field(default=8, ge=1, le=20)
@@ -346,6 +349,7 @@ class QualityGateReport(ApiModel):
     publish_allowed: bool = False
     layers: list[QualityGateLayer] = Field(default_factory=list)
     cohort_f1: float | None = Field(default=None, ge=0, le=1)
+    cohort_plan_f1: float | None = Field(default=None, ge=0, le=1)
     variable_coverage: float | None = Field(default=None, ge=0, le=1)
     traceability: float | None = Field(default=None, ge=0, le=1)
     research_fitness: float | None = Field(default=None, ge=0, le=1)
@@ -439,6 +443,7 @@ class AgentTaskResult(ApiModel):
     data_alignment: DataAlignmentReport | None = None
     quality_gate_report: QualityGateReport | None = None
     competition_report: "CompetitionAlignmentReport | None" = None
+    critic_report: Any | None = None
     summary_zh: str
     created_at: datetime
 

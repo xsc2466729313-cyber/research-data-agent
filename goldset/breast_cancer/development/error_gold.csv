@@ -1,0 +1,23 @@
+﻿case_id,error_type,original_record,expected_detection,expected_repair,auto_repair_allowed,risk_level,review_status,notes
+e01_ihc2_to_positive,her2_assay_error,"{""source_id"":""geo:GSE76360"",""raw_field"":""her2_ihc"",""raw_value"":""2+"",""her2_status"":""Positive""}",TRUE,her2_status=Equivocal; her2_assay=IHC; her2_raw_value=2+; 进入 REVIEW,FALSE,high,approved,不得把 IHC 2+ 自动改成 Positive。
+e02_cna_as_ihc,her2_assay_error,"{""source_id"":""gdc:TCGA-BRCA"",""raw_field"":""ERBB2_CNA"",""raw_value"":""amplification"",""her2_status"":""Positive""}",TRUE,撤销 her2_status=Positive；保留 gene=ERBB2 与 CNA 原始值,FALSE,high,approved,CNA 扩增 ≠ IHC 阳性。
+e03_cross_study_id,patient_sample_conflict,"{""left"":""geo:GSE76360:P1"",""right"":""cbioportal:brca_metabric:P1"",""action"":""merge_as_same_patient""}",TRUE,unresolved；禁止合并,FALSE,high,approved,跨研究同号不得当同一患者。
+e04_auc_as_pcr,schema_mapping_error,"{""source_id"":""depmap:BRCA"",""AUC"":0.4,""response"":""pCR"",""response_domain"":""clinical""}",TRUE,response_domain=preclinical_cell_line；清除患者 pCR 解释,FALSE,high,approved,细胞系药敏不得解释为患者 pCR。
+e05_missing_source,provenance_missing,"{""her2_status"":""Positive"",""source_id"":"""",""raw_field"":"""",""raw_value"":""""}",TRUE,阻断发布；补 source_id 与 raw_* 或删除该关键字段,FALSE,high,approved,无 Evidence 不得正式发布。
+e06_gene_alias,gene_alias,"{""gene"":""HER2"",""source_id"":""civic:1""}",TRUE,"{""gene"":""ERBB2""}",TRUE,low,approved,基因别名可自动。
+e07_drug_alias,drug_alias,"{""drug"":""Herceptin"",""source_id"":""nct:NCT01042379""}",TRUE,"{""drug"":""trastuzumab""}",TRUE,low,approved,药品别名可自动。
+e08_duplicate,duplicate,"{""patient_id"":""P1"",""sample_id"":""S1"",""source_id"":""geo:GSE76360"",""rows"":2}",TRUE,保留一条并记审计；不删原始备份,TRUE,low,approved,同研究完全重复可自动去重。
+e09_missing_pcr,missing,"{""source_id"":""cbioportal:brca_metabric"",""required"":""response"",""response"":""""}",TRUE,不填假 pCR；标记字段缺失并换队列或 REVIEW,FALSE,medium,approved,METABRIC 缺治疗响应时不得编造结局。
+e10_unit,unit,"{""age"":""0.52"",""unit_guess"":""years"",""source_id"":""gdc:TCGA-BRCA""}",TRUE,按来源单位核验；不确定则 REVIEW,FALSE,medium,approved,年龄单位不明不得瞎转。
+e11_low_conf_link,patient_sample_conflict,"{""patient_id"":""A"",""sample_id"":""B"",""match_score"":0.4,""decision"":""AUTO_MERGE""}",TRUE,unresolved,FALSE,high,approved,低置信关联不得自动合并。
+e12_clean_ihc3,her2_assay_error,"{""source_id"":""geo:GSE76360"",""raw_field"":""her2_ihc"",""raw_value"":""3+"",""her2_status"":""Positive"",""her2_assay"":""IHC""}",FALSE,,FALSE,low,approved,对照：IHC 3+ → Positive 且保留 assay/raw，不应报 her2 错。
+e13_clean_er,schema_mapping_error,"{""source_id"":""geo:GSE76360"",""raw_field"":""er status"",""raw_value"":""positive"",""er_status"":""Positive""}",FALSE,,FALSE,low,approved,对照：ER 标准化正确。
+e14_typo_stage,typo,"{""stage"":""Stge IIA"",""source_id"":""gdc:TCGA-BRCA""}",TRUE,stage=IIA,FALSE,medium,approved,拼写错误可提议，分期属临床字段，建议审核后应用。
+e15_authority_conflict,schema_mapping_error,"{""source_a"":""IHC 3+"",""source_b"":""FISH negative"",""picked"":""Positive"",""source_id"":""mixed""}",TRUE,不自动选边；记录冲突并 REVIEW,FALSE,high,approved,高权威来源冲突不得自动选边。
+e16_join_without_crosswalk,patient_sample_conflict,"{""left"":""GSE76360"",""right"":""brca_metabric"",""join"":""patient_id""}",TRUE,FORBIDDEN_PATIENT_JOIN,FALSE,high,approved,无 crosswalk 禁止患者级 Join。
+e17_empty_her2_publish,provenance_missing,"{""her2_status"":""Positive"",""source_id"":""geo:GSE76360"",""raw_value"":""""}",TRUE,缺 raw_value 则关键字段不可发布,FALSE,high,approved,有 source 但无原始值仍不算完整 Evidence。
+e18_pr_pos_alias,gene_alias,"{""gene"":""PgR"",""source_id"":""cbioportal:brca_metabric""}",TRUE,"{""gene"":""PGR""}",TRUE,low,approved,PgR → PGR 可自动。
+e19_response_domain_blank,schema_mapping_error,"{""response"":""pCR"",""response_domain"":"""",""source_id"":""geo:GSE25066""}",TRUE,response_domain=clinical,FALSE,medium,approved,有患者结局必须补 clinical 域。
+e20_clean_alias_done,drug_alias,"{""drug"":""trastuzumab"",""source_id"":""nct:NCT01042379""}",FALSE,,FALSE,low,approved,对照：已是标准药名，不应再报错。
+e21_sample_timepoint_leak,duplicate,"{""patient_id"":""P1"",""timepoint"":[""baseline"",""post""],""stacked_as_two_analysis_rows"":true,""source_id"":""geo:GSE76360""}",TRUE,分析集只保留基线或按研究设计显式分表，避免治疗后行泄漏,FALSE,medium,approved,配对时间点不是重复身份，但不得当两个独立患者。
+e22_unknown_to_negative,schema_mapping_error,"{""er_status"":""Negative"",""raw_value"":""NA"",""source_id"":""gdc:TCGA-BRCA""}",TRUE,er_status=Unknown,FALSE,medium,approved,NA 不得当成 Negative。

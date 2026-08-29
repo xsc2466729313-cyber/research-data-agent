@@ -1,0 +1,54 @@
+﻿question_id,research_question,dataset_id,label,label_source,review_status,notes
+q01_neoadjuvant_pcr,哪些因素会影响乳腺癌新辅助治疗后的病理完全缓解（pCR）？需要患者级临床结局。,GSE76360,relevant,official_accession_draft_pending_human_review,approved,GEO 官方 GSE76360：HER2 靶向术前治疗，含术后响应注释。https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE76360
+q01_neoadjuvant_pcr,哪些因素会影响乳腺癌新辅助治疗后的病理完全缓解（pCR）？需要患者级临床结局。,GSE25066,relevant,official_accession_draft_pending_human_review,approved,GEO 官方 GSE25066：新辅助化疗响应独立队列。https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE25066
+q01_neoadjuvant_pcr,哪些因素会影响乳腺癌新辅助治疗后的病理完全缓解（pCR）？需要患者级临床结局。,brca_metabric,not_relevant,official_accession_draft_pending_human_review,approved,METABRIC 有分子与生存，缺与本问匹配的新辅助 pCR 同域结局，不得当正例。https://www.cbioportal.org/study/summary?id=brca_metabric
+q01_neoadjuvant_pcr,哪些因素会影响乳腺癌新辅助治疗后的病理完全缓解（pCR）？需要患者级临床结局。,TCGA-BRCA,not_relevant,official_accession_draft_pending_human_review,approved,TCGA-BRCA 主为综合基因组与基线临床，不是新辅助 pCR 专用队列。https://portal.gdc.cancer.gov/projects/TCGA-BRCA
+q01_neoadjuvant_pcr,哪些因素会影响乳腺癌新辅助治疗后的病理完全缓解（pCR）？需要患者级临床结局。,CIViC,not_relevant,official_accession_draft_pending_human_review,approved,知识证据库，不是患者级 pCR 队列。https://civicdb.org/
+q01_neoadjuvant_pcr,哪些因素会影响乳腺癌新辅助治疗后的病理完全缓解（pCR）？需要患者级临床结局。,DepMap,not_relevant,official_accession_draft_pending_human_review,approved,细胞系药敏，response_domain 不同。
+q02_her2_targeted_response,整理 HER2 阳性乳腺癌术前抗 HER2 治疗的患者级治疗响应队列。,GSE76360,relevant,official_accession_draft_pending_human_review,approved,公开 Series Matrix 可解析 HER2 队列与治疗响应。
+q02_her2_targeted_response,整理 HER2 阳性乳腺癌术前抗 HER2 治疗的患者级治疗响应队列。,GSE25066,relevant,official_accession_draft_pending_human_review,approved,新辅助化疗响应，可作为独立临床响应来源，但是否抗 HER2 需按样本注释核对。
+q02_her2_targeted_response,整理 HER2 阳性乳腺癌术前抗 HER2 治疗的患者级治疗响应队列。,breast_alpelisib_2020,relevant,official_accession_draft_pending_human_review,approved,cBioPortal 同患者可含分子与治疗响应。https://www.cbioportal.org/study/summary?id=breast_alpelisib_2020
+q02_her2_targeted_response,整理 HER2 阳性乳腺癌术前抗 HER2 治疗的患者级治疗响应队列。,brca_metabric,not_relevant,official_accession_draft_pending_human_review,approved,缺匹配的抗 HER2 治疗响应结局。
+q02_her2_targeted_response,整理 HER2 阳性乳腺癌术前抗 HER2 治疗的患者级治疗响应队列。,DepMap,not_relevant,official_accession_draft_pending_human_review,approved,非患者临床响应。
+q03_pik3ca_and_response_same_patient,研究 HER2 阳性或激素受体阳性乳腺癌中 PIK3CA 突变与治疗响应的关系，要求同一患者同时有突变和临床响应。,breast_alpelisib_2020,relevant,official_accession_draft_pending_human_review,approved,同患者可同时有 PIK3CA 与治疗响应，禁止用别的队列贴突变。
+q03_pik3ca_and_response_same_patient,研究 HER2 阳性或激素受体阳性乳腺癌中 PIK3CA 突变与治疗响应的关系，要求同一患者同时有突变和临床响应。,brca_mskcc_2019,relevant,official_accession_draft_pending_human_review,approved,cBioPortal 同患者临床/分子候选。https://www.cbioportal.org/study/summary?id=brca_mskcc_2019
+q03_pik3ca_and_response_same_patient,研究 HER2 阳性或激素受体阳性乳腺癌中 PIK3CA 突变与治疗响应的关系，要求同一患者同时有突变和临床响应。,GSE76360,not_relevant,official_accession_draft_pending_human_review,approved,有治疗响应，公开矩阵无 PIK3CA；相关但不足以回答「同患者双变量」。标负例防止跨库贴值。
+q03_pik3ca_and_response_same_patient,研究 HER2 阳性或激素受体阳性乳腺癌中 PIK3CA 突变与治疗响应的关系，要求同一患者同时有突变和临床响应。,brca_metabric,not_relevant,official_accession_draft_pending_human_review,approved,有 PIK3CA，无匹配治疗响应，不得当正例。
+q03_pik3ca_and_response_same_patient,研究 HER2 阳性或激素受体阳性乳腺癌中 PIK3CA 突变与治疗响应的关系，要求同一患者同时有突变和临床响应。,CIViC,not_relevant,official_accession_draft_pending_human_review,approved,知识证据不等于患者疗效。
+q04_pik3ca_clinical_features,整理乳腺癌患者的 PIK3CA 突变与临床特征，不要求治疗响应结局。,brca_metabric,relevant,official_accession_draft_pending_human_review,approved,METABRIC 含 PIK3CA 等体细胞突变与临床。
+q04_pik3ca_clinical_features,整理乳腺癌患者的 PIK3CA 突变与临床特征，不要求治疗响应结局。,TCGA-BRCA,relevant,official_accession_draft_pending_human_review,approved,GDC/TCGA-BRCA 含突变与临床。
+q04_pik3ca_clinical_features,整理乳腺癌患者的 PIK3CA 突变与临床特征，不要求治疗响应结局。,brca_mskcc_2019,relevant,official_accession_draft_pending_human_review,approved,MSK 乳腺癌队列含突变。
+q04_pik3ca_clinical_features,整理乳腺癌患者的 PIK3CA 突变与临床特征，不要求治疗响应结局。,GSE76360,not_relevant,official_accession_draft_pending_human_review,approved,公开矩阵无 PIK3CA。
+q04_pik3ca_clinical_features,整理乳腺癌患者的 PIK3CA 突变与临床特征，不要求治疗响应结局。,DepMap,not_relevant,official_accession_draft_pending_human_review,approved,细胞系，不是患者队列。
+q05_erbb2_her2_features,整理乳腺癌患者的 ERBB2/HER2 相关临床特征、拷贝数或突变信息。,TCGA-BRCA,relevant,official_accession_draft_pending_human_review,approved,含 ERBB2 拷贝数/突变，须与 IHC 分列。
+q05_erbb2_her2_features,整理乳腺癌患者的 ERBB2/HER2 相关临床特征、拷贝数或突变信息。,brca_metabric,relevant,official_accession_draft_pending_human_review,approved,含 HER2 临床状态与分子。
+q05_erbb2_her2_features,整理乳腺癌患者的 ERBB2/HER2 相关临床特征、拷贝数或突变信息。,GSE76360,relevant,official_accession_draft_pending_human_review,approved,样本注释含 HER2 相关临床，不是 CNA 金标准。
+q05_erbb2_her2_features,整理乳腺癌患者的 ERBB2/HER2 相关临床特征、拷贝数或突变信息。,CIViC,relevant,official_accession_draft_pending_human_review,approved,ERBB2 变异的知识证据，response_domain=knowledge_evidence。
+q05_erbb2_her2_features,整理乳腺癌患者的 ERBB2/HER2 相关临床特征、拷贝数或突变信息。,DepMap,not_relevant,official_accession_draft_pending_human_review,approved,本题要患者/临床特征，不是细胞系药敏。
+q06_pik3ca_knowledge_evidence,检索乳腺癌中 PIK3CA 变异与药物治疗的文献级证据，并与患者队列区分。,CIViC,relevant,official_accession_draft_pending_human_review,approved,Variant–Drug–Disease 证据。https://civicdb.org/
+q06_pik3ca_knowledge_evidence,检索乳腺癌中 PIK3CA 变异与药物治疗的文献级证据，并与患者队列区分。,brca_metabric,not_relevant,official_accession_draft_pending_human_review,approved,患者队列，不是文献证据库。
+q06_pik3ca_knowledge_evidence,检索乳腺癌中 PIK3CA 变异与药物治疗的文献级证据，并与患者队列区分。,GSE76360,not_relevant,official_accession_draft_pending_human_review,approved,表达/临床队列，不是 CIViC 证据。
+q06_pik3ca_knowledge_evidence,检索乳腺癌中 PIK3CA 变异与药物治疗的文献级证据，并与患者队列区分。,TCGA-BRCA,not_relevant,official_accession_draft_pending_human_review,approved,基因组队列，不是知识证据层。
+q07_neoadjuvant_trials,查找乳腺癌新辅助治疗相关的登记临床试验（NCT）。,NCT01042379,relevant,official_accession_draft_pending_human_review,approved,I-SPY2 新辅助登记试验。https://clinicaltrials.gov/study/NCT01042379
+q07_neoadjuvant_trials,查找乳腺癌新辅助治疗相关的登记临床试验（NCT）。,AACT,relevant,official_accession_draft_pending_human_review,approved,ClinicalTrials.gov/AACT 聚合层，须落到具体 NCT。
+q07_neoadjuvant_trials,查找乳腺癌新辅助治疗相关的登记临床试验（NCT）。,GSE76360,not_relevant,official_accession_draft_pending_human_review,approved,单中心 GEO 队列，不是试验登记主库。
+q07_neoadjuvant_trials,查找乳腺癌新辅助治疗相关的登记临床试验（NCT）。,DepMap,not_relevant,official_accession_draft_pending_human_review,approved,非临床试验。
+q08_cell_line_drug_response,整理乳腺癌细胞系对靶向药物的药敏（AUC/IC50），不得当作患者疗效。,DepMap,relevant,official_accession_draft_pending_human_review,approved,细胞系药敏；response_domain 必须是 preclinical_cell_line。
+q08_cell_line_drug_response,整理乳腺癌细胞系对靶向药物的药敏（AUC/IC50），不得当作患者疗效。,GSE76360,not_relevant,official_accession_draft_pending_human_review,approved,患者治疗响应，不得与 AUC/IC50 混为正例。
+q08_cell_line_drug_response,整理乳腺癌细胞系对靶向药物的药敏（AUC/IC50），不得当作患者疗效。,brca_metabric,not_relevant,official_accession_draft_pending_human_review,approved,患者队列。
+q08_cell_line_drug_response,整理乳腺癌细胞系对靶向药物的药敏（AUC/IC50），不得当作患者疗效。,CIViC,not_relevant,official_accession_draft_pending_human_review,approved,知识证据，不是细胞系筛药表。
+q09_tnbc,三阴性乳腺癌患者的临床与分子特征整理。,TCGA-BRCA,relevant,official_accession_draft_pending_human_review,approved,可用受体状态筛选 TNBC 临床/分子。
+q09_tnbc,三阴性乳腺癌患者的临床与分子特征整理。,brca_metabric,relevant,official_accession_draft_pending_human_review,approved,含 ER/PR/HER2 临床，可筛 TNBC。
+q09_tnbc,三阴性乳腺癌患者的临床与分子特征整理。,GSE25066,relevant,official_accession_draft_pending_human_review,approved,新辅助队列含受体注释时可用于 TNBC 亚组，以样本注释为准。
+q09_tnbc,三阴性乳腺癌患者的临床与分子特征整理。,DepMap,not_relevant,official_accession_draft_pending_human_review,approved,细胞系不是患者 TNBC 队列。
+q10_hr_positive_her2_negative,HR 阳性 / HER2 阴性乳腺癌的临床特征与分子队列。,brca_metabric,relevant,official_accession_draft_pending_human_review,approved,含激素受体与 HER2 临床分层。
+q10_hr_positive_her2_negative,HR 阳性 / HER2 阴性乳腺癌的临床特征与分子队列。,TCGA-BRCA,relevant,official_accession_draft_pending_human_review,approved,含受体临床字段。
+q10_hr_positive_her2_negative,HR 阳性 / HER2 阴性乳腺癌的临床特征与分子队列。,GSE76360,not_relevant,official_accession_draft_pending_human_review,approved,该测试队列以 HER2 阳性靶向治疗为主，不是 HR+/HER2- 主队列。
+q10_hr_positive_her2_negative,HR 阳性 / HER2 阴性乳腺癌的临床特征与分子队列。,DepMap,not_relevant,official_accession_draft_pending_human_review,approved,非患者。
+q11_her2_ihc_vs_erbb2_cna,区分 HER2 IHC 结果与 ERBB2 拷贝数扩增，二者不得当成同一字段。,TCGA-BRCA,relevant,official_accession_draft_pending_human_review,approved,同时可能有 IHC 临床与 ERBB2 CNA，必须分字段。
+q11_her2_ihc_vs_erbb2_cna,区分 HER2 IHC 结果与 ERBB2 拷贝数扩增，二者不得当成同一字段。,brca_metabric,relevant,official_accession_draft_pending_human_review,approved,临床 HER2 与分子分开保存。
+q11_her2_ihc_vs_erbb2_cna,区分 HER2 IHC 结果与 ERBB2 拷贝数扩增，二者不得当成同一字段。,GSE76360,not_relevant,official_accession_draft_pending_human_review,approved,公开矩阵侧重治疗响应与 IHC 类注释，不是 CNA 对照集。
+q11_her2_ihc_vs_erbb2_cna,区分 HER2 IHC 结果与 ERBB2 拷贝数扩增，二者不得当成同一字段。,CIViC,not_relevant,official_accession_draft_pending_human_review,approved,知识证据不能替代 IHC/CNA 字段对齐金标准。
+q12_scanb_expression,SCAN-B 大规模乳腺癌表达队列能否支持临床特征整理？,GSE96058,relevant,official_accession_draft_pending_human_review,approved,SCAN-B 表达队列。https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE96058
+q12_scanb_expression,SCAN-B 大规模乳腺癌表达队列能否支持临床特征整理？,GSE76360,not_relevant,official_accession_draft_pending_human_review,approved,不是 SCAN-B。
+q12_scanb_expression,SCAN-B 大规模乳腺癌表达队列能否支持临床特征整理？,CIViC,not_relevant,official_accession_draft_pending_human_review,approved,非表达队列。

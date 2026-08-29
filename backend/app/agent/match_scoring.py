@@ -31,6 +31,8 @@ SURVIVAL_FIELD_WEIGHTS: dict[str, float] = {
     "os_months": 0.9,
     "dfs_status": 0.94,
     "dfs_months": 0.88,
+    "dss_status": 0.92,
+    "dss_months": 0.86,
     "vital_status": 0.52,
 }
 

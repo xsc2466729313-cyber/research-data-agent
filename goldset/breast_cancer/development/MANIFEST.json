@@ -1,0 +1,25 @@
+{
+  "split": "development",
+  "not_frozen_test": true,
+  "copied_to_templates": false,
+  "official_sdti_entrypoint": "goldset/templates remains empty; dashboard SDTI stays NOT_EVALUATED",
+  "notice": "This freezes the development split after independent review by xsc. It is not the sealed frozen_test Gold Set and must not be reported as competition SDTI. System observations are still required before scores.",
+  "row_counts": {
+    "retrieval_gold.csv": 53,
+    "field_gold.csv": 35,
+    "error_gold.csv": 22
+  },
+  "manifest": {
+    "gold_set_id": "breast-cancer-development-20260829",
+    "version": "development-v1",
+    "frozen": true,
+    "frozen_at": "2026-08-29T09:19:41.427207Z",
+    "initial_labeler": "development-draft-builder",
+    "independent_reviewer": "xsc",
+    "deterministic_rules_verified": true,
+    "source_references_verified": true,
+    "high_risk_review_complete": true,
+    "human_reviewer": "xsc",
+    "gold_set_checksum": "1592085a90b0c460b93726af9ddeb714b78f7660958cec92de5627f8109cf6a8"
+  }
+}

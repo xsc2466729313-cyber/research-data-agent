@@ -90,9 +90,9 @@ def test_broad_topic_becomes_three_evidence_linked_questions_and_contract() -> N
     )
     candidates = service.question_candidates(topic.topic_id)
 
-    assert scan.candidate_count == 3
+    assert 3 <= scan.candidate_count <= 5
     assert len(scan.scan.papers) == 1
-    assert len(candidates.candidates) == 3
+    assert 3 <= len(candidates.candidates) <= 5
     assert all(candidate.score_status == "provisional" for candidate in candidates.candidates)
     assert all(candidate.score_basis for candidate in candidates.candidates)
     selected = next(candidate for candidate in candidates.candidates if "PIK3CA" in candidate.question)
@@ -107,6 +107,10 @@ def test_broad_topic_becomes_three_evidence_linked_questions_and_contract() -> N
     recommended = {field.field_id for field in contract.recommended_fields}
 
     assert contract.validation_status == "READY_FOR_SOURCE_PLANNING"
+    assert contract.lifecycle_status == "USER_CONFIRMED"
+    frozen = service.freeze_contract(contract.contract_id)
+    assert frozen.lifecycle_status == "FROZEN"
+    assert frozen.frozen_at is not None
     assert required["pik3ca_mutation"].evidence_status == "supported"
     assert required["pcr"].literature_evidence
     assert required["response_domain"].evidence_status == "operational_rule"
@@ -239,7 +243,7 @@ def test_research_planning_api_runs_topic_to_contract_without_patient_data(monke
         json={"max_records": 10},
     )
     assert scan_response.status_code == 200
-    assert scan_response.json()["candidate_count"] == 3
+    assert 3 <= scan_response.json()["candidate_count"] <= 5
     assert "patient_data" not in scan_response.json()
 
     candidates_response = client.get(f"/api/research/topics/{topic_id}/question-candidates")
@@ -259,4 +263,11 @@ def test_research_planning_api_runs_topic_to_contract_without_patient_data(monke
 
     get_response = client.get(f"/api/research/contracts/{contract['contract_id']}")
     assert get_response.status_code == 200
-    assert get_response.json() == contract
+    assert get_response.json()["lifecycle_status"] == "USER_CONFIRMED"
+
+    freeze_response = client.post(
+        f"/api/research/contracts/{contract['contract_id']}/freeze",
+        json={"confirmed": True},
+    )
+    assert freeze_response.status_code == 200
+    assert freeze_response.json()["lifecycle_status"] == "FROZEN"

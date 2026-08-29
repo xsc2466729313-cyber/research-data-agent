@@ -11,6 +11,7 @@ from backend.app.agent.accession_harvest import (
     literature_query,
     needs_clinical_outcome,
     question_asks_survival,
+    seed_geo_accessions,
 )
 from backend.app.models import ResearchSpec
 
@@ -58,7 +59,9 @@ def test_harvest_ranks_catalog_hits_by_question_tokens() -> None:
         [("search_geo_catalog", catalog), ("search_europe_pmc", literature)],
         spec,
     )
-    assert harvested[0] == "GSE222"
+    assert harvested[:2] == ["GSE76360", "GSE25066"]
+    catalog_hits = [item for item in harvested if item in {"GSE111", "GSE222", "GSE333"}]
+    assert catalog_hits[0] == "GSE222"
     assert "GSE333" in harvested
 
 
@@ -90,7 +93,9 @@ def test_pcr_only_outcome_still_searches_response_cohorts() -> None:
         ]
     )
     harvested = harvest_from_raw_results([("search_geo_catalog", catalog)], spec)
-    assert harvested[0] == "GSE999"
+    assert harvested[:2] == ["GSE76360", "GSE25066"]
+    catalog_hits = [item for item in harvested if item in {"GSE111", "GSE999"}]
+    assert catalog_hits[0] == "GSE999"
     query = catalog_query(spec)
     assert "pCR" in query or "response" in query.casefold()
     assert asks_pcr(spec) is True
@@ -134,3 +139,30 @@ def test_catalog_query_follows_new_question_keywords() -> None:
     assert "pCR" not in query
     assert "pcr" not in query.casefold()
     assert "response" not in query.casefold()
+
+
+def test_seed_geo_accessions_for_pcr_scanb_and_skips_alpelisib() -> None:
+    pcr = ResearchSpec(
+        task_id="seed-pcr",
+        research_goal="三阴性乳腺癌新辅助化疗病理完全缓解（pCR）",
+        disease="Breast Cancer",
+        outcomes=["pCR"],
+        required_data_types=["clinical"],
+    )
+    assert seed_geo_accessions(pcr) == ["GSE76360", "GSE25066"]
+    scanb = ResearchSpec(
+        task_id="seed-scanb",
+        research_goal="SCAN-B 队列乳腺癌基因表达与临床标注",
+        disease="Breast Cancer",
+        required_data_types=["expression"],
+    )
+    assert "GSE96058" in seed_geo_accessions(scanb)
+    alpelisib = ResearchSpec(
+        task_id="seed-alp",
+        research_goal="PIK3CA 突变 HR+/HER2- 乳腺癌使用阿培利司后的响应",
+        disease="Breast Cancer",
+        drugs=["Alpelisib"],
+        outcomes=["treatment_response"],
+        required_data_types=["clinical", "mutation", "treatment_response"],
+    )
+    assert seed_geo_accessions(alpelisib) == []

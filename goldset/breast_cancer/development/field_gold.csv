@@ -1,0 +1,36 @@
+﻿case_id,source_dataset,raw_field,raw_value,canonical_field,canonical_value,allowed_auto_transform,label_source,review_status,notes
+f01_ihc3_positive,GSE76360,her2_ihc,3+,her2_status,Positive,TRUE,official_accession_draft_pending_human_review,approved,IHC 3+ 可映射 Positive；须同时保留 her2_assay=IHC 与 her2_raw_value=3+。
+f02_ihc3_assay,GSE76360,her2_ihc,3+,her2_assay,IHC,TRUE,official_accession_draft_pending_human_review,approved,检测方法必须保留为 IHC。
+f03_ihc3_raw,GSE76360,her2_ihc,3+,her2_raw_value,3+,TRUE,official_accession_draft_pending_human_review,approved,原始值不得丢弃。
+f04_ihc2_equivocal,GSE76360,her2_ihc,2+,her2_status,Equivocal,FALSE,official_accession_draft_pending_human_review,approved,硬规则：IHC 2+ 不得自动判为 Positive，只能 Equivocal/REVIEW。
+f05_ihc2_assay,GSE76360,her2_ihc,2+,her2_assay,IHC,TRUE,official_accession_draft_pending_human_review,approved,2+ 仍是 IHC 检测。
+f06_ihc2_raw,GSE76360,her2_ihc,2+,her2_raw_value,2+,TRUE,official_accession_draft_pending_human_review,approved,必须留下 2+ 原文。
+f07_ihc1_negative,brca_metabric,HER2_IHC,1+,her2_status,Negative,TRUE,official_accession_draft_pending_human_review,approved,IHC 0/1+ 通常为 Negative；仍保留 assay 与 raw。
+f08_ihc0_negative,brca_metabric,HER2 IHC,0,her2_status,Negative,TRUE,official_accession_draft_pending_human_review,approved,IHC 0 → Negative。
+f09_fish_amp,TCGA-BRCA,HER2_FISH,amplified,her2_status,Positive,FALSE,official_accession_draft_pending_human_review,approved,FISH 扩增可支持 Positive，但属高风险，建议人工确认，不得与 IHC 2+ 混用。
+f10_fish_assay,TCGA-BRCA,HER2_FISH,amplified,her2_assay,FISH,TRUE,official_accession_draft_pending_human_review,approved,assay=FISH。
+f11_cna_gene,TCGA-BRCA,ERBB2_CNA,amplification,gene,ERBB2,TRUE,official_accession_draft_pending_human_review,approved,CNA 只证明基因是 ERBB2，不是 IHC。
+f12_cna_not_ihc,TCGA-BRCA,ERBB2_CNA,amplification,her2_status,Unknown,FALSE,official_accession_draft_pending_human_review,approved,禁止把 CNA amplification 写成 HER2 Positive。
+f13_er_pos,GSE76360,er status,positive,er_status,Positive,TRUE,official_accession_draft_pending_human_review,approved,大小写/同义可自动。
+f14_er_plus,GSE25066,ER,+,er_status,Positive,TRUE,official_accession_draft_pending_human_review,approved,符号 + → Positive。
+f15_er_cn,brca_metabric,ER,阳性,er_status,Positive,TRUE,official_accession_draft_pending_human_review,approved,中文阳性。
+f16_pr_neg,GSE76360,pr status,negative,pr_status,Negative,TRUE,official_accession_draft_pending_human_review,approved,PR 阴性。
+f17_gene_her2,CIViC,gene,HER2,gene,ERBB2,TRUE,official_accession_draft_pending_human_review,approved,基因别名可自动，medical_rules.auto_fix.gene_alias_exact。
+f18_gene_pik3ca,brca_metabric,Hugo_Symbol,PIK3CA,gene,PIK3CA,TRUE,official_accession_draft_pending_human_review,approved,已是标准符号。
+f19_mut_pik3ca,brca_metabric,Mutation_Status,Mutated,mutation_status,Mutated,TRUE,official_accession_draft_pending_human_review,approved,突变状态。
+f20_drug_herceptin,NCT01042379,intervention,Herceptin,drug,trastuzumab,TRUE,official_accession_draft_pending_human_review,approved,药品别名可自动。
+f21_pcr_yes,GSE25066,pCR,yes,response,pCR,TRUE,official_accession_draft_pending_human_review,approved,临床病理完全缓解。
+f22_pcr_domain,GSE25066,pCR,yes,response_domain,clinical,TRUE,official_accession_draft_pending_human_review,approved,患者结局必须是 clinical。
+f23_rd,GSE76360,response at surgery,RD,response,residual_disease,FALSE,official_accession_draft_pending_human_review,approved,残余病灶写法需核对原始注释，建议审核。
+f24_auc_domain,DepMap,AUC,0.42,response_domain,preclinical_cell_line,TRUE,official_accession_draft_pending_human_review,approved,细胞系药敏域。
+f25_auc_not_pcr,DepMap,AUC,0.42,response,AUC,FALSE,official_accession_draft_pending_human_review,approved,不得写成患者 pCR。
+f26_disease,TCGA-BRCA,primary_diagnosis,Breast Invasive Carcinoma,disease,breast cancer,TRUE,official_accession_draft_pending_human_review,approved,疾病归一。
+f27_source,GSE76360,geo_accession,GSE76360,source_id,geo:GSE76360,TRUE,official_accession_draft_pending_human_review,approved,必须有真实 source_id。
+f28_patient,GSE76360,subject id,P1,patient_id,P1,FALSE,official_accession_draft_pending_human_review,approved,身份字段低置信时不得跨库对齐。
+f29_sample,GSE76360,sample,GSM_baseline_1,sample_id,GSM_baseline_1,FALSE,official_accession_draft_pending_human_review,approved,样本 ID 保留，不与其他研究同号合并。
+f30_her2_pos_text,brca_metabric,HER2_STATUS,Positive,her2_status,Positive,TRUE,official_accession_draft_pending_human_review,approved,来源已给临床 HER2 Positive，仍建议核对 assay。
+f31_unknown_er,TCGA-BRCA,er_status,NA,er_status,Unknown,TRUE,official_accession_draft_pending_human_review,approved,缺失记号 → Unknown，不是 Negative。
+f32_civic_domain,CIViC,evidence_type,Predictive,response_domain,knowledge_evidence,TRUE,official_accession_draft_pending_human_review,approved,知识证据层。
+f33_stage,TCGA-BRCA,ajcc_pathologic_stage,Stage IIA,stage,IIA,TRUE,official_accession_draft_pending_human_review,approved,分期压缩为 IIA。
+f34_treatment,GSE76360,treatment,trastuzumab + chemotherapy,treatment,trastuzumab + chemotherapy,TRUE,official_accession_draft_pending_human_review,approved,治疗方案原文可规范化空格，不改药名语义。
+f35_subtype_her2,GSE76360,HER2_cohort,HER2-positive,subtype,HER2-positive,TRUE,official_accession_draft_pending_human_review,approved,亚型。

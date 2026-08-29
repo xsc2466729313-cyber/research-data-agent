@@ -65,4 +65,48 @@ def test_toolkit_run_computes_from_current_task() -> None:
     assert by_key["quality_gate"].value == 0.5
     assert payload["quality_gate"] == "REVIEW"
     assert "Hospital" in by_key["cleaning_retention"].reason
+    assert by_key["cleaning_retention"].headline is not None
     assert "Valentine" in by_key["integration_macro_f1"].reason or "不是行业标准" in by_key["integration_macro_f1"].reason
+
+
+def test_toolkit_cleaning_does_not_score_empty_or_missing_only_tables() -> None:
+    empty = run_toolkit_evaluation(SimpleNamespace(
+        task_id="empty-table",
+        modeling_dataset=SimpleNamespace(rows=[], columns=[]),
+        readiness=SimpleNamespace(cleaned_value_count=0),
+        study_design=None,
+        data_alignment=None,
+        quality_gate_report=None,
+        competition_report=None,
+    ))
+    missing_only = run_toolkit_evaluation(SimpleNamespace(
+        task_id="missing-table",
+        modeling_dataset=SimpleNamespace(rows=[{"patient_id": "", "her2_status": "—", "source_id": "s1"}], columns=[]),
+        readiness=SimpleNamespace(cleaned_value_count=0),
+        study_design=None,
+        data_alignment=None,
+        quality_gate_report=None,
+        competition_report=None,
+    ))
+    empty_metric = next(item for item in empty["metrics"] if item.key == "cleaning_retention")
+    missing_metric = next(item for item in missing_only["metrics"] if item.key == "cleaning_retention")
+    assert empty_metric.value is None
+    assert missing_metric.value is None
+    assert "空表" in empty_metric.reason or "没有宽表" in empty_metric.reason
+    assert "不能把空表" in missing_metric.reason or "已填写" in missing_metric.reason
+
+
+def test_toolkit_cleaning_headline_is_not_a_fake_perfect_coverage_score() -> None:
+    payload = run_toolkit_evaluation(SimpleNamespace(
+        task_id="clean-cells",
+        modeling_dataset=SimpleNamespace(rows=[{"patient_id": "P1", "her2_status": "Positive"}], columns=[]),
+        readiness=SimpleNamespace(cleaned_value_count=0),
+        study_design=None,
+        data_alignment=None,
+        quality_gate_report=None,
+        competition_report=None,
+    ))
+    cleaning = next(item for item in payload["metrics"] if item.key == "cleaning_retention")
+    assert cleaning.value == 1.0
+    assert cleaning.headline == "未发现错误清洗"
+    assert "不是字段覆盖" in (cleaning.plain_meaning or "") or "必要字段" in (cleaning.plain_meaning or "")

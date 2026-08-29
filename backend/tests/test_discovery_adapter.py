@@ -163,3 +163,36 @@ def test_civic_candidate_builder_tolerates_missing_evidence_items() -> None:
     candidates = ResearchAgentService._candidates("search_civic", FakeDiscoveryResult())
     assert candidates[0].source_database == "CIViC"
     assert candidates[0].url == "https://civicdb.org/"
+
+
+JATS_FULLTEXT = """<article>
+<table-wrap>
+<table>
+<tr><th>gene</th><th>status</th></tr>
+<tr><td>PIK3CA</td><td>mut</td></tr>
+</table>
+</table-wrap>
+<fig><caption>Figure 1. Forest plot. Do not digitize pixels.</caption></fig>
+</article>
+"""
+
+
+def test_extract_paper_assets_parses_jats_tables_not_pixels() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert "/PMC99999/fullTextXML" in str(request.url)
+        return httpx.Response(200, text=JATS_FULLTEXT, request=request)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    result = DiscoveryAdapter(client=client).extract_paper_assets(
+        task_id="task-paper",
+        query="breast cancer table",
+        pmcid="PMC99999",
+    )
+    client.close()
+    assert result.pmcid == "PMC99999"
+    assert result.source_kind == "paper_extract"
+    assert result.parsed_field_count > 0
+    assert any("像素" in warning or "图注" in warning for warning in result.parse_warnings) or "像素" in result.notice
+    candidates = ResearchAgentService._candidates("extract_paper_assets", result)
+    assert candidates[0].dataset_id == "PMC99999"
+    assert candidates[0].source_database == "Europe PMC"

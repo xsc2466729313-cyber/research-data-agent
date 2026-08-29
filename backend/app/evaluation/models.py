@@ -169,6 +169,7 @@ class EvaluationRequest(ApiModel):
     observations: BenchmarkObservations | None = None
     source_validation: SourceValidationSummary | None = None
     unresolved_high_risk_count: int = Field(default=0, ge=0)
+    allow_reviewed_unfrozen: bool = False
 
     @model_validator(mode="after")
     def validate_mode_inputs(self) -> EvaluationRequest:
@@ -181,6 +182,8 @@ class EvaluationRequest(ApiModel):
                 raise ValueError(
                     "not_evaluated mode cannot accept benchmark safety results"
                 )
+            if self.allow_reviewed_unfrozen:
+                raise ValueError("not_evaluated mode cannot allow an unfrozen reviewed paper")
         elif self.gold_set is None or self.observations is None:
             raise ValueError("gold_set mode requires gold_set and observations")
         return self

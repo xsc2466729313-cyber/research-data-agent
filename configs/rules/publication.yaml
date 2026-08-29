@@ -1,0 +1,34 @@
+version: "0.1"
+pack: publication
+
+gates:
+  - required_fields_present
+  - provenance_complete
+  - no_forbidden_join
+  - no_unresolved_high_risk_conflict
+  - response_domain_valid
+  - identity_gate_passed
+
+rules:
+  - rule_id: BLOCK_PUBLISH_WITHOUT_PROVENANCE
+    scope: provenance
+    when:
+      missing_any: [source_id, raw_field, raw_value]
+    action: BLOCK_PUBLISH
+  - rule_id: ER_PR_UNKNOWN_NOT_NEGATIVE
+    scope: biomarker
+    when:
+      raw_value: Unknown
+    forbid:
+      er_status: Negative
+      pr_status: Negative
+    action: REVIEW
+  - rule_id: PAM50_NOT_EQUAL_IHC_SUBTYPE
+    scope: biomarker
+    action: preserve_separate_dimension
+  - rule_id: MUTATION_NOT_EQUAL_EXPRESSION
+    scope: biomarker
+    action: preserve_separate_dimension
+  - rule_id: GENE_AMPLIFICATION_NOT_EQUAL_OVEREXPRESSION
+    scope: biomarker
+    action: preserve_separate_dimension

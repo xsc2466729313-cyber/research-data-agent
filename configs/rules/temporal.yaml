@@ -1,0 +1,15 @@
+version: "0.1"
+pack: temporal
+
+rules:
+  - rule_id: PRETREATMENT_NOT_POST
+    scope: temporal
+    when:
+      sample_timepoint: pretreatment
+    forbid:
+      equate_with: post-treatment
+    action: REVIEW
+  - rule_id: RESPONSE_AFTER_TREATMENT
+    scope: temporal
+    require: treatment_before_response
+    action: REVIEW

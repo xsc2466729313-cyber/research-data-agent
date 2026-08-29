@@ -13,6 +13,19 @@
 
 模板位于 `templates/`。
 
+## 正式入口 vs development
+
+`templates/` 已由独立审核人 **xsc** 于 2026-08-29 写入 held-out 正式考卷
+（来自 `goldset/breast_cancer/official_candidate/`，`gold_set_id=breast-cancer-official-candidate-20260829`）。
+行数：retrieval 50 / field 26 / error 18。`frozen=false`，**不是** `frozen_test`。
+
+对本卷已跑正式评测：`official-candidate-20260829T132222Z`，**SDTI = 63.36**，安全门 FAIL，`publish_allowed=false`。
+产物在 `goldset/breast_cancer/official_candidate/evaluation_runs/`。重跑：`POST /api/evaluation/official-run` 或 `collect_official_sdti.py`。
+
+`goldset/breast_cancer/development/` 是已审核的 development 分册（千问 LIVE 观察 SDTI 66.94），**不是正式入口**，其观察分不得填入正式栏。
+
+详细接口与审核门槛见 `docs/EVALUATION_SDTI.md`。数据对照见 `docs/DATA_REPORT_20260829.md`。
+
 ## 阶段 07 使用方式
 
 - `retrieval_gold.csv`：一行一个 question–dataset pair，`label` 使用
@@ -21,10 +34,6 @@
 - `error_gold.csv`：同时放入应检出错误和 clean control，否则无法计算 Error Precision。
 - 全部审核完成后将 `review_status` 设为 `approved`，然后冻结版本及 SHA-256。
 - 高风险错误不得标记为允许自动修复，并必须记录人工复核者。
-
-仓库中的 CSV 现在只有表头，因此 API 会明确返回 `NOT_EVALUATED`，
-不会为空模板生成指标或 SDTI 成绩。详细接口与审核门槛见
-`docs/EVALUATION_SDTI.md`。
 
 ## 阶段 08 AI 辅助
 

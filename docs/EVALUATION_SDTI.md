@@ -36,6 +36,7 @@ sdti
 
 - `GET /api/evaluation/goldset/templates`：校验仓库内三个 CSV 模板的表头，并返回行数。
 - `POST /api/evaluation/run`：运行未评测声明或经验证的 Gold Set 评测。
+- `POST /api/evaluation/official-run`：对本套 `goldset/templates/`（held-out official_candidate）采集系统观察并计算 SDTI。CLI：`python goldset/breast_cancer/official_candidate/collect_official_sdti.py`。
 - `GET /api/evaluation/artifacts/<evaluation_id>/<metrics.json|report.md>`：下载评测产物。
 
 在尚无真实 Gold Set 时，请求只需：
@@ -76,7 +77,17 @@ data/output/evaluation/<evaluation_id>/report.md
 6. 系统观察与 Gold 行逐条一一对齐，不允许缺行、多行或重复 ID。
 
 三个 CSV 模板位于 `goldset/templates/`。`GoldSetCsvLoader` 要求表头与模板完全一致，
-支持 UTF-8 / UTF-8 BOM，并将空模板始终视为 `NOT_EVALUATED`。
+支持 UTF-8 / UTF-8 BOM。空模板视为 `NOT_EVALUATED`；模板已有行但缺少系统观察时，
+看板正式 SDTI 保持 `NOT_EVALUATED`，不得用 development 观察分填充。
+
+当前 `templates/` 已由 xsc 写入 held-out 正式考卷（retrieval 50 / field 26 / error 18）。
+对本卷的系统观察评测 ID 为 `official-candidate-20260829T132222Z`，**SDTI = 63.36**，
+`publish_allowed=false`，**不是** sealed `frozen_test`（manifest `frozen=false`，
+本次评分使用 `allow_reviewed_unfrozen=True`）。数字见 `docs/DATA_REPORT_20260829.md`。
+development 分册观察分（66.94）不得填入正式栏。
+
+上列 1–6 条仍是 sealed 终考门槛。未完成来源/规则复验与 `frozen=true` 之前，
+63.36 只是正式卷实测，不能当成冻结赛题自动发布。
 
 ## 指标数值与空分母
 

@@ -244,7 +244,15 @@ async function fetchApi(path, options = {}) {
 
 const translateTerm = (value) => TERM_TRANSLATIONS[String(value)] || String(value ?? "—");
 const listText = (values) => values?.length ? values.map(translateTerm).join("、") : "未指定";
-const statusClass = (status) => ["完成", "可支持科研分析", "达标", "已覆盖", "已记录", "已计算", "有科研价值", "PASS", "MATCH", "PARTIAL"].includes(status) ? (status === "PARTIAL" ? "is-review" : "is-success") : ["失败", "部分失败", "REJECT", "FAIL", "UNMATCH", "尚不足"].includes(status) ? "is-error" : "is-review";
+const PENDING_STATUSES = ["待跑", "待评", "待补", "待检查", "NOT_EVALUATED", "未评测", "PENDING"];
+const statusClass = (status) => {
+  const value = String(status || "");
+  if (["完成", "可支持科研分析", "达标", "已覆盖", "已记录", "已计算", "有科研价值", "PASS", "MATCH"].includes(value)) return "is-success";
+  if (value === "PARTIAL") return "is-review";
+  if (["失败", "部分失败", "REJECT", "FAIL", "UNMATCH", "尚不足"].includes(value)) return "is-error";
+  if (PENDING_STATUSES.includes(value)) return "is-pending";
+  return "is-review";
+};
 const metricPercentValue = (metric) => {
   if (!metric) return null;
   const value = Number(metric.value);
@@ -447,7 +455,7 @@ async function runClosedLoopTask(payload) {
   await pinPreferredApiOrigin();
   const body = {
     initial_request: payload,
-    max_iterations: 2,
+    max_iterations: 3,
     require_two_rounds: true,
     min_improvement: 0.01,
     stop_on_no_improvement: true,
@@ -513,11 +521,11 @@ function setProgress(percent, label) {
 
 function startProgress() {
   const phases = [
-    [18, "正在解析研究问题（PICO）…"],
-    [32, "正在生成研究方案与数据源规划…"],
-    [48, "正在检索并解析公开数据库…"],
+    [18, "正在解析研究问题并选择工具…"],
+    [32, "正在检索公开数据库与文献中的 GSE/NCT…"],
+    [48, "正在按缺口换方法补搜（未达标则继续）…"],
     [63, "正在执行 Schema 匹配与实体对齐…"],
-    [76, "正在执行四层质量门…"],
+    [76, "正在执行质量门与 Critic 诊断…"],
     [86, "正在生成分析矩阵、字段字典与质量报告…"],
   ];
   let index = 0;
@@ -728,7 +736,10 @@ function renderResult(result) {
   const usedModel = result.used_model ?? result.used_qwen;
   document.querySelector("#result-status").textContent = result.status;
   document.querySelector("#agent-mode").textContent = result.agent_mode;
-  document.querySelector("#model-name").textContent = usedModel ? `${result.model_provider} / ${result.model_name}` : `${result.model_name}（未调用）`;
+  const qwenFlag = document.querySelector("#qwen-used-flag");
+  if (qwenFlag) qwenFlag.textContent = usedModel ? `是 · ${result.model_provider || "qwen"} / ${result.model_name}` : "否（确定性兜底）";
+  const modelName = document.querySelector("#model-name");
+  if (modelName) modelName.textContent = usedModel ? `${result.model_provider} / ${result.model_name}` : `${result.model_name}（未调用）`;
   document.querySelector("#dataset-size").textContent = `${result.modeling_dataset.row_count} 行 × ${result.modeling_dataset.columns.length} 列`;
   document.querySelector("#task-id").textContent = result.task_id;
   document.querySelector("#agent-summary").textContent = localizeNarrative(result.summary_zh);
@@ -744,10 +755,13 @@ function renderResult(result) {
     renderStudyDesign(result.study_design, result.modeling_dataset);
     renderCohortConstruction(result.cohort_construction, result.readiness, result.quality_gate_report);
   renderCollectionAgent(result.collection_agent);
+  renderCritic(result.critic_report);
     renderDataAlignment(result.data_alignment);
     renderQualityGates(result.quality_gate_report);
+  renderReviewQueue(result);
   renderDictionary(result.modeling_dataset.columns);
   renderSources(result.source_items, result.candidate_sources, result.modeling_dataset);
+  persistAndRenderSystemEvaluation(result);
 }
 
 function renderClosedLoop(loop) {
@@ -758,21 +772,67 @@ function renderClosedLoop(loop) {
   const rounds = document.querySelector("#closed-loop-rounds");
   if (!panel || !status || !reason || !summary || !rounds || !loop) return;
   panel.hidden = false;
-  status.textContent = `${loop.completed_iterations || 0} 轮 · ${loop.status || "completed"}`;
-  status.className = `status-badge ${statusClass(loop.status === "completed" ? "PASS" : "REVIEW")}`;
-  reason.textContent = localizeNarrative(loop.stop_reason || "");
-  summary.innerHTML = (loop.improvement_summary || []).map((item) => `<article><span>前后轮对比</span><strong>${escapeHtml(localizeNarrative(item))}</strong></article>`).join("");
-  rounds.innerHTML = (loop.iterations || []).map((item) => {
+  const improved = Boolean(loop.improved);
+  const presentation = loop.presentation || (improved ? "comparison" : "best_only");
+  const bestIteration = Number(loop.best_iteration || 1);
+  const notice = loop.user_notice || loop.stop_reason || "第二轮没有新的合法补法，指标未变。下面只展示本次最好一轮。";
+  status.textContent = improved ? `第 ${bestIteration} 轮更好` : "本次最好一轮";
+  status.className = `status-badge ${improved ? "is-success" : "is-pending"}`;
+  reason.textContent = localizeNarrative(notice);
+  const highlight = (Array.isArray(loop.highlight_cards) ? loop.highlight_cards : []).filter((card) => {
+    const value = String(card.value || "");
+    if (value === "0.0%" || value === "0%" || value === "0") return false;
+    return Boolean(card.label && value && value !== "—");
+  });
+  if (highlight.length) {
+    summary.innerHTML = highlight.map((card) => (
+      `<article class="closed-loop-highlight is-${escapeHtml(card.tone || "neutral")}">`
+      + `<span>${escapeHtml(card.label || "")}</span>`
+      + `<strong>${escapeHtml(card.value || "—")}</strong>`
+      + `<small>${escapeHtml(card.hint || "")}</small>`
+      + `</article>`
+    )).join("");
+  } else if (presentation === "comparison") {
+    summary.innerHTML = (loop.improvement_summary || []).map((item) => `<article><span>前后对比</span><strong>${escapeHtml(localizeNarrative(item))}</strong></article>`).join("");
+  } else {
+    const line = (loop.improvement_summary && loop.improvement_summary[0]) || notice;
+    summary.innerHTML = `<article class="closed-loop-best-note"><span>闭环结论</span><strong>${escapeHtml(localizeNarrative(line))}</strong></article>`;
+  }
+  const allowed = new Set(
+    Array.isArray(loop.display_iterations) && loop.display_iterations.length
+      ? loop.display_iterations.map(Number)
+      : (presentation === "comparison" ? (loop.iterations || []).map((item) => Number(item.iteration)) : [bestIteration])
+  );
+  const visible = (loop.iterations || []).filter((item) => allowed.has(Number(item.iteration)));
+  rounds.innerHTML = visible.map((item) => {
     const metrics = item.metrics || {};
-    const diagnoses = (item.diagnoses || []).map((diagnosis) => diagnosis.label).join("、") || "未发现新的缺口";
-    const improvement = item.improvement?.summary?.join("；") || "第一轮基线，尚无前后对比";
-    return `<article class="collection-iteration ${metrics.publish_allowed ? "is-pass" : "is-review"}">
-      <div class="collection-iteration-head"><strong>第 ${escapeHtml(item.iteration)} 轮</strong><span class="status-badge ${statusClass(metrics.quality_gate)}">${escapeHtml(metrics.quality_gate || "REVIEW")}</span></div>
-      <p>诊断：${escapeHtml(localizeNarrative(diagnoses))}</p>
-      <small>progress ${Number(metrics.progress_score || 0).toFixed(2)} · 字段覆盖 ${(Number(metrics.required_field_coverage || 0) * 100).toFixed(1)}% · 目标匹配 ${(Number(metrics.target_match_rate || 0) * 100).toFixed(1)}% · 可追溯 ${(Number(metrics.traceability || 0) * 100).toFixed(1)}% · 未解决缺口 ${escapeHtml(metrics.unresolved_gap_count || 0)}</small>
-      <small>${escapeHtml(localizeNarrative(improvement))}</small>
+    const diagnoses = (item.diagnoses || []).map((diagnosis) => diagnosis.label).filter(Boolean);
+    const isBest = Number(item.iteration) === bestIteration;
+    const gate = metrics.quality_gate || "REVIEW";
+    const gateLabel = gate === "REVIEW" ? "待补" : gate;
+    const metricLine = closedLoopMetricLine(metrics);
+    const diagnosisLine = diagnoses.length ? `还要：${diagnoses.join("、")}` : "本轮没有新的可执行缺口。";
+    return `<article class="collection-iteration ${isBest ? "is-best-round" : ""}">
+      <div class="collection-iteration-head"><strong>${isBest ? "本次最好结果" : `对照：第 ${escapeHtml(item.iteration)} 轮`}</strong><span class="status-badge ${statusClass(gate === "REVIEW" ? "待补" : gate)}">${escapeHtml(gateLabel)}</span></div>
+      <p>${escapeHtml(localizeNarrative(diagnosisLine))}</p>
+      ${metricLine ? `<small>${escapeHtml(metricLine)}</small>` : ""}
     </article>`;
   }).join("");
+}
+
+function closedLoopMetricLine(metrics) {
+  const bits = [];
+  const progress = Number(metrics.progress_score);
+  if (Number.isFinite(progress)) bits.push(`任务内进度 ${progress.toFixed(2)}`);
+  const coverage = Number(metrics.required_field_coverage || 0);
+  if (coverage > 0) bits.push(`协议必选字段对齐 ${(coverage * 100).toFixed(1)}%`);
+  const target = Number(metrics.target_match_rate || 0);
+  if (target > 0) bits.push(`结局字段对齐 ${(target * 100).toFixed(1)}%`);
+  const trace = Number(metrics.traceability || 0);
+  if (trace > 0) bits.push(`来源可回查 ${(trace * 100).toFixed(1)}%（能点回官网，不是字段已齐）`);
+  const gaps = Number(metrics.unresolved_gap_count || 0);
+  if (gaps > 0) bits.push(`还剩 ${gaps} 个缺口`);
+  return bits.join(" · ");
 }
 
 function renderResearchBrief(brief, assessment) {
@@ -831,21 +891,50 @@ function renderQualityGates(report) {
     layers.innerHTML = "";
     return;
   }
-  overall.textContent = report.overall || "REVIEW";
+  overall.textContent = report.overall === "REVIEW" ? "REVIEW · 待补" : (report.overall || "REVIEW");
   overall.className = `status-badge ${statusClass(report.overall)}`;
   note.textContent = localizeNarrative(report.note || "");
-  const metricCards = [
-    ["Cohort F1", report.cohort_f1 == null ? "未评测" : report.cohort_f1.toFixed(3)],
-    ["Variable Coverage", report.variable_coverage == null ? "未计算" : `${(report.variable_coverage * 100).toFixed(1)}%`],
-    ["Traceability", report.traceability == null ? "未计算" : `${(report.traceability * 100).toFixed(1)}%`],
-    ["Research Fitness", report.research_fitness == null ? "未计算" : `${(report.research_fitness * 100).toFixed(1)}%`],
-  ];
-  metrics.innerHTML = metricCards.map(([label, value]) => `<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join("");
-  layers.innerHTML = (report.layers || []).map((layer) => `<article class="${statusClass(layer.decision)}">
-    <div><strong>${escapeHtml(layer.label)}</strong><span class="status-badge ${statusClass(layer.decision)}">${escapeHtml(layer.decision)}</span></div>
-    <small>${escapeHtml((layer.checks || []).join(" · "))}</small>
-    <p>${escapeHtml(localizeNarrative(layer.evidence))}</p>
-  </article>`).join("");
+  const metricCards = [];
+  const cohortScore = report.cohort_f1 != null ? report.cohort_f1 : report.cohort_plan_f1;
+  const cohortHint = report.cohort_f1 != null
+    ? "患者关联对照"
+    : "本题计划队列与已检索队列的对照，不是正式 SDTI";
+  if (cohortScore != null) {
+    metricCards.push(`<article><span>队列 F1</span><strong>${escapeHtml(Number(cohortScore).toFixed(3))}</strong><small>${escapeHtml(cohortHint)}</small></article>`);
+  }
+  if (report.variable_coverage != null) {
+    metricCards.push(`<article><span>本题变量覆盖</span><strong>${(report.variable_coverage * 100).toFixed(1)}%</strong><small>研究方案里点名的变量在本表中的覆盖，不是协议必选字段对齐率</small></article>`);
+  }
+  if (report.traceability != null) {
+    metricCards.push(`<article><span>来源可回查</span><strong>${(report.traceability * 100).toFixed(1)}%</strong></article>`);
+  }
+  if (report.research_fitness != null) {
+    metricCards.push(`<article><span>科研适配</span><strong>${(report.research_fitness * 100).toFixed(1)}%</strong></article>`);
+  }
+  metrics.innerHTML = metricCards.join("");
+  layers.innerHTML = (report.layers || []).map((layer) => {
+    const decision = layer.decision || "REVIEW";
+    const badgeLabel = decision === "REVIEW" ? "待补" : decision;
+    const badgeClass = statusClass(decision === "REVIEW" ? "待补" : decision);
+    return `<article class="quality-gate-layer" data-decision="${escapeHtml(decision)}">
+    <div><strong>${escapeHtml(layer.label)}</strong><span class="status-badge ${badgeClass}">${escapeHtml(badgeLabel)}</span></div>
+    <p>${escapeHtml(gateActionHint(layer))}</p>
+    <details><summary>检查项</summary><small>${escapeHtml((layer.checks || []).join(" · "))}</small><p>${escapeHtml(localizeNarrative(layer.evidence))}</p></details>
+  </article>`;
+  }).join("");
+}
+
+function gateActionHint(layer) {
+  const decision = String(layer.decision || "").toUpperCase();
+  const evidence = String(layer.evidence || "");
+  const id = String(layer.gate_id || "");
+  if (decision === "PASS") return evidence.split("；")[0] || "这项检查通过。";
+  if (decision === "REJECT") return evidence || "未通过。";
+  if (id === "field_quality" || /结局匹配=0|结局匹配=否|还没对上/.test(evidence)) return "还要补结局字段";
+  if (id === "research_fitness" || /未识别|不匹配|还要补结局/.test(evidence)) return "还要补结局字段";
+  if (id === "entity_consistency") return "身份对齐需要人工确认";
+  if (id === "source_trust") return "来源信息待核验";
+  return "需要补齐后复核";
 }
 
 function renderSpec(spec) {
@@ -948,15 +1037,21 @@ function renderDataset(dataset, sourceDatasets) {
     return;
   }
   head.innerHTML = `<tr>${visibleColumns.map((column) => `<th>${escapeHtml(column.name === "raw_characteristics" ? "原始信息（结构化）" : column.label_zh)}<small>${escapeHtml(column.name)}</small></th>`).join("")}</tr>`;
-  body.innerHTML = dataset.rows.slice(0, 100).map((row) => `<tr>${visibleColumns.map((column) => {
+  body.innerHTML = dataset.rows.slice(0, 100).map((row, rowIndex) => `<tr data-row-index="${rowIndex}">${visibleColumns.map((column) => {
     if (column.name === "raw_characteristics") return `<td>${renderRawCharacteristics(row[column.name], row)}</td>`;
     const text = String(translateValue(row[column.name]));
     const shortened = column.role === "审计信息" && text.length > 88 ? `${text.slice(0, 88)}…` : text;
     const css = column.role === "审计信息" ? "audit-value" : "";
-    return `<td class="${css}" title="${escapeHtml(text)}">${escapeHtml(shortened)}</td>`;
+    return `<td class="evidence-cell ${css}" data-evidence-field="${escapeHtml(column.name)}" data-evidence-value="${escapeHtml(text)}" title="${escapeHtml(text)}">${escapeHtml(shortened)}</td>`;
   }).join("")}</tr>`).join("");
   body.querySelectorAll(".raw-characteristics-button").forEach((button) => {
     button.addEventListener("click", () => openRawCharacteristicsDialog(button));
+  });
+  body.querySelectorAll("td.evidence-cell").forEach((cell) => {
+    cell.addEventListener("click", () => {
+      const index = Number(cell.closest("tr")?.dataset.rowIndex || 0);
+      openEvidenceDrawer(cell, dataset.rows[index] || {});
+    });
   });
 }
 
@@ -991,6 +1086,82 @@ function openRawCharacteristicsDialog(button) {
   document.querySelector("#raw-characteristics-dialog").showModal();
 }
 
+function openEvidenceDrawer(cell, row) {
+  const dialog = document.querySelector("#evidence-drawer-dialog");
+  const body = document.querySelector("#evidence-drawer-body");
+  if (!dialog || !body) return;
+  const field = cell.dataset.evidenceField || "";
+  const value = cell.dataset.evidenceValue || "";
+  const sourceId = row.source_id || row.study_id || (state.result?.source_items || [])[0]?.source_id || "未登记";
+  const rawField = row[`${field}__raw_field`] || field;
+  const rawValue = row[`${field}__raw_value`] ?? row[field] ?? value;
+  body.innerHTML = `
+    <section class="planner-contract-block"><strong>规范化值</strong><p>${escapeHtml(value)}</p></section>
+    <section class="planner-contract-block"><strong>原始字段 / 原始值</strong><p>${escapeHtml(String(rawField))} → ${escapeHtml(String(rawValue ?? "—"))}</p></section>
+    <section class="planner-contract-block"><strong>来源</strong><p>${escapeHtml(String(sourceId))}</p></section>
+    <section class="planner-contract-block"><strong>规则判定</strong><p>模型可以提议，但不能单独改写 HER2、身份或 response_domain。当前单元格展示层未改写原始记录。</p></section>`;
+  dialog.showModal();
+}
+
+function renderReviewQueue(result) {
+  const box = document.querySelector("#review-queue-list");
+  if (!box) return;
+  const layers = result?.quality_gate_report?.layers || [];
+  const reviewLayers = layers.filter((layer) => String(layer.status || "").toUpperCase() === "REVIEW");
+  const identity = result?.data_alignment?.unresolved_count || result?.data_alignment?.review_count;
+  const items = [
+    ...reviewLayers.map((layer) => ({ category: "provenance", summary: layer.label || layer.name || "质量门 REVIEW", reason: layer.note || layer.summary || "需要人工确认" })),
+  ];
+  if (identity) items.push({ category: "identity", summary: "低置信度患者/样本关联", reason: "不得自动合并，请 ACCEPT 或 REJECT。" });
+  if (!items.length) {
+    box.innerHTML = '<div class="empty-state">当前任务还没有待审核项。</div>';
+    return;
+  }
+  box.innerHTML = items.map((item, index) => `<article class="planner-source-card" data-review-index="${index}" data-review-category="${escapeHtml(item.category)}">
+    <header><span>${escapeHtml(item.category)}</span><span data-review-status>OPEN</span></header>
+    <h4>${escapeHtml(item.summary)}</h4>
+    <p>${escapeHtml(item.reason)}</p>
+    <div class="planner-output-actions">
+      <button type="button" data-review-decision="ACCEPT">ACCEPT</button>
+      <button type="button" data-review-decision="REJECT">REJECT</button>
+      <button type="button" data-review-decision="EDIT">EDIT</button>
+      <button type="button" data-review-decision="DEFER">DEFER</button>
+    </div>
+  </article>`).join("");
+  box.querySelectorAll("article[data-review-category]").forEach((article) => {
+    const summary = article.querySelector("h4")?.textContent || "待审核项";
+    fetchApi("/api/v3/review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ category: article.dataset.reviewCategory, summary, status: "OPEN" }),
+    }).then(readJson).then((created) => {
+      if (created?.review_id) article.dataset.reviewId = created.review_id;
+    }).catch(() => {});
+  });
+}
+
+async function decideReviewItem(article, decision) {
+  const statusNode = article.querySelector("[data-review-status]");
+  const mapping = { ACCEPT: "ACCEPTED", REJECT: "REJECTED", EDIT: "EDITED", DEFER: "DEFERRED" };
+  article.querySelectorAll("[data-review-decision]").forEach((button) => { button.disabled = true; });
+  try {
+    if (article.dataset.reviewId) {
+      const updated = await readJson(await fetchApi(`/api/v3/review/${encodeURIComponent(article.dataset.reviewId)}/decision`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision }),
+      }));
+      if (statusNode) statusNode.textContent = updated.status || mapping[decision];
+    } else if (statusNode) {
+      statusNode.textContent = mapping[decision];
+    }
+    showToast(`审核已记录为 ${mapping[decision]}`);
+  } catch (error) {
+    article.querySelectorAll("[data-review-decision]").forEach((button) => { button.disabled = false; });
+    showToast(error.message);
+  }
+}
+
 document.querySelector("#dataset-research-view").addEventListener("click", () => {
   state.datasetView = "research";
   if (state.result) renderDataset(state.result.modeling_dataset, state.result.source_datasets);
@@ -1001,8 +1172,16 @@ document.querySelector("#dataset-audit-view").addEventListener("click", () => {
   if (state.result) renderDataset(state.result.modeling_dataset, state.result.source_datasets);
 });
 
-document.querySelector("#raw-dialog-close").addEventListener("click", () => {
+document.querySelector("#raw-dialog-close")?.addEventListener("click", () => {
   document.querySelector("#raw-characteristics-dialog").close();
+});
+document.querySelector("#evidence-drawer-close")?.addEventListener("click", () => {
+  document.querySelector("#evidence-drawer-dialog")?.close();
+});
+document.querySelector("#review-queue-list")?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-review-decision]");
+  const article = button?.closest("article");
+  if (button && article) decideReviewItem(article, button.dataset.reviewDecision);
 });
 
 function meanPercent(values) {
@@ -1249,7 +1428,7 @@ function renderCohortConstruction(report, readiness, qualityGate) {
     ["患者数", report.patient_count],
     ["样本数", report.sample_count],
     ["变量覆盖", report.variable_coverage_rate == null ? "待计算" : `${(report.variable_coverage_rate * 100).toFixed(1)}%`],
-    ["患者 Linkage F1", report.patient_linkage_f1 == null ? "未评测" : report.patient_linkage_f1.toFixed(3)],
+    ...(report.patient_linkage_f1 == null ? [] : [["患者 Linkage F1", report.patient_linkage_f1.toFixed(3)]]),
   ].map(([label, value]) => `<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></article>`).join("");
   if (stageFunnel) {
     const raw = Number(report.source_row_count || 0);
@@ -1362,6 +1541,19 @@ function renderCollectionAgent(report) {
   </article>`).join("") || '<p class="muted-visual">没有可继续缩小缺口的合法方法，或质量门已通过。</p>';
 }
 
+function renderCritic(report) {
+  const note = document.querySelector("#collection-agent-note");
+  if (!note) return;
+  if (!note.dataset.baseNote) note.dataset.baseNote = note.textContent;
+  if (!report) {
+    note.textContent = note.dataset.baseNote;
+    return;
+  }
+  const types = (report.diagnoses || []).map((item) => item.diagnosis_type).filter(Boolean).join("、") || "未诊断";
+  const verdict = report.answers_contract ? "可回答主需求" : "尚未满足已确认的研究需求";
+  note.textContent = `${note.dataset.baseNote} Critic ${verdict}：${types}。`;
+}
+
 function renderDataAlignment(report) {
   const status = document.querySelector("#data-alignment-status");
   const note = document.querySelector("#data-alignment-note");
@@ -1440,7 +1632,7 @@ function renderReadiness(readiness, dataset, sources, candidates, brief, assessm
         percent: outcomeMatchRate,
         detail: readiness.target_column
           ? `${fieldLabel(dataset, readiness.target_column)} · 字段契合与行覆盖连续计分，不是有列即 100%`
-          : "没有用其他结局替代；生存结局不会记为 pCR 匹配",
+          : "当前结果对不上本题要的结局字段（例如要 pCR，这批是生存/临床字段）。没有拿别的结局冒充。",
       },
     ] : []),
     { label: "真实来源", value: sourceDatabases.size, suffix: "类", detail: [...sourceDatabases].join("、") || "尚无来源" },
@@ -1452,28 +1644,46 @@ function renderReadiness(readiness, dataset, sources, candidates, brief, assessm
       return `<article class="research-metric"><span>${escapeHtml(metric.label)}</span><strong>${escapeHtml(value)}${metric.suffix ? `<small>${escapeHtml(metric.suffix)}</small>` : ""}</strong><p>${escapeHtml(metric.detail)}</p></article>`;
     }
     const percent = Math.max(0, Math.min(100, metric.percent));
+    if (percent <= 0) {
+      return `<article class="research-metric research-metric-note"><span>${escapeHtml(metric.label)}</span><p>${escapeHtml(metric.detail)}</p></article>`;
+    }
     return `<article class="research-metric research-metric-rate"><div class="metric-ring" style="--metric-value:${percent.toFixed(1)}" role="img" aria-label="${escapeHtml(metric.label)} ${percent.toFixed(1)}%"><span>${percent.toFixed(1)}%</span></div><div><span>${escapeHtml(metric.label)}</span><p>${escapeHtml(metric.detail)}</p></div></article>`;
   }).join("");
+  const outcomeVisual = document.querySelector("#outcome-visual");
   const distributionHeading = document.querySelector(".outcome-visual-heading h3");
   if (distributionHeading) {
     distributionHeading.textContent = needsOutcome ? "研究结局分布" : "主变量分布";
   }
   const distribution = Object.entries(dataset.class_distribution || {});
   const distributionTotal = distribution.reduce((sum, [, count]) => sum + Number(count || 0), 0);
-  document.querySelector("#outcome-total").textContent = distributionTotal ? `共 ${distributionTotal} 条` : (needsOutcome ? "暂无可统计结局" : "暂无可统计主变量");
-  document.querySelector("#outcome-bars").innerHTML = distribution.length ? distribution.map(([label, count]) => {
-    const percent = distributionTotal ? Number(count) / distributionTotal * 100 : 0;
-    return `<div class="outcome-row"><div class="outcome-label"><span>${escapeHtml(translateValue(label))}</span><strong>${percent.toFixed(1)}%</strong></div><div class="outcome-track" role="img" aria-label="${escapeHtml(translateValue(label))} ${count} 条，占 ${percent.toFixed(1)}%"><span style="width:${percent.toFixed(1)}%"></span></div><small>${escapeHtml(count)} 条</small></div>`;
-  }).join("") : `<p class="muted-visual">${needsOutcome ? "未识别到可统计的研究结局字段。" : "未识别到可统计的本题主变量。"}</p>`;
+  if (outcomeVisual) outcomeVisual.hidden = !distribution.length;
+  const outcomeTotal = document.querySelector("#outcome-total");
+  const outcomeBars = document.querySelector("#outcome-bars");
+  if (outcomeTotal) outcomeTotal.textContent = distributionTotal ? `共 ${distributionTotal} 条` : "";
+  if (outcomeBars) {
+    outcomeBars.innerHTML = distribution.length ? distribution.map(([label, count]) => {
+      const percent = distributionTotal ? Number(count) / distributionTotal * 100 : 0;
+      return `<div class="outcome-row"><div class="outcome-label"><span>${escapeHtml(translateValue(label))}</span><strong>${percent.toFixed(1)}%</strong></div><div class="outcome-track" role="img" aria-label="${escapeHtml(translateValue(label))} ${count} 条，占 ${percent.toFixed(1)}%"><span style="width:${percent.toFixed(1)}%"></span></div><small>${escapeHtml(count)} 条</small></div>`;
+    }).join("") : "";
+  }
 
   const facts = [
     ["患者数量", dataset.patient_count],
     ["样本数量", dataset.sample_count],
-    [needsOutcome ? "研究结局字段" : "本题主变量", fieldLabel(dataset, readiness.target_column)],
-    ["主字段覆盖", primaryCoverage == null ? "未计算" : `${primaryCoverage.toFixed(1)}%`],
-    ["命中命名队列", (assessment?.named_cohorts_hit || []).join("、") || "未点名"],
-    ["分析分组建议", readiness.split_strategy],
   ];
+  if (readiness.target_column) {
+    facts.push([needsOutcome ? "研究结局字段" : "本题主变量", fieldLabel(dataset, readiness.target_column)]);
+  }
+  if (primaryCoverage != null) {
+    facts.push(["主字段覆盖", `${primaryCoverage.toFixed(1)}%`]);
+  }
+  const namedCohorts = (assessment?.named_cohorts_hit || []).filter(Boolean);
+  if (namedCohorts.length) {
+    facts.push(["命中命名队列", namedCohorts.join("、")]);
+  }
+  if (readiness.split_strategy) {
+    facts.push(["分析分组建议", readiness.split_strategy]);
+  }
   document.querySelector("#readiness-facts").innerHTML = facts.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("");
   const valueBox = document.querySelector("#value-assessment");
   if (valueBox) {
@@ -1549,7 +1759,7 @@ function renderUnifiedEvaluation(report) {
       <td><strong>${escapeHtml(row.method_label)}</strong><small>${escapeHtml(row.method_id)}</small></td>
       <td>${escapeHtml(row.base_model_id || "未指定")}</td>
       <td>${escapeHtml(score100(row.fitness_score))}</td>
-      <td>${escapeHtml(row.sdti_status === "NOT_EVALUATED" ? "未评测" : row.sdti_status)}</td>
+      <td>${escapeHtml(row.sdti_status === "NOT_EVALUATED" ? "待跑" : row.sdti_status)}</td>
       <td><span class="status-badge ${statusClass(row.quality_gate)}">${escapeHtml(row.quality_gate)}</span></td>
       <td>${escapeHtml(localizeNarrative(row.note))}</td>
     </tr>`;
@@ -1711,6 +1921,7 @@ function renderCompetitionReport(report) {
 
 const SYSTEM_EVALUATION_HISTORY_KEY = "brca-agent-system-evaluation-history-v1";
 let lastEvaluationOverview = null;
+let lastEvaluationSnapshot = null;
 const SYSTEM_EVAL_DIAGNOSTICS = [
   { name: "来源审计完整度", fallbackTarget: 85 },
   { name: "字段完整率", fallbackTarget: 95 },
@@ -1770,8 +1981,8 @@ function persistAndRenderSystemEvaluation(result) {
   window.localStorage.setItem(SYSTEM_EVALUATION_HISTORY_KEY, JSON.stringify(history.slice(0, 20)));
   const kept = history.slice(0, 20);
   const best = pickBestEvaluationSnapshot(snapshot, kept);
-  renderSystemEvaluationDashboard(best, kept);
-  loadEvaluationOverview().then(() => renderSystemEvaluationDashboard(best, kept));
+  renderSystemEvaluationDashboard(best);
+  return loadEvaluationOverview().then(() => renderSystemEvaluationDashboard(best));
 }
 
 function snapshotDiagnosticScore(snapshot) {
@@ -1788,191 +1999,308 @@ function pickBestEvaluationSnapshot(current, history) {
   return rows.reduce((best, row) => ((snapshotDiagnosticScore(row) ?? -1) >= (snapshotDiagnosticScore(best) ?? -1) ? row : best));
 }
 
-function toolkitRunCards() {
-  const run = lastEvaluationOverview?.toolkit_run;
-  const metrics = run?.metrics || [];
-  if (!metrics.length) {
-    return ["清洗残留清除率", "检索 nDCG@10", "整合 Macro-F1", "任务适配 Fitness", "Quality Gate"].map((name) => `<article class="evaluation-metric-card is-pending"><span>${escapeHtml(name)}</span><strong>未测</strong><small>统一评测方案 · 跑任务后计算</small></article>`);
-  }
-  return metrics.map((metric) => {
-    const pending = metric.display_value == null && metric.key !== "quality_gate";
-    const gate = run?.quality_gate;
-    let display;
-    if (metric.key === "quality_gate") display = gate || (pending ? "未测" : "未判定");
-    else if (pending) display = "未测";
-    else if (metric.unit === "score") display = Number(metric.display_value).toFixed(1);
-    else display = `${Number(metric.display_value).toFixed(1)}%`;
-    const target = metric.display_target == null ? "" : (metric.unit === "score" ? `目标 ${Number(metric.display_target).toFixed(1)}` : `目标 ${Number(metric.display_target).toFixed(1)}%`);
-    const tone = pending ? "is-pending" : "is-good";
-    return `<article class="evaluation-metric-card ${tone}" title="${escapeHtml(metric.reason || "")}"><span>${escapeHtml(metric.label)}</span><strong>${escapeHtml(display)}</strong><small>本仓库工具包实测 · ${escapeHtml(target)}</small></article>`;
-  });
-}
-
 function metricByName(metrics, name) {
   return (metrics || []).find((item) => item.name === name);
 }
 
-function renderSystemEvaluationDashboard(snapshot, history) {
+function formatFixed(value, digits) {
+  if (value == null || Number.isNaN(Number(value))) return "—";
+  return Number(value).toFixed(digits);
+}
+
+function formatSigned(value, digits) {
+  if (value == null || Number.isNaN(Number(value))) return "—";
+  const number = Number(value);
+  const body = Math.abs(number).toFixed(digits);
+  if (number > 0) return `+${body}`;
+  if (number < 0) return `-${body}`;
+  return body;
+}
+
+function toolkitMetric(key) {
+  return (lastEvaluationOverview?.toolkit_run?.metrics || []).find((item) => item.key === key);
+}
+
+function officialEvaluationPending(status) {
+  return !status || status === "NOT_EVALUATED" || status === "未评测";
+}
+
+function evaluationStatusLabel(status) {
+  if (officialEvaluationPending(status)) return "待跑";
+  if (status === "EVALUATED" || status === "已评测") return "已评测";
+  if (status === "PARTIALLY_EVALUATED") return "部分评测";
+  return status;
+}
+
+function evaluationStatusClass(status) {
+  return officialEvaluationPending(status) ? "status-badge is-pending" : `status-badge ${statusClass(status)}`;
+}
+
+function renderSystemEvaluationDashboard(snapshot) {
+  if (snapshot) lastEvaluationSnapshot = snapshot;
   const status = document.querySelector("#evaluation-status");
-  const meta = document.querySelector("#evaluation-meta");
-  const cards = document.querySelector("#evaluation-metric-cards");
-  const bars = document.querySelector("#evaluation-bars");
-  const radar = document.querySelector("#evaluation-radar");
-  const ablation = document.querySelector("#evaluation-ablation");
-  const historyBox = document.querySelector("#evaluation-history");
-  const safety = document.querySelector("#evaluation-safety");
-  const artifacts = document.querySelector("#evaluation-artifacts");
-  if (!status || !meta || !cards || !bars || !radar || !ablation || !historyBox || !safety || !artifacts) return;
-  const records = history || loadEvaluationHistory();
-  if (!snapshot) {
-    status.textContent = "待运行";
-    status.className = "status-badge is-review";
-    meta.innerHTML = [
-      ["评测状态", "尚未运行本工作台任务"],
-      ["Gold Set", "未加载冻结 Gold Set"],
-      ["已完成指标", "0/5 项任务诊断"],
-      ["最近评测", "—"],
-    ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("");
-    cards.innerHTML = [...SYSTEM_EVAL_DIAGNOSTICS.map((item) => `<article class="evaluation-metric-card is-pending"><span>${escapeHtml(item.name)}</span><strong>未测</strong><small>任务级诊断 · 运行后填入</small></article>`), ...toolkitRunCards()].join("");
-    bars.innerHTML = '<p class="muted-visual">运行一次真实数据任务后，这里显示本模型的来源审计、字段完整、要素覆盖与科研可用性。</p>';
-    radar.innerHTML = '<p class="muted-visual">暂无可信度轮廓。</p>';
-    ablation.innerHTML = '<p class="muted-visual">运行任务后，这里显示同表消融反事实分数。</p>';
-    historyBox.innerHTML = records.length
-      ? records.map((row) => `<div class="evaluation-history-row"><div><strong>${escapeHtml(row.task_id || "未编号任务")}</strong><span>${escapeHtml(row.question || "任务级诊断")}</span></div><div><strong>${escapeHtml(new Date(row.saved_at).toLocaleString())}</strong><span>${escapeHtml(row.quality_gate || "REVIEW")}</span></div></div>`).join("")
-      : '<p class="muted-visual">本机还没有历史评测记录。</p>';
-    safety.innerHTML = '<div class="evaluation-safety-banner is-review"><div><span>安全门</span><strong>REVIEW</strong></div><p>阻断：未运行经验证且冻结的真实 Gold Set，不得自动发布官方成绩。本页只呈现当前模型的任务级诊断。</p></div>';
-    artifacts.innerHTML = "<span>评测产物</span><span>运行任务并下载质量报告 / Excel 后可复核。</span>";
-    renderModelMetricComparison({ metrics: [] });
-    return;
+  if (status) {
+    status.textContent = evaluationStatusLabel(lastEvaluationOverview?.evaluation_status);
+    status.className = evaluationStatusClass(lastEvaluationOverview?.evaluation_status);
   }
-  const measured = SYSTEM_EVAL_DIAGNOSTICS.filter((item) => metricPercentValue(metricByName(snapshot.metrics, item.name)) != null);
-  const latestTime = snapshot.saved_at ? new Date(snapshot.saved_at).toLocaleString() : "刚刚";
-  const bestScore = snapshotDiagnosticScore(snapshot);
-  status.textContent = "最好可观测诊断";
-  status.className = "status-badge is-success";
-  const diagnosticScore = metricByName(snapshot.metrics, "内部综合诊断分");
-  meta.innerHTML = [
-    ["评测状态", `最好任务诊断（非正式 SDTI）${snapshot.task_id ? ` · ${snapshot.task_id}` : ""}`],
-    ["Gold Set", "未加载冻结 Gold Set；下方五卡为本仓库工具包实测"],
-    ["内部诊断分", `${diagnosticScore?.display_value || (bestScore == null ? "未计算" : bestScore.toFixed(1))} · ${measured.length}/${SYSTEM_EVAL_DIAGNOSTICS.length} 项已测`],
-    ["最近评测", latestTime],
-  ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("");
-  const diagnosticCards = SYSTEM_EVAL_DIAGNOSTICS.map((item) => {
-    const metric = metricByName(snapshot.metrics, item.name);
-    const percent = metricPercentValue(metric);
-    const target = parseTargetPercent(metric?.target) ?? item.fallbackTarget;
-    const pending = percent == null;
-    const tone = pending ? "is-pending" : (percent >= target ? "is-good" : "is-review");
-    return `<article class="evaluation-metric-card ${tone}" title="${escapeHtml(metric?.detail || "本工作台任务级诊断")}"><span>${escapeHtml(item.name)}</span><strong>${pending ? "未测" : `${percent.toFixed(1)}%`}</strong><small>任务级诊断 · 内部目标 ${target.toFixed(0)}%</small></article>`;
+  ["evaluation-protocol", "evaluation-meta", "evaluation-metric-cards", "evaluation-bars", "evaluation-ablation", "evaluation-history", "evaluation-safety", "evaluation-artifacts", "evaluation-probe-meta", "evaluation-probe-bars"].forEach((id) => {
+    const node = document.querySelector(`#${id}`);
+    if (node) node.innerHTML = "";
   });
-  const frozenCards = toolkitRunCards();
-  cards.innerHTML = [...diagnosticCards, ...frozenCards].join("");
-  bars.innerHTML = SYSTEM_EVAL_DIAGNOSTICS.map((item) => {
-    const metric = metricByName(snapshot.metrics, item.name);
-    const percent = clampPercent(metricPercentValue(metric)) ?? 0;
-    const target = parseTargetPercent(metric?.target) ?? item.fallbackTarget;
-    const display = metricPercentValue(metric) == null ? "未测" : `${metricPercentValue(metric).toFixed(1)}%`;
-    return `<div class="evaluation-bar-row"><div><span>${escapeHtml(item.name)}</span><strong>${escapeHtml(display)}</strong></div><div class="evaluation-bar-track"><span style="width:${percent.toFixed(1)}%"></span><i style="left:${target.toFixed(1)}%" title="内部目标 ${target.toFixed(0)}%"></i></div></div>`;
-  }).join("");
-  const cx = 150;
-  const cy = 130;
-  const radius = 86;
-  const axes = SYSTEM_EVAL_DIAGNOSTICS.map((item) => (metricPercentValue(metricByName(snapshot.metrics, item.name)) ?? 0) / 100);
-  const axisCount = SYSTEM_EVAL_DIAGNOSTICS.length;
-  const grid = [1, 0.66, 0.33].map((scale) => `<polygon points="${SYSTEM_EVAL_DIAGNOSTICS.map((_, index) => radarPoint(cx, cy, radius * scale, index, axisCount, 1)).join(" ")}"></polygon>`).join("");
-  const spokes = SYSTEM_EVAL_DIAGNOSTICS.map((_, index) => {
-    const [x, y] = radarPoint(cx, cy, radius, index, axisCount, 1).split(",");
-    return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}"></line>`;
-  }).join("");
-  const labels = ["来源审计", "字段完整", "要素覆盖", "科研探索"].map((label, index) => {
-    const [x, y] = radarPoint(cx, cy, radius + 22, index, axisCount, 1).split(",");
-    return `<text x="${x}" y="${y}" text-anchor="middle">${escapeHtml(label)}</text>`;
-  }).join("");
-  radar.innerHTML = `<svg viewBox="0 0 300 260" aria-hidden="true"><g class="radar-grid">${grid}${spokes}</g><polygon class="radar-value" points="${axes.map((value, index) => radarPoint(cx, cy, radius, index, axisCount, value)).join(" ")}"></polygon>${labels}</svg>`;
-  const comparisonReport = {
-    metrics: snapshot.metrics || [],
-    variant_scores: snapshot.variant_scores || [],
-    ablation: snapshot.ablation || [],
-    used_qwen: snapshot.used_qwen,
-  };
-  const variantScores = resolveVariantScores(comparisonReport);
-  const primaryScore = variantScores.find((row) => row.is_primary)?.diagnostic_score;
-  const ablationRows = (snapshot.ablation || []).length
-    ? snapshot.ablation
-    : variantScores.filter((row) => !row.is_primary).map((row) => ({
-      variant: row.label,
-      observed_effect: row.note,
-      expected_effect: "同表反事实",
-      diagnostic_score: row.diagnostic_score,
-      delta_from_full: primaryScore == null || row.diagnostic_score == null ? null : Number(row.diagnostic_score) - Number(primaryScore),
-    }));
-  ablation.innerHTML = ablationRows.length
-    ? ablationRows.map((row) => {
-      const scoreText = row.diagnostic_score == null ? "未计算" : `${Number(row.diagnostic_score).toFixed(1)}`;
-      const delta = row.delta_from_full;
-      const deltaText = delta == null ? "" : `相对完整系统 ${delta > 0 ? "+" : ""}${Number(delta).toFixed(1)}`;
-      return `<div class="evaluation-history-row"><div><strong>${escapeHtml(row.variant)}</strong><span>${escapeHtml(localizeNarrative(row.observed_effect))}</span></div><div><strong>${escapeHtml(scoreText)}</strong><span>${escapeHtml(deltaText || localizeNarrative(row.expected_effect))}</span></div></div>`;
-    }).join("")
-    : '<p class="muted-visual">跑完一次任务后，这里显示同表消融反事实分数。</p>';
-  historyBox.innerHTML = records.length
-    ? records.map((row) => `<div class="evaluation-history-row"><div><strong>${escapeHtml(row.model_name || "本模型")}</strong><span>${escapeHtml(row.question || row.task_id || "任务级诊断")}</span></div><div><strong>${escapeHtml(row.saved_at ? new Date(row.saved_at).toLocaleString() : "—")}</strong><span>${escapeHtml(row.quality_gate || "REVIEW")}</span></div></div>`).join("")
-    : '<p class="muted-visual">本机还没有历史评测记录。</p>';
-  const gate = snapshot.quality_gate || "REVIEW";
-  const gateClass = statusClass(gate);
-  const bannerTone = gateClass === "is-success" ? "is-pass" : gateClass === "is-error" ? "is-fail" : "is-review";
-  safety.innerHTML = `<div class="evaluation-safety-banner ${bannerTone}"><div><span>安全门</span><strong>${escapeHtml(gate)}</strong></div><p>上表前五项和消融对照来自本工作台真实任务。后五卡按统一评测方案工具包对本任务计算；冻结 Gold Set SDTI 仍未评测，也不展示外部团队探针。</p></div>`;
-  artifacts.innerHTML = snapshot.task_id
-    ? `<span>评测产物</span><a href="/api/agent/tasks/${encodeURIComponent(snapshot.task_id)}/export/xlsx" rel="noreferrer">当前任务 Excel ↗</a><a href="/api/agent/tasks/${encodeURIComponent(snapshot.task_id)}/export/quality_report" rel="noreferrer">质量报告 ↗</a>`
-    : "<span>评测产物</span><span>运行任务后可下载 Excel 与质量报告。</span>";
-  renderModelMetricComparison(comparisonReport);
-}
-
-function renderEvaluationProtocol(overview) {
-  const container = document.querySelector("#evaluation-protocol");
-  if (!container) return;
-  const steps = overview?.protocol || [];
-  if (!steps.length) {
-    container.innerHTML = "";
-    return;
+  const radar = document.querySelector("#evaluation-radar");
+  if (radar) {
+    radar.innerHTML = "";
+    radar.hidden = true;
   }
-  container.innerHTML = steps.map((step, index) => `<article>
-    <span>${String(index + 1).padStart(2, "0")} · ${escapeHtml(step.counterpart)}</span>
-    <strong>${escapeHtml(step.title)}</strong>
-    <p>${escapeHtml(step.method)}</p>
-    <small>${escapeHtml(step.how_to_run)}</small>
-    <em class="${statusClass(step.status)}">${escapeHtml(step.status)}</em>
-  </article>`).join("");
+  renderEvaluationBoard(lastEvaluationOverview, lastEvaluationSnapshot);
+  renderModelMetricComparison(lastEvaluationSnapshot ? { metrics: lastEvaluationSnapshot.metrics || [], variant_scores: lastEvaluationSnapshot.variant_scores || [], ablation: lastEvaluationSnapshot.ablation || [], used_qwen: lastEvaluationSnapshot.used_qwen } : { metrics: [] });
 }
 
-function renderRetrievalProbe(probe) {
+function renderEvaluationProtocol() {
+  const container = document.querySelector("#evaluation-protocol");
+  if (container) container.innerHTML = "";
+}
+
+function renderRetrievalProbe() {
   const bars = document.querySelector("#evaluation-probe-bars");
   const meta = document.querySelector("#evaluation-probe-meta");
-  if (!bars) return;
-  if (meta) meta.textContent = probe?.note || "方法对齐 Recall@k / nDCG，排序来自本模型候选匹配分";
-  const metrics = probe?.metrics || [];
-  if (!metrics.length) {
-    bars.innerHTML = '<p class="muted-visual">先跑真实数据任务，再按本模型候选排序计算 Recall@k。</p>';
-    return;
-  }
-  bars.innerHTML = metrics.map((metric) => {
-    const percent = metric.display_value == null ? 0 : Number(metric.display_value);
-    const display = metric.display_value == null ? "未测" : `${percent.toFixed(1)}%`;
-    return `<div class="evaluation-bar-row"><div><span>${escapeHtml(metric.label)}</span><strong>${escapeHtml(display)}</strong></div><div class="evaluation-bar-track"><span style="width:${Math.max(0, Math.min(100, percent)).toFixed(1)}%"></span></div></div>`;
-  }).join("");
+  if (meta) meta.textContent = "";
+  if (bars) bars.innerHTML = "";
 }
 
 async function loadEvaluationOverview() {
   try {
-    const overview = await readJson(await fetchApi("/api/evaluation/overview"));
-    lastEvaluationOverview = overview;
-    renderEvaluationProtocol(overview);
-    renderRetrievalProbe(overview.retrieval_probe);
-    return overview;
+    lastEvaluationOverview = await readJson(await fetchApi("/api/evaluation/overview"));
+    return lastEvaluationOverview;
   } catch {
-    renderEvaluationProtocol(null);
-    renderRetrievalProbe(null);
+    lastEvaluationOverview = null;
     return null;
   }
+}
+
+function hasCurrentTask() {
+  return Boolean(state.result?.task_id || lastEvaluationOverview?.last_task_id);
+}
+
+function renderEvaluationBoard(overview, snapshot) {
+  renderEvaluationBadges(overview);
+  renderDevelopmentSplit(overview?.development_split, snapshot);
+  renderTaskMetrics(overview, snapshot);
+  renderRetrievalLayer(overview?.retrieval_layer);
+  const status = document.querySelector("#evaluation-status");
+  if (status) {
+    status.textContent = evaluationStatusLabel(overview?.evaluation_status);
+    status.className = evaluationStatusClass(overview?.evaluation_status);
+  }
+}
+
+function renderEvaluationBadges(overview) {
+  const container = document.querySelector("#evaluation-badges");
+  if (!container) return;
+  const goldReady = Object.values(overview?.goldset_row_counts || {}).every((count) => Number(count) > 0);
+  const developmentReady = Boolean(overview?.development_split?.available);
+  const officialReady = Boolean(overview?.official_run?.has_score) || Boolean(officialSdtiValue(overview));
+  const badges = [
+    { label: goldReady ? "正式考卷已写入入口" : "正式考卷未备好", on: goldReady, pending: !goldReady },
+    { label: officialReady ? "正式成绩已出" : "点按钮跑正式评测", on: officialReady, pending: !officialReady },
+    { label: developmentReady ? "内部实测已出" : "内部实测未出", on: developmentReady, pending: !developmentReady },
+  ];
+  container.innerHTML = badges.map((badge) => `<span class="${badge.on ? "is-on" : (badge.pending ? "is-pending" : "is-off")}">${escapeHtml(badge.label)}</span>`).join("");
+}
+
+function officialSdtiValue(overview) {
+  const metric = (overview?.official_metrics || []).find((item) => item.key === "sdti");
+  if (!metric || metric.value == null || Number.isNaN(Number(metric.value))) return null;
+  return Number(metric.value);
+}
+
+function formatToolkitDisplay(metric) {
+  if (!metric || metric.display_value == null || Number.isNaN(Number(metric.display_value))) return null;
+  if (metric.unit === "score") return Number(metric.display_value).toFixed(1);
+  return `${Number(metric.display_value).toFixed(1)}%`;
+}
+
+function toolkitHero(key, label, emptyHint) {
+  const value = formatToolkitDisplay(toolkitMetric(key));
+  if (value) {
+    return { label, value, hint: "这次任务", tone: "is-accent" };
+  }
+  return {
+    label,
+    value: "暂无",
+    hint: hasCurrentTask() ? emptyHint : "跑完任务后自动出现",
+    tone: "is-muted",
+  };
+}
+
+function clearanceHero(snapshot) {
+  const metric = toolkitMetric("cleaning_retention");
+  if (!metric || metric.value == null || Number.isNaN(Number(metric.value))) {
+    return { label: "错误清洗检查", value: "暂无", hint: hasCurrentTask() ? "这次任务还没有可统计的已填单元格" : "跑完任务后自动出现", tone: "is-muted" };
+  }
+  const coverage = metricPercentValue(metricByName(snapshot?.metrics, "字段完整率"));
+  const clean = Number(metric.value) >= 1;
+  const value = metric.headline || (clean ? "未发现错误清洗" : `${(Number(metric.value) * 100).toFixed(1)}%`);
+  const hint = metric.plain_meaning || metric.reason || "已填格没有脏残留，不代表必要字段已齐。";
+  const tone = clean && (coverage == null || Number(coverage) < 50) ? "is-muted" : (Number(metric.value) >= 0.9 ? "is-accent" : "is-muted");
+  return { label: "错误清洗检查", value, hint, tone };
+}
+
+function fieldCompletenessHero(snapshot) {
+  const value = metricPercentValue(metricByName(snapshot?.metrics, "字段完整率"));
+  if (value != null) {
+    return { label: "字段完整率", value: `${Number(value).toFixed(1)}%`, hint: "这次任务", tone: "is-accent" };
+  }
+  return toolkitHero("integration_macro_f1", "整合 Macro-F1", "这次任务还没有字段完整统计");
+}
+
+function renderDevelopmentSplit(split, snapshot) {
+  const cards = document.querySelector("#development-split-cards");
+  const note = document.querySelector("#evaluation-official-note");
+  const howto = document.querySelector("#evaluation-howto");
+  if (!cards) return;
+  const goldReady = Object.values(lastEvaluationOverview?.goldset_row_counts || {}).every((count) => Number(count) > 0);
+  const officialSdti = officialSdtiValue(lastEvaluationOverview);
+  const runInfo = lastEvaluationOverview?.official_run || {};
+  if (note) {
+    note.textContent = officialSdti != null
+      ? `正式 SDTI 来自对本套 official_candidate 的系统观察（${runInfo.evaluation_id || "已跑"}），不是 development 分册。`
+      : (goldReady
+        ? "正式考卷已写入入口。点「开始正式评测」会采集系统观察并算出正式 SDTI。"
+        : "正式考卷尚未写入入口，无法跑正式评测。");
+  }
+  if (howto) {
+    howto.textContent = hasCurrentTask()
+      ? "这次任务里已经算出来的数字会填在下面。正式 SDTI 只来自对本套正式卷的评测，不会把内部实测抄进去。"
+      : "错误清洗检查、字段完整、检索对照：跑一次「运行研究协议」会自动出现。正式 SDTI 需要对本套正式卷点「开始正式评测」。";
+  }
+  const unofficial = split?.available && split.sdti != null;
+  const officialCard = officialSdti != null
+    ? { label: "正式 SDTI", value: officialSdti.toFixed(2), hint: "对本套正式卷的系统观察，不是 frozen_test", tone: "is-accent" }
+    : null;
+  const candidates = [
+    officialCard,
+    unofficial ? { label: "非正式 SDTI", value: Number(split.sdti).toFixed(2), hint: "内部实测，不是正式分", tone: officialCard ? "is-muted" : "is-accent" } : null,
+    heroIfReady(clearanceHero(snapshot)),
+    heroIfReady(fieldCompletenessHero(snapshot)),
+    heroIfReady(toolkitHero("retrieval_ndcg@10", "检索 nDCG@10", "这次任务还没有检索对照")),
+  ].filter(Boolean);
+  const pendingOfficial = officialSdti != null ? "" : `<aside class="eval-pending-note"><span class="status-badge is-pending">未出分</span><div><strong>正式 SDTI</strong><small>${goldReady ? "考卷已就位。点「开始正式评测」真跑采集与评分。" : "正式考卷尚未写入入口。"}</small></div></aside>`;
+  cards.innerHTML = (candidates.length ? candidates.map((row) => `<article class="eval-hero-card ${row.tone}"><strong>${escapeHtml(String(row.value))}</strong><span>${escapeHtml(row.label)}</span><small>${escapeHtml(row.hint)}</small></article>`).join("") : "") + pendingOfficial;
+  const runButton = document.querySelector("#official-eval-run");
+  if (runButton) {
+    runButton.hidden = !goldReady;
+    runButton.textContent = officialSdti != null ? "重新跑正式评测" : "开始正式评测";
+    runButton.disabled = false;
+  }
+}
+
+function heroIfReady(row) {
+  if (!row || row.tone === "is-muted" || row.value === "暂无") return null;
+  return row;
+}
+
+function renderTaskMetrics(overview, snapshot) {
+  const container = document.querySelector("#evaluation-task-metrics");
+  if (!container) return;
+  const split = overview?.development_split;
+  const chips = [];
+  if (split?.available) {
+    if (split.retrieval_f1 != null) chips.push(["内部实测 检索 F1", Number(split.retrieval_f1).toFixed(3)]);
+    if (split.faithfulness != null) chips.push(["内部实测 Faithfulness", Number(split.faithfulness).toFixed(3)]);
+  }
+  const extra = [
+    ["integration_macro_f1", "整合 Macro-F1"],
+    ["task_fitness", "任务适配分"],
+  ];
+  extra.forEach(([key, label]) => {
+    const alreadyHero = key === "integration_macro_f1" && metricPercentValue(metricByName(snapshot?.metrics, "字段完整率")) != null;
+    if (alreadyHero) return;
+    const text = formatToolkitDisplay(toolkitMetric(key));
+    if (text) chips.push([label, text]);
+  });
+  const gate = overview?.toolkit_run?.quality_gate;
+  if (gate) chips.push(["质量门", gate]);
+  if (!chips.length) {
+    container.innerHTML = "";
+    return;
+  }
+  container.innerHTML = `<ul>${chips.map(([label, value]) => `<li><strong>${escapeHtml(String(value))}</strong><span>${escapeHtml(label)}</span></li>`).join("")}</ul>`;
+}
+
+function datasetZh(row) {
+  if (row?.dataset_zh) return row.dataset_zh;
+  const labels = {
+    SciFact: "科学事实",
+    NFCorpus: "生物医学文献",
+    SciDocs: "科学论文",
+    ArguAna: "论辩检索",
+    FiQA: "财经问答",
+  };
+  return labels[String(row?.dataset || "").trim()] || "";
+}
+
+function renderRetrievalLayer(layer) {
+  const container = document.querySelector("#evaluation-retrieval-layer");
+  if (!container) return;
+  if (!layer?.available || !layer.rows?.length) {
+    container.innerHTML = "";
+    return;
+  }
+  const rows = layer.rows;
+  const maxObserved = Math.max(0, ...rows.flatMap((row) => [row.bm25_ndcg, row.bge_ndcg, row.fusion_ndcg].filter((value) => value != null).map(Number)));
+  const chartMax = Math.max(0.8, Math.ceil(maxObserved * 10) / 10);
+  const width = 760;
+  const height = 292;
+  const pad = { left: 40, right: 10, top: 12, bottom: 58 };
+  const innerW = width - pad.left - pad.right;
+  const innerH = height - pad.top - pad.bottom;
+  const groupW = innerW / rows.length;
+  const barW = Math.min(16, groupW / 5.4);
+  const colors = { bm25: "#7c6fa0", bge: "#2a9d8f", fusion: "#7eb6d9" };
+  const yOf = (value) => pad.top + innerH * (1 - Number(value) / chartMax);
+  const hOf = (value) => innerH * (Number(value) / chartMax);
+  const ticks = [0, 0.2, 0.4, 0.6, 0.8].filter((tick) => tick <= chartMax + 1e-9);
+  const grid = ticks.map((tick) => {
+    const y = yOf(tick);
+    return `<line x1="${pad.left}" x2="${width - pad.right}" y1="${y}" y2="${y}" /><text class="eval-chart-tick" x="${pad.left - 8}" y="${y + 4}" text-anchor="end">${tick.toFixed(1)}</text>`;
+  }).join("");
+  const bars = rows.map((row, index) => {
+    const cx = pad.left + groupW * (index + 0.5);
+    const series = [
+      [row.bm25_ndcg, colors.bm25],
+      [row.bge_ndcg, colors.bge],
+      [row.fusion_ndcg, colors.fusion],
+    ];
+    const offset = [-barW * 1.28, 0, barW * 1.28];
+    const rects = series.map(([value, color], seriesIndex) => {
+      if (value == null) return "";
+      return `<rect x="${cx + offset[seriesIndex] - barW / 2}" y="${yOf(value)}" width="${barW}" height="${hOf(value)}" rx="2" fill="${color}"></rect>`;
+    }).join("");
+    const zh = datasetZh(row);
+    return `${rects}<text class="eval-chart-label" text-anchor="middle"><tspan x="${cx}" y="${height - 26}">${escapeHtml(zh || row.dataset)}</tspan><tspan x="${cx}" y="${height - 10}">${escapeHtml(row.dataset)}</tspan></text>`;
+  }).join("");
+  const tableRows = rows.map((row) => `<tr>
+    <td><strong>${escapeHtml(datasetZh(row) || row.dataset)}</strong><br><small>${escapeHtml(row.dataset)}</small></td>
+    <td>${escapeHtml(String(row.n ?? "—"))}</td>
+    <td>${escapeHtml(formatFixed(row.bm25_ndcg, 4))}</td>
+    <td>${escapeHtml(formatFixed(row.bge_ndcg, 4))}</td>
+    <td>${escapeHtml(formatFixed(row.fusion_ndcg, 4))}</td>
+    <td>${escapeHtml(formatSigned(row.bge_delta, 4))}</td>
+    <td>${escapeHtml(formatFixed(row.bge_recall_100, 4))}</td>
+  </tr>`).join("");
+  container.innerHTML = `<div class="eval-chart-panel">
+    <div class="eval-chart-heading">
+      <div><strong>${escapeHtml(layer.title || "检索层：BM25 vs BGE vs 融合")}</strong><span>${escapeHtml(layer.note || "")}</span></div>
+      <ul class="eval-chart-legend">
+        <li><i style="background:${colors.bm25}"></i>调参 BM25</li>
+        <li><i style="background:${colors.bge}"></i>BGE 语义检索</li>
+        <li><i style="background:${colors.fusion}"></i>BM25+BGE 融合</li>
+      </ul>
+    </div>
+    <svg class="eval-chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="检索层 nDCG@10 对照">${grid}${bars}</svg>
+    <div class="table-wrap eval-chart-table"><table><thead><tr><th>数据集</th><th>n</th><th>BM25 nDCG@10</th><th>BGE nDCG@10</th><th>融合 nDCG@10</th><th>BGE Δ</th><th>BGE R@100</th></tr></thead><tbody>${tableRows}</tbody></table></div>
+  </div>`;
 }
 
 async function fetchLatestAgentTask() {
@@ -2017,6 +2345,15 @@ async function refreshSystemEvaluation() {
   showToast(snapshot ? "后端已无该任务缓存，已用本机快照重算同表消融" : "请先运行一次真实数据任务");
 }
 
+function revealEvaluationBoardIfReady() {
+  const goldReady = Object.values(lastEvaluationOverview?.goldset_row_counts || {}).every((count) => Number(count) > 0);
+  if (goldReady || officialSdtiValue(lastEvaluationOverview) != null) {
+    resultsPanel.hidden = false;
+    return true;
+  }
+  return false;
+}
+
 async function restoreSystemEvaluationDashboard() {
   await loadEvaluationOverview();
   const result = await fetchLatestAgentTask();
@@ -2026,6 +2363,7 @@ async function restoreSystemEvaluationDashboard() {
   }
   const history = loadEvaluationHistory();
   renderSystemEvaluationDashboard(pickBestEvaluationSnapshot(history[0] || null, history), history);
+  revealEvaluationBoardIfReady();
 }
 
 function renderRagFlow(nodes, edges) {
@@ -2132,26 +2470,30 @@ function renderKnowledgeGraph(nodes, edges, summary) {
 }
 
 function renderScientificUsability(analysis) {
+  const panel = document.querySelector("#scientific-usability");
   const status = document.querySelector("#scientific-usability-status");
   const summary = document.querySelector("#scientific-usability-summary");
   const findings = document.querySelector("#scientific-usability-findings");
   const caveats = document.querySelector("#scientific-usability-caveats");
   if (!status || !summary || !findings || !caveats) return;
-  if (!analysis) {
-    status.textContent = "待运行";
-    summary.innerHTML = '<p class="muted-visual">运行任务后会基于主科研数据集展示探索性科研适用性分析。</p>';
+  const hasFindings = Boolean(analysis && (analysis.findings || []).length);
+  if (panel) panel.hidden = !hasFindings;
+  if (!hasFindings) {
+    status.textContent = "";
+    summary.innerHTML = "";
     findings.innerHTML = "";
     caveats.innerHTML = "";
     return;
   }
   status.textContent = analysis.status || "已分析";
-  summary.innerHTML = [
+  const summaryCards = [
     ["样本量", analysis.sample_size],
-    ["结局字段", analysis.target_column || "未识别"],
+    analysis.target_column ? ["结局字段", analysis.target_column] : null,
     ["可用特征", `${analysis.feature_count || 0} 个`],
-    ["方法", (analysis.methods || []).join("、") || "结构检查"],
-  ].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(localizeNarrative(value))}</strong></div>`).join("") + `<p>${escapeHtml(localizeNarrative(analysis.interpretation))}</p>`;
-  findings.innerHTML = (analysis.findings || []).length ? analysis.findings.map((finding) => {
+    (analysis.methods || []).length ? ["方法", analysis.methods.join("、")] : null,
+  ].filter(Boolean);
+  summary.innerHTML = summaryCards.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(localizeNarrative(value))}</strong></div>`).join("") + `<p>${escapeHtml(localizeNarrative(analysis.interpretation))}</p>`;
+  findings.innerHTML = analysis.findings.map((finding) => {
     const score = Math.max(0, Math.min(1, Number(finding.score || 0)));
     const counts = Object.entries(finding.group_counts || {});
     const total = counts.reduce((sum, [, count]) => sum + Number(count || 0), 0);
@@ -2160,7 +2502,7 @@ function renderScientificUsability(analysis) {
       return `<span><i style="width:${percent.toFixed(1)}%"></i><b>${escapeHtml(translateValue(label))}</b><em>${escapeHtml(count)}</em></span>`;
     }).join("")}</div>` : "";
     return `<article class="scientific-finding"><div class="scientific-finding-head"><strong>${escapeHtml(localizeNarrative(finding.variable))}</strong><span>${escapeHtml(finding.method)} · n=${escapeHtml(finding.n)}</span></div><div class="association-meter" role="img" aria-label="${escapeHtml(finding.variable)} 关联强度 ${Math.round(score * 100)}%"><i style="width:${(score * 100).toFixed(1)}%"></i></div><div class="scientific-score"><b>${escapeHtml(finding.display_score)}</b><em class="${statusClass(finding.status)}">${escapeHtml(finding.status)}</em></div><p>${escapeHtml(localizeNarrative(finding.interpretation))}</p>${countMarkup}</article>`;
-  }).join("") : '<p class="muted-visual">当前数据尚未形成足够稳定的相关性/类别关联条目，页面仍保留样本量、结局和字段结构检查。</p>';
+  }).join("");
   caveats.innerHTML = (analysis.caveats || ["探索性分析不等于因果推断或正式显著性检验。"]).map((item) => `<li>${escapeHtml(localizeNarrative(item))}</li>`).join("");
 }
 
@@ -2378,7 +2720,45 @@ document.querySelector("#evaluation-refresh")?.addEventListener("click", () => {
   refreshSystemEvaluation().catch((error) => showToast(error.message));
 });
 
+document.querySelector("#official-eval-run")?.addEventListener("click", async () => {
+  const button = document.querySelector("#official-eval-run");
+  const status = document.querySelector("#official-eval-status");
+  if (button) button.disabled = true;
+  if (status) status.textContent = "正在对本套正式卷采集观察并评分…";
+  try {
+    const response = await fetchApi("/api/evaluation/official-run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ retrieval: "planner", use_qwen: false }),
+    });
+    const payload = await readJson(response);
+    const sdti = payload?.metrics?.sdti?.value;
+    if (status) {
+      status.textContent = sdti == null
+        ? `评测结束：${payload?.evaluation_status || "无分"}。${payload?.notice || ""}`
+        : `正式 SDTI ${Number(sdti).toFixed(2)}（${payload.evaluation_id}）`;
+    }
+    await loadEvaluationOverview();
+    renderSystemEvaluationDashboard(lastEvaluationSnapshot);
+  } catch (error) {
+    if (status) status.textContent = error.message || "正式评测失败";
+  } finally {
+    if (button) button.disabled = false;
+  }
+});
+
+document.querySelectorAll('a[href="#system-evaluation"]').forEach((anchor) => {
+  anchor.addEventListener("click", (event) => {
+    if (resultsPanel.hidden) {
+      if (revealEvaluationBoardIfReady()) return;
+      event.preventDefault();
+      showToast("评测对照会在跑完任务后出现在结果最底部");
+    }
+  });
+});
+
 checkConfiguration();
+restoreSystemEvaluationDashboard().catch(() => {});
 
 // Guided research-planning workspace. This keeps the planning flow separate from
 // the legacy advanced workbench while using the same audited backend APIs.
@@ -2386,6 +2766,7 @@ const plannerState = {
   topic: null,
   scan: null,
   candidates: [],
+  selectedCandidateId: null,
   contract: null,
   sourcePlanning: null,
   recent: [],
@@ -2412,6 +2793,16 @@ function plannerElement(selector) {
   return document.querySelector(selector);
 }
 
+function clearPlannerContractSurfaces() {
+  const contractCard = plannerElement("#planner-contract-card");
+  if (contractCard) {
+    contractCard.hidden = true;
+    contractCard.innerHTML = "";
+  }
+  const coverage = plannerElement("#planner-panel-coverage");
+  if (coverage) coverage.innerHTML = plannerEmpty("□", "尚未生成覆盖矩阵", "确认研究方案后显示必要字段覆盖。");
+}
+
 function safePlannerUrl(value) {
   try {
     const url = new URL(String(value || ""), window.location.origin);
@@ -2433,6 +2824,35 @@ function plannerPercent(value) {
 
 function plannerResearchType(value) {
   return plannerResearchTypeLabels[String(value || "")] || plannerText(value, "探索性研究");
+}
+
+function plannerPlainCopy(value) {
+  return String(value || "")
+    .replace(/用户已冻结 Research Contract；后续取数必须对照该需求，不得改写医学安全规则。/g, "研究问题已经确认，之后按这个方案找数据，不会中途改题。")
+    .replace(/Research Contract/g, "研究方案")
+    .replace(/Required 字段/g, "必要字段")
+    .replace(/Required/g, "必要字段")
+    .replace(/已冻结/g, "已确认")
+    .replace(/冻结/g, "确认");
+}
+
+function plannerGranularity(value) {
+  const labels = { patient: "患者", sample: "样本", cell_line: "细胞系", study: "研究" };
+  return labels[String(value || "")] || plannerText(value, "患者");
+}
+
+function plannerResponseDomain(value) {
+  const labels = { clinical: "临床", preclinical: "临床前", mixed: "混合" };
+  return labels[String(value || "")] || plannerText(value, "临床");
+}
+
+function plannerSourceLabel(value) {
+  const labels = {
+    EVIDENCE_AGENT: "论文依据",
+    GENERIC_FALLBACK: "通用备选",
+    LEGACY_TEMPLATE: "模板备选",
+  };
+  return labels[String(value || "")] || plannerText(value, "系统推荐");
 }
 
 function plannerPlanStatus(status) {
@@ -2514,7 +2934,7 @@ function renderPlannerEvidence(scan) {
         <h4>${escapeHtml(plannerText(paper.title))}</h4>
         <p>${escapeHtml(plannerText(paper.journal, paper.fulltext_available ? "可获取全文" : "摘要级证据"))}</p>
         <div class="planner-mini-meta">
-          ${paper.fulltext_available ? "<span>Full text</span>" : "<span>Abstract</span>"}
+          ${paper.fulltext_available ? "<span>全文</span>" : "<span>摘要</span>"}
           ${sectionNames.slice(0, 3).map((name) => `<span>${escapeHtml(name)}</span>`).join("")}
           ${accessions.slice(0, 3).map((item) => `<span>${escapeHtml(item)}</span>`).join("")}
         </div>
@@ -2527,18 +2947,28 @@ function renderPlannerQuestions(payload) {
   const list = plannerElement("#planner-question-list");
   const summary = plannerElement("#planner-result-summary");
   if (!list || !summary) return;
-  const candidates = payload?.candidates || [];
-  summary.textContent = "系统会自动采用证据最充分的一项";
+  const candidates = payload?.candidates || plannerState.candidates || [];
+  const selectedId = plannerState.selectedCandidateId || candidates[0]?.candidate_id;
+  summary.textContent = plannerState.contract
+    ? "已按最优一项继续；不满意可以换一道题。"
+    : "已自动选好最匹配的一项；其余题目可点「换一道题」。";
   if (!candidates.length) {
     list.innerHTML = `<div class="planner-error">没有生成候选科研问题。系统不会用预置 benchmark 答案替代真实规划结果。</div>`;
     return;
   }
-  const alternatives = candidates.slice(1);
-  list.innerHTML = alternatives.length ? `<details class="planner-alternatives"><summary>研究问题已由系统自动确定；如有需要，可查看另外 ${alternatives.length} 个研究角度</summary><div class="planner-alternative-list">${alternatives.map((candidate) => `
-      <article class="planner-alternative" data-planner-candidate-card="${escapeHtml(candidate.candidate_id)}">
-        <div><strong>${escapeHtml(plannerText(candidate.question))}</strong><small>${escapeHtml(plannerResearchType(candidate.research_type))} · ${candidate.literature_evidence?.length || 0} 条论文依据</small></div>
-        <button type="button" data-planner-select="${escapeHtml(candidate.candidate_id)}">改用这个方向</button>
-      </article>`).join("")}</div></details>` : "";
+  list.innerHTML = `<div class="planner-candidate-board">${candidates.map((candidate) => {
+    const selected = candidate.candidate_id === selectedId;
+    const evidenceCount = candidate.literature_evidence?.length || candidate.evidence_count || 0;
+    return `
+      <article class="planner-alternative${selected ? " is-selected" : ""}" data-planner-candidate-card="${escapeHtml(candidate.candidate_id)}">
+        <div>
+          <strong>${escapeHtml(plannerText(candidate.question))}</strong>
+          <small>${escapeHtml(plannerResearchType(candidate.research_type))} · 文献依据 ${evidenceCount} 篇 · ${escapeHtml(plannerSourceLabel(candidate.generation_source))}${selected ? " · 当前这道" : ""}</small>
+          <small>需要收集：${escapeHtml((candidate.field_hints || candidate.required_field_hints || []).slice(0, 6).join("、") || "待生成")}</small>
+        </div>
+        <button type="button" data-planner-select="${escapeHtml(candidate.candidate_id)}" ${selected ? "disabled" : ""}>${selected ? "当前这道" : "换一道题"}</button>
+      </article>`;
+  }).join("")}</div>`;
 }
 
 function renderPlannerContract(contract) {
@@ -2552,12 +2982,102 @@ function renderPlannerContract(contract) {
   const statusClassName = contract.validation_status === "READY_FOR_SOURCE_PLANNING" ? "is-success" : "";
   panel.innerHTML = `
     <div class="planner-panel-heading"><span>研究方案</span><h3>这项研究准备怎么做</h3><p>${escapeHtml(plannerText(contract.research_question))}</p></div>
-    <div class="planner-status-note ${statusClassName}">${contract.validation_status === "READY_FOR_SOURCE_PLANNING" ? "研究对象、结果指标和必要字段已经明确" : "当前方案仍有内容需要人工确认"}${contract.validation_warnings?.length ? `<br>${contract.validation_warnings.map((item) => escapeHtml(item)).join("<br>")}` : ""}</div>
+    <div class="planner-status-note ${statusClassName}">${contract.validation_status === "READY_FOR_SOURCE_PLANNING" ? "研究对象、结果指标和必要字段已经明确" : "当前方案仍有内容需要人工确认"}${contract.validation_warnings?.length ? `<br>${contract.validation_warnings.map((item) => escapeHtml(plannerPlainCopy(item))).join("<br>")}` : ""}</div>
     <div class="planner-contract-stack">
       ${groups.map(([label, fields]) => `<section class="planner-contract-block"><strong>${label} · ${fields.length}</strong><div class="planner-field-chips">${fields.length ? fields.map((field) => `<span title="${escapeHtml(plannerText(field.reason))}">${escapeHtml(plannerText(field.label, field.field_id))}</span>`).join("") : "<span>无</span>"}</div></section>`).join("")}
       <section class="planner-contract-block"><strong>观察指标 · ${contract.metric_requirements?.length || 0}</strong>${(contract.metric_requirements || []).map((metric) => `<p>${escapeHtml(localizeNarrative(plannerText(metric.label)))}</p>`).join("") || "<p>尚无指标要求</p>"}</section>
       <section class="planner-contract-block"><strong>分析计划</strong>${(contract.analysis_plan || []).map((item) => `<p>${escapeHtml(localizeNarrative(item))}</p>`).join("") || "<p>尚未生成</p>"}</section>
     </div>`;
+}
+
+function renderPlannerContractCard(contract) {
+  const card = plannerElement("#planner-contract-card");
+  if (!card || !contract) return;
+  card.hidden = false;
+  const required = (contract.required_fields || []).map((field) => field.label || field.field_id).join("、");
+  const frozen = contract.lifecycle_status === "FROZEN";
+  card.innerHTML = `<article class="planner-flow-hero">
+      <span class="planner-flow-check">${frozen ? "✓" : "!"}</span>
+      <div>
+        <small>${frozen ? "研究方案已确认" : "系统建议的研究方案"}</small>
+        <h3>${escapeHtml(plannerText(contract.research_question))}</h3>
+        <p>人群：${escapeHtml(localizeNarrative(plannerText(contract.population)))} · 影响因素：${escapeHtml(localizeNarrative(plannerText(contract.exposure)))} · 结局：${escapeHtml(localizeNarrative(plannerText(contract.outcome)))}</p>
+        <p>分析单位 ${escapeHtml(plannerGranularity(contract.data_granularity))} · 疗效口径 ${escapeHtml(plannerResponseDomain(contract.response_domain))} · 没有对照表时，不把不同来源的患者拼成同一个人</p>
+        <p>需要收集：${escapeHtml(required || "—")}</p>
+      </div>
+    </article>
+    ${frozen ? "" : `<div class="planner-next-action"><div><strong>确认这项研究并开始找数据</strong><small>确认后，研究问题、人群和指标就定下来，系统按这个去检索，不会中途改题。</small></div><button id="planner-freeze-contract" type="button">确认这项研究并开始找数据</button></div>`}`;
+}
+
+function renderPlannerCoverage(planning) {
+  const panel = plannerElement("#planner-panel-coverage");
+  if (!panel || !planning) return;
+  const matrix = planning.coverage_matrix || {};
+  const fieldIds = matrix.field_ids || [];
+  const datasetIds = matrix.dataset_ids || [];
+  const cellMap = {};
+  (matrix.cells || []).forEach((cell) => {
+    cellMap[`${cell.field_id}|${cell.dataset_id}`] = cell.coverage;
+  });
+  if (!fieldIds.length) {
+    panel.innerHTML = plannerEmpty("□", "覆盖矩阵为空", "确认研究方案并生成来源方案后显示字段覆盖。");
+    return;
+  }
+  panel.innerHTML = `<div class="planner-panel-heading"><span>覆盖矩阵</span><h3>必要字段 × 候选来源</h3><p>勾选表示该来源覆盖该字段；没有对照表时，不把不同来源理解成同一患者。</p></div>
+    <div class="table-wrap"><table class="coverage-matrix-table"><thead><tr><th>字段</th>${datasetIds.map((id) => `<th>${escapeHtml(id)}</th>`).join("")}</tr></thead>
+    <tbody>${fieldIds.map((fieldId) => `<tr><th>${escapeHtml(fieldId)}</th>${datasetIds.map((datasetId) => {
+      const coverage = Number(cellMap[`${fieldId}|${datasetId}`] || 0);
+      return `<td>${coverage > 0 ? "✓" : "✗"}</td>`;
+    }).join("")}</tr>`).join("")}</tbody></table></div>`;
+}
+
+async function freezePlannerContract() {
+  if (!plannerState.contract || plannerState.busy) return;
+  if (plannerState.contract.lifecycle_status === "FROZEN" && plannerState.sourcePlanning) return;
+  plannerState.busy = true;
+  const button = plannerElement("#planner-freeze-contract");
+  if (button) {
+    button.disabled = true;
+    button.textContent = "正在确认方案…";
+  }
+  try {
+    let frozen = plannerState.contract;
+    if (frozen.lifecycle_status !== "FROZEN") {
+      frozen = await readJson(await fetchApi(`/api/research/contracts/${encodeURIComponent(plannerState.contract.contract_id)}/freeze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmed: true }),
+      }));
+    }
+    plannerState.contract = frozen;
+    renderPlannerContract(frozen);
+    renderPlannerContractCard(frozen);
+    setPlannerStage("sources", { completedThrough: "contract" });
+    plannerElement("#planner-panel-sources").innerHTML = plannerEmpty("…", "正在准备数据", "评估字段覆盖、访问方式和不同队列之间的数据合并风险。");
+    const planning = await readJson(await fetchApi(`/api/research/contracts/${encodeURIComponent(frozen.contract_id)}/source-plan`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ max_selected_datasets: 3, public_data_only: true }),
+    }));
+    plannerState.sourcePlanning = planning;
+    renderPlannerSources(planning);
+    renderPlannerFlowSummary();
+    renderPlannerQuestions({ candidates: plannerState.candidates });
+    plannerElement("#planner-result-title").textContent = "研究方案已经准备好了";
+    plannerElement("#planner-result-summary").textContent = "题目已确认，可以生成数据集";
+    plannerElement("#planner-header-subtitle").textContent = "下一步可以直接生成可分析的科研数据集";
+    setPlannerStage("sources", { completedThrough: "sources" });
+    switchPlannerTab("coverage");
+    showToast("研究方案已确认，开始准备数据");
+  } catch (error) {
+    showToast(error.message);
+    if (button) {
+      button.disabled = false;
+      button.textContent = "确认这项研究并开始找数据";
+    }
+  } finally {
+    plannerState.busy = false;
+  }
 }
 
 function selectedDatasetCoverage(datasetId, planning) {
@@ -2583,13 +3103,14 @@ function renderPlannerSources(planning) {
         <header><span>${escapeHtml(plannerText(dataset.source_id))}</span><span>${escapeHtml(plannerText(dataset.access_mode))}</span></header>
         <h4>${escapeHtml(plannerText(dataset.title))}</h4>
         <p>${escapeHtml(plannerText(dataset.accession, dataset.dataset_id))} · 正式采集前会再次核验字段和访问状态</p>
-        <div class="planner-coverage" title="Required 字段预计覆盖 ${plannerPercent(coverage)}"><i style="width:${Math.round(coverage * 100)}%"></i></div>
+        <div class="planner-coverage" title="必要字段预计覆盖 ${plannerPercent(coverage)}"><i style="width:${Math.round(coverage * 100)}%"></i></div>
         ${url ? `<p><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">查看数据源 ↗</a></p>` : ""}
       </article>`;
     }).join("") || plannerEmpty("◇", "没有选中数据集", "没有数据源满足当前字段与公开访问约束。")}</div>
     ${(plan.join_policies || []).length ? `<section class="planner-contract-block" style="margin-top:.6rem"><strong>数据合并安全提示</strong>${plan.join_policies.map((policy) => `<p>${escapeHtml(policy.reason)}</p>`).join("")}</section>` : ""}
     ${(plan.fallback_dataset_ids || []).length ? `<section class="planner-contract-block" style="margin-top:.6rem"><strong>备用数据集</strong><p>${plan.fallback_dataset_ids.map((item) => escapeHtml(item)).join("、")}</p></section>` : ""}
-    ${(plan.warnings || []).length ? `<div class="planner-status-note" style="margin-top:.6rem">${plan.warnings.map((item) => escapeHtml(item)).join("<br>")}</div>` : ""}`;
+    ${(plan.warnings || []).length ? `<div class="planner-status-note" style="margin-top:.6rem">${plan.warnings.map((item) => escapeHtml(plannerPlainCopy(item))).join("<br>")}</div>` : ""}`;
+  renderPlannerCoverage(planning);
 }
 
 function renderPlannerFlowSummary() {
@@ -2683,9 +3204,11 @@ async function startPlannerResearch(topicText) {
   plannerState.topic = null;
   plannerState.scan = null;
   plannerState.candidates = [];
+  plannerState.selectedCandidateId = null;
   plannerState.contract = null;
   plannerState.sourcePlanning = null;
   plannerElement("#planner-flow-summary").innerHTML = "";
+  clearPlannerContractSurfaces();
   plannerElement("#planner-submit").disabled = true;
   plannerElement("#planner-welcome").hidden = true;
   plannerElement("#planner-results").hidden = true;
@@ -2721,9 +3244,16 @@ async function startPlannerResearch(topicText) {
     plannerState.recent = [{ topic, topicId: created.topic_id }, ...plannerState.recent.filter((item) => item.topic !== topic)].slice(0, 4);
     renderPlannerRecent();
     const recommended = plannerState.candidates[0];
+    plannerElement("#planner-progress").hidden = true;
+    plannerElement("#planner-results").hidden = false;
+    plannerElement("#planner-result-title").textContent = "正在确认推荐的研究问题";
+    plannerElement("#planner-header-subtitle").textContent = "已自动选好最匹配的一项，接着去准备数据";
+    setPlannerStage("questions", { completedThrough: "literature" });
     if (!recommended) throw new Error("没有形成可继续研究的问题。请换一个更具体的研究方向后重试。");
     plannerState.busy = false;
-    await selectPlannerQuestion(recommended.candidate_id, null, { automatic: true });
+    const recommendButton = document.querySelector(`[data-planner-select="${recommended.candidate_id}"]`);
+    await selectPlannerQuestion(recommended.candidate_id, recommendButton, { automatic: true });
+    if (plannerState.contract) await freezePlannerContract();
   } catch (error) {
     plannerElement("#planner-progress").hidden = true;
     plannerElement("#planner-results").hidden = false;
@@ -2750,37 +3280,26 @@ async function selectPlannerQuestion(candidateId, button, { automatic = false } 
       body: JSON.stringify({}),
     }));
     plannerState.contract = contract;
-    renderPlannerContract(contract);
-    if (plannerState.candidates[0]?.candidate_id !== candidateId) {
-      const selectedCandidate = plannerState.candidates.find((item) => item.candidate_id === candidateId);
-      if (selectedCandidate) {
-        const reordered = [selectedCandidate, ...plannerState.candidates.filter((item) => item.candidate_id !== candidateId)];
-        renderPlannerQuestions({ candidates: reordered });
-      }
+    plannerState.selectedCandidateId = candidateId;
+    if (!automatic) {
+      plannerState.sourcePlanning = null;
+      const flow = plannerElement("#planner-flow-summary");
+      if (flow) flow.innerHTML = "";
     }
+    renderPlannerContract(contract);
+    renderPlannerContractCard(contract);
+    renderPlannerQuestions({ candidates: plannerState.candidates });
     document.querySelectorAll("[data-planner-candidate-card]").forEach((card) => card.classList.toggle("is-selected", card.dataset.plannerCandidateCard === candidateId));
-    if (button) button.textContent = "正在采用";
     plannerElement("#planner-header-title").textContent = contract.research_question;
-    plannerElement("#planner-header-subtitle").textContent = "研究问题已经明确，正在检查公开数据可用性";
-    setPlannerStage("sources", { completedThrough: "contract" });
-    plannerElement("#planner-panel-sources").innerHTML = plannerEmpty("…", "正在准备数据", "评估字段覆盖、访问方式和不同队列之间的数据合并风险。 ");
-    const planning = await readJson(await fetchApi(`/api/research/contracts/${encodeURIComponent(contract.contract_id)}/source-plan`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ max_selected_datasets: 3, public_data_only: true }),
-    }));
-    plannerState.sourcePlanning = planning;
-    renderPlannerSources(planning);
-    renderPlannerFlowSummary();
+    plannerElement("#planner-header-subtitle").textContent = automatic
+      ? "正在按这道题去准备公开数据"
+      : "如需换题，点其他候选项的「换一道题」";
     plannerElement("#planner-progress").hidden = true;
     plannerElement("#planner-results").hidden = false;
-    plannerElement("#planner-result-title").textContent = "研究方案已经准备好了";
-    plannerElement("#planner-result-summary").textContent = "5 个步骤已自动完成";
-    plannerElement("#planner-header-subtitle").textContent = "下一步可以直接生成可分析的科研数据集";
-    setPlannerStage("sources", { completedThrough: "sources" });
+    plannerElement("#planner-result-title").textContent = automatic ? "已自动确认研究问题" : "已选好研究问题";
+    plannerElement("#planner-result-summary").textContent = "确认后系统按这个题目找数据，不会中途改题。";
     switchPlannerTab("contract");
-    if (button) button.textContent = "已采用";
-    showToast("研究规划已自动完成");
+    if (!automatic) showToast("已选好题目，正在确认研究方案");
   } catch (error) {
     const target = plannerState.contract ? plannerElement("#planner-panel-sources") : plannerElement("#planner-panel-contract");
     target.innerHTML = `<div class="planner-error"><strong>阶段未完成</strong><br>${escapeHtml(error.message)}<br>系统未生成替代性虚假结果。</div>`;
@@ -2795,12 +3314,14 @@ async function selectPlannerQuestion(candidateId, button, { automatic = false } 
       if (item.dataset.plannerSelect !== candidateId || !plannerState.contract) item.disabled = false;
     });
   }
+  if (!automatic && plannerState.contract) await freezePlannerContract();
 }
 
 function resetPlannerWorkspace() {
   plannerState.topic = null;
   plannerState.scan = null;
   plannerState.candidates = [];
+  plannerState.selectedCandidateId = null;
   plannerState.contract = null;
   plannerState.sourcePlanning = null;
   plannerElement("#planner-topic").value = "";
@@ -2815,6 +3336,7 @@ function resetPlannerWorkspace() {
   plannerElement("#planner-panel-evidence").innerHTML = plannerEmpty("≡", "还没有研究依据", "开始研究后，系统找到的真实论文和来源链接会显示在这里。 ");
   plannerElement("#planner-panel-contract").innerHTML = plannerEmpty("◈", "还没有研究方案", "系统会自动明确研究对象、影响因素、结果指标和需要的字段。 ");
   plannerElement("#planner-panel-sources").innerHTML = plannerEmpty("◇", "还没有检查数据", "研究方案形成后，系统会说明哪些公开数据可以使用。 ");
+  clearPlannerContractSurfaces();
   setPlannerStage("topic");
   switchPlannerTab("evidence");
   plannerElement("#planner-topic").focus();
@@ -2847,6 +3369,13 @@ function initPlanningWorkspace() {
       form.requestSubmit();
     }
   });
+  document.querySelectorAll("[data-demo-question]").forEach((button) => button.addEventListener("click", () => {
+    const question = document.querySelector("#question");
+    if (!question) return;
+    question.value = button.dataset.demoQuestion;
+    question.focus();
+    document.querySelectorAll("[data-demo-question]").forEach((item) => item.classList.toggle("is-active", item === button));
+  }));
   document.querySelectorAll("[data-planner-example]").forEach((button) => button.addEventListener("click", () => {
     plannerElement("#planner-topic").value = button.dataset.plannerExample;
     startPlannerResearch(button.dataset.plannerExample);
@@ -2855,6 +3384,9 @@ function initPlanningWorkspace() {
   plannerElement("#planner-question-list")?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-planner-select]");
     if (button) selectPlannerQuestion(button.dataset.plannerSelect, button);
+  });
+  plannerElement("#planner-contract-card")?.addEventListener("click", (event) => {
+    if (event.target.closest("#planner-freeze-contract")) freezePlannerContract();
   });
   plannerElement("#planner-flow-summary")?.addEventListener("click", (event) => {
     const buildButton = event.target.closest("#planner-build-dataset");

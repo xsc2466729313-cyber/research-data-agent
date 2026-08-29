@@ -1,0 +1,902 @@
+{
+  "question_id": "q07_neoadjuvant_trials",
+  "task_id": "agent-85d00475c891",
+  "used_qwen": true,
+  "used_model": true,
+  "agent_mode": "千问科研数据智能体",
+  "model_name": "qwen3.8-max",
+  "status": "完成",
+  "ids": [
+    "AACT",
+    "GSE76360",
+    "brca_metabric",
+    "brca_tcga_pan_can_atlas_2018",
+    "NCT07093931",
+    "NCT06385990",
+    "NCT07136974",
+    "NCT03243838",
+    "NCT02897050",
+    "NCT07528898",
+    "NCT06001086",
+    "NCT03109080",
+    "NCT03982485",
+    "NCT07671690",
+    "GSE305870",
+    "GSE310685",
+    "GSE330811",
+    "GSE339080",
+    "GSE274156",
+    "GSE284284",
+    "GSE303511",
+    "GSE322492",
+    "GSE324830",
+    "GSE328466",
+    "GSE341745",
+    "GSE235461",
+    "GSE235467",
+    "GSE305280",
+    "GSE305281",
+    "GSE306278",
+    "GSE311217",
+    "GSE314435",
+    "GSE315822",
+    "GSE336655",
+    "40128415",
+    "38897205",
+    "38951909",
+    "38946549",
+    "33951110",
+    "35641998",
+    "37231145",
+    "41820292",
+    "39878763",
+    "36147250",
+    "37637034",
+    "41839827",
+    "37559999",
+    "39820365",
+    "40437021",
+    "36484016",
+    "38644473",
+    "38845177",
+    "40498965",
+    "41618287",
+    "NCT05022342",
+    "NCT07405801",
+    "NCT06790693",
+    "NCT05894239",
+    "NCT03337724",
+    "clinicaltrials:NCT07093931",
+    "clinicaltrials:NCT06385990",
+    "clinicaltrials:NCT07136974",
+    "clinicaltrials:NCT03243838",
+    "clinicaltrials:NCT02897050",
+    "clinicaltrials:NCT07528898",
+    "clinicaltrials:NCT06001086",
+    "clinicaltrials:NCT03109080",
+    "clinicaltrials:NCT03982485",
+    "clinicaltrials:NCT07671690",
+    "ncbi-geo-catalog:GSE341745",
+    "ncbi-geo-catalog:GSE339080",
+    "ncbi-geo-catalog:GSE336655",
+    "ncbi-geo-catalog:GSE330811",
+    "ncbi-geo-catalog:GSE328466",
+    "ncbi-geo-catalog:GSE324830",
+    "ncbi-geo-catalog:GSE322492",
+    "ncbi-geo-catalog:GSE315822",
+    "ncbi-geo-catalog:GSE314435",
+    "ncbi-geo-catalog:GSE311217",
+    "ncbi-geo-catalog:GSE310685",
+    "ncbi-geo-catalog:GSE306278",
+    "ncbi-geo-catalog:GSE305870",
+    "ncbi-geo-catalog:GSE305281",
+    "ncbi-geo-catalog:GSE305280",
+    "ncbi-geo-catalog:GSE303511",
+    "ncbi-geo-catalog:GSE284284",
+    "ncbi-geo-catalog:GSE274156",
+    "ncbi-geo-catalog:GSE235467",
+    "ncbi-geo-catalog:GSE235461",
+    "PMID:41820292",
+    "europepmc:41820292",
+    "PMID:40128415",
+    "europepmc:40128415",
+    "PMID:41618287",
+    "europepmc:41618287",
+    "PMID:40437021",
+    "europepmc:40437021",
+    "PMID:41839827",
+    "europepmc:41839827",
+    "PMID:38951909",
+    "europepmc:38951909",
+    "PMID:38946549",
+    "europepmc:38946549",
+    "PMID:39878763",
+    "europepmc:39878763",
+    "PMID:37559999",
+    "europepmc:37559999",
+    "PMID:40498965",
+    "europepmc:40498965",
+    "PMID:38897205",
+    "europepmc:38897205",
+    "PMID:38644473",
+    "europepmc:38644473",
+    "PMID:39820365",
+    "europepmc:39820365",
+    "PMID:36484016",
+    "europepmc:36484016",
+    "PMID:37637034",
+    "europepmc:37637034",
+    "PMID:33951110",
+    "europepmc:33951110",
+    "PMID:36147250",
+    "europepmc:36147250",
+    "PMID:37231145",
+    "europepmc:37231145",
+    "PMID:35641998",
+    "europepmc:35641998",
+    "PMID:38845177",
+    "europepmc:38845177",
+    "clinicaltrials:NCT05022342",
+    "clinicaltrials:NCT07405801",
+    "clinicaltrials:NCT06790693",
+    "clinicaltrials:NCT05894239",
+    "clinicaltrials:NCT03337724",
+    "geo:GSE76360:9b094e05fab406de",
+    "cbioportal:brca_metabric:study_metadata:0db8e459111b",
+    "cbioportal:brca_metabric:molecular_profiles:bbcf05920051",
+    "cbioportal:brca_metabric:sample_lists:3b1e49268d04",
+    "cbioportal:brca_metabric:genes:54860d86e1d9",
+    "cbioportal:brca_metabric:mutations:063a8f31e421",
+    "cbioportal:brca_metabric:discrete_cna:0780891ae320",
+    "cbioportal:brca_metabric:clinical_sample:606af9e2290b",
+    "cbioportal:brca_metabric:clinical_patient:71386ec86350",
+    "cbioportal:brca_tcga_pan_can_atlas_2018:study_metadata:4db267861884",
+    "cbioportal:brca_tcga_pan_can_atlas_2018:molecular_profiles:e4861fe53ad5",
+    "cbioportal:brca_tcga_pan_can_atlas_2018:sample_lists:c0486a3a6764",
+    "cbioportal:brca_tcga_pan_can_atlas_2018:genes:54860d86e1d9",
+    "cbioportal:brca_tcga_pan_can_atlas_2018:mutations:bedb3ee1b3bf",
+    "cbioportal:brca_tcga_pan_can_atlas_2018:discrete_cna:7f1d9c79af29",
+    "cbioportal:brca_tcga_pan_can_atlas_2018:clinical_sample:05bcdb2207a0",
+    "cbioportal:brca_tcga_pan_can_atlas_2018:clinical_patient:2bd93e0233fe"
+  ],
+  "tools": [
+    {
+      "tool_name": "search_trials",
+      "status": "完成",
+      "arguments": {
+        "condition": "Breast Neoplasms",
+        "query_terms": "neoadjuvant therapy pathological complete response event-free survival overall survival",
+        "max_trials": 10
+      },
+      "record_count": 134
+    },
+    {
+      "tool_name": "search_geo",
+      "status": "失败",
+      "arguments": {
+        "accession": "GSE25066",
+        "max_files": 5
+      },
+      "record_count": 0
+    },
+    {
+      "tool_name": "search_geo_catalog",
+      "status": "完成",
+      "arguments": {
+        "query": "Breast Neoplasms NCT response OR pCR OR neoadjuvant mutation OR sequencing",
+        "max_records": 20
+      },
+      "record_count": 20
+    },
+    {
+      "tool_name": "search_europe_pmc",
+      "status": "完成",
+      "arguments": {
+        "query": "Breast Neoplasms GSE NCT pathological complete response OR treatment response",
+        "max_records": 20
+      },
+      "record_count": 20
+    },
+    {
+      "tool_name": "search_trials",
+      "status": "完成",
+      "arguments": {
+        "condition": "Breast Cancer",
+        "query_terms": "PIK3CA NCT",
+        "max_trials": 5
+      },
+      "record_count": 309
+    },
+    {
+      "tool_name": "search_geo",
+      "status": "完成",
+      "arguments": {
+        "accession": "GSE76360",
+        "max_files": 5
+      },
+      "record_count": 1
+    },
+    {
+      "tool_name": "search_cbioportal",
+      "status": "完成",
+      "arguments": {
+        "study_id": "brca_metabric",
+        "gene_symbols": [
+          "PIK3CA"
+        ],
+        "max_records": 4000
+      },
+      "record_count": 11299
+    },
+    {
+      "tool_name": "search_cbioportal",
+      "status": "完成",
+      "arguments": {
+        "study_id": "brca_tcga_pan_can_atlas_2018",
+        "gene_symbols": [
+          "PIK3CA"
+        ],
+        "max_records": 4000
+      },
+      "record_count": 9488
+    }
+  ],
+  "source_items": [
+    {
+      "source_id": "clinicaltrials:NCT07093931",
+      "accession": "NCT07093931",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "clinicaltrials:NCT06385990",
+      "accession": "NCT06385990",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "clinicaltrials:NCT07136974",
+      "accession": "NCT07136974",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "clinicaltrials:NCT03243838",
+      "accession": "NCT03243838",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "clinicaltrials:NCT02897050",
+      "accession": "NCT02897050",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "clinicaltrials:NCT07528898",
+      "accession": "NCT07528898",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "clinicaltrials:NCT06001086",
+      "accession": "NCT06001086",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "clinicaltrials:NCT03109080",
+      "accession": "NCT03109080",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "clinicaltrials:NCT03982485",
+      "accession": "NCT03982485",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "clinicaltrials:NCT07671690",
+      "accession": "NCT07671690",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE341745",
+      "accession": "GSE341745",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE339080",
+      "accession": "GSE339080",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE336655",
+      "accession": "GSE336655",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE330811",
+      "accession": "GSE330811",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE328466",
+      "accession": "GSE328466",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE324830",
+      "accession": "GSE324830",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE322492",
+      "accession": "GSE322492",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE315822",
+      "accession": "GSE315822",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE314435",
+      "accession": "GSE314435",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE311217",
+      "accession": "GSE311217",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE310685",
+      "accession": "GSE310685",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE306278",
+      "accession": "GSE306278",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE305870",
+      "accession": "GSE305870",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE305281",
+      "accession": "GSE305281",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE305280",
+      "accession": "GSE305280",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE303511",
+      "accession": "GSE303511",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE284284",
+      "accession": "GSE284284",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE274156",
+      "accession": "GSE274156",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE235467",
+      "accession": "GSE235467",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE235461",
+      "accession": "GSE235461",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:41820292",
+      "accession": "PMID:41820292",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:40128415",
+      "accession": "PMID:40128415",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:41618287",
+      "accession": "PMID:41618287",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:40437021",
+      "accession": "PMID:40437021",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:41839827",
+      "accession": "PMID:41839827",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:38951909",
+      "accession": "PMID:38951909",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:38946549",
+      "accession": "PMID:38946549",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:39878763",
+      "accession": "PMID:39878763",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:37559999",
+      "accession": "PMID:37559999",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:40498965",
+      "accession": "PMID:40498965",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:38897205",
+      "accession": "PMID:38897205",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:38644473",
+      "accession": "PMID:38644473",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:39820365",
+      "accession": "PMID:39820365",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:36484016",
+      "accession": "PMID:36484016",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:37637034",
+      "accession": "PMID:37637034",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:33951110",
+      "accession": "PMID:33951110",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:36147250",
+      "accession": "PMID:36147250",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:37231145",
+      "accession": "PMID:37231145",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:35641998",
+      "accession": "PMID:35641998",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "europepmc:38845177",
+      "accession": "PMID:38845177",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "clinicaltrials:NCT05022342",
+      "accession": "NCT05022342",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "clinicaltrials:NCT07405801",
+      "accession": "NCT07405801",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "clinicaltrials:NCT06790693",
+      "accession": "NCT06790693",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "clinicaltrials:NCT05894239",
+      "accession": "NCT05894239",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "clinicaltrials:NCT03337724",
+      "accession": "NCT03337724",
+      "status": "retrieved"
+    },
+    {
+      "source_id": "geo:GSE76360:9b094e05fab406de",
+      "accession": "GSE76360",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:study_metadata:0db8e459111b",
+      "accession": "brca_metabric",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:molecular_profiles:bbcf05920051",
+      "accession": "brca_metabric",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:sample_lists:3b1e49268d04",
+      "accession": "brca_metabric",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:genes:54860d86e1d9",
+      "accession": "brca_metabric",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:mutations:063a8f31e421",
+      "accession": "brca_metabric",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:discrete_cna:0780891ae320",
+      "accession": "brca_metabric",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:clinical_sample:606af9e2290b",
+      "accession": "brca_metabric",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:clinical_patient:71386ec86350",
+      "accession": "brca_metabric",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga_pan_can_atlas_2018:study_metadata:4db267861884",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga_pan_can_atlas_2018:molecular_profiles:e4861fe53ad5",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga_pan_can_atlas_2018:sample_lists:c0486a3a6764",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga_pan_can_atlas_2018:genes:54860d86e1d9",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga_pan_can_atlas_2018:mutations:bedb3ee1b3bf",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga_pan_can_atlas_2018:discrete_cna:7f1d9c79af29",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga_pan_can_atlas_2018:clinical_sample:05bcdb2207a0",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "status": "cached"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga_pan_can_atlas_2018:clinical_patient:2bd93e0233fe",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "status": "cached"
+    }
+  ],
+  "candidate_sources": [
+    {
+      "dataset_id": "NCT07093931",
+      "accession": "NCT07093931",
+      "source_database": "ClinicalTrials.gov"
+    },
+    {
+      "dataset_id": "NCT06385990",
+      "accession": "NCT06385990",
+      "source_database": "ClinicalTrials.gov"
+    },
+    {
+      "dataset_id": "NCT07136974",
+      "accession": "NCT07136974",
+      "source_database": "ClinicalTrials.gov"
+    },
+    {
+      "dataset_id": "NCT03243838",
+      "accession": "NCT03243838",
+      "source_database": "ClinicalTrials.gov"
+    },
+    {
+      "dataset_id": "NCT02897050",
+      "accession": "NCT02897050",
+      "source_database": "ClinicalTrials.gov"
+    },
+    {
+      "dataset_id": "NCT07528898",
+      "accession": "NCT07528898",
+      "source_database": "ClinicalTrials.gov"
+    },
+    {
+      "dataset_id": "NCT06001086",
+      "accession": "NCT06001086",
+      "source_database": "ClinicalTrials.gov"
+    },
+    {
+      "dataset_id": "NCT03109080",
+      "accession": "NCT03109080",
+      "source_database": "ClinicalTrials.gov"
+    },
+    {
+      "dataset_id": "NCT03982485",
+      "accession": "NCT03982485",
+      "source_database": "ClinicalTrials.gov"
+    },
+    {
+      "dataset_id": "NCT07671690",
+      "accession": "NCT07671690",
+      "source_database": "ClinicalTrials.gov"
+    },
+    {
+      "dataset_id": "GSE305870",
+      "accession": "GSE305870",
+      "source_database": "NCBI GEO"
+    },
+    {
+      "dataset_id": "GSE310685",
+      "accession": "GSE310685",
+      "source_database": "NCBI GEO"
+    },
+    {
+      "dataset_id": "GSE330811",
+      "accession": "GSE330811",
+      "source_database": "NCBI GEO"
+    },
+    {
+      "dataset_id": "GSE339080",
+      "accession": "GSE339080",
+      "source_database": "NCBI GEO"
+    },
+    {
+      "dataset_id": "GSE274156",
+      "accession": "GSE274156",
+      "source_database": "NCBI GEO"
+    },
+    {
+      "dataset_id": "GSE284284",
+      "accession": "GSE284284",
+      "source_database": "NCBI GEO"
+    },
+    {
+      "dataset_id": "GSE303511",
+      "accession": "GSE303511",
+      "source_database": "NCBI GEO"
+    },
+    {
+      "dataset_id": "GSE322492",
+      "accession": "GSE322492",
+      "source_database": "NCBI GEO"
+    },
+    {
+      "dataset_id": "GSE324830",
+      "accession": "GSE324830",
+      "source_database": "NCBI GEO"
+    },
+    {
+      "dataset_id": "GSE328466",
+      "accession": "GSE328466",
+      "source_database": "NCBI GEO"
+    },
+    {
+      "dataset_id": "GSE341745",
+      "accession": "GSE341745",
+      "source_database": "NCBI GEO"
+    },
+    {
+      "dataset_id": "GSE235461",
+      "accession": "GSE235461",
+      "source_database": "NCBI GEO"
+    },
+    {
+      "dataset_id": "GSE235467",
+      "accession": "GSE235467",
+      "source_database": "NCBI GEO"
+    },
+    {
+      "dataset_id": "GSE305280",
+      "accession": "GSE305280",
+      "source_database": "NCBI GEO"
+    },
+    {
+      "dataset_id": "GSE305281",
+      "accession": "GSE305281",
+      "source_database": "NCBI GEO"
+    },
+    {
+      "dataset_id": "GSE306278",
+      "accession": "GSE306278",
+      "source_database": "NCBI GEO"
+    },
+    {
+      "dataset_id": "GSE311217",
+      "accession": "GSE311217",
+      "source_database": "NCBI GEO"
+    },
+    {
+      "dataset_id": "GSE314435",
+      "accession": "GSE314435",
+      "source_database": "NCBI GEO"
+    },
+    {
+      "dataset_id": "GSE315822",
+      "accession": "GSE315822",
+      "source_database": "NCBI GEO"
+    },
+    {
+      "dataset_id": "GSE336655",
+      "accession": "GSE336655",
+      "source_database": "NCBI GEO"
+    },
+    {
+      "dataset_id": "40128415",
+      "accession": "40128415",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "38897205",
+      "accession": "38897205",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "38951909",
+      "accession": "38951909",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "38946549",
+      "accession": "38946549",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "33951110",
+      "accession": "33951110",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "35641998",
+      "accession": "35641998",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "37231145",
+      "accession": "37231145",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "41820292",
+      "accession": "41820292",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "39878763",
+      "accession": "39878763",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "36147250",
+      "accession": "36147250",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "37637034",
+      "accession": "37637034",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "41839827",
+      "accession": "41839827",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "37559999",
+      "accession": "37559999",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "39820365",
+      "accession": "39820365",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "40437021",
+      "accession": "40437021",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "36484016",
+      "accession": "36484016",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "38644473",
+      "accession": "38644473",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "38845177",
+      "accession": "38845177",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "40498965",
+      "accession": "40498965",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "41618287",
+      "accession": "41618287",
+      "source_database": "Europe PMC"
+    },
+    {
+      "dataset_id": "NCT05022342",
+      "accession": "NCT05022342",
+      "source_database": "ClinicalTrials.gov"
+    },
+    {
+      "dataset_id": "NCT07405801",
+      "accession": "NCT07405801",
+      "source_database": "ClinicalTrials.gov"
+    },
+    {
+      "dataset_id": "NCT06790693",
+      "accession": "NCT06790693",
+      "source_database": "ClinicalTrials.gov"
+    },
+    {
+      "dataset_id": "NCT05894239",
+      "accession": "NCT05894239",
+      "source_database": "ClinicalTrials.gov"
+    },
+    {
+      "dataset_id": "NCT03337724",
+      "accession": "NCT03337724",
+      "source_database": "ClinicalTrials.gov"
+    },
+    {
+      "dataset_id": "GSE76360",
+      "accession": "GSE76360",
+      "source_database": "GEO"
+    },
+    {
+      "dataset_id": "brca_metabric",
+      "accession": "brca_metabric",
+      "source_database": "cBioPortal"
+    },
+    {
+      "dataset_id": "brca_tcga_pan_can_atlas_2018",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "source_database": "cBioPortal"
+    }
+  ],
+  "row_count": 50,
+  "analysis_ready": false,
+  "notice": "主结果来自真实公开数据库工具；仅规划模式不会生成或冒充患者数据。 千问负责科研问题结构化、工具选择和数据层总结；医学安全规则与发布门控不由模型覆盖。",
+  "max_collection_rounds": 4
+}

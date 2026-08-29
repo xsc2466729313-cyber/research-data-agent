@@ -118,6 +118,35 @@ def test_empty_task_is_review_and_does_not_invent_cohort_f1() -> None:
     ]
     assert report.cohort_f1 is None
     assert all(layer.decision in {"PASS", "REVIEW", "REJECT"} for layer in report.layers)
+    assert "不生成虚假分数" in report.note
+    assert "未评测" not in report.note
+
+
+def test_field_and_fitness_review_copy_does_not_lead_with_zero_match() -> None:
+    rows = [
+        {
+            "study_id": "study-a",
+            "patient_id": "P1",
+            "sample_id": "S1",
+            "source_id": "source-a",
+            "disease": "Breast Cancer",
+        }
+    ]
+    result = _result(rows=rows, sources=[_source()], completeness=0.694, target_match=False, coverage=0.777)
+    result = result.model_copy(update={
+        "readiness": result.readiness.model_copy(update={"target_column": None, "target_match": False, "target_match_rate": 0.0}),
+    })
+    report = QualityGateBuilder().build(result)
+    field_gate = next(layer for layer in report.layers if layer.gate_id == "field_quality")
+    fitness = next(layer for layer in report.layers if layer.gate_id == "research_fitness")
+
+    assert field_gate.decision == "REVIEW"
+    assert "0.0%" not in field_gate.evidence
+    assert "结局匹配=" not in field_gate.evidence
+    assert "还没对上" in field_gate.evidence
+    assert fitness.decision == "REVIEW"
+    assert "未识别" not in fitness.evidence
+    assert "还要补结局字段" in fitness.evidence
 
 
 def test_missing_source_identity_rejects_source_gate() -> None:
@@ -217,3 +246,56 @@ def test_fitness_score_above_one_is_scaled_to_unit_interval() -> None:
     assert QualityGateBuilder._fitness_score(Result()) == 0.85
     Fitness.fitness_score = 0.42
     assert QualityGateBuilder._fitness_score(Result()) == 0.42
+
+
+def test_pcr_and_her2_fill_can_pass_field_and_fitness_without_inventing_gold_f1() -> None:
+    rows = [
+        {
+            "study_id": "GSE25066",
+            "patient_id": f"P{index}",
+            "sample_id": f"S{index}",
+            "source_id": "geo:GSE25066",
+            "disease": "Breast Cancer",
+            "subtype": "HER2-positive",
+            "her2_status": "2+" if index == 0 else "阳性",
+            "pcr": "pCR",
+            "treatment_response": "pCR",
+            "pik3ca_mutation": "1",
+        }
+        for index in range(40)
+    ]
+    source = SourceItem(
+        source_id="geo:GSE25066",
+        task_id="qg-test",
+        source_name="NCBI GEO",
+        source_type="database",
+        accession="GSE25066",
+        url="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE25066",
+        checksum="sha256:gse25066",
+        status="retrieved",
+    )
+    result = _result(
+        rows=rows,
+        sources=[source],
+        analysis_ready=True,
+        completeness=0.42,
+        target_match=True,
+        coverage=0.55,
+    )
+    result = result.model_copy(
+        update={
+            "modeling_dataset": result.modeling_dataset.model_copy(update={"name": "GSE25066 科研数据集", "target_column": "pcr"}),
+            "readiness": result.readiness.model_copy(
+                update={"target_column": "pcr", "target_match": True, "target_match_rate": 1.0, "analysis_ready": True}
+            ),
+        }
+    )
+    report = QualityGateBuilder().build(result)
+    decisions = {layer.gate_id: layer.decision for layer in report.layers}
+
+    assert decisions["field_quality"] == "PASS"
+    assert decisions["research_fitness"] == "PASS"
+    assert report.cohort_f1 is None
+    assert report.cohort_plan_f1 is not None
+    assert 0 < report.cohort_plan_f1 <= 1
+    assert ResearchDatasetBuilder._receptor_polarity(rows[0]["her2_status"]) == "equivocal"

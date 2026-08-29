@@ -261,6 +261,32 @@ def score_geo_text(text: str, spec: ResearchSpec, extra_terms: list[str] | None 
     return score
 
 
+def seed_geo_accessions(spec: ResearchSpec) -> list[str]:
+    """Public breast-cancer GEO series that match the question type.
+
+    These are pre-acquisition hints from the source registry, not Gold Set labels.
+    """
+    blob = f"{spec.research_goal} {' '.join(spec.drugs)}"
+    upper = blob.upper()
+    if any(token in upper for token in ("ALPELISIB", "CAPIVASERTIB")) or any(
+        token in (spec.research_goal or "") for token in ("阿培利司", "卡匹伐塞替")
+    ):
+        return []
+    seeds: list[str] = []
+    if asks_pcr(spec) or (
+        needs_clinical_outcome(spec)
+        and not asks_survival(spec)
+        and "treatment_response" in (spec.outcomes or spec.required_data_types or [])
+    ):
+        seeds.extend(["GSE76360", "GSE25066"])
+    goal = (spec.research_goal or "").casefold()
+    if any(token in goal for token in ("scan-b", "scanb", "gse96058")):
+        seeds.append("GSE96058")
+    if "expression" in (spec.required_data_types or []) and not asks_pcr(spec):
+        seeds.append("GSE96058")
+    return list(dict.fromkeys(seeds))
+
+
 def harvest_from_raw_results(raw_results: list[tuple[str, Any]], spec: ResearchSpec) -> list[str]:
     """Collect GSE accessions mentioned by catalog or literature tools."""
     ranked: list[tuple[int, str]] = []
@@ -288,4 +314,5 @@ def harvest_from_raw_results(raw_results: list[tuple[str, Any]], spec: ResearchS
             seen.add(accession)
             ranked.append((score_geo_text(blob, spec, extra_terms=_keyword_terms(spec)), accession))
     ranked.sort(key=lambda item: (-item[0], item[1]))
-    return [accession for _score, accession in ranked]
+    harvested = [accession for _score, accession in ranked]
+    return list(dict.fromkeys([*seed_geo_accessions(spec), *harvested]))

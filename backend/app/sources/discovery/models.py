@@ -60,3 +60,6 @@ class DiscoveryAdapterResult(ApiModel):
     request_url: str
     queried_at: datetime
     notice: str
+    pmcid: str | None = None
+    parse_warnings: list[str] = Field(default_factory=list)
+    parsed_field_count: int = Field(default=0, ge=0)

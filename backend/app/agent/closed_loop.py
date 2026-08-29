@@ -11,6 +11,7 @@ from backend.app.agent.closed_loop_models import (
     ClosedLoopAction,
     ClosedLoopAudit,
     ClosedLoopDiagnosis,
+    ClosedLoopHighlightCard,
     ClosedLoopImprovement,
     ClosedLoopIteration,
     ClosedLoopMetricSnapshot,
@@ -18,6 +19,7 @@ from backend.app.agent.closed_loop_models import (
     ClosedLoopResponse,
 )
 from backend.app.agent.models import AgentTaskRequest, AgentTaskResult
+from backend.app.agent.outcome_repair import diagnose_outcome_gap
 
 
 SAFETY_CONSTRAINTS = [
@@ -25,6 +27,15 @@ SAFETY_CONSTRAINTS = [
     "第二轮不得自动修改 HER2 assay/status、response_domain/response 或关键 provenance。",
     "所有新字段仍必须保留 source_id、raw_field、raw_value；不可用 fallback 冒充模型成绩。",
 ]
+
+GENERIC_STOP_REASONS = {
+    "达到最大闭环轮次。",
+    "上一轮未达到最小可验证改进，停止空转。",
+    "未生成新的安全修正动作，停止空转。",
+}
+
+NO_FOLLOWUP_NOTICE = "第二轮没有新的合法补法，指标未变。"
+NO_CHANGE_PRESENTATION = "第二轮没有新的合法补法，指标未变。下面只展示本次最好一轮。"
 
 
 class ClosedLoopService:
@@ -96,10 +107,8 @@ class ClosedLoopService:
                 )
             )
 
-            # A two-round run is the product default: the second pass is a
-            # completeness/independent verification pass even when round one
-            # already clears the quality gate.
-            if minimum_rounds_reached and (metrics.publish_allowed or not diagnoses):
+            gate_cleared = metrics.publish_allowed or not diagnoses
+            if minimum_rounds_reached and gate_cleared:
                 stop_reason = "质量门已通过，停止继续修正。"
                 break
             if number >= payload.max_iterations:
@@ -114,8 +123,16 @@ class ClosedLoopService:
                 break
             next_request = self._correct_request(current, result, diagnoses)
             next_hash = self._hash(next_request.model_dump(mode="json"))
-            if next_hash == input_hash and not (payload.require_two_rounds and number == 1):
-                stop_reason = "未生成新的安全修正动作，停止空转。"
+            force_verification = payload.require_two_rounds and number == 1 and gate_cleared
+            material_followup = self._is_material_followup(current, next_request, result)
+            if next_hash == input_hash and not force_verification:
+                stop_reason = "第二轮没有新的合法补法，指标未变。"
+                break
+            if not material_followup and not force_verification:
+                stop_reason = "第二轮没有新的合法补法，指标未变。"
+                iterations[-1] = iterations[-1].model_copy(update={
+                    "actions": [item.model_copy(update={"status": "skipped"}) for item in actions],
+                })
                 break
             iterations[-1] = iterations[-1].model_copy(update={
                 "actions": [item.model_copy(update={"status": "applied"}) for item in actions],
@@ -125,7 +142,12 @@ class ClosedLoopService:
 
         final_result = iterations[-1].result if iterations else None
         status = "completed" if iterations else "stopped"
-        summaries = self._summary(iterations)
+        presented = self._present(iterations, stop_reason)
+        if stop_reason in GENERIC_STOP_REASONS:
+            stop_reason = presented["user_notice"]
+        attempted = presented.get("attempted_repairs") or []
+        if attempted and "没有新的合法补法" in stop_reason:
+            stop_reason = "；".join(attempted)
         response = ClosedLoopResponse(
             loop_id=loop_id,
             status=status,
@@ -133,12 +155,19 @@ class ClosedLoopService:
             stop_reason=stop_reason,
             iterations=iterations,
             final_result=final_result,
-            improvement_summary=summaries,
+            improvement_summary=presented["improvement_summary"],
             unresolved_items=all_unresolved,
             audit_notice=(
                 f"{self.VERSION}：每轮输入/输出均有哈希和调用审计；闭环只修正检索策略与字段缺口，"
                 "不改变医学事实或安全规则。progress_score 是任务内反馈指标，不是正式 benchmark 或 SDTI。"
             ),
+            improved=presented["improved"],
+            presentation=presented["presentation"],
+            best_iteration=presented["best_iteration"],
+            user_notice=presented["user_notice"],
+            highlight_cards=presented["highlight_cards"],
+            display_iterations=presented["display_iterations"],
+            attempted_repairs=attempted,
         )
         with self._lock:
             self._runs[loop_id] = response
@@ -193,22 +222,47 @@ class ClosedLoopService:
         diagnoses: list[ClosedLoopDiagnosis] = []
         collection = result.collection_agent
         critical = collection.critical_gaps if collection else []
+        plan = diagnose_outcome_gap(
+            spec=result.research_spec,
+            dataset=result.modeling_dataset,
+            target_match_rate=metrics.target_match_rate,
+            question=result.research_spec.research_goal,
+        )
         if critical:
-            fields = list(dict.fromkeys(item.variable_id for item in critical))
-            diagnoses.append(ClosedLoopDiagnosis(
-                diagnosis_id="missing_required_fields",
-                label="关键研究字段缺口",
-                severity="high",
-                evidence=[item.reason for item in critical[:5]],
-                unresolved_fields=fields,
-            ))
-        if metrics.target_match_rate < 1.0:
+            remaining = list(dict.fromkeys(item.variable_id for item in critical))
+            if metrics.target_match_rate >= 0.45:
+                remaining = [field for field in remaining if field not in {"outcome", "pcr", "treatment_response"}]
+            if remaining:
+                diagnoses.append(ClosedLoopDiagnosis(
+                    diagnosis_id="missing_required_fields",
+                    label="关键研究字段缺口",
+                    severity="high",
+                    evidence=[item.reason for item in critical[:5]],
+                    unresolved_fields=remaining,
+                    recommended_tools=["search_geo", "search_cbioportal", "inspect_dataset_schema"],
+                ))
+        if metrics.target_match_rate < 0.45:
             diagnoses.append(ClosedLoopDiagnosis(
                 diagnosis_id="outcome_or_target_gap",
                 label="结局或目标字段尚未充分匹配",
                 severity="high",
-                evidence=[f"当前目标匹配率 {metrics.target_match_rate:.0%}"],
+                evidence=[
+                    f"当前目标匹配率 {metrics.target_match_rate:.0%}",
+                    plan.rationale or "需要补齐与 Research Contract 同域的结局。",
+                ],
                 unresolved_fields=["outcome"],
+                recommended_tools=list(plan.focus_tools) or ["search_geo", "search_trials"],
+                repair_kind=plan.gap_kind,
+            ))
+        elif plan.gap_kind == "wrong_cohort":
+            diagnoses.append(ClosedLoopDiagnosis(
+                diagnosis_id="outcome_or_target_gap",
+                label="结局或目标字段尚未充分匹配",
+                severity="high",
+                evidence=[plan.rationale],
+                unresolved_fields=["outcome"],
+                recommended_tools=list(plan.focus_tools) or ["search_geo"],
+                repair_kind=plan.gap_kind,
             ))
         if metrics.traceability < 0.95:
             diagnoses.append(ClosedLoopDiagnosis(
@@ -217,6 +271,7 @@ class ClosedLoopService:
                 severity="medium",
                 evidence=[f"当前可追溯率 {metrics.traceability:.0%}，低于 95% 门槛"],
                 unresolved_fields=["provenance"],
+                recommended_tools=["check_provenance"],
             ))
         if not diagnoses and metrics.quality_gate not in {"PASS", "READY"}:
             diagnoses.append(ClosedLoopDiagnosis(
@@ -244,45 +299,138 @@ class ClosedLoopService:
             action_type="refocus_retrieval" if diagnoses else "supplemental_verification",
             status="planned",
             rationale=(
-                "把本轮诊断出的缺口显式写回下一轮输入，并优先使用尚未尝试的来源；不修改事实字段。"
-                if diagnoses else
-                "第一轮虽已通过质量门，第二轮仍执行独立完整性复核并补充证据；不修改事实字段。"
+                next((item.evidence[-1] for item in diagnoses if item.evidence), "")
+                or (
+                    "把本轮诊断出的缺口显式写回下一轮输入，并优先使用尚未尝试的来源；不修改事实字段。"
+                    if diagnoses else
+                    "第一轮虽已通过质量门，第二轮仍执行独立完整性复核并补充证据；不修改事实字段。"
+                )
             ),
-            changed_request_fields=["question", "preferred_sources", "iterative_collection"],
-            strategy_ids=list(dict.fromkeys(strategies)),
+            changed_request_fields=["question", "preferred_sources", "focus_accessions", "focus_tools", "iterative_collection"],
+            strategy_ids=list(dict.fromkeys([
+                *strategies,
+                *[tool for item in diagnoses for tool in item.recommended_tools],
+            ])),
         )]
 
-    @staticmethod
-    def _correct_request(request: AgentTaskRequest, result: AgentTaskResult, diagnoses: list[ClosedLoopDiagnosis]) -> AgentTaskRequest:
-        fields = list(dict.fromkeys(field for item in diagnoses for field in item.unresolved_fields))
+    @classmethod
+    def _unused_followups(cls, result: AgentTaskResult) -> list:
         collection = result.collection_agent
-        source_names = [item.source_name for item in (collection.next_actions if collection else []) if item.source_name]
+        return list(collection.next_actions) if collection and collection.next_actions else []
+
+    @classmethod
+    def _correct_request(cls, request: AgentTaskRequest, result: AgentTaskResult, diagnoses: list[ClosedLoopDiagnosis]) -> AgentTaskRequest:
+        fields = list(dict.fromkeys(field for item in diagnoses for field in item.unresolved_fields))
+        unused = cls._unused_followups(result)
+        source_names = [item.source_name for item in unused if item.source_name]
+        strategy_labels = [item.strategy_label or item.strategy_id or item.source_name for item in unused if item.source_name or item.strategy_id]
+        plan = diagnose_outcome_gap(
+            spec=result.research_spec,
+            dataset=result.modeling_dataset,
+            target_match_rate=result.readiness.target_match_rate,
+            question=result.research_spec.research_goal,
+        )
+        focus_accessions = list(request.focus_accessions)
+        focus_tools = list(request.focus_tools)
+        for action in unused:
+            focus_tools.append(action.tool_name)
+            args = action.arguments or {}
+            for key in ("accession", "nct_id", "study_id"):
+                value = str(args.get(key) or "").strip()
+                if value:
+                    focus_accessions.append(value)
+        focus_accessions.extend(plan.focus_accessions)
+        focus_tools.extend(plan.focus_tools)
+        critic = result.critic_report
+        if plan.material and critic is not None:
+            for item in getattr(critic, "diagnoses", []) or []:
+                focus_tools.extend(
+                    action
+                    for action in (getattr(item, "recommended_actions", []) or [])
+                    if str(action).startswith("search_")
+                )
+        tool_names = [item.tool_name for item in unused if item.tool_name]
+        preferred = list(dict.fromkeys([
+            *tool_names,
+            *plan.focus_tools,
+            *source_names,
+            *request.preferred_sources,
+        ]))[:20]
+        focus_accessions = list(dict.fromkeys(focus_accessions))[:20]
+        focus_tools = list(dict.fromkeys(focus_tools))[:20]
         readiness = result.readiness
         coverage = float(readiness.requested_variable_coverage_rate or 0.0)
         target = readiness.target_match_rate
         if target is None:
             target = 1.0 if readiness.target_match else 0.0
-        tried = list(dict.fromkeys(collection.strategies_tried if collection else []))[:6]
+        tried = list(dict.fromkeys(result.collection_agent.strategies_tried if result.collection_agent else []))[:6]
         feedback = (
-            f"；第一轮闭环反馈：字段覆盖 {coverage:.0%}、目标匹配 {float(target):.0%}；"
-            f"可追溯率 {float(result.quality_gate_report.traceability if result.quality_gate_report and result.quality_gate_report.traceability is not None else 0.0):.0%}"
+            f"；第一轮闭环反馈：协议必选字段对齐 {coverage:.0%}、目标匹配 {float(target):.0%}；"
+            f"来源可回查 {float(result.quality_gate_report.traceability if result.quality_gate_report and result.quality_gate_report.traceability is not None else 0.0):.0%}"
         )
         if tried:
             feedback += "，已尝试策略 " + "、".join(tried)
+        if strategy_labels:
+            feedback += "；下一轮改用尚未尝试的 " + "、".join(strategy_labels[:4])
+        if plan.rationale:
+            feedback += "；" + plan.rationale
+        if plan.forbidden_note:
+            feedback += "；" + plan.forbidden_note
         suffix = "；闭环修正：优先补齐 " + "、".join(fields) if fields else "；闭环修正：复核质量门和证据链"
+        if focus_accessions:
+            suffix += "；强制改搜 " + "、".join(focus_accessions[:6])
         suffix += feedback
         question = request.question
         if suffix not in question:
             question = f"{question}{suffix}。保持同一患者/样本和 response_domain，不跨 cohort 粘贴字段。"
+        extra_rounds = 2 if unused or plan.material else 0
+        extra_sources = 2 if unused or plan.material else 0
         return request.model_copy(update={
             "question": question[:2000],
-            "preferred_sources": list(dict.fromkeys([*request.preferred_sources, *source_names]))[:20],
+            "preferred_sources": preferred,
+            "focus_accessions": focus_accessions,
+            "focus_tools": focus_tools,
+            "remap_outcome_aliases": plan.map_synonyms or request.remap_outcome_aliases,
             "iterative_collection": True,
-            "max_collection_rounds": max(2, request.max_collection_rounds),
+            "max_collection_rounds": min(12, max(request.max_collection_rounds + extra_rounds, 4 if unused or plan.material else request.max_collection_rounds)),
+            "max_sources": min(20, request.max_sources + extra_sources),
         })
 
-    @staticmethod
-    def _compare(previous: ClosedLoopMetricSnapshot, current: ClosedLoopMetricSnapshot, min_improvement: float) -> ClosedLoopImprovement:
+    @classmethod
+    def _is_material_followup(
+        cls,
+        request: AgentTaskRequest,
+        next_request: AgentTaskRequest,
+        result: AgentTaskResult,
+    ) -> bool:
+        if cls._unused_followups(result):
+            return True
+        if next_request.iterative_collection and not request.iterative_collection:
+            return True
+        if next_request.max_sources > request.max_sources:
+            return True
+        if next_request.max_collection_rounds > request.max_collection_rounds:
+            return True
+        if set(next_request.preferred_sources) - set(request.preferred_sources):
+            return True
+        if set(next_request.focus_accessions) - set(request.focus_accessions):
+            return True
+        if set(next_request.focus_tools) - set(request.focus_tools):
+            added = set(next_request.focus_tools) - set(request.focus_tools)
+            if any(str(item).startswith("search_") for item in added):
+                return True
+        if next_request.remap_outcome_aliases and not request.remap_outcome_aliases:
+            return True
+        plan = diagnose_outcome_gap(
+            spec=result.research_spec,
+            dataset=result.modeling_dataset,
+            target_match_rate=result.readiness.target_match_rate,
+            question=result.research_spec.research_goal,
+        )
+        return plan.material
+
+    @classmethod
+    def _compare(cls, previous: ClosedLoopMetricSnapshot, current: ClosedLoopMetricSnapshot, min_improvement: float) -> ClosedLoopImprovement:
         deltas = {
             "progress_score": current.progress_score - previous.progress_score,
             "required_field_coverage": current.required_field_coverage - previous.required_field_coverage,
@@ -292,13 +440,7 @@ class ClosedLoopService:
             "review_burden": previous.review_burden - current.review_burden,
         }
         improved = deltas["progress_score"] >= min_improvement or deltas["unresolved_gap_count"] > 0
-        summary = [
-            f"required field coverage: {previous.required_field_coverage:.2f} -> {current.required_field_coverage:.2f}",
-            f"target match: {previous.target_match_rate:.2f} -> {current.target_match_rate:.2f}",
-            f"traceability: {previous.traceability:.2f} -> {current.traceability:.2f}",
-            f"review burden: {previous.review_burden:.2f} -> {current.review_burden:.2f}",
-            f"unresolved gaps: {previous.unresolved_gap_count} -> {current.unresolved_gap_count}",
-        ]
+        summary = cls._zh_delta_lines(previous, current)
         return ClosedLoopImprovement(
             from_iteration=previous.iteration,
             to_iteration=current.iteration,
@@ -317,19 +459,165 @@ class ClosedLoopService:
         ))
 
     @staticmethod
-    def _summary(iterations: list[ClosedLoopIteration]) -> list[str]:
+    def _zh_delta_lines(first: ClosedLoopMetricSnapshot, last: ClosedLoopMetricSnapshot) -> list[str]:
+        return [
+            f"任务内进度：{first.progress_score:.2f} → {last.progress_score:.2f}",
+            f"协议必选字段对齐：{first.required_field_coverage:.2f} → {last.required_field_coverage:.2f}",
+            f"目标匹配：{first.target_match_rate:.2f} → {last.target_match_rate:.2f}",
+            f"来源可回查：{first.traceability:.2f} → {last.traceability:.2f}",
+            f"人工复核负担：{first.review_burden:.2f} → {last.review_burden:.2f}",
+            f"未解决缺口：{first.unresolved_gap_count} → {last.unresolved_gap_count}",
+        ]
+
+    @classmethod
+    def _highlight_cards(
+        cls,
+        metrics: ClosedLoopMetricSnapshot,
+        previous: ClosedLoopMetricSnapshot | None = None,
+    ) -> list[ClosedLoopHighlightCard]:
+        def pct(value: float) -> str:
+            return f"{value * 100:.1f}%"
+
+        def lifted(current: float, attr: str) -> bool:
+            return previous is not None and current > getattr(previous, attr) + 1e-9
+
+        cards: list[ClosedLoopHighlightCard] = []
+        if previous and metrics.progress_score > previous.progress_score + 1e-9:
+            cards.append(ClosedLoopHighlightCard(
+                label="任务内进度",
+                value=f"{previous.progress_score:.2f} → {metrics.progress_score:.2f}",
+                hint="只反映本任务闭环有没有补上缺口，不是正式 SDTI。",
+                tone="good",
+            ))
+        coverage_lifted = lifted(metrics.required_field_coverage, "required_field_coverage")
+        if coverage_lifted or metrics.required_field_coverage >= 0.01:
+            coverage_hint = "协议要求的字段是否对上；与质量门的本题变量覆盖不是同一个口径。"
+            if coverage_lifted:
+                coverage_hint = "相对上一轮补上了部分协议必选字段。"
+            cards.append(ClosedLoopHighlightCard(
+                label="协议必选字段对齐",
+                value=pct(metrics.required_field_coverage),
+                hint=coverage_hint,
+                tone="warn" if metrics.required_field_coverage < 0.8 else "good",
+            ))
+        target_lifted = lifted(metrics.target_match_rate, "target_match_rate")
+        if target_lifted or metrics.target_match_rate >= 0.01:
+            target_hint = "本题要的结局或目标字段是否对上。"
+            if target_lifted:
+                target_hint = "相对上一轮目标匹配有提升。"
+            cards.append(ClosedLoopHighlightCard(
+                label="目标匹配",
+                value=pct(metrics.target_match_rate),
+                hint=target_hint,
+                tone="warn" if metrics.target_match_rate < 1.0 else "good",
+            ))
+        if metrics.traceability >= 0.01:
+            cards.append(ClosedLoopHighlightCard(
+                label="来源可回查",
+                value=pct(metrics.traceability),
+                hint="已登记来源能点回官方地址；这不是字段覆盖。",
+                tone="muted",
+            ))
+        if metrics.unresolved_gap_count:
+            cards.append(ClosedLoopHighlightCard(
+                label="还剩缺口",
+                value=str(metrics.unresolved_gap_count),
+                hint="仍缺结局或必选研究字段。",
+                tone="warn",
+            ))
+        return cards
+
+    @classmethod
+    def _best_iteration(cls, iterations: list[ClosedLoopIteration]) -> ClosedLoopIteration:
+        return max(
+            iterations,
+            key=lambda item: (
+                item.metrics.required_field_coverage,
+                item.metrics.target_match_rate,
+                item.metrics.progress_score,
+                -item.metrics.unresolved_gap_count,
+                -item.iteration,
+            ),
+        )
+
+    @classmethod
+    def _attempted_repair_lines(cls, iterations: list[ClosedLoopIteration]) -> list[str]:
+        lines: list[str] = []
         if len(iterations) < 2:
-            return ["仅完成第一轮诊断，暂无前后轮改进对比。"]
+            return lines
+        second = iterations[1]
+        accessions = list(second.input_request.focus_accessions)
+        tools = list(second.input_request.focus_tools)
+        calls = [
+            f"{item.tool_name}:{item.arguments.get('accession') or item.arguments.get('nct_id') or item.arguments.get('study_id') or ''}".rstrip(":")
+            for item in second.result.tool_calls
+        ]
+        if accessions:
+            lines.append("第二轮已改搜 " + "、".join(accessions[:8]))
+        if tools:
+            lines.append("第二轮已调用工具 " + "、".join(tools[:8]))
+        if calls:
+            lines.append("第二轮实际工具 " + "、".join(item for item in calls[:8] if item))
+        if second.input_request.remap_outcome_aliases:
+            lines.append("第二轮已请求结局同义列映射，保留 raw_field/raw_value/source_id。")
+        last = iterations[-1]
+        if last.improvement is not None and not last.improvement.improved:
+            remaining = [field for item in last.diagnoses for field in item.unresolved_fields]
+            if remaining:
+                lines.append("仍缺：" + "、".join(dict.fromkeys(remaining)) + "。未编造成绩。")
+        return list(dict.fromkeys(lines))
+
+    @classmethod
+    def _present(cls, iterations: list[ClosedLoopIteration], stop_reason: str) -> dict:
+        if not iterations:
+            return {
+                "improved": False,
+                "presentation": "best_only",
+                "best_iteration": 1,
+                "user_notice": stop_reason or "尚未形成可展示的闭环结果。",
+                "improvement_summary": ["尚未形成可展示的闭环结果。"],
+                "highlight_cards": [],
+                "display_iterations": [],
+                "attempted_repairs": [],
+            }
+        best = cls._best_iteration(iterations)
+        last_improvement = iterations[-1].improvement if len(iterations) >= 2 else None
+        improved = bool(last_improvement and last_improvement.improved)
+        attempted = cls._attempted_repair_lines(iterations)
+        if len(iterations) < 2 or not improved:
+            if attempted:
+                notice = "；".join(attempted)
+            else:
+                notice = NO_CHANGE_PRESENTATION if len(iterations) >= 2 or NO_FOLLOWUP_NOTICE in stop_reason else (
+                    stop_reason or "仅完成一轮诊断，下面展示这一轮结果。"
+                )
+                if len(iterations) < 2 and stop_reason == NO_FOLLOWUP_NOTICE:
+                    notice = NO_CHANGE_PRESENTATION
+            summary = attempted or (
+                [NO_FOLLOWUP_NOTICE] if (len(iterations) >= 2 or stop_reason == NO_FOLLOWUP_NOTICE) else ["仅完成第一轮诊断，暂无前后轮改进对比。"]
+            )
+            return {
+                "improved": False,
+                "presentation": "best_only",
+                "best_iteration": best.iteration,
+                "user_notice": notice,
+                "improvement_summary": summary,
+                "highlight_cards": cls._highlight_cards(best.metrics),
+                "display_iterations": [best.iteration],
+                "attempted_repairs": attempted,
+            }
         first = iterations[0].metrics
         last = iterations[-1].metrics
-        return [
-            f"progress score: {first.progress_score:.2f} -> {last.progress_score:.2f}",
-            f"required field coverage: {first.required_field_coverage:.2f} -> {last.required_field_coverage:.2f}",
-            f"target match: {first.target_match_rate:.2f} -> {last.target_match_rate:.2f}",
-            f"traceability: {first.traceability:.2f} -> {last.traceability:.2f}",
-            f"review burden: {first.review_burden:.2f} -> {last.review_burden:.2f}",
-            f"unresolved gaps: {first.unresolved_gap_count} -> {last.unresolved_gap_count}",
-        ]
+        return {
+            "improved": True,
+            "presentation": "comparison",
+            "best_iteration": best.iteration,
+            "user_notice": "第二轮相对第一轮有可验证改进。下面对比前后，并突出最好一轮。",
+            "improvement_summary": cls._zh_delta_lines(first, last) + attempted,
+            "highlight_cards": cls._highlight_cards(last, first),
+            "display_iterations": [item.iteration for item in iterations],
+            "attempted_repairs": attempted,
+        }
 
 
 __all__ = ["ClosedLoopService", "SAFETY_CONSTRAINTS"]

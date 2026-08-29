@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -12,14 +13,17 @@ from backend.tests.evaluation_fixtures import validated_evaluation_request
 client = TestClient(app)
 
 
-def test_goldset_template_endpoint_reports_empty_templates() -> None:
+def test_goldset_template_endpoint_reports_official_rows_still_unevaluated() -> None:
     response = client.get("/api/evaluation/goldset/templates")
 
     assert response.status_code == 200
     payload = response.json()
     assert payload["status"] == "NOT_EVALUATED"
-    assert payload["row_counts"]["retrieval_gold.csv"] == 0
+    assert payload["row_counts"]["retrieval_gold.csv"] == 50
+    assert payload["row_counts"]["field_gold.csv"] == 26
+    assert payload["row_counts"]["error_gold.csv"] == 18
     assert payload["required_headers"]["field_gold.csv"][0] == "case_id"
+    assert "66.94" not in json.dumps(payload)
 
 
 def test_evaluation_api_preserves_not_evaluated_state_and_artifacts(

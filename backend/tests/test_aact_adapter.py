@@ -428,3 +428,25 @@ def test_aact_rejects_invalid_response_shapes(
             )
 
     assert exc_info.value.code == AACTErrorCode.INVALID_RESPONSE
+
+
+def test_aact_fetches_single_study_by_nct_id(tmp_path: Path) -> None:
+    captured: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        assert request.method == "GET"
+        assert request.url.path == "/api/v2/studies/NCT01104584"
+        return json_response(request, RESULTS_STUDY)
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        result = AACTClinicalTrialsAdapter(cache_dir=tmp_path, client=client).run(
+            aact_request(nct_id="NCT01104584", max_trials=1)
+        )
+
+    assert len(captured) == 1
+    assert result.total_count == 1
+    assert [trial.nct_id for trial in result.trials] == ["NCT01104584"]
+    assert "NCT01104584" in result.notice
+    studies = table_by_name(result, AACTTableName.STUDIES)
+    assert studies.row_count == 1

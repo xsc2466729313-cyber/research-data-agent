@@ -67,8 +67,10 @@ def entry_key(call: dict[str, Any]) -> str:
         "search_geo": "accession",
         "search_cbioportal": "study_id",
         "search_gdc": "project_id",
-        "search_trials": "condition",
+        "search_trials": "nct_id",
         "search_civic": "disease_name",
+        "search_depmap": "query",
+        "extract_paper_assets": "pmcid",
     }.get(name, "")
     value = str(args.get(field) or "").strip().casefold()
     return f"{name}:{value}:{call_key(call)}" if not value else f"{name}:{value}"

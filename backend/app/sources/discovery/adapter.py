@@ -9,6 +9,7 @@ from urllib.parse import quote
 import httpx
 
 from backend.app.models import SearchPlan, SourceItem
+from backend.app.parsers import ParseRequest, ParserRegistry
 from backend.app.sources.discovery.models import (
     BioSampleRecord,
     DiscoveryAdapterResult,
@@ -30,6 +31,7 @@ class DiscoveryAdapter:
     GEO_PORTAL_URL = "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc={accession}"
     EUROPE_PMC_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
     EUROPE_PMC_RECORD_URL = "https://europepmc.org/article/{kind}/{value}"
+    EUROPE_PMC_FULLTEXT_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/{pmcid}/fullTextXML"
 
     def __init__(self, *, client: httpx.Client | None = None, timeout_seconds: float = 30.0) -> None:
         self._owns_client = client is None
@@ -225,6 +227,70 @@ class DiscoveryAdapter:
             request_url=str(response.url),
             queried_at=datetime.now(timezone.utc),
             notice="Europe PMC 结果用于文献证据发现和研究语境核验，不作为患者级疗效事实。",
+        )
+
+    def extract_paper_assets(
+        self,
+        *,
+        task_id: str,
+        query: str,
+        pmcid: str | None = None,
+        max_records: int = 5,
+        search_plan: SearchPlan | None = None,
+    ) -> DiscoveryAdapterResult:
+        del search_plan
+        chosen = (pmcid or "").strip().upper()
+        search_result: DiscoveryAdapterResult | None = None
+        if not chosen:
+            search_result = self.search_europe_pmc(
+                task_id=task_id,
+                query=f"{query} OPEN_ACCESS:Y",
+                max_records=max(1, min(int(max_records), 10)),
+            )
+            for record in search_result.records:
+                raw = getattr(record, "raw_record", {}) or {}
+                candidate = str(raw.get("pmcid") or raw.get("id") or "").upper()
+                if candidate.startswith("PMC"):
+                    chosen = candidate
+                    break
+        if not chosen.startswith("PMC"):
+            raise DiscoveryAdapterError("未找到带 PMCID 的开放全文，无法提取表格或图注。")
+        url = self.EUROPE_PMC_FULLTEXT_URL.format(pmcid=chosen)
+        response = self.client.get(url)
+        if response.status_code >= 400:
+            raise DiscoveryAdapterError(f"Europe PMC 全文 XML 失败：HTTP {response.status_code}")
+        parsed = ParserRegistry().parse(
+            ParseRequest(
+                source_id=f"europepmc:{chosen}",
+                filename=f"{chosen}.xml",
+                text=response.text,
+            )
+        )
+        item = self._source_item(
+            task_id=task_id,
+            source_id=f"europepmc-fulltext:{chosen}",
+            source_name="Europe PMC",
+            accession=chosen,
+            url=self.EUROPE_PMC_RECORD_URL.format(kind="PMC", value=chosen.replace("PMC", "")),
+            raw={"pmcid": chosen, "parse_status": parsed.status, "record_count": len(parsed.records)},
+        )
+        records = list(search_result.records[:1]) if search_result else []
+        return DiscoveryAdapterResult(
+            task_id=task_id,
+            query=query,
+            source_kind="paper_extract",
+            total_count=len(parsed.records),
+            records=records,
+            source_items=[item],
+            request_url=url,
+            queried_at=datetime.now(timezone.utc),
+            pmcid=chosen,
+            parse_warnings=list(parsed.warnings),
+            parsed_field_count=len(parsed.records),
+            notice=(
+                f"已从 {chosen} 提取表格单元格与图注；图注不得当作图像素读数。"
+                + (" " + " ".join(parsed.warnings[:2]) if parsed.warnings else "")
+            ),
         )
 
     @staticmethod

@@ -1,0 +1,707 @@
+{
+  "split": "development",
+  "not_frozen_test": true,
+  "copied_to_templates": false,
+  "independent_reviewer": "xsc",
+  "method": "literature scan + SourceBroker selected/fallback IDs; Biomarker/Gene/Drug/passthrough; Quality V2 detect+safe apply",
+  "evaluated_at": "2026-08-29T09:29:39.169061+00:00",
+  "notice": "This freezes the development split after independent review by xsc. It is not the sealed frozen_test Gold Set and must not be reported as competition SDTI. System observations are still required before scores.",
+  "retrieval_traces": [
+    {
+      "question_id": "q01_neoadjuvant_pcr",
+      "paper_count": 8,
+      "candidate_id": "question-f83e41718e35",
+      "selected": [
+        "geo:GSE76360"
+      ],
+      "fallback": [
+        "geo:GSE25066",
+        "cbioportal:brca_metabric",
+        "cbioportal:brca_tcga_pan_can_atlas_2018"
+      ],
+      "error": null
+    },
+    {
+      "question_id": "q02_her2_targeted_response",
+      "paper_count": 8,
+      "candidate_id": "question-b4009fd74f3b",
+      "selected": [
+        "geo:GSE76360"
+      ],
+      "fallback": [
+        "geo:GSE25066",
+        "cbioportal:brca_metabric",
+        "cbioportal:brca_tcga_pan_can_atlas_2018"
+      ],
+      "error": null
+    },
+    {
+      "question_id": "q03_pik3ca_and_response_same_patient",
+      "paper_count": 7,
+      "candidate_id": "question-b475fe982df2",
+      "selected": [
+        "geo:GSE76360"
+      ],
+      "fallback": [
+        "geo:GSE25066",
+        "cbioportal:brca_metabric",
+        "cbioportal:brca_tcga_pan_can_atlas_2018"
+      ],
+      "error": null
+    },
+    {
+      "question_id": "q04_pik3ca_clinical_features",
+      "paper_count": 8,
+      "candidate_id": "question-af5ef187751e",
+      "selected": [
+        "geo:GSE76360"
+      ],
+      "fallback": [
+        "geo:GSE25066",
+        "cbioportal:brca_metabric",
+        "cbioportal:brca_tcga_pan_can_atlas_2018"
+      ],
+      "error": null
+    },
+    {
+      "question_id": "q05_erbb2_her2_features",
+      "paper_count": 6,
+      "candidate_id": "question-8f4450901668",
+      "selected": [
+        "geo:GSE76360"
+      ],
+      "fallback": [
+        "geo:GSE25066",
+        "cbioportal:brca_metabric",
+        "cbioportal:brca_tcga_pan_can_atlas_2018"
+      ],
+      "error": null
+    },
+    {
+      "question_id": "q06_pik3ca_knowledge_evidence",
+      "paper_count": 3,
+      "candidate_id": "question-0da34900e427",
+      "selected": [
+        "cbioportal:brca_metabric"
+      ],
+      "fallback": [
+        "cbioportal:brca_tcga_pan_can_atlas_2018",
+        "gdc:TCGA-BRCA",
+        "cbioportal:brca_tcga"
+      ],
+      "error": null
+    },
+    {
+      "question_id": "q07_neoadjuvant_trials",
+      "paper_count": 8,
+      "candidate_id": "question-4d191a874fa9",
+      "selected": [
+        "geo:GSE76360"
+      ],
+      "fallback": [
+        "geo:GSE25066",
+        "cbioportal:brca_metabric",
+        "cbioportal:brca_tcga_pan_can_atlas_2018"
+      ],
+      "error": null
+    },
+    {
+      "question_id": "q08_cell_line_drug_response",
+      "paper_count": 3,
+      "candidate_id": "question-d178730fa2c1",
+      "selected": [
+        "geo:GSE76360"
+      ],
+      "fallback": [
+        "geo:GSE25066",
+        "cbioportal:brca_metabric",
+        "cbioportal:brca_tcga_pan_can_atlas_2018"
+      ],
+      "error": null
+    },
+    {
+      "question_id": "q09_tnbc",
+      "paper_count": 8,
+      "candidate_id": "question-a173eb70ef83",
+      "selected": [
+        "geo:GSE76360"
+      ],
+      "fallback": [
+        "geo:GSE25066",
+        "cbioportal:brca_metabric",
+        "cbioportal:brca_tcga_pan_can_atlas_2018"
+      ],
+      "error": null
+    },
+    {
+      "question_id": "q10_hr_positive_her2_negative",
+      "paper_count": 8,
+      "candidate_id": "question-ea042e810393",
+      "selected": [
+        "cbioportal:brca_metabric",
+        "geo:GSE76360",
+        "cbioportal:breast_alpelisib_2020"
+      ],
+      "fallback": [
+        "cbioportal:brca_tcga_pan_can_atlas_2018",
+        "gdc:TCGA-BRCA",
+        "geo:GSE25066"
+      ],
+      "error": null
+    },
+    {
+      "question_id": "q11_her2_ihc_vs_erbb2_cna",
+      "paper_count": 0,
+      "candidate_id": "question-692499c1c499",
+      "selected": [],
+      "fallback": [],
+      "error": null
+    },
+    {
+      "question_id": "q12_scanb_expression",
+      "paper_count": 3,
+      "candidate_id": "question-8a53d69528cf",
+      "selected": [
+        "cbioportal:brca_metabric"
+      ],
+      "fallback": [
+        "cbioportal:brca_tcga_pan_can_atlas_2018",
+        "gdc:TCGA-BRCA",
+        "cbioportal:brca_tcga"
+      ],
+      "error": null
+    }
+  ],
+  "field_traces": [
+    {
+      "case_id": "f01_ihc3_positive",
+      "values": {
+        "her2_assay": "IHC",
+        "her2_raw_value": "3+",
+        "her2_status": "Positive"
+      },
+      "status": "normalized",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "f02_ihc3_assay",
+      "values": {
+        "her2_assay": "IHC",
+        "her2_raw_value": "3+",
+        "her2_status": "Positive"
+      },
+      "status": "normalized",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "f03_ihc3_raw",
+      "values": {
+        "her2_assay": "IHC",
+        "her2_raw_value": "3+",
+        "her2_status": "Positive"
+      },
+      "status": "normalized",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "f04_ihc2_equivocal",
+      "values": {
+        "her2_assay": "IHC",
+        "her2_raw_value": "2+",
+        "her2_status": "Equivocal"
+      },
+      "status": "normalized",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "f05_ihc2_assay",
+      "values": {
+        "her2_assay": "IHC",
+        "her2_raw_value": "2+",
+        "her2_status": "Equivocal"
+      },
+      "status": "normalized",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "f06_ihc2_raw",
+      "values": {
+        "her2_assay": "IHC",
+        "her2_raw_value": "2+",
+        "her2_status": "Equivocal"
+      },
+      "status": "normalized",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "f07_ihc1_negative",
+      "values": {
+        "her2_assay": "IHC",
+        "her2_raw_value": "1+",
+        "her2_status": "Negative"
+      },
+      "status": "normalized",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "f08_ihc0_negative",
+      "values": {
+        "her2_assay": "IHC",
+        "her2_raw_value": "0",
+        "her2_status": "Negative"
+      },
+      "status": "normalized",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "f09_fish_amp",
+      "values": {
+        "her2_assay": "FISH",
+        "her2_raw_value": "amplified",
+        "her2_status": "Positive"
+      },
+      "status": "normalized",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "f10_fish_assay",
+      "values": {
+        "her2_assay": "FISH",
+        "her2_raw_value": "amplified",
+        "her2_status": "Positive"
+      },
+      "status": "normalized",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "f11_cna_gene",
+      "values": {
+        "gene": "AMPLIFICATION"
+      },
+      "status": "normalized",
+      "kind": "gene"
+    },
+    {
+      "case_id": "f12_cna_not_ihc",
+      "values": {
+        "gene": "ERBB2",
+        "variant": "Amplification"
+      },
+      "status": "normalized",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "f13_er_pos",
+      "values": {
+        "er_status": "Positive"
+      },
+      "status": "normalized",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "f14_er_plus",
+      "values": {
+        "er_status": "Positive"
+      },
+      "status": "normalized",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "f15_er_cn",
+      "values": {
+        "er_status": "Unknown"
+      },
+      "status": "review",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "f16_pr_neg",
+      "values": {
+        "pr_status": "Negative"
+      },
+      "status": "normalized",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "f17_gene_her2",
+      "values": {
+        "gene": "ERBB2"
+      },
+      "status": "normalized",
+      "kind": "gene"
+    },
+    {
+      "case_id": "f18_gene_pik3ca",
+      "values": {
+        "gene": "PIK3CA"
+      },
+      "status": "identity",
+      "kind": "gene"
+    },
+    {
+      "case_id": "f19_mut_pik3ca",
+      "values": {
+        "mutation_status": "Mutated"
+      },
+      "status": "normalized",
+      "kind": "mutation_status"
+    },
+    {
+      "case_id": "f20_drug_herceptin",
+      "values": {
+        "drug": "Trastuzumab"
+      },
+      "status": "normalized",
+      "kind": "drug"
+    },
+    {
+      "case_id": "f21_pcr_yes",
+      "values": {
+        "response": "pCR"
+      },
+      "status": "response_alias",
+      "kind": "passthrough"
+    },
+    {
+      "case_id": "f22_pcr_domain",
+      "values": {
+        "response_domain": "clinical"
+      },
+      "status": "heuristic_response_domain",
+      "kind": "response_domain"
+    },
+    {
+      "case_id": "f23_rd",
+      "values": {},
+      "status": "unresolved",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "f24_auc_domain",
+      "values": {
+        "response_domain": "preclinical_cell_line"
+      },
+      "status": "heuristic_response_domain",
+      "kind": "response_domain"
+    },
+    {
+      "case_id": "f25_auc_not_pcr",
+      "values": {
+        "response": "0.42"
+      },
+      "status": "response_alias",
+      "kind": "passthrough"
+    },
+    {
+      "case_id": "f26_disease",
+      "values": {},
+      "status": "unresolved",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "f27_source",
+      "values": {
+        "source_id": "geo:GSE76360"
+      },
+      "status": "source_id_from_dataset",
+      "kind": null
+    },
+    {
+      "case_id": "f28_patient",
+      "values": {
+        "patient_id": "P1"
+      },
+      "status": "passthrough",
+      "kind": "passthrough"
+    },
+    {
+      "case_id": "f29_sample",
+      "values": {
+        "sample_id": "GSM_baseline_1"
+      },
+      "status": "passthrough",
+      "kind": "passthrough"
+    },
+    {
+      "case_id": "f30_her2_pos_text",
+      "values": {
+        "her2_assay": "Unknown",
+        "her2_raw_value": "Positive",
+        "her2_status": "Positive"
+      },
+      "status": "review",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "f31_unknown_er",
+      "values": {
+        "er_status": "Unknown"
+      },
+      "status": "review",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "f32_civic_domain",
+      "values": {
+        "response_domain": "knowledge_evidence"
+      },
+      "status": "heuristic_response_domain",
+      "kind": "response_domain"
+    },
+    {
+      "case_id": "f33_stage",
+      "values": {
+        "stage": "IIA"
+      },
+      "status": "stage_strip",
+      "kind": "passthrough"
+    },
+    {
+      "case_id": "f34_treatment",
+      "values": {
+        "treatment": "trastuzumab + chemotherapy"
+      },
+      "status": "passthrough",
+      "kind": "passthrough"
+    },
+    {
+      "case_id": "f35_subtype_her2",
+      "values": {
+        "her2_assay": "Unknown",
+        "her2_raw_value": "HER2-positive",
+        "her2_status": "Unknown"
+      },
+      "status": "unresolved",
+      "kind": "biomarker"
+    }
+  ],
+  "error_traces": [
+    {
+      "case_id": "e01_ihc2_to_positive",
+      "finding_types": [
+        "her2_assay_error"
+      ],
+      "matched_types": [
+        "her2_assay_error"
+      ],
+      "applied": [
+        "SKIPPED"
+      ]
+    },
+    {
+      "case_id": "e02_cna_as_ihc",
+      "finding_types": [
+        "erbb2_cna_not_ihc"
+      ],
+      "matched_types": [
+        "erbb2_cna_not_ihc"
+      ],
+      "applied": [
+        "SKIPPED"
+      ]
+    },
+    {
+      "case_id": "e03_cross_study_id",
+      "finding_types": [
+        "schema_mapping_error"
+      ],
+      "matched_types": [],
+      "applied": [
+        "candidate_error:ValidationError"
+      ]
+    },
+    {
+      "case_id": "e04_auc_as_pcr",
+      "finding_types": [
+        "schema_mapping_error"
+      ],
+      "matched_types": [
+        "schema_mapping_error"
+      ],
+      "applied": [
+        "candidate_error:ValidationError"
+      ]
+    },
+    {
+      "case_id": "e05_missing_source",
+      "finding_types": [
+        "provenance_missing"
+      ],
+      "matched_types": [
+        "provenance_missing"
+      ],
+      "applied": [
+        "BLOCKED"
+      ]
+    },
+    {
+      "case_id": "e06_gene_alias",
+      "finding_types": [
+        "gene_alias"
+      ],
+      "matched_types": [
+        "gene_alias"
+      ],
+      "applied": [
+        "APPLIED"
+      ]
+    },
+    {
+      "case_id": "e07_drug_alias",
+      "finding_types": [
+        "drug_alias"
+      ],
+      "matched_types": [
+        "drug_alias"
+      ],
+      "applied": [
+        "APPLIED"
+      ]
+    },
+    {
+      "case_id": "e08_duplicate",
+      "finding_types": [
+        "schema_mapping_error"
+      ],
+      "matched_types": [],
+      "applied": [
+        "candidate_error:ValidationError"
+      ]
+    },
+    {
+      "case_id": "e09_missing_pcr",
+      "finding_types": [
+        "schema_mapping_error"
+      ],
+      "matched_types": [],
+      "applied": [
+        "candidate_error:ValidationError"
+      ]
+    },
+    {
+      "case_id": "e10_unit",
+      "finding_types": [
+        "schema_mapping_error"
+      ],
+      "matched_types": [],
+      "applied": [
+        "candidate_error:ValidationError"
+      ]
+    },
+    {
+      "case_id": "e11_low_conf_link",
+      "finding_types": [
+        "schema_mapping_error"
+      ],
+      "matched_types": [],
+      "applied": [
+        "candidate_error:ValidationError"
+      ]
+    },
+    {
+      "case_id": "e12_clean_ihc3",
+      "finding_types": [],
+      "matched_types": [],
+      "applied": []
+    },
+    {
+      "case_id": "e13_clean_er",
+      "finding_types": [],
+      "matched_types": [],
+      "applied": []
+    },
+    {
+      "case_id": "e14_typo_stage",
+      "finding_types": [],
+      "matched_types": [],
+      "applied": []
+    },
+    {
+      "case_id": "e15_authority_conflict",
+      "finding_types": [
+        "schema_mapping_error"
+      ],
+      "matched_types": [
+        "schema_mapping_error"
+      ],
+      "applied": [
+        "candidate_error:ValidationError"
+      ]
+    },
+    {
+      "case_id": "e16_join_without_crosswalk",
+      "finding_types": [
+        "schema_mapping_error"
+      ],
+      "matched_types": [],
+      "applied": [
+        "candidate_error:ValidationError"
+      ]
+    },
+    {
+      "case_id": "e17_empty_her2_publish",
+      "finding_types": [],
+      "matched_types": [],
+      "applied": []
+    },
+    {
+      "case_id": "e18_pr_pos_alias",
+      "finding_types": [
+        "casing_normalization"
+      ],
+      "matched_types": [],
+      "applied": [
+        "APPLIED"
+      ]
+    },
+    {
+      "case_id": "e19_response_domain_blank",
+      "finding_types": [
+        "invalid_schema_value"
+      ],
+      "matched_types": [
+        "invalid_schema_value"
+      ],
+      "applied": [
+        "BLOCKED"
+      ]
+    },
+    {
+      "case_id": "e20_clean_alias_done",
+      "finding_types": [
+        "casing_normalization"
+      ],
+      "matched_types": [],
+      "applied": [
+        "APPLIED"
+      ]
+    },
+    {
+      "case_id": "e21_sample_timepoint_leak",
+      "finding_types": [
+        "schema_mapping_error"
+      ],
+      "matched_types": [],
+      "applied": [
+        "candidate_error:ValidationError"
+      ]
+    },
+    {
+      "case_id": "e22_unknown_to_negative",
+      "finding_types": [],
+      "matched_types": [],
+      "applied": []
+    }
+  ],
+  "evaluation_status": "EVALUATED",
+  "sdti": {
+    "value": 63.685516772408,
+    "status": "EVALUATED",
+    "formula": "100 * (retrieval_f1 * faithfulness * traceability * error_f1 * repair_accuracy) ** (1/5)",
+    "numerator": null,
+    "denominator": null,
+    "target": 90.0,
+    "target_met": false,
+    "reason": null
+  }
+}
