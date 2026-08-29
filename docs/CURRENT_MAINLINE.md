@@ -47,7 +47,16 @@ Critic → Reflexion / 任务内 goal_loop + 两轮闭环
 - 允许 `allow_reviewed_unfrozen=True` 是因为 manifest 仍 `frozen=false`；这是正式卷实测，不是 sealed `frozen_test`
 - **禁止**把 `goldset/breast_cancer/development/` 的 66.94 填进正式栏
 
-数字与缺口说明见 [DATA_REPORT_20260829.md](DATA_REPORT_20260829.md)。
+**分层指标与对照表（真实数字）见 [DATA_REPORT_20260829.md](DATA_REPORT_20260829.md)**：质量门 / 能力层 / 评测层分开；正式 vs 非正式一张总表；BM25 vs BGE 五数据集 nDCG；任务观察 848 行 REVIEW。不要只读本节口径。
+
+短版对照：
+
+| 层 | 大数字 | 口径 |
+|---|---|---|
+| 检索能力 | BGE nDCG@10 0.3880 vs BM25 0.3147（3,677 查询） | BEIR，不是正式 Retrieval F1 |
+| 正式 SDTI | **63.36**，publish_allowed=false | official_candidate，不是 frozen_test |
+| 非正式 SDTI | 66.94 | development 千问 LIVE，禁止进正式栏 |
+| 质量门 | 任务上常见 REVIEW；正式安全门 FAIL | 缺 pCR/HER2 仍缺 |
 
 ## 闭环第二轮意图 vs 工作台旧结果
 

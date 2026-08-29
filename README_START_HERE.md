@@ -8,7 +8,7 @@
 
 1. `AGENTS.md`（硬约束）
 2. `docs/CURRENT_MAINLINE.md`（当前生产主链）
-3. `docs/DATA_REPORT_20260829.md`（正式分、非正式分、数据仍缺什么）
+3. `docs/DATA_REPORT_20260829.md`（分层总览 + 正式/非正式对照表 + BM25 vs BGE 真数）
 4. `goldset/README.md`（正式考卷 vs development 练习册）
 5. 需要改评测时再读 `docs/06_评测指标与SDTI.md`、`docs/EVALUATION_SDTI.md`
 6. 需要改 Schema / 医学规则时再读 `docs/04_Canonical_Schema.md`、`docs/05_医学安全规则.md`（**不得擅自改冻结文件**）
