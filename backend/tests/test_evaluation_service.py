@@ -141,3 +141,14 @@ def test_missing_evidence_blocks_publication_even_above_other_metrics(
     assert result.safety.gate.value == "REVIEW"
     assert result.safety.publish_allowed is False
     assert any("Evidence" in item for item in result.safety.publication_blockers)
+
+
+def test_runtime_quality_reviews_block_publication(tmp_path: Path) -> None:
+    request = validated_evaluation_request("runtime-review-fixture")
+    request.runtime_quality_review_count = 2
+
+    result = EvaluationService(output_dir=tmp_path).run(request)
+
+    assert result.safety.gate.value == "REVIEW"
+    assert result.safety.publish_allowed is False
+    assert any("2 个实时任务" in item for item in result.safety.publication_blockers)

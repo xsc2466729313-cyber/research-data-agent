@@ -6,19 +6,21 @@
 
 ## 2. 正式指标来源与重算
 
-正式数据源：`goldset/breast_cancer/official_candidate/evaluation_runs/official-candidate-20260829T132222Z/metrics.json`。
+历史基线数据源：`goldset/breast_cancer/official_candidate/evaluation_runs/official-candidate-20260829T132222Z/metrics.json`。严格 Qwen LIVE 候选数据源：`goldset/breast_cancer/official_candidate/evaluation_runs/official-candidate-qwen-live-audited-final-20260830/metrics.json`。
 
-| 组成项 | JSON 值 | 计数证据 |
+严格 Qwen LIVE 候选记录：SDTI **91.7451**，Retrieval F1 **0.6500**，Faithfulness **1.0000**，Traceability **1.0000**，Error F1 **1.0000**，Repair Accuracy **1.0000**；`qwen3.8-max` 实际调用 11/11，兜底 0，来源校验 186/186 通过。该卷 `frozen=false`，且 5 个任务质量门 REVIEW，因此 `gate=REVIEW`、`publish_allowed=false`。
+
+| 组成项（严格 Qwen LIVE） | JSON 值 | 计数证据 |
 |---|---:|---|
-| Retrieval Precision | 0.354838709677 | 11 / 31 |
-| Retrieval Recall | 0.611111111111 | 11 / 18 |
-| Retrieval F1 | 0.448979591837 | Precision/Recall 调和平均 |
-| Faithfulness | 0.653846153846 | 17 / 26 |
+| Retrieval Precision | 0.590909090909 | 13 / 22 |
+| Retrieval Recall | 0.722222222222 | 13 / 18 |
+| Retrieval F1 | 0.650000000000 | Precision/Recall 调和平均 |
+| Faithfulness | 1.000000000000 | 26 / 26 |
 | Traceability | 1.000000000000 | 26 / 26 |
-| Error Precision | 1.000000000000 | 8 / 8 |
-| Error Recall | 0.533333333333 | 8 / 15 |
-| Error F1 | 0.695652173913 | Precision/Recall 调和平均 |
-| Repair Accuracy | 0.500000000000 | 1 / 2 |
+| Error Precision | 1.000000000000 | 15 / 15 |
+| Error Recall | 1.000000000000 | 15 / 15 |
+| Error F1 | 1.000000000000 | Precision/Recall 调和平均 |
+| Repair Accuracy | 1.000000000000 | 3 / 3 |
 
 冻结公式：
 
@@ -27,25 +29,26 @@ SDTI = 100 *
   (Retrieval F1 * Faithfulness * Traceability * Error F1 * Repair Accuracy) ** (1/5)
 ```
 
-代入机器可读值，得到 `63.359663932389`，四舍五入为 **63.36**，与 `metrics.json` 和 README 一致。公式来源为 `docs/06_评测指标与SDTI.md`，本次未修改。
+代入严格 Qwen 机器可读值，得到 `91.74505626105`，四舍五入为 **91.75**。历史未调用 Qwen 基线仍为 63.36。公式来源为 `docs/06_评测指标与SDTI.md`，本次未修改。
 
 ## 3. 安全门检测
 
 | 检查 | 当前值 | 阈值 | 结果 |
 |---|---:|---:|---|
 | Fake source rate | 0.0000 | <= 0.01 | 通过 |
-| Faithfulness | 0.6538 | >= 0.90 安全门 | 失败 |
+| Faithfulness | 1.0000 | >= 0.90 安全门 | 通过 |
 | Traceability | 1.0000 | >= 0.95 | 通过 |
-| 高风险未决问题 | 5 | 0 | 失败 |
-| sealed frozen test | 否 | 是 | 未完成 |
+| 实时任务质量门 REVIEW | 5 | 0 | 阻断 |
+| sealed frozen test | 否 | 是 | 阻断 |
 
-综合结论：`gate=FAIL`，`publish_allowed=false`，与正式 JSON 一致。
+综合结论：严格 Qwen LIVE 为 `gate=REVIEW`，`publish_allowed=false`；阻断项是 5 个实时任务质量门 REVIEW 与候选卷尚未 sealed frozen。
 
 ## 4. 口径隔离检测
 
 | 指标集合 | 数值 | 合法用途 | 禁止用途 |
 |---|---:|---|---|
-| official_candidate | SDTI 63.36 | 当前正式口径观察 | 宣称 sealed 最终成绩 |
+| 历史 official_candidate 基线 | SDTI 63.36 | 未调用 Qwen 的历史对照 | 宣称当前模型成绩 |
+| 严格 Qwen LIVE candidate | SDTI 91.75 | 当前代码/API 回归观察 | 宣称 sealed 最终成绩 |
 | development Qwen LIVE | SDTI 66.94 | 迭代与回归诊断 | 写入正式成绩栏 |
 | 任务内 closed-loop | progress 0.915 -> 0.960 | 比较同任务两轮 | 替代 SDTI/Repair Accuracy |
 | BEIR/Valentine/DeepMatcher/Raha | 模块级分数 | 定位模块能力 | 合成临床或项目总分 |
@@ -86,4 +89,4 @@ SDTI = 100 *
 
 ## 8. 最终判定
 
-工程整理状态：**通过交付检查**。模型效果状态：**未达到自动发布门槛**。最准确的表述是“系统已可运行、可复现、可审计；正式 SDTI 63.36，安全门 FAIL，仍需提升检索、Faithfulness、Repair 和清洗能力”。
+工程整理状态：**通过交付检查**。严格 Qwen LIVE 模型观察为 **SDTI 91.75**，检索 F1 仍低于 90% 目标；安全门 **REVIEW**，不得自动发布，直到 5 个任务 REVIEW 解除且 Gold Set sealed frozen。

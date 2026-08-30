@@ -38,7 +38,8 @@ python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 |---|---|---|
 | 目录 | `goldset/templates/` | `goldset/breast_cancer/development/` |
 | 来源 | held-out `official_candidate`，审核人 **xsc** | 已用于改检索/DepMap/闭环，系统见过题面 |
-| 实测 SDTI | **63.36**（`official-candidate-20260829T132222Z`） | **66.94**（千问 LIVE，非正式） |
+| 历史基线 SDTI | **63.36**（`official-candidate-20260829T132222Z`） | 未调用 Qwen |
+| 严格 Qwen LIVE 候选观察 | **91.75**（`official-candidate-qwen-live-audited-final-20260830`） | 11/11 Qwen，非 sealed |
 | `frozen_test` | 否 | 否 |
 | 发布 | `publish_allowed=false` | 禁止当正式成绩 |
 
@@ -47,14 +48,16 @@ python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 重跑正式评测：`POST /api/evaluation/official-run`，或
 
 ```powershell
-python goldset\breast_cancer\official_candidate\collect_official_sdti.py --retrieval planner
+python goldset\breast_cancer\official_candidate\collect_official_sdti.py
 ```
+
+该入口默认执行 **千问 + LIVE Adapter**，且禁止静默降级到确定性规划；缺少凭据或任一题调用失败时整次正式运行失败。`metrics.json` 与 `AUDIT.json` 会记录模型供应商、实际模型名、千问调用题数、兜底次数和本次 Adapter 来源校验结果，但绝不记录 API Key。`--retrieval planner --no-use-qwen` 仅用于消融诊断，不得标成正式模型成绩。
 
 ## 已知缺口（不要写成已完成）
 
 - 当前研究任务上 **pCR / HER2 等仍可能缺**，结局可能与问题不同域，质量门经常是 **REVIEW**，不能自动发布。
 - 闭环第二轮意图已接线：缺 pCR 时改搜 GSE25066 等；**工作台上的旧任务结果不会自动变**，必须重新跑协议。
-- 正式 SDTI 63.36，目标 90 未达到；Faithfulness < 90%，安全门 FAIL。代码接了补搜 ≠ 当前这张表已经补上。
+- 历史基线 SDTI 63.36；严格 Qwen LIVE 候选观察 91.75，但 5 个任务质量门 REVIEW 且卷面未 sealed，仍不得自动发布。
 
 ## 禁止事项
 
@@ -70,6 +73,6 @@ python goldset\breast_cancer\official_candidate\collect_official_sdti.py --retri
 
 `prompts/00`–`10` 骨架已落地。生产主链是千问规划 + 函数调用取数 + goal_loop / Critic 补搜 + 两轮闭环。Adapter 含 GDC、GEO、cBioPortal、AACT、CIViC、DepMap 与论文表/图注抽取。
 
-正式 Gold Set 已由 xsc 写入 templates，并已对本卷跑过评测（SDTI 63.36，禁止发布）。development 分册已冻结 checksum，仅作非正式观察。
+正式 Gold Set 已由 xsc 写入 templates；历史基线 63.36，严格 Qwen LIVE 候选观察 91.75，均因卷面 `frozen=false` 禁止作为冻结成绩发布。development 分册仅作非正式观察。
 
 阶段报告、BEIR / Schema / Entity 公开基准、Planning RAG、Source Broker 等扩展文档仍在 `docs/`，那些是能力层诊断，**不是**乳腺癌正式 SDTI，也不是「缺字段已经补齐」的证明。

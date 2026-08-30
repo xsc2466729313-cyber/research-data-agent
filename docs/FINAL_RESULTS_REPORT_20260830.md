@@ -4,20 +4,22 @@
 
 系统已经完成端到端主链、真实数据 Adapter、医学安全门、两轮缺口闭环、评测体系、Web 工作台和可追溯导出。当前效果可支持科研数据查找、整理、字段审计和独立队列验证，但还不能自动发布科研结论。
 
-正式 `official_candidate` 观察分为 **SDTI 63.36**，目标 90 未达到；安全门 **FAIL**，`publish_allowed=false`。最主要短板是 Retrieval F1 0.449、Faithfulness 0.654 和 Repair Accuracy 0.500。
+历史未调用 Qwen 的 `official_candidate` 观察分为 **SDTI 63.36**。修正后的严格 Qwen LIVE 候选观察为 **SDTI 91.75**（Retrieval F1 0.650、Faithfulness/Error F1/Repair Accuracy 均 1.000），但安全门为 **REVIEW**、`publish_allowed=false`：5 个实时任务质量门为 REVIEW，且候选卷仍未 sealed frozen。
 
 ## 2. 正式指标结果
 
+严格 Qwen LIVE 证据：`goldset/breast_cancer/official_candidate/evaluation_runs/official-candidate-qwen-live-audited-final-20260830/metrics.json`。`qwen3.8-max` 对 11/11 题均实际调用，确定性兜底 0 次；运行时来源 186/186 通过官方 HTTPS 校验。
+
 | 指标 | 当前值 | 目标 | 结论 |
 |---|---:|---:|---|
-| Retrieval Precision | 0.3548 | 0.90 | 未达标 |
-| Retrieval Recall | 0.6111 | 0.90 | 未达标 |
-| Retrieval F1 | 0.4490 | 0.90 | 未达标 |
-| Faithfulness | 0.6538 | 0.95 | 未达标，触发红线 |
+| Retrieval Precision | 0.5909 | 0.90 | 未达标 |
+| Retrieval Recall | 0.7222 | 0.90 | 未达标 |
+| Retrieval F1 | 0.6500 | 0.90 | 未达标 |
+| Faithfulness | 1.0000 | 0.95 | 达标 |
 | Traceability | 1.0000 | 1.00 | 达标 |
-| Error F1 | 0.6957 | 0.90 | 未达标 |
-| Repair Accuracy | 0.5000 | 0.90 | 未达标 |
-| **SDTI** | **63.36** | **90** | **未达标** |
+| Error F1 | 1.0000 | 0.90 | 达标 |
+| Repair Accuracy | 1.0000 | 0.90 | 达标 |
+| **SDTI** | **91.75** | **90** | 候选观察达标，非冻结成绩 |
 
 评测卷包含 retrieval 50 条、field 26 条、error 18 条；`gold_set_id=breast-cancer-official-candidate-20260829`，checksum 为 `fa87a48ad1b9e90b0d2652b929499a2e4bec860245eabe9b4c70b78ce828a13c`。该卷由 xsc 审核，但 `frozen=false`，不是 sealed frozen test。
 

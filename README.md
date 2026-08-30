@@ -42,9 +42,9 @@
 |---|---:|---|---|
 | `official_candidate` 正式卷观察 | **SDTI 63.36** | `publish_allowed=false` | 当前正式口径，但尚非 sealed frozen test |
 | development 练习册 | 66.94 | 非正式 | 已用于迭代，不能当正式成绩 |
-| 自主迭代候选运行 | 见内部报告 | `REVIEW` | 用于回归诊断，不替代 63.36 |
+| 严格 Qwen LIVE 候选观察（2026-08-30） | **SDTI 91.75** | `REVIEW` | 11/11 使用 `qwen3.8-max`，非 sealed，不能当最终冻结成绩 |
 
-内部候选卷曾出现更高观察值，但卷面未封存且仍有高风险 REVIEW；因此 README 不把该值作为项目成绩。正式公式和阈值见 [评测指标与 SDTI](docs/06_评测指标与SDTI.md)。
+严格 Qwen LIVE 候选运行的机器可读证据见 `goldset/breast_cancer/official_candidate/evaluation_runs/official-candidate-qwen-live-audited-final-20260830/`；运行时来源校验 186/186 通过，5 个任务质量门为 REVIEW，且卷面未 sealed，因此仍不允许自动发布。正式公式和阈值见 [评测指标与 SDTI](docs/06_评测指标与SDTI.md)。
 
 ## 工作流程
 

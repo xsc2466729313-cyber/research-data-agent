@@ -36,7 +36,7 @@ sdti
 
 - `GET /api/evaluation/goldset/templates`：校验仓库内三个 CSV 模板的表头，并返回行数。
 - `POST /api/evaluation/run`：运行未评测声明或经验证的 Gold Set 评测。
-- `POST /api/evaluation/official-run`：对本套 `goldset/templates/`（held-out official_candidate）采集系统观察并计算 SDTI。CLI：`python goldset/breast_cancer/official_candidate/collect_official_sdti.py`。
+- `POST /api/evaluation/official-run`：对本套 `goldset/templates/`（held-out official_candidate）采集系统观察并计算 SDTI。默认执行千问 + LIVE Adapter，禁止静默确定性兜底；CLI：`python goldset/breast_cancer/official_candidate/collect_official_sdti.py`。
 - `GET /api/evaluation/artifacts/<evaluation_id>/<metrics.json|report.md>`：下载评测产物。
 
 在尚无真实 Gold Set 时，请求只需：
@@ -104,6 +104,8 @@ development 分册观察分（66.94）不得填入正式栏。
 - 虚假来源率 `> 1%` 或 Faithfulness `< 90%`：`FAIL`。
 - Traceability `< 95%`、来源真实性未评测、关键字段缺 Evidence、高风险未解决或指标不完整：`REVIEW`，禁止自动发布。
 - 只有指标完整且无红线/发布阻断时，才返回 `PASS` 和 `publish_allowed=true`。
+
+正式运行的来源真实性统计只使用本次 Adapter 实际返回的 `source_items`，检查 `source_id`、官方 HTTPS 域名和 Adapter 状态；不再用 Gold Set 标准答案 ID 代替运行时来源校验。正确检出并拒绝自动修复的高风险用例表示安全规则生效，不计为“未解决”；只有高风险漏检或越权自动修复才计入阻断。由于当前 `official_candidate` 尚未 sealed/frozen，即使其他门槛通过仍保持 `REVIEW`、`publish_allowed=false`。
 
 ## 测试
 

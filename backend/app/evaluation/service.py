@@ -100,6 +100,7 @@ class EvaluationService:
                 counts=counts,
                 metrics=metrics,
                 safety=safety,
+                execution=request.execution,
                 input_sha256=input_sha256,
                 evaluated_at=datetime.now(timezone.utc),
                 notice=notice,
@@ -487,6 +488,10 @@ class EvaluationService:
         ):
             blockers.append(
                 f"{request.unresolved_high_risk_count} 个高风险问题仍未解决"
+            )
+        if request.runtime_quality_review_count:
+            blockers.append(
+                f"{request.runtime_quality_review_count} 个实时任务的质量门仍为 REVIEW"
             )
         if status != EvaluationStatus.EVALUATED:
             blockers.append("核心指标未全部完成评测")

@@ -158,6 +158,18 @@ class SourceValidationSummary(ApiModel):
         return self
 
 
+class EvaluationExecution(ApiModel):
+    retrieval_method: str = Field(min_length=1, max_length=100)
+    model_provider: str | None = Field(default=None, max_length=100)
+    model_name: str | None = Field(default=None, max_length=100)
+    question_count: int = Field(default=0, ge=0)
+    used_model_count: int = Field(default=0, ge=0)
+    used_qwen_count: int = Field(default=0, ge=0)
+    deterministic_fallback_count: int = Field(default=0, ge=0)
+    quality_gate_review_count: int = Field(default=0, ge=0)
+    source_validation_method: str = Field(min_length=1, max_length=200)
+
+
 class EvaluationRequest(ApiModel):
     evaluation_id: str = Field(
         min_length=1,
@@ -168,7 +180,9 @@ class EvaluationRequest(ApiModel):
     gold_set: GoldSetBundle | None = None
     observations: BenchmarkObservations | None = None
     source_validation: SourceValidationSummary | None = None
+    execution: EvaluationExecution | None = None
     unresolved_high_risk_count: int = Field(default=0, ge=0)
+    runtime_quality_review_count: int = Field(default=0, ge=0)
     allow_reviewed_unfrozen: bool = False
 
     @model_validator(mode="after")
@@ -178,7 +192,12 @@ class EvaluationRequest(ApiModel):
                 raise ValueError(
                     "not_evaluated mode cannot accept Gold Set data or observations"
                 )
-            if self.source_validation is not None or self.unresolved_high_risk_count:
+            if (
+                self.source_validation is not None
+                or self.execution is not None
+                or self.unresolved_high_risk_count
+                or self.runtime_quality_review_count
+            ):
                 raise ValueError(
                     "not_evaluated mode cannot accept benchmark safety results"
                 )
@@ -270,6 +289,7 @@ class EvaluationResult(ApiModel):
     counts: EvaluationCounts | None = None
     metrics: EvaluationMetrics
     safety: EvaluationSafety
+    execution: EvaluationExecution | None = None
     input_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     evaluated_at: datetime
     artifacts: list[ArtifactReference] = Field(default_factory=list)

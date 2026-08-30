@@ -19,14 +19,16 @@ from backend.app.evaluation.official_run import run_official_evaluation
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--retrieval", choices=("planner", "agent"), default="planner")
-    parser.add_argument("--use-qwen", action="store_true")
+    parser.add_argument("--retrieval", choices=("planner", "agent"), default="agent")
+    parser.add_argument("--use-qwen", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--allow-deterministic-fallback", action="store_true")
     parser.add_argument("--evaluation-id", default="")
     args = parser.parse_args()
     result = run_official_evaluation(
         evaluation_id=args.evaluation_id or None,
         retrieval=args.retrieval,
         use_qwen=args.use_qwen,
+        allow_deterministic_fallback=args.allow_deterministic_fallback,
     )
     summary = {
         "evaluation_id": result.evaluation_id,

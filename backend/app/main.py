@@ -997,6 +997,7 @@ def run_official_goldset_evaluation(
             evaluation_id=body.evaluation_id,
             retrieval=retrieval,
             use_qwen=body.use_qwen,
+            allow_deterministic_fallback=body.allow_deterministic_fallback,
         )
     except EvaluationError as exc:
         raise HTTPException(status_code=exc.http_status, detail=exc.as_dict()) from exc

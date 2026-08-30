@@ -2,6 +2,8 @@
 
 数字只从仓库 `metrics.json`、BEIR 汇总 JSON、已归档评测报告抄入。不同层不能相加成一个总分。正式 SDTI **63.36** 与 development 非正式 **66.94** 分栏；后者禁止当正式成绩。缺 pCR / HER2、质量门 REVIEW 没有写成已过。
 
+2026-08-30 新增严格 Qwen LIVE 候选观察：`official-candidate-qwen-live-audited-final-20260830`，SDTI **91.75**，Retrieval F1 **0.65**，Qwen `qwen3.8-max` 实际调用 11/11、兜底 0、运行时来源 186/186 通过校验。该卷仍 `frozen=false`，5 个任务质量门 REVIEW，故 `publish_allowed=false`，不替代 sealed 正式成绩。
+
 详细能力层报告仍见：
 - [综合设计、功能与评测报告](FINAL_INTEGRATED_REPORT_20260829.md)
 - [Qwen3.8-Max 分层、对比与消融](../evaluation/reports/qwen38_20260829/FINAL_EVALUATION_REPORT_ZH.md)
