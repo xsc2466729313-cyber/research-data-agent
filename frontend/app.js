@@ -2806,6 +2806,96 @@ const plannerState = {
   busy: false,
 };
 
+const PLANNER_HISTORY_KEY = "brca-agent-planner-history-v1";
+
+function loadPlannerHistory() {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(PLANNER_HISTORY_KEY) || "[]");
+    return Array.isArray(value) ? value.filter((item) => item && item.topic).slice(0, 8) : [];
+  } catch {
+    return [];
+  }
+}
+
+function savePlannerHistory() {
+  try {
+    window.localStorage.setItem(PLANNER_HISTORY_KEY, JSON.stringify(plannerState.recent.slice(0, 8)));
+  } catch {
+    // Local history is an enhancement; a restricted browser must not block planning.
+  }
+}
+
+function upsertPlannerHistory(topic, patch = {}) {
+  if (!String(topic || "").trim()) return;
+  const existing = plannerState.recent.find((item) => item.topic === topic) || {};
+  const next = {
+    ...existing,
+    topic,
+    updatedAt: patch.updatedAt || existing.updatedAt || new Date().toISOString(),
+    status: patch.status || existing.status || "进行中",
+    ...patch,
+  };
+  plannerState.recent = [next, ...plannerState.recent.filter((item) => item.topic !== topic)].slice(0, 8);
+  savePlannerHistory();
+  renderPlannerRecent();
+}
+
+function plannerSnapshot() {
+  return {
+    topic: plannerState.topic,
+    scan: plannerState.scan,
+    candidates: plannerState.candidates,
+    selectedCandidateId: plannerState.selectedCandidateId,
+    contract: plannerState.contract,
+    sourcePlanning: plannerState.sourcePlanning,
+  };
+}
+
+function updateCurrentPlannerHistory(status) {
+  const topic = plannerState.topic?.topic || plannerElement("#planner-topic")?.value;
+  upsertPlannerHistory(topic, { status, snapshot: plannerSnapshot() });
+}
+
+function restorePlannerHistory(item) {
+  const snapshot = item?.snapshot;
+  plannerElement("#planner-topic").value = item?.topic || "";
+  if (!snapshot?.topic) {
+    resetPlannerWorkspace();
+    plannerElement("#planner-topic").value = item?.topic || "";
+    plannerElement("#planner-header-title").textContent = item?.topic || "新研究";
+    return;
+  }
+  plannerState.topic = snapshot.topic;
+  plannerState.scan = snapshot.scan;
+  plannerState.candidates = snapshot.candidates || [];
+  plannerState.selectedCandidateId = snapshot.selectedCandidateId;
+  plannerState.contract = snapshot.contract;
+  plannerState.sourcePlanning = snapshot.sourcePlanning;
+  plannerElement("#planner-welcome").hidden = true;
+  plannerElement("#planner-progress").hidden = true;
+  plannerElement("#planner-results").hidden = false;
+  plannerElement("#planner-header-title").textContent = snapshot.contract?.research_question || item.topic;
+  plannerElement("#planner-header-subtitle").textContent = item.status || "历史会话";
+  plannerElement("#planner-result-title").textContent = snapshot.sourcePlanning ? "研究方案已经准备好了" : "历史研究规划";
+  plannerElement("#planner-result-summary").textContent = snapshot.sourcePlanning ? "题目已确认，可以生成数据集" : "已恢复研究会话";
+  renderPlannerEvidence(snapshot.scan);
+  renderPlannerQuestions({ candidates: snapshot.candidates || [] });
+  if (snapshot.contract) {
+    renderPlannerContract(snapshot.contract);
+    renderPlannerContractCard(snapshot.contract);
+  } else {
+    clearPlannerContractSurfaces();
+  }
+  if (snapshot.sourcePlanning) {
+    renderPlannerSources(snapshot.sourcePlanning);
+    renderPlannerFlowSummary();
+    setPlannerStage("sources", { completedThrough: "sources" });
+  } else {
+    setPlannerStage(snapshot.contract ? "contract" : "questions", { completedThrough: snapshot.contract ? "questions" : "literature" });
+  }
+  switchPlannerTab(snapshot.sourcePlanning ? "coverage" : snapshot.contract ? "contract" : "evidence");
+}
+
 const plannerStageOrder = ["topic", "literature", "questions", "contract", "sources"];
 const plannerStageCopy = {
   topic: [10, "理解研究意图…"],
@@ -2935,12 +3025,19 @@ function renderPlannerRecent() {
   if (!list || !count) return;
   count.textContent = String(plannerState.recent.length);
   if (!plannerState.recent.length) {
-    list.innerHTML = "<p>尚未开始研究</p>";
+    list.innerHTML = '<p class="planner-recent-empty">暂无会话</p>';
     return;
   }
-  list.innerHTML = plannerState.recent.slice(0, 4).map((item, index) => (
-    `<button type="button" data-planner-recent="${index}" title="${escapeHtml(item.topic)}">${escapeHtml(item.topic)}</button>`
-  )).join("");
+  list.innerHTML = plannerState.recent.slice(0, 8).map((item, index) => {
+    const updated = item.updatedAt ? new Date(item.updatedAt) : null;
+    const time = updated && !Number.isNaN(updated.getTime())
+      ? updated.toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" })
+      : "—";
+    return `<button type="button" data-planner-recent="${index}" title="${escapeHtml(item.topic)}">
+      <strong>${escapeHtml(item.topic)}</strong>
+      <span><em>${escapeHtml(item.status || "进行中")}</em><time>${time}</time></span>
+    </button>`;
+  }).join("");
 }
 
 function renderPlannerEvidence(scan) {
@@ -2956,7 +3053,7 @@ function renderPlannerEvidence(scan) {
     ? `<div class="planner-status-note">${scan.warnings.map((item) => escapeHtml(item)).join("<br>")}</div>`
     : "";
   panel.innerHTML = `
-    <div class="planner-panel-heading"><span>研究依据</span><h3>已找到 ${papers.length} 篇相关论文</h3><p>这里解释系统为什么建议当前研究问题；每篇论文都保留真实来源链接。</p></div>
+    <div class="planner-panel-heading"><span>研究依据</span><h3>已找到 ${papers.length} 篇相关论文</h3></div>
     ${warnings}
     <div class="planner-evidence-list">${papers.map((paper, index) => {
       const url = safePlannerUrl(paper.source_url);
@@ -3035,7 +3132,7 @@ function renderPlannerContractCard(contract) {
         <small>${frozen ? "研究方案已确认" : "系统建议的研究方案"}</small>
         <h3>${escapeHtml(plannerText(contract.research_question))}</h3>
         <p>人群：${escapeHtml(localizeNarrative(plannerText(contract.population)))} · 影响因素：${escapeHtml(localizeNarrative(plannerText(contract.exposure)))} · 结局：${escapeHtml(localizeNarrative(plannerText(contract.outcome)))}</p>
-        <p>分析单位 ${escapeHtml(plannerGranularity(contract.data_granularity))} · 疗效口径 ${escapeHtml(plannerResponseDomain(contract.response_domain))} · 没有对照表时，不把不同来源的患者拼成同一个人</p>
+        <p>分析单位 ${escapeHtml(plannerGranularity(contract.data_granularity))} · 疗效口径 ${escapeHtml(plannerResponseDomain(contract.response_domain))}</p>
         <p>需要收集：${escapeHtml(required || "—")}</p>
       </div>
     </article>
@@ -3056,7 +3153,7 @@ function renderPlannerCoverage(planning) {
     panel.innerHTML = plannerEmpty("□", "覆盖矩阵为空", "确认研究方案并生成来源方案后显示字段覆盖。");
     return;
   }
-  panel.innerHTML = `<div class="planner-panel-heading"><span>覆盖矩阵</span><h3>必要字段 × 候选来源</h3><p>勾选表示该来源覆盖该字段；没有对照表时，不把不同来源理解成同一患者。</p></div>
+  panel.innerHTML = `<div class="planner-panel-heading"><span>覆盖矩阵</span><h3>必要字段 × 候选来源</h3></div>
     <div class="table-wrap"><table class="coverage-matrix-table"><thead><tr><th>字段</th>${datasetIds.map((id) => `<th>${escapeHtml(id)}</th>`).join("")}</tr></thead>
     <tbody>${fieldIds.map((fieldId) => `<tr><th>${escapeHtml(fieldId)}</th>${datasetIds.map((datasetId) => {
       const coverage = Number(cellMap[`${fieldId}|${datasetId}`] || 0);
@@ -3101,6 +3198,7 @@ async function freezePlannerContract() {
     plannerElement("#planner-header-subtitle").textContent = "下一步可以直接生成可分析的科研数据集";
     setPlannerStage("sources", { completedThrough: "sources" });
     switchPlannerTab("coverage");
+    updateCurrentPlannerHistory("数据已就绪");
     showToast("研究方案已确认，开始准备数据");
   } catch (error) {
     showToast(error.message);
@@ -3127,7 +3225,7 @@ function renderPlannerSources(planning) {
   const selected = (plan.selected_dataset_ids || []).map((id) => candidates.find((item) => item.dataset_id === id)).filter(Boolean);
   const statusClassName = plan.status === "READY" ? "is-success" : "";
   panel.innerHTML = `
-    <div class="planner-panel-heading"><span>数据准备</span><h3>已找到 ${selected.length} 个优先数据集</h3><p>系统优先使用一个信息完整的队列，避免把无法确认是同一患者的数据拼在一起。</p></div>
+    <div class="planner-panel-heading"><span>数据准备</span><h3>已找到 ${selected.length} 个优先数据集</h3></div>
     <div class="planner-status-note ${statusClassName}">${escapeHtml(plannerPlanStatus(plan.status))} · 必要字段预计覆盖 ${plannerPercent(plan.required_field_coverage)}</div>
     <div class="planner-source-list">${selected.map((dataset) => {
       const coverage = selectedDatasetCoverage(dataset.dataset_id, planning);
@@ -3220,8 +3318,10 @@ async function runPlannerDatasetBuild(button) {
     const dataset = result.modeling_dataset || {};
     if (status) status.innerHTML = `<div class="planner-build-status is-success"><strong>科研数据集已经生成</strong><p>${escapeHtml(localizeNarrative(result.summary_zh || "数据采集、标准化与质量检查已完成。"))}<br>${Number(dataset.row_count || 0).toLocaleString()} 行 × ${(dataset.columns || []).length} 列 · 任务编号 ${escapeHtml(result.task_id)}</p><div class="planner-output-actions"><button type="button" data-planner-download="xlsx" data-task-id="${escapeHtml(result.task_id)}">下载 Excel</button><button type="button" data-planner-download="csv" data-task-id="${escapeHtml(result.task_id)}">下载 CSV</button><button type="button" data-planner-technical-result>查看完整质量与溯源结果</button></div></div>`;
     button.textContent = "已生成";
+    upsertPlannerHistory(plannerState.topic?.topic || plannerElement("#planner-topic")?.value || "", { status: "数据集已生成", taskId: result.task_id });
     showToast("科研数据集已生成");
   } catch (error) {
+    upsertPlannerHistory(plannerState.topic?.topic || plannerElement("#planner-topic")?.value || "", { status: "生成失败" });
     if (status) status.innerHTML = `<div class="planner-error"><strong>数据集生成没有完成</strong><br>${escapeHtml(error.message)}<br>已有研究规划仍然保留，可以稍后重试。</div>`;
     button.disabled = false;
     button.textContent = "重新生成数据集 →";
@@ -3233,6 +3333,7 @@ async function runPlannerDatasetBuild(button) {
 async function startPlannerResearch(topicText) {
   const topic = String(topicText || "").trim();
   if (topic.length < 2 || plannerState.busy) return;
+  upsertPlannerHistory(topic, { status: "执行中", updatedAt: new Date().toISOString() });
   plannerState.busy = true;
   plannerState.topic = null;
   plannerState.scan = null;
@@ -3274,8 +3375,7 @@ async function startPlannerResearch(topicText) {
     const candidatePayload = await readJson(await fetchApi(`/api/research/topics/${encodeURIComponent(created.topic_id)}/question-candidates`));
     plannerState.candidates = candidatePayload.candidates || [];
     renderPlannerQuestions(candidatePayload);
-    plannerState.recent = [{ topic, topicId: created.topic_id }, ...plannerState.recent.filter((item) => item.topic !== topic)].slice(0, 4);
-    renderPlannerRecent();
+    upsertPlannerHistory(topic, { topicId: created.topic_id, status: "规划完成", snapshot: plannerSnapshot() });
     const recommended = plannerState.candidates[0];
     plannerElement("#planner-progress").hidden = true;
     plannerElement("#planner-results").hidden = false;
@@ -3288,6 +3388,7 @@ async function startPlannerResearch(topicText) {
     await selectPlannerQuestion(recommended.candidate_id, recommendButton, { automatic: true });
     if (plannerState.contract) await freezePlannerContract();
   } catch (error) {
+    upsertPlannerHistory(topic, { status: "执行失败" });
     plannerElement("#planner-progress").hidden = true;
     plannerElement("#planner-results").hidden = false;
     plannerElement("#planner-question-list").innerHTML = `<div class="planner-error"><strong>本次规划未完成</strong><br>${escapeHtml(error.message)}<br>没有生成或伪造替代结果。</div>`;
@@ -3331,6 +3432,7 @@ async function selectPlannerQuestion(candidateId, button, { automatic = false } 
     plannerElement("#planner-results").hidden = false;
     plannerElement("#planner-result-title").textContent = automatic ? "已自动确认研究问题" : "已选好研究问题";
     plannerElement("#planner-result-summary").textContent = "确认后系统按这个题目找数据，不会中途改题。";
+    updateCurrentPlannerHistory("方案已确认");
     switchPlannerTab("contract");
     if (!automatic) showToast("已选好题目，正在确认研究方案");
   } catch (error) {
@@ -3392,6 +3494,7 @@ async function checkPlannerHealth() {
 function initPlanningWorkspace() {
   const form = plannerElement("#planner-form");
   if (!form) return;
+  plannerState.recent = loadPlannerHistory();
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     startPlannerResearch(plannerElement("#planner-topic").value);
@@ -3401,6 +3504,13 @@ function initPlanningWorkspace() {
       event.preventDefault();
       form.requestSubmit();
     }
+  });
+  plannerElement("#planner-recent-list")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-planner-recent]");
+    if (!button || plannerState.busy) return;
+    const item = plannerState.recent[Number(button.dataset.plannerRecent)];
+    if (!item?.topic) return;
+    restorePlannerHistory(item);
   });
   document.querySelectorAll("[data-demo-question]").forEach((button) => button.addEventListener("click", () => {
     const question = document.querySelector("#question");

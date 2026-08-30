@@ -17,6 +17,7 @@ node_modules/
 *.log
 runtime-logs/
 data/state/
+evidence_delivery/
 
 # Autonomous loop runs are local execution traces; curated summaries remain
 # under evaluation/ and are committed explicitly.

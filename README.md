@@ -83,6 +83,12 @@ python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 
 | 报告 | 用途 |
 |---|---|
+| [最终交付索引](docs/FINAL_DELIVERY_INDEX_20260830.md) | 四份最终报告、图表、截图与验收结果的统一入口 |
+| [框架说明报告](docs/FINAL_FRAMEWORK_REPORT_20260830.md) | 五层框架、主链、模型/程序责任与数据治理边界 |
+| [系统设计报告](docs/FINAL_SYSTEM_DESIGN_REPORT_20260830.md) | 模块设计、质量门、闭环、API、安全与复现设计 |
+| [结果报告](docs/FINAL_RESULTS_REPORT_20260830.md) | 正式指标、真实任务、公开对比、已完成与短板 |
+| [指标检测报告](docs/FINAL_METRICS_VALIDATION_REPORT_20260830.md) | 指标重算、口径隔离、安全门、测试与敏感信息检查 |
+| [系统图与截图索引](docs/FINAL_VISUAL_ASSETS_20260830.md) | 架构图、流程图、当前页面和核心功能截图 |
 | [GitHub 同类项目实测报告](evaluation/github_competitor_benchmark_20260830/report.md) | 同数据、同切分、同指标的外部方法对比 |
 | [指标提升与两轮融合说明](docs/METRIC_IMPROVEMENT_REPORT_20260830.md) | 提升前后差值、融合策略与闭环取优规则 |
 | [分层评测与消融报告](evaluation/agent_stratified_ablation_20260829/report.md) | development 分层、候选卷迭代、检索与规划消融 |
@@ -119,6 +125,8 @@ python scripts\build_github_report_charts.py
 python -m pytest -q
 node --check frontend\app.js
 ```
+
+2026-08-30 最终交付检查：后端收集到 482 项测试并全量通过（8 项真实外部服务条件跳过）；前端语法检查通过；本地页面在 1280 x 720 视口完成浏览器验收，控制台无错误或警告。详见[指标检测报告](docs/FINAL_METRICS_VALIDATION_REPORT_20260830.md)。
 
 ## 当前局限
 

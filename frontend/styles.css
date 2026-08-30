@@ -1009,12 +1009,17 @@ body.is-advanced-workbench > .topbar { display: flex; }
 .planner-stage-nav button.is-active { color: var(--planner-indigo); background: #fff; box-shadow: 0 4px 14px rgba(30, 42, 90, .07); }
 .planner-stage-nav button.is-complete b { color: var(--planner-success); }
 
-.planner-recent { min-height: 0; padding-top: .15rem; border-top: 1px solid var(--planner-line); }
+.planner-recent { min-height: 0; padding-top: .15rem; border-top: 1px solid var(--planner-line); overflow: hidden; }
 .planner-recent > div:first-child { display: flex; justify-content: space-between; padding: .75rem .35rem .5rem; color: #80869b; font-size: .67rem; }
-.planner-recent-list { display: grid; gap: .35rem; }
+.planner-recent-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: .3rem; max-height: 270px; overflow-x: hidden; overflow-y: auto; padding-right: .15rem; }
 .planner-recent-list p,
-.planner-recent-list button { margin: 0; padding: .52rem .55rem; border: 0; border-radius: 8px; color: #7f8599; background: transparent; font-size: .69rem; line-height: 1.45; text-align: left; }
-.planner-recent-list button { color: var(--planner-ink); background: rgba(255,255,255,.68); }
+.planner-recent-list button { margin: 0; padding: .55rem .58rem; border: 0; border-radius: 8px; color: #7f8599; background: transparent; font-size: .69rem; line-height: 1.4; text-align: left; }
+.planner-recent-list button { display: block; width: 100%; min-width: 0; max-width: 100%; color: var(--planner-ink); background: rgba(255,255,255,.7); cursor: pointer; }
+.planner-recent-list button:hover { background: #fff; box-shadow: 0 2px 8px rgba(30, 64, 175, .08); }
+.planner-recent-list button strong { display: -webkit-box; overflow: hidden; font-size: .69rem; font-weight: 650; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.planner-recent-list button > span { display: flex; justify-content: space-between; gap: .4rem; margin-top: .32rem; color: #8b93a8; font-size: .58rem; }
+.planner-recent-list button em { color: var(--planner-indigo); font-style: normal; }
+.planner-recent-list button time { color: #9aa1b2; }
 
 .planner-sidebar-foot {
   display: flex;
@@ -1313,7 +1318,7 @@ body > main#main-content::before { content: "高级数据工作台"; display: bl
 .planner-next-action { background: #2563eb; box-shadow: none; }
 .planner-next-action button { color: #2563eb; }
 .planner-stage-nav button.is-active { color: #2563eb; box-shadow: 0 2px 8px rgba(37, 99, 235, .08); }
-.planner-stage-nav button small, .planner-recent { display: none; }
+.planner-stage-nav button small { display: none; }
 .planner-center, .planner-right { box-shadow: 0 8px 24px rgba(30, 64, 175, .06); }
 .planner-orbit { border-color: #bfdbfe; color: #2563eb; background: #eff6ff; box-shadow: none; }
 .planner-kicker, .planner-result-heading span, .planner-prompt-grid strong { color: #2563eb; }
