@@ -22,6 +22,7 @@ evidence_delivery/
 # Autonomous loop runs are local execution traces; curated summaries remain
 # under evaluation/ and are committed explicitly.
 goldset/breast_cancer/official_candidate/evaluation_runs/official-candidate-autonomous-*/
+goldset/breast_cancer/official_candidate/evaluation_runs/official-candidate-qwen-live-audited-*/
 
 # Public benchmark corpora and repeated run directories are reproducible from
 # the scripts and manifests; keep only curated summaries under evaluation/.
