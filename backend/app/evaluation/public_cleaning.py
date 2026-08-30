@@ -299,6 +299,58 @@ def _project_format_profile_repair(dirty: list[dict[str, str]]) -> list[dict[str
     return output
 
 
+def _project_placeholder_consensus_repair(
+    dirty: list[dict[str, str]], *, min_frequency: int = 10, dominance_ratio: int = 3
+) -> list[dict[str, str]]:
+    """Repair repeated ``x``-masked values using only column-local evidence.
+
+    Public dirty tables use ``x`` as a character placeholder in several
+    columns. A candidate is accepted only when a frequent clean-looking value
+    matches every non-placeholder character and has a clear frequency lead.
+    """
+
+    output = [row.copy() for row in dirty]
+    for column in dirty[0]:
+        values = [str(row[column] or "") for row in dirty]
+        counts = Counter(value for value in values if value.strip())
+        frequent = [value for value, count in counts.items() if count >= min_frequency]
+        for index, value in enumerate(values):
+            if not value.strip() or counts[value] >= min_frequency or "x" not in value.casefold():
+                continue
+            candidates = sorted(
+                (
+                    counts[candidate],
+                    candidate,
+                )
+                for candidate in frequent
+                if len(candidate) == len(value)
+                and all(
+                    left.casefold() == "x" or left.casefold() == right.casefold()
+                    for left, right in zip(value, candidate)
+                )
+                and candidate != value
+            )
+            if candidates and (
+                len(candidates) == 1
+                or candidates[-1][0] >= candidates[-2][0] * dominance_ratio
+            ):
+                output[index][column] = candidates[-1][1]
+    return output
+
+
+def _project_fusion_repair_v3(dirty: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Combine format normalization with conservative placeholder consensus."""
+
+    formatted = _project_format_profile_repair(dirty)
+    placeholder = _project_placeholder_consensus_repair(dirty)
+    output = [row.copy() for row in formatted]
+    for index, row in enumerate(dirty):
+        for column in row:
+            if formatted[index][column] == row[column] and placeholder[index][column] != row[column]:
+                output[index][column] = placeholder[index][column]
+    return output
+
+
 def _metrics(dirty: list[dict[str, str]], clean: list[dict[str, str]], repaired: list[dict[str, str]], elapsed_ms: float) -> CleaningMetrics:
     columns = list(dirty[0])
     tp = fp = fn = correct_repairs = automatic_repairs = dirty_cells = 0
@@ -348,6 +400,8 @@ def evaluate_cleaning(dirty: list[dict[str, str]], clean: list[dict[str, str]], 
         repaired = _project_consensus_repair(dirty)
     elif method == "project_format_profile_v2":
         repaired = _project_format_profile_repair(dirty)
+    elif method == "project_fusion_repair_v3":
+        repaired = _project_fusion_repair_v3(dirty)
     else:
         raise ValueError(f"Unsupported method: {method}")
     return _metrics(dirty, clean, repaired, (perf_counter() - started) * 1000)

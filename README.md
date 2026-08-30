@@ -29,10 +29,10 @@
 |---|---|---:|---:|---|
 | 科学检索 | BEIR 5 个数据集 | **0.3791** | BGE 0.3880 | 接近，低 0.0088 |
 | 字段匹配 | Valentine 10 个任务 | **0.7994** | COMA 0.7670 | 高 0.0324 |
-| 实体匹配 | DeepMatcher 5 个任务 | **0.5579** | RecordLinkage 0.7440 | 低 0.1861 |
-| 数据清洗 | 5 个共同实测任务 | **0.3937** | Raha 子集 0.8159 | 低 0.4223 |
+| 实体匹配 | DeepMatcher 5 个任务 | **0.7449** | RecordLinkage 0.7440 | 高 0.0009 |
+| 数据清洗 | 5 个共同实测任务 | **0.5726** | Raha 子集 0.8159 | 低 0.2433 |
 
-完整逐数据集结果、未运行项目原因、方法差异与复现信息见 [GitHub 同类项目公开数据集实测报告](evaluation/github_competitor_benchmark_20260830/report.md)。机器可读证据在 [results.json](evaluation/github_competitor_benchmark_20260830/results.json)。
+实体匹配采用验证集选择的 V2/V3/AND 自适应策略；数据清洗融合格式归一化与高频 `x` 占位符一致性修复。完整逐数据集结果、未运行项目原因、方法差异与复现信息见 [GitHub 同类项目公开数据集实测报告](evaluation/github_competitor_benchmark_20260830/report.md)。机器可读证据在 [results.json](evaluation/github_competitor_benchmark_20260830/results.json)。
 
 ![BEIR 五个公开检索数据集分层结果](docs/images/github-retrieval-breakdown.png)
 
@@ -84,6 +84,7 @@ python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 | 报告 | 用途 |
 |---|---|
 | [GitHub 同类项目实测报告](evaluation/github_competitor_benchmark_20260830/report.md) | 同数据、同切分、同指标的外部方法对比 |
+| [指标提升与两轮融合说明](docs/METRIC_IMPROVEMENT_REPORT_20260830.md) | 提升前后差值、融合策略与闭环取优规则 |
 | [分层评测与消融报告](evaluation/agent_stratified_ablation_20260829/report.md) | development 分层、候选卷迭代、检索与规划消融 |
 | [迭代交付说明](docs/ITERATION_REPORT_20260829.md) | 本轮自主闭环、持久化与质量能力变更 |
 | [当前生产主链](docs/CURRENT_MAINLINE.md) | 生产默认、评测方法与 legacy 能力边界 |
@@ -122,7 +123,7 @@ node --check frontend\app.js
 ## 当前局限
 
 - 正式 SDTI 仍未达到 90，安全门未允许自动发布。
-- 外部评测显示实体匹配和清洗检测是当前主要短板。
+- 外部评测显示清洗检测仍是主要短板；实体融合已达到并略超过 RecordLinkage 对照，但仍需扩展跨域测试。
 - 当前 SQLite 闭环记忆适合单实例运行，多副本部署需要共享状态存储。
 - 真实临床结局与生物标志物经常分散在不同队列；系统能补搜和解释缺口，但不能保证公开数据一定覆盖目标字段。
 

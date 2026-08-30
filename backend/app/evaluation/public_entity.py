@@ -282,6 +282,16 @@ def _predict(
             + config.exact_field_weight * exact_fraction
         )
         return score >= config.threshold
+    if method == "project_entity_fusion_v4":
+        # Two independent views must agree before a public benchmark
+        # candidate is counted. This improves portability while remaining
+        # conservative for patient/sample links in production.
+        v2_config = rule_config.get("v2") if isinstance(rule_config, dict) else None
+        v3_config = rule_config.get("v3") if isinstance(rule_config, dict) else None
+        mode = rule_config.get("mode", "and") if isinstance(rule_config, dict) else "and"
+        v2_hit = _predict("project_learned_entity_v2", left, right, rule_config=v2_config)
+        v3_hit = _predict("project_entity_v3", left, right, rule_config=v3_config)
+        return v2_hit if mode == "v2" else v3_hit if mode == "v3" else v2_hit and v3_hit
     if method == "project_entity_v3":
         config = rule_config if isinstance(rule_config, EntityMatcherV3Config) else None
         matches = EntityMatcherV3(config=config).match([left], [right], patient_sample_linker=PatientSampleLinker())
@@ -324,6 +334,35 @@ def evaluate_entity_pairs(
         positive_count=sum(label for _, _, label in pairs),
         mean_latency_ms=sum(latencies) / max(1, len(latencies)),
     )
+
+
+def fit_entity_fusion(
+    train_pairs: list[tuple[dict[str, str], dict[str, str], int]],
+    valid_pairs: list[tuple[dict[str, str], dict[str, str], int]],
+) -> dict[str, object]:
+    """Select a V2/V3 proposal policy using train/validation data only."""
+
+    v2 = fit_entity_rule(train_pairs, valid_pairs)
+    v3 = fit_entity_v3_threshold(train_pairs, valid_pairs)
+    development = valid_pairs or train_pairs
+
+    def f1(mode: str) -> float:
+        labels = [pair[2] for pair in development]
+        predictions = []
+        for left, right, _label in development:
+            v2_hit = _predict("project_learned_entity_v2", left, right, rule_config=v2)
+            v3_hit = _predict("project_entity_v3", left, right, rule_config=v3)
+            predictions.append(int(v2_hit if mode == "v2" else v3_hit if mode == "v3" else v2_hit and v3_hit))
+        tp = sum(label == prediction == 1 for label, prediction in zip(labels, predictions))
+        fp = sum(label == 0 and prediction == 1 for label, prediction in zip(labels, predictions))
+        fn = sum(label == 1 and prediction == 0 for label, prediction in zip(labels, predictions))
+        precision = tp / (tp + fp) if tp + fp else 0.0
+        recall = tp / (tp + fn) if tp + fn else 0.0
+        return 2 * precision * recall / (precision + recall) if precision + recall else 0.0
+
+    validation_f1 = {mode: f1(mode) for mode in ("v2", "v3", "and")}
+    selected = max(validation_f1, key=lambda mode: (validation_f1[mode], mode == "and"))
+    return {"mode": selected, "v2": v2, "v3": v3, "validation_f1": validation_f1}
 
 
 def fit_entity_rule(

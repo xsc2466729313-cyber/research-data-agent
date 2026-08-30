@@ -1,7 +1,7 @@
 {
   "evaluation_id": "github-competitor-benchmark-20260830",
-  "created_at": "2026-08-29T19:32:24.885088+00:00",
-  "project_revision": "58f136174c1f080770204a8b47013b34775a9660",
+  "created_at": "2026-08-30T01:55:21.274807+00:00",
+  "project_revision": "d21020fd020e77dd11a6cc9ffa94fc3b2e039e0a",
   "scope": "Same public data, same split, same metric; module-level comparison only.",
   "environment": {
     "python": "3.14.4 (tags/v3.14.4:23116f9, Apr  7 2026, 14:10:54) [MSC v.1944 64 bit (AMD64)]",
@@ -169,7 +169,7 @@
             "gold_count": 5,
             "source_column_count": 11,
             "target_column_count": 10,
-            "runtime_ms": 8.558399997127708
+            "runtime_ms": 19.981499994173646
           },
           "github_method": "Valentine COMA",
           "github_f1": 0.8000000000000002,
@@ -187,7 +187,7 @@
               "n": 6,
               "predicted_count": 5,
               "gold_count": 5,
-              "runtime_seconds": 0.4232527000058326
+              "runtime_seconds": 0.7011829999973997
             },
             "Valentine Cupid": {
               "status": "OK",
@@ -200,7 +200,7 @@
               "n": 7,
               "predicted_count": 6,
               "gold_count": 5,
-              "runtime_seconds": 2.351697399994009
+              "runtime_seconds": 3.2945405000064056
             },
             "Valentine DistributionBased": {
               "status": "OK",
@@ -213,7 +213,7 @@
               "n": 6,
               "predicted_count": 3,
               "gold_count": 5,
-              "runtime_seconds": 0.38023339999926975
+              "runtime_seconds": 0.5884006999986013
             },
             "Valentine Jaccard": {
               "status": "OK",
@@ -226,7 +226,7 @@
               "n": 9,
               "predicted_count": 6,
               "gold_count": 5,
-              "runtime_seconds": 0.27735199999733595
+              "runtime_seconds": 0.376482899999246
             },
             "Valentine SimilarityFlooding": {
               "status": "OK",
@@ -239,7 +239,7 @@
               "n": 10,
               "predicted_count": 9,
               "gold_count": 5,
-              "runtime_seconds": 0.19982039999740664
+              "runtime_seconds": 0.3312774999940302
             }
           },
           "source_id": "github:delftdata/valentine",
@@ -263,7 +263,7 @@
             "gold_count": 7,
             "source_column_count": 13,
             "target_column_count": 11,
-            "runtime_ms": 7.273999995959457
+            "runtime_ms": 8.140999998431653
           },
           "github_method": "Valentine COMA",
           "github_f1": 0.7692307692307692,
@@ -281,7 +281,7 @@
               "n": 8,
               "predicted_count": 6,
               "gold_count": 7,
-              "runtime_seconds": 0.31263700000272365
+              "runtime_seconds": 0.4101749999972526
             },
             "Valentine Cupid": {
               "status": "OK",
@@ -294,7 +294,7 @@
               "n": 8,
               "predicted_count": 5,
               "gold_count": 7,
-              "runtime_seconds": 0.21764039999834495
+              "runtime_seconds": 0.38598730000376236
             },
             "Valentine DistributionBased": {
               "status": "OK",
@@ -307,7 +307,7 @@
               "n": 10,
               "predicted_count": 7,
               "gold_count": 7,
-              "runtime_seconds": 0.5596936000001733
+              "runtime_seconds": 0.82511269999668
             },
             "Valentine Jaccard": {
               "status": "OK",
@@ -320,7 +320,7 @@
               "n": 11,
               "predicted_count": 8,
               "gold_count": 7,
-              "runtime_seconds": 0.25420740000117803
+              "runtime_seconds": 0.35901709999598097
             },
             "Valentine SimilarityFlooding": {
               "status": "OK",
@@ -333,7 +333,7 @@
               "n": 11,
               "predicted_count": 9,
               "gold_count": 7,
-              "runtime_seconds": 0.2670757000014419
+              "runtime_seconds": 0.4634403999953065
             }
           },
           "source_id": "github:delftdata/valentine",
@@ -357,7 +357,7 @@
             "gold_count": 10,
             "source_column_count": 30,
             "target_column_count": 25,
-            "runtime_ms": 39.886400001705624
+            "runtime_ms": 69.99609999184031
           },
           "github_method": "Valentine COMA",
           "github_f1": 0.3,
@@ -375,7 +375,7 @@
               "n": 17,
               "predicted_count": 10,
               "gold_count": 10,
-              "runtime_seconds": 2.4015580999985104
+              "runtime_seconds": 3.6433223000058206
             },
             "Valentine Cupid": {
               "status": "OK",
@@ -388,7 +388,7 @@
               "n": 16,
               "predicted_count": 11,
               "gold_count": 10,
-              "runtime_seconds": 0.9937636999966344
+              "runtime_seconds": 1.3649998000037158
             },
             "Valentine DistributionBased": {
               "status": "OK",
@@ -401,7 +401,7 @@
               "n": 21,
               "predicted_count": 13,
               "gold_count": 10,
-              "runtime_seconds": 3.4360285000002477
+              "runtime_seconds": 4.830037400010042
             },
             "Valentine Jaccard": {
               "status": "OK",
@@ -414,7 +414,7 @@
               "n": 27,
               "predicted_count": 19,
               "gold_count": 10,
-              "runtime_seconds": 1.1973897999996552
+              "runtime_seconds": 2.454825900000287
             },
             "Valentine SimilarityFlooding": {
               "status": "OK",
@@ -427,7 +427,7 @@
               "n": 24,
               "predicted_count": 21,
               "gold_count": 10,
-              "runtime_seconds": 0.9560229999988223
+              "runtime_seconds": 2.57693979999749
             }
           },
           "source_id": "github:delftdata/valentine",
@@ -451,7 +451,7 @@
             "gold_count": 8,
             "source_column_count": 16,
             "target_column_count": 17,
-            "runtime_ms": 17.481599999882746
+            "runtime_ms": 43.522799998754635
           },
           "github_method": "Valentine COMA",
           "github_f1": 0.5882352941176471,
@@ -469,7 +469,7 @@
               "n": 12,
               "predicted_count": 9,
               "gold_count": 8,
-              "runtime_seconds": 0.28751780000311555
+              "runtime_seconds": 0.74112970000715
             },
             "Valentine Cupid": {
               "status": "OK",
@@ -482,7 +482,7 @@
               "n": 10,
               "predicted_count": 5,
               "gold_count": 8,
-              "runtime_seconds": 0.05313860000023851
+              "runtime_seconds": 0.14165890000003856
             },
             "Valentine DistributionBased": {
               "status": "OK",
@@ -495,7 +495,7 @@
               "n": 11,
               "predicted_count": 9,
               "gold_count": 8,
-              "runtime_seconds": 0.49714569999923697
+              "runtime_seconds": 1.1022529000038048
             },
             "Valentine Jaccard": {
               "status": "OK",
@@ -508,7 +508,7 @@
               "n": 14,
               "predicted_count": 10,
               "gold_count": 8,
-              "runtime_seconds": 0.14704879999771947
+              "runtime_seconds": 0.3036740999959875
             },
             "Valentine SimilarityFlooding": {
               "status": "OK",
@@ -521,7 +521,7 @@
               "n": 16,
               "predicted_count": 12,
               "gold_count": 8,
-              "runtime_seconds": 0.3567406000001938
+              "runtime_seconds": 0.8627836000086972
             }
           },
           "source_id": "github:delftdata/valentine",
@@ -545,7 +545,7 @@
             "gold_count": 5,
             "source_column_count": 7,
             "target_column_count": 9,
-            "runtime_ms": 2.213400002801791
+            "runtime_ms": 4.275000013876706
           },
           "github_method": "Valentine COMA",
           "github_f1": 0.7499999999999999,
@@ -563,7 +563,7 @@
               "n": 5,
               "predicted_count": 3,
               "gold_count": 5,
-              "runtime_seconds": 0.025602200003049802
+              "runtime_seconds": 0.06307430000742897
             },
             "Valentine Cupid": {
               "status": "OK",
@@ -576,7 +576,7 @@
               "n": 6,
               "predicted_count": 2,
               "gold_count": 5,
-              "runtime_seconds": 0.011800499996752478
+              "runtime_seconds": 0.029654600002686493
             },
             "Valentine DistributionBased": {
               "status": "OK",
@@ -589,7 +589,7 @@
               "n": 5,
               "predicted_count": 3,
               "gold_count": 5,
-              "runtime_seconds": 0.15809169999556616
+              "runtime_seconds": 0.3284113000117941
             },
             "Valentine Jaccard": {
               "status": "OK",
@@ -602,7 +602,7 @@
               "n": 5,
               "predicted_count": 4,
               "gold_count": 5,
-              "runtime_seconds": 0.01598300000478048
+              "runtime_seconds": 0.03513990000647027
             },
             "Valentine SimilarityFlooding": {
               "status": "OK",
@@ -615,7 +615,7 @@
               "n": 9,
               "predicted_count": 6,
               "gold_count": 5,
-              "runtime_seconds": 0.054727399998228066
+              "runtime_seconds": 0.12756269999954384
             }
           },
           "source_id": "github:delftdata/valentine",
@@ -639,7 +639,7 @@
             "gold_count": 5,
             "source_column_count": 9,
             "target_column_count": 8,
-            "runtime_ms": 2.6203000015811995
+            "runtime_ms": 7.6256000029388815
           },
           "github_method": "Valentine COMA",
           "github_f1": 0.888888888888889,
@@ -657,7 +657,7 @@
               "n": 5,
               "predicted_count": 4,
               "gold_count": 5,
-              "runtime_seconds": 0.21737440000288188
+              "runtime_seconds": 0.48092269999324344
             },
             "Valentine Cupid": {
               "status": "OK",
@@ -670,7 +670,7 @@
               "n": 6,
               "predicted_count": 4,
               "gold_count": 5,
-              "runtime_seconds": 0.10833220000495203
+              "runtime_seconds": 0.2834745000000112
             },
             "Valentine DistributionBased": {
               "status": "OK",
@@ -683,7 +683,7 @@
               "n": 5,
               "predicted_count": 4,
               "gold_count": 5,
-              "runtime_seconds": 0.3328814999986207
+              "runtime_seconds": 0.5730756000120891
             },
             "Valentine Jaccard": {
               "status": "OK",
@@ -696,7 +696,7 @@
               "n": 7,
               "predicted_count": 6,
               "gold_count": 5,
-              "runtime_seconds": 0.14894279999862192
+              "runtime_seconds": 0.41008570000121836
             },
             "Valentine SimilarityFlooding": {
               "status": "OK",
@@ -709,7 +709,7 @@
               "n": 8,
               "predicted_count": 6,
               "gold_count": 5,
-              "runtime_seconds": 0.06873120000091149
+              "runtime_seconds": 0.16715159999148455
             }
           },
           "source_id": "github:delftdata/valentine",
@@ -733,7 +733,7 @@
             "gold_count": 12,
             "source_column_count": 21,
             "target_column_count": 24,
-            "runtime_ms": 16.022100004192907
+            "runtime_ms": 45.8680000010645
           },
           "github_method": "Valentine COMA",
           "github_f1": 0.8695652173913043,
@@ -751,7 +751,7 @@
               "n": 13,
               "predicted_count": 11,
               "gold_count": 12,
-              "runtime_seconds": 0.7851321999987704
+              "runtime_seconds": 1.858163600001717
             },
             "Valentine Cupid": {
               "status": "OK",
@@ -764,7 +764,7 @@
               "n": 16,
               "predicted_count": 12,
               "gold_count": 12,
-              "runtime_seconds": 0.9194280000010622
+              "runtime_seconds": 2.40625730001193
             },
             "Valentine DistributionBased": {
               "status": "OK",
@@ -777,7 +777,7 @@
               "n": 13,
               "predicted_count": 8,
               "gold_count": 12,
-              "runtime_seconds": 0.5761503999965498
+              "runtime_seconds": 1.2017851999989944
             },
             "Valentine Jaccard": {
               "status": "OK",
@@ -790,7 +790,7 @@
               "n": 16,
               "predicted_count": 12,
               "gold_count": 12,
-              "runtime_seconds": 1.4305639000012889
+              "runtime_seconds": 3.5407265000103507
             },
             "Valentine SimilarityFlooding": {
               "status": "OK",
@@ -803,7 +803,7 @@
               "n": 21,
               "predicted_count": 16,
               "gold_count": 12,
-              "runtime_seconds": 0.675810000000638
+              "runtime_seconds": 1.931250599998748
             }
           },
           "source_id": "github:delftdata/valentine",
@@ -827,7 +827,7 @@
             "gold_count": 15,
             "source_column_count": 24,
             "target_column_count": 34,
-            "runtime_ms": 30.309599998872727
+            "runtime_ms": 78.41089999419637
           },
           "github_method": "Valentine COMA",
           "github_f1": 0.8148148148148148,
@@ -845,7 +845,7 @@
               "n": 16,
               "predicted_count": 12,
               "gold_count": 15,
-              "runtime_seconds": 0.2226331999991089
+              "runtime_seconds": 0.5807072000025073
             },
             "Valentine Cupid": {
               "status": "OK",
@@ -858,7 +858,7 @@
               "n": 20,
               "predicted_count": 7,
               "gold_count": 15,
-              "runtime_seconds": 1.421785299993644
+              "runtime_seconds": 3.6489594999875408
             },
             "Valentine DistributionBased": {
               "status": "OK",
@@ -871,7 +871,7 @@
               "n": 22,
               "predicted_count": 17,
               "gold_count": 15,
-              "runtime_seconds": 30.01999639999849
+              "runtime_seconds": 55.12977210000099
             },
             "Valentine Jaccard": {
               "status": "OK",
@@ -884,7 +884,7 @@
               "n": 21,
               "predicted_count": 21,
               "gold_count": 15,
-              "runtime_seconds": 0.5615738999986206
+              "runtime_seconds": 1.2453521999996156
             },
             "Valentine SimilarityFlooding": {
               "status": "OK",
@@ -897,7 +897,7 @@
               "n": 29,
               "predicted_count": 21,
               "gold_count": 15,
-              "runtime_seconds": 1.1817725000000792
+              "runtime_seconds": 2.9256555999891134
             }
           },
           "source_id": "github:delftdata/valentine",
@@ -921,7 +921,7 @@
             "gold_count": 5,
             "source_column_count": 7,
             "target_column_count": 12,
-            "runtime_ms": 5.2431000003707595
+            "runtime_ms": 7.0247999974526465
           },
           "github_method": "Valentine COMA",
           "github_f1": 1.0,
@@ -939,7 +939,7 @@
               "n": 5,
               "predicted_count": 5,
               "gold_count": 5,
-              "runtime_seconds": 0.32554309999977704
+              "runtime_seconds": 0.7528442999901017
             },
             "Valentine Cupid": {
               "status": "OK",
@@ -952,7 +952,7 @@
               "n": 5,
               "predicted_count": 3,
               "gold_count": 5,
-              "runtime_seconds": 0.15967429999727756
+              "runtime_seconds": 0.4269600999978138
             },
             "Valentine DistributionBased": {
               "status": "OK",
@@ -965,7 +965,7 @@
               "n": 5,
               "predicted_count": 4,
               "gold_count": 5,
-              "runtime_seconds": 0.26684100000420585
+              "runtime_seconds": 0.5107753999909619
             },
             "Valentine Jaccard": {
               "status": "OK",
@@ -978,7 +978,7 @@
               "n": 6,
               "predicted_count": 5,
               "gold_count": 5,
-              "runtime_seconds": 0.26638919999822974
+              "runtime_seconds": 0.629020299995318
             },
             "Valentine SimilarityFlooding": {
               "status": "OK",
@@ -991,7 +991,7 @@
               "n": 9,
               "predicted_count": 6,
               "gold_count": 5,
-              "runtime_seconds": 0.1551739999995334
+              "runtime_seconds": 0.3289638999995077
             }
           },
           "source_id": "github:delftdata/valentine",
@@ -1015,7 +1015,7 @@
             "gold_count": 5,
             "source_column_count": 8,
             "target_column_count": 10,
-            "runtime_ms": 2.995299997564871
+            "runtime_ms": 9.443900009500794
           },
           "github_method": "Valentine COMA",
           "github_f1": 0.888888888888889,
@@ -1033,7 +1033,7 @@
               "n": 5,
               "predicted_count": 4,
               "gold_count": 5,
-              "runtime_seconds": 0.23315429999638582
+              "runtime_seconds": 0.42791850000503473
             },
             "Valentine Cupid": {
               "status": "OK",
@@ -1046,7 +1046,7 @@
               "n": 5,
               "predicted_count": 3,
               "gold_count": 5,
-              "runtime_seconds": 0.14622709999821382
+              "runtime_seconds": 0.2600164000032237
             },
             "Valentine DistributionBased": {
               "status": "OK",
@@ -1059,7 +1059,7 @@
               "n": 5,
               "predicted_count": 5,
               "gold_count": 5,
-              "runtime_seconds": 0.36224500000389526
+              "runtime_seconds": 0.42980300000635907
             },
             "Valentine Jaccard": {
               "status": "OK",
@@ -1072,7 +1072,7 @@
               "n": 5,
               "predicted_count": 5,
               "gold_count": 5,
-              "runtime_seconds": 0.03650720000587171
+              "runtime_seconds": 0.06998949999979232
             },
             "Valentine SimilarityFlooding": {
               "status": "OK",
@@ -1085,7 +1085,7 @@
               "n": 7,
               "predicted_count": 6,
               "gold_count": 5,
-              "runtime_seconds": 0.09271309999894584
+              "runtime_seconds": 0.23518729998613708
             }
           },
           "source_id": "github:delftdata/valentine",
@@ -1102,8 +1102,8 @@
         {
           "dataset": "deepmatcher_amazon_google",
           "status": "OK",
-          "project_method": "Project Entity Matcher V3",
-          "project_f1": 0.5167464114832536,
+          "project_method": "Project Entity Fusion V4",
+          "project_f1": 0.5550847457627118,
           "project_metrics": {
             "precision": 0.4122137404580153,
             "recall": 0.6923076923076923,
@@ -1113,9 +1113,44 @@
             "false_negative": 72,
             "pair_count": 2293,
             "positive_count": 234,
-            "mean_latency_ms": 0.11428822511572527
+            "mean_latency_ms": 0.2986719143689426
           },
           "project_v2_f1": 0.5375494071146245,
+          "project_v3_f1": 0.5167464114832536,
+          "project_fusion_metrics": {
+            "precision": 0.5504201680672269,
+            "recall": 0.5598290598290598,
+            "f1": 0.5550847457627118,
+            "true_positive": 131,
+            "false_positive": 107,
+            "false_negative": 103,
+            "pair_count": 2293,
+            "positive_count": 234,
+            "mean_latency_ms": 0.34053362390411085
+          },
+          "project_fusion_config": {
+            "mode": "and",
+            "v2": {
+              "title_word_weight": 0.3,
+              "title_char_weight": 0.1,
+              "title_containment_weight": 0.3,
+              "field_max_weight": 0.15,
+              "exact_field_weight": 0.15,
+              "threshold": 0.5,
+              "fit_split": "train_valid"
+            },
+            "v3": {
+              "review_threshold": 0.45,
+              "auto_threshold": 0.9,
+              "fit_split": "train_valid"
+            },
+            "validation_f1": {
+              "v2": 0.5271317829457364,
+              "v3": 0.5324881141045958,
+              "and": 0.5346938775510204
+            },
+            "rule": "mode selected on validation; and requires both V2 and V3"
+          },
           "github_method": "RecordLinkage Jaro-Winkler + logistic",
           "github_f1": 0.3532219570405728,
           "github_metrics": {
@@ -1128,7 +1163,7 @@
             "false_negative": 160,
             "n": 2293,
             "threshold": 0.56,
-            "runtime_seconds": 0.18619049999688286
+            "runtime_seconds": 0.45217249999404885
           },
           "splits": {
             "train": {
@@ -1154,8 +1189,8 @@
         {
           "dataset": "deepmatcher_beer_ratebeer",
           "status": "OK",
-          "project_method": "Project Entity Matcher V3",
-          "project_f1": 0.0,
+          "project_method": "Project Entity Fusion V4",
+          "project_f1": 0.8125000000000001,
           "project_metrics": {
             "precision": 0.0,
             "recall": 0.0,
@@ -1165,9 +1200,44 @@
             "false_negative": 14,
             "pair_count": 91,
             "positive_count": 14,
-            "mean_latency_ms": 0.03245714285914981
+            "mean_latency_ms": 0.061789010382758885
           },
           "project_v2_f1": 0.8125000000000001,
+          "project_v3_f1": 0.0,
+          "project_fusion_metrics": {
+            "precision": 0.7222222222222222,
+            "recall": 0.9285714285714286,
+            "f1": 0.8125000000000001,
+            "true_positive": 13,
+            "false_positive": 5,
+            "false_negative": 1,
+            "pair_count": 91,
+            "positive_count": 14,
+            "mean_latency_ms": 0.19554615389826902
+          },
+          "project_fusion_config": {
+            "mode": "v2",
+            "v2": {
+              "title_word_weight": 0.3,
+              "title_char_weight": 0.1,
+              "title_containment_weight": 0.3,
+              "field_max_weight": 0.15,
+              "exact_field_weight": 0.15,
+              "threshold": 0.6,
+              "fit_split": "train_valid"
+            },
+            "v3": {
+              "review_threshold": 0.9,
+              "auto_threshold": 0.9,
+              "fit_split": "train_valid"
+            },
+            "validation_f1": {
+              "v2": 0.9333333333333333,
+              "v3": 0.0,
+              "and": 0.0
+            },
+            "rule": "mode selected on validation; and requires both V2 and V3"
+          },
           "github_method": "RecordLinkage Jaro-Winkler + logistic",
           "github_f1": 0.7272727272727273,
           "github_metrics": {
@@ -1180,7 +1250,7 @@
             "false_negative": 2,
             "n": 91,
             "threshold": 0.51,
-            "runtime_seconds": 0.02541890000429703
+            "runtime_seconds": 0.04801830000360496
           },
           "splits": {
             "train": {
@@ -1206,7 +1276,7 @@
         {
           "dataset": "deepmatcher_dblp_acm",
           "status": "OK",
-          "project_method": "Project Entity Matcher V3",
+          "project_method": "Project Entity Fusion V4",
           "project_f1": 0.9632107023411371,
           "project_metrics": {
             "precision": 0.9536423841059603,
@@ -1217,9 +1287,44 @@
             "false_negative": 12,
             "pair_count": 2473,
             "positive_count": 444,
-            "mean_latency_ms": 0.15346934891725203
+            "mean_latency_ms": 0.3479602912191307
           },
           "project_v2_f1": 0.9601769911504424,
+          "project_v3_f1": 0.9632107023411371,
+          "project_fusion_metrics": {
+            "precision": 0.9536423841059603,
+            "recall": 0.972972972972973,
+            "f1": 0.9632107023411371,
+            "true_positive": 432,
+            "false_positive": 21,
+            "false_negative": 12,
+            "pair_count": 2473,
+            "positive_count": 444,
+            "mean_latency_ms": 0.45329502617330786
+          },
+          "project_fusion_config": {
+            "mode": "v3",
+            "v2": {
+              "title_word_weight": 0.3,
+              "title_char_weight": 0.2,
+              "title_containment_weight": 0.0,
+              "field_max_weight": 0.2,
+              "exact_field_weight": 0.3,
+              "threshold": 0.68,
+              "fit_split": "train_valid"
+            },
+            "v3": {
+              "review_threshold": 0.66,
+              "auto_threshold": 0.9,
+              "fit_split": "train_valid"
+            },
+            "validation_f1": {
+              "v2": 0.9679558011049725,
+              "v3": 0.9711751662971175,
+              "and": 0.9710467706013363
+            },
+            "rule": "mode selected on validation; and requires both V2 and V3"
+          },
           "github_method": "RecordLinkage Jaro-Winkler + logistic",
           "github_f1": 0.9688888888888889,
           "github_metrics": {
@@ -1232,7 +1337,7 @@
             "false_negative": 8,
             "n": 2473,
             "threshold": 0.64,
-            "runtime_seconds": 0.3082940999956918
+            "runtime_seconds": 0.6457082999986596
           },
           "splits": {
             "train": {
@@ -1258,8 +1363,8 @@
         {
           "dataset": "deepmatcher_fodors_zagats",
           "status": "OK",
-          "project_method": "Project Entity Matcher V3",
-          "project_f1": 0.9047619047619048,
+          "project_method": "Project Entity Fusion V4",
+          "project_f1": 0.9,
           "project_metrics": {
             "precision": 0.95,
             "recall": 0.8636363636363636,
@@ -1269,9 +1374,44 @@
             "false_negative": 3,
             "pair_count": 189,
             "positive_count": 22,
-            "mean_latency_ms": 0.07020052918633347
+            "mean_latency_ms": 0.14970634893634943
           },
           "project_v2_f1": 0.9,
+          "project_v3_f1": 0.9047619047619048,
+          "project_fusion_metrics": {
+            "precision": 1.0,
+            "recall": 0.8181818181818182,
+            "f1": 0.9,
+            "true_positive": 18,
+            "false_positive": 0,
+            "false_negative": 4,
+            "pair_count": 189,
+            "positive_count": 22,
+            "mean_latency_ms": 0.2922449726303399
+          },
+          "project_fusion_config": {
+            "mode": "and",
+            "v2": {
+              "title_word_weight": 0.2,
+              "title_char_weight": 0.1,
+              "title_containment_weight": 0.3,
+              "field_max_weight": 0.2,
+              "exact_field_weight": 0.2,
+              "threshold": 0.74,
+              "fit_split": "train_valid"
+            },
+            "v3": {
+              "review_threshold": 0.62,
+              "auto_threshold": 0.9,
+              "fit_split": "train_valid"
+            },
+            "validation_f1": {
+              "v2": 1.0,
+              "v3": 1.0,
+              "and": 1.0
+            },
+            "rule": "mode selected on validation; and requires both V2 and V3"
+          },
           "github_method": "RecordLinkage Jaro-Winkler + logistic",
           "github_f1": 1.0,
           "github_metrics": {
@@ -1284,7 +1424,7 @@
             "false_negative": 0,
             "n": 189,
             "threshold": 0.92,
-            "runtime_seconds": 0.03300440000020899
+            "runtime_seconds": 0.07937870000023395
           },
           "splits": {
             "train": {
@@ -1310,8 +1450,8 @@
         {
           "dataset": "deepmatcher_walmart_amazon",
           "status": "OK",
-          "project_method": "Project Entity Matcher V3",
-          "project_f1": 0.4050179211469534,
+          "project_method": "Project Entity Fusion V4",
+          "project_f1": 0.4939467312348668,
           "project_metrics": {
             "precision": 0.3095890410958904,
             "recall": 0.5854922279792746,
@@ -1321,9 +1461,44 @@
             "false_negative": 80,
             "pair_count": 2049,
             "positive_count": 193,
-            "mean_latency_ms": 0.1556211323767372
+            "mean_latency_ms": 0.38290351375205905
           },
           "project_v2_f1": 0.4939467312348668,
+          "project_v3_f1": 0.4050179211469534,
+          "project_fusion_metrics": {
+            "precision": 0.4636363636363636,
+            "recall": 0.5284974093264249,
+            "f1": 0.4939467312348668,
+            "true_positive": 102,
+            "false_positive": 118,
+            "false_negative": 91,
+            "pair_count": 2049,
+            "positive_count": 193,
+            "mean_latency_ms": 0.5312697899102525
+          },
+          "project_fusion_config": {
+            "mode": "v2",
+            "v2": {
+              "title_word_weight": 0.2,
+              "title_char_weight": 0.1,
+              "title_containment_weight": 0.3,
+              "field_max_weight": 0.2,
+              "exact_field_weight": 0.2,
+              "threshold": 0.7,
+              "fit_split": "train_valid"
+            },
+            "v3": {
+              "review_threshold": 0.58,
+              "auto_threshold": 0.9,
+              "fit_split": "train_valid"
+            },
+            "validation_f1": {
+              "v2": 0.49282296650717705,
+              "v3": 0.37887067395264123,
+              "and": 0.4512820512820513
+            },
+            "rule": "mode selected on validation; and requires both V2 and V3"
+          },
           "github_method": "RecordLinkage Jaro-Winkler + logistic",
           "github_f1": 0.6708074534161491,
           "github_metrics": {
@@ -1336,7 +1511,7 @@
             "false_negative": 85,
             "n": 2049,
             "threshold": 0.75,
-            "runtime_seconds": 0.25655399999959627
+            "runtime_seconds": 0.6021066999965115
           },
           "splits": {
             "train": {
@@ -1360,7 +1535,7 @@
           "test_sha256": "ad23487a5c7f9e719e9b7cbea38b07d05940466b4bf040cd1cbc8fb251a53883"
         }
       ],
-      "project_macro": 0.5579473879466498,
+      "project_macro": 0.7449484358677432,
       "github_macro": 0.7440382053236676
     },
     "cleaning": {
@@ -1370,19 +1545,19 @@
           "dataset": "holoclean_hospital",
           "status": "OK",
           "dirty_cell_count": 509,
-          "project_method": "Project format profile v2",
-          "project_f1": 0.0,
+          "project_method": "Project fusion repair v3",
+          "project_f1": 0.8946796959826276,
           "project_detection_metrics": {
-            "precision": 0.0,
-            "recall": 0.0,
-            "f1": 0.0,
-            "true_positive": 0,
+            "precision": 1.0,
+            "recall": 0.8094302554027505,
+            "f1": 0.8946796959826276,
+            "true_positive": 412,
             "false_positive": 0,
-            "false_negative": 509,
+            "false_negative": 97,
             "n": 509,
-            "predicted_count": 0,
+            "predicted_count": 412,
             "gold_count": 509,
-            "repair_accuracy": 0.0,
+            "repair_accuracy": 1.0,
             "dirty_cell_count": 509
           },
           "project_methods": {
@@ -1411,10 +1586,23 @@
               "gold_count": 509,
               "repair_accuracy": 0.0,
               "dirty_cell_count": 509
+            },
+            "Project fusion repair v3": {
+              "precision": 1.0,
+              "recall": 0.8094302554027505,
+              "f1": 0.8946796959826276,
+              "true_positive": 412,
+              "false_positive": 0,
+              "false_negative": 97,
+              "n": 509,
+              "predicted_count": 412,
+              "gold_count": 509,
+              "repair_accuracy": 1.0,
+              "dirty_cell_count": 509
             }
           },
-          "project_exact_repair_f1": 0.0,
-          "project_repair_accuracy": 0.0,
+          "project_exact_repair_f1": 0.8946796959826276,
+          "project_repair_accuracy": 1.0,
           "github_method": "Raha 1.26 PVD+RVD subset",
           "github_f1": 0.6724351050679851,
           "github_metrics": {
@@ -1428,7 +1616,7 @@
               "PVD",
               "RVD"
             ],
-            "runtime_seconds": 10.115182400004414
+            "runtime_seconds": 26.271671700000297
           },
           "source_id": "github:HoloClean/holoclean",
           "source_url": "https://github.com/HoloClean/holoclean/tree/master/testdata",
@@ -1439,7 +1627,7 @@
           "dataset": "raha_beers",
           "status": "OK",
           "dirty_cell_count": 4362,
-          "project_method": "Project format profile v2",
+          "project_method": "Project fusion repair v3",
           "project_f1": 0.983690587138863,
           "project_detection_metrics": {
             "precision": 1.0,
@@ -1480,6 +1668,19 @@
               "gold_count": 4362,
               "repair_accuracy": 0.0,
               "dirty_cell_count": 4362
+            },
+            "Project fusion repair v3": {
+              "precision": 1.0,
+              "recall": 0.9679046309032554,
+              "f1": 0.983690587138863,
+              "true_positive": 4222,
+              "false_positive": 0,
+              "false_negative": 140,
+              "n": 4362,
+              "predicted_count": 4222,
+              "gold_count": 4362,
+              "repair_accuracy": 1.0,
+              "dirty_cell_count": 4362
             }
           },
           "project_exact_repair_f1": 0.983690587138863,
@@ -1497,7 +1698,7 @@
               "PVD",
               "RVD"
             ],
-            "runtime_seconds": 9.413534200000868
+            "runtime_seconds": 25.38077180000255
           },
           "source_id": "github:BigDaMa/raha",
           "source_url": "https://github.com/BigDaMa/raha/tree/master/datasets/beers",
@@ -1508,7 +1709,7 @@
           "dataset": "raha_flights",
           "status": "OK",
           "dirty_cell_count": 4920,
-          "project_method": "Project format profile v2",
+          "project_method": "Project fusion repair v3",
           "project_f1": 0.078125,
           "project_detection_metrics": {
             "precision": 1.0,
@@ -1549,6 +1750,19 @@
               "gold_count": 4920,
               "repair_accuracy": 0.0,
               "dirty_cell_count": 4920
+            },
+            "Project fusion repair v3": {
+              "precision": 1.0,
+              "recall": 0.04065040650406504,
+              "f1": 0.078125,
+              "true_positive": 200,
+              "false_positive": 0,
+              "false_negative": 4720,
+              "n": 4920,
+              "predicted_count": 200,
+              "gold_count": 4920,
+              "repair_accuracy": 0.65,
+              "dirty_cell_count": 4920
             }
           },
           "project_exact_repair_f1": 0.05148514851485149,
@@ -1566,7 +1780,7 @@
               "PVD",
               "RVD"
             ],
-            "runtime_seconds": 4.2976516999988235
+            "runtime_seconds": 11.531966299997293
           },
           "source_id": "github:BigDaMa/raha",
           "source_url": "https://github.com/BigDaMa/raha/tree/master/datasets/flights",
@@ -1577,7 +1791,7 @@
           "dataset": "raha_movies_1",
           "status": "OK",
           "dirty_cell_count": 7675,
-          "project_method": "Project format profile v2",
+          "project_method": "Project fusion repair v3",
           "project_f1": 0.9066172804330792,
           "project_detection_metrics": {
             "precision": 1.0,
@@ -1618,6 +1832,19 @@
               "gold_count": 7675,
               "repair_accuracy": 0.0,
               "dirty_cell_count": 7675
+            },
+            "Project fusion repair v3": {
+              "precision": 1.0,
+              "recall": 0.829185667752443,
+              "f1": 0.9066172804330792,
+              "true_positive": 6364,
+              "false_positive": 0,
+              "false_negative": 1311,
+              "n": 7675,
+              "predicted_count": 6364,
+              "gold_count": 7675,
+              "repair_accuracy": 0.9701445631678189,
+              "dirty_cell_count": 7675
             }
           },
           "project_exact_repair_f1": 0.891616723229114,
@@ -1635,7 +1862,7 @@
               "PVD",
               "RVD"
             ],
-            "runtime_seconds": 83.23205120000057
+            "runtime_seconds": 214.12708950000524
           },
           "source_id": "github:BigDaMa/raha",
           "source_url": "https://github.com/BigDaMa/raha/tree/master/datasets/movies_1",
@@ -1646,7 +1873,7 @@
           "dataset": "raha_rayyan",
           "status": "OK",
           "dirty_cell_count": 948,
-          "project_method": "Project format profile v2",
+          "project_method": "Project fusion repair v3",
           "project_f1": 0.0,
           "project_detection_metrics": {
             "precision": 0.0,
@@ -1687,6 +1914,19 @@
               "gold_count": 948,
               "repair_accuracy": 0.0,
               "dirty_cell_count": 948
+            },
+            "Project fusion repair v3": {
+              "precision": 0.0,
+              "recall": 0.0,
+              "f1": 0.0,
+              "true_positive": 0,
+              "false_positive": 0,
+              "false_negative": 948,
+              "n": 948,
+              "predicted_count": 0,
+              "gold_count": 948,
+              "repair_accuracy": 0.0,
+              "dirty_cell_count": 948
             }
           },
           "project_exact_repair_f1": 0.0,
@@ -1704,7 +1944,7 @@
               "PVD",
               "RVD"
             ],
-            "runtime_seconds": 3.8813301000045612
+            "runtime_seconds": 10.622756099997787
           },
           "source_id": "github:BigDaMa/raha",
           "source_url": "https://github.com/BigDaMa/raha/tree/master/datasets/rayyan",
@@ -1715,19 +1955,19 @@
           "dataset": "raha_tax",
           "status": "OK",
           "dirty_cell_count": 121219,
-          "project_method": "Project format profile v2",
-          "project_f1": 0.9885319858868028,
+          "project_method": "Project fusion repair v3",
+          "project_f1": 0.9884208158743117,
           "project_detection_metrics": {
-            "precision": 0.9984264557388085,
+            "precision": 0.9981996685371045,
             "recall": 0.9788317013009512,
-            "f1": 0.9885319858868028,
+            "f1": 0.9884208158743117,
             "true_positive": 118653,
-            "false_positive": 187,
+            "false_positive": 214,
             "false_negative": 2566,
-            "n": 121406,
-            "predicted_count": 118840,
+            "n": 121433,
+            "predicted_count": 118867,
             "gold_count": 121219,
-            "repair_accuracy": 0.9950605856613934,
+            "repair_accuracy": 0.9948345629989821,
             "dirty_cell_count": 121219
           },
           "project_methods": {
@@ -1756,10 +1996,23 @@
               "gold_count": 121219,
               "repair_accuracy": 0.0,
               "dirty_cell_count": 121219
+            },
+            "Project fusion repair v3": {
+              "precision": 0.9981996685371045,
+              "recall": 0.9788317013009512,
+              "f1": 0.9884208158743117,
+              "true_positive": 118653,
+              "false_positive": 214,
+              "false_negative": 2566,
+              "n": 121433,
+              "predicted_count": 118867,
+              "gold_count": 121219,
+              "repair_accuracy": 0.9948345629989821,
+              "dirty_cell_count": 121219
             }
           },
-          "project_exact_repair_f1": 0.9868438072427909,
-          "project_repair_accuracy": 0.9950605856613934,
+          "project_exact_repair_f1": 0.9867326418731173,
+          "project_repair_accuracy": 0.9948345629989821,
           "github_method": "Raha 1.26 PVD+RVD subset",
           "github_f1": null,
           "github_metrics": {
@@ -1772,10 +2025,10 @@
           "clean_sha256": "201290927ae92e65b3940d776b3df5b4d953c5dfd9abb231715a2e65ecca87b0"
         }
       ],
-      "project_macro": 0.39368657351438846,
+      "project_macro": 0.5726225127109139,
       "github_macro": 0.8159456057644945,
       "comparable_dataset_count": 5,
-      "project_all_six_macro": 0.4928274755764575
+      "project_all_six_macro": 0.6419222299048136
     }
   }
 }

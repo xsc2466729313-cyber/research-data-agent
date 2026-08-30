@@ -44,3 +44,10 @@ def test_format_profile_repairs_numeric_units_and_city_state() -> None:
     result = evaluate_cleaning(dirty, clean, "project_format_profile_v2")
     assert result.correct_repairs == 4
     assert result.repair_accuracy == pytest.approx(1.0)
+
+
+def test_fusion_repair_recovers_repeated_placeholder_typos() -> None:
+    dirty = [{"name": "alpha"}] * 10 + [{"name": "alxha"}]
+    clean = [{"name": "alpha"}] * 11
+    result = evaluate_cleaning(dirty, clean, "project_fusion_repair_v3")
+    assert result.cell_f1 == pytest.approx(1.0)

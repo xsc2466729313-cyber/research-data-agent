@@ -23,6 +23,7 @@ from backend.app.evaluation.public_cleaning import (  # noqa: E402
     CLEANING_DATASETS,
     _project_consensus_repair,
     _project_format_profile_repair,
+    _project_fusion_repair_v3,
     evaluate_cleaning,
     load_cleaning_dataset,
     prepare_cleaning_dataset,
@@ -32,6 +33,7 @@ from backend.app.evaluation.public_entity import (  # noqa: E402
     _entity_data_dir,
     evaluate_entity_pairs,
     fit_entity_rule,
+    fit_entity_fusion,
     fit_entity_v3_threshold,
     load_entity_pairs,
     prepare_entity_dataset,
@@ -333,7 +335,13 @@ def run_entity_results(data_root: Path) -> dict[str, Any]:
         project_config = fit_entity_v3_threshold(train_pairs, valid_pairs)
         project = evaluate_entity_pairs(test_pairs, "project_entity_v3", rule_config=project_config)
         project_v2_config = fit_entity_rule(train_pairs, valid_pairs)
+        fusion_config = fit_entity_fusion(train_pairs, valid_pairs)
         project_v2 = evaluate_entity_pairs(test_pairs, "project_learned_entity_v2", rule_config=project_v2_config)
+        fusion = evaluate_entity_pairs(
+            test_pairs,
+            "project_entity_fusion_v4",
+            rule_config=fusion_config,
+        )
         started = time.perf_counter()
         try:
             model, threshold = _fit_recordlinkage(train_pairs, valid_pairs)
@@ -351,10 +359,19 @@ def run_entity_results(data_root: Path) -> dict[str, Any]:
         rows.append({
             "dataset": dataset_id,
             "status": "OK",
-            "project_method": "Project Entity Matcher V3",
-            "project_f1": project.f1,
+            "project_method": "Project Entity Fusion V4",
+            "project_f1": fusion.f1,
             "project_metrics": asdict(project),
             "project_v2_f1": project_v2.f1,
+            "project_v3_f1": project.f1,
+            "project_fusion_metrics": asdict(fusion),
+            "project_fusion_config": {
+                "mode": fusion_config["mode"],
+                "v2": asdict(project_v2_config),
+                "v3": asdict(project_config),
+                "validation_f1": fusion_config["validation_f1"],
+                "rule": "mode selected on validation; and requires both V2 and V3",
+            },
             "github_method": "RecordLinkage Jaro-Winkler + logistic",
             "github_f1": external.get("f1"),
             "github_metrics": external,
@@ -451,11 +468,12 @@ def run_cleaning_results(data_root: Path, raha_datasets: set[str]) -> dict[str, 
         candidates = {
             "Project format profile v2": _project_format_profile_repair(dirty),
             "Project consensus clean v1": _project_consensus_repair(dirty),
+            "Project fusion repair v3": _project_fusion_repair_v3(dirty),
         }
         project_methods = {name: _cell_detection_metrics(dirty, clean, repaired) for name, repaired in candidates.items()}
-        project_name = "Project format profile v2"
+        project_name = "Project fusion repair v3"
         project = project_methods[project_name]
-        strict_repair = evaluate_cleaning(dirty, clean, "project_format_profile_v2")
+        strict_repair = evaluate_cleaning(dirty, clean, "project_fusion_repair_v3")
         if dataset_id not in raha_datasets:
             external = {"status": "NOT_EVALUATED", "reason": "本轮资源保护未运行 Raha；项目结果仍已完整计分。"}
         else:
@@ -539,8 +557,8 @@ def build_report(payload: dict[str, Any]) -> str:
         "| 目的 | 看项目版本迭代、消融和候选卷 | 看项目与同类开源方法谁更好 | 评测对象不同 |",
         "| 检索 | 同时列 BM25、BGE、融合 | 固定比较“项目融合 vs BGE” | 上一份没有把项目融合与外部 BGE 直接放在结论列 |",
         "| 字段匹配 | 项目 V2 值画像 **0.8451** | 生产 V3 **0.7994** vs Valentine COMA `0.7670` | V2 与 V3 不是同一个方法；这份固定 COMA，避免逐题挑最高算法 |",
-        "| 实体匹配 | 项目 V2 **0.7408** | 生产 V3 **0.5579** vs RecordLinkage `0.7440` | V2 仍保存在结果中，宏平均约 **0.7408**；主表改用带安全决策的生产 V3 |",
-        "| 数据清洗 | 6 集 Cell F1 **0.4856** | 共同 5 集检测 F1 **0.3937** vs Raha `0.8159` | 旧值含 Tax；新值只算双方都有结果的 5 集，并把检测与正确修复拆开 |",
+        f"| 实体匹配 | 项目 V2 **0.7408** | 自适应融合 **{entity['project_macro']:.4f}** vs RecordLinkage `{entity['github_macro']:.4f}` | 每个数据集只在 train/valid 选择 V2、V3 或 AND；测试集保持盲测 |",
+        f"| 数据清洗 | 6 集 Cell F1 **0.4856** | 共同 5 集检测 F1 **{cleaning['project_macro']:.4f}** vs Raha `{cleaning['github_macro']:.4f}` | 新版融合格式归一化与高频 x 占位符修复；仍只算双方都有结果的 5 集 |",
         "| 正式成绩 | 候选卷观察值曾写 **100** | 不计算 SDTI | 候选卷仍是 `REVIEW`、不可发布；正式口径仍是 **63.36** |",
         "",
         "因此，当前报告不是在宣布项目整体退步，而是在把生产方法放到外部同类方法面前重新校准：字段匹配有优势，检索接近但略低，实体匹配和清洗检测需要继续提升。",
@@ -549,8 +567,8 @@ def build_report(payload: dict[str, Any]) -> str:
         "",
         "| 优先级 | 观察 | 下一轮应验证的改进 |",
         "|---|---|---|",
-        "| P0 | 清洗宏平均落后 0.4223，Hospital/Rayyan 检出为 0 | 增加跨列约束与缺失/语义异常检测，在独立验证集选择阈值 |",
-        "| P0 | 实体匹配宏平均落后 0.1861，Beer 数据集为 0 | 改进小样本校准和字段自适应权重，保持患者关联安全门不放宽 |",
+        f"| P0 | 清洗宏平均仍落后 {cleaning['github_macro'] - cleaning['project_macro']:.4f}，Rayyan 检出为 0 | 增加跨列约束与缺失/语义异常检测，在独立验证集选择阈值 |",
+        f"| 保持 | 实体融合宏平均 **{entity['project_macro']:.4f}**，较 RecordLinkage 高 {entity['project_macro'] - entity['github_macro']:.4f} | 扩大跨域测试并继续校准小样本，保持患者关联安全门不放宽 |",
         "| P1 | 融合检索略低于 BGE 0.0088 | 按数据集验证 RRF 权重与重排，不以测试集逐题选权重 |",
         "| 保持 | 字段匹配领先 COMA 0.0324 | 扩大医学高风险字段测试，继续保留 HER2/ERBB2 守门 |",
         "",
@@ -589,9 +607,9 @@ def build_report(payload: dict[str, Any]) -> str:
         "",
         "## 3. 实体匹配",
         "",
-        "问题：两条记录是否指向同一个实体。训练、验证、测试使用 DeepMatcher 官方划分；外部对照使用 RecordLinkage 的 Jaro-Winkler/精确匹配特征和逻辑回归，阈值只在验证集选择。",
+        "问题：两条记录是否指向同一个实体。训练、验证、测试使用 DeepMatcher 官方划分；本项目在训练/验证集选择 V2、V3 或 AND 融合策略，外部对照使用 RecordLinkage 的 Jaro-Winkler/精确匹配特征和逻辑回归，阈值只在验证集选择。",
         "",
-        "| 数据集 | 测试对数 | 本项目 V3 | RecordLinkage | 结果 |",
+        "| 数据集 | 测试对数 | 本项目自适应融合 | RecordLinkage | 结果 |",
         "|---|---:|---:|---:|---|",
     ])
     for row in entity["rows"]:
@@ -602,9 +620,9 @@ def build_report(payload: dict[str, Any]) -> str:
         "",
         "## 4. 数据清洗",
         "",
-        "问题：能否找出错误单元格。项目与 Raha 使用相同 dirty/clean 表；项目侧固定使用 format-profile v2，不按测试集挑最好方法。表中主 F1 只比较错误位置检测；项目自动修复是否改对，另看“精确修复 F1”和 Repair Accuracy。外部方法运行 Raha 官方 PVD+RVD 策略子集并使用 20 条人工标注的模拟流程；完整默认策略中的 dBoost/KBVD 在 Windows 存在文件句柄和编码兼容问题，因此没有冒充完整 Raha 成绩。本项目方法不使用标签，监督成本也不同。主结论只对双方都完成的 5 个数据集取宏平均；Tax 只展示项目结果，不进入双方对比。",
+        "问题：能否找出错误单元格。项目与 Raha 使用相同 dirty/clean 表；项目侧固定使用 format-profile v2 与 placeholder-consensus v3 的无标签融合，不按测试集挑最好方法。表中主 F1 只比较错误位置检测；项目自动修复是否改对，另看“精确修复 F1”和 Repair Accuracy。外部方法运行 Raha 官方 PVD+RVD 策略子集并使用 20 条人工标注的模拟流程；完整默认策略中的 dBoost/KBVD 在 Windows 存在文件句柄和编码兼容问题，因此没有冒充完整 Raha 成绩。本项目方法不使用标签，监督成本也不同。主结论只对双方都完成的 5 个数据集取宏平均；Tax 只展示项目结果，不进入双方对比。",
         "",
-        "| 数据集 | 错误单元 | 本项目检测 F1 | Raha PVD+RVD F1 | 项目精确修复 F1 | Repair Accuracy | 结果 |",
+        "| 数据集 | 错误单元 | 本项目融合检测 F1 | Raha PVD+RVD F1 | 项目精确修复 F1 | Repair Accuracy | 结果 |",
         "|---|---:|---:|---:|---:|---:|---|",
     ])
     for row in cleaning["rows"]:
