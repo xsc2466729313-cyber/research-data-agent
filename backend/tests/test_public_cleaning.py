@@ -77,3 +77,17 @@ def test_date_profile_repairs_only_a_table_wide_rotated_date_profile() -> None:
     result = evaluate_cleaning(dirty, clean, "project_date_profile_repair_v5")
     assert result.correct_repairs == 20
     assert result.false_positive == 0
+
+
+def test_source_anchor_repairs_repeated_flight_copies() -> None:
+    dirty = [
+        {"tuple_id": "1", "src": "aa", "flight": "AA-1-JFK-SFO", "scheduled": "10:00", "actual": "10:15"},
+        {"tuple_id": "2", "src": "weather", "flight": "AA-1-JFK-SFO", "scheduled": "", "actual": "10:22"},
+    ]
+    clean = [
+        {"tuple_id": "1", "src": "aa", "flight": "AA-1-JFK-SFO", "scheduled": "10:00", "actual": "10:15"},
+        {"tuple_id": "2", "src": "weather", "flight": "AA-1-JFK-SFO", "scheduled": "10:00", "actual": "10:15"},
+    ]
+    result = evaluate_cleaning(dirty, clean, "project_source_anchor_repair_v6")
+    assert result.correct_repairs == 2
+    assert result.false_positive == 0

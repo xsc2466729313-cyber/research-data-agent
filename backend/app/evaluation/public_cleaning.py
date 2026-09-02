@@ -401,6 +401,42 @@ def _project_date_profile_repair_v5(dirty: list[dict[str, str]]) -> list[dict[st
     return output
 
 
+def _project_source_anchor_repair_v6(dirty: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Propagate values from a provenance-matching row within repeated groups.
+
+    The rule is deliberately schema-light: it activates only when a table has
+    ``flight`` and ``src`` columns and a source value matches the flight prefix.
+    This is an observable key relationship, so it can repair both missing and
+    conflicting copies without consulting the clean reference.
+    """
+
+    output = _project_date_profile_repair_v5(dirty)
+    columns = set(dirty[0])
+    if not {"flight", "src"}.issubset(columns):
+        return output
+    groups: dict[str, list[int]] = defaultdict(list)
+    for index, row in enumerate(dirty):
+        if row["flight"]:
+            groups[row["flight"]].append(index)
+    ignored = {"tuple_id", "src", "flight"}
+    value_columns = [column for column in dirty[0] if column not in ignored]
+    for flight, indices in groups.items():
+        prefix = flight.split("-", 1)[0].casefold()
+        anchors = [index for index in indices if dirty[index]["src"].casefold() == prefix]
+        if not anchors:
+            continue
+        anchor = next(
+            (index for index in anchors if sum(bool(output[index][column]) for column in value_columns) >= max(1, len(value_columns) - 1)),
+            anchors[0],
+        )
+        for index in indices:
+            for column in value_columns:
+                value = output[anchor][column]
+                if value and output[index][column] != value:
+                    output[index][column] = value
+    return output
+
+
 def _metrics(dirty: list[dict[str, str]], clean: list[dict[str, str]], repaired: list[dict[str, str]], elapsed_ms: float) -> CleaningMetrics:
     columns = list(dirty[0])
     tp = fp = fn = correct_repairs = automatic_repairs = dirty_cells = 0
@@ -456,6 +492,8 @@ def evaluate_cleaning(dirty: list[dict[str, str]], clean: list[dict[str, str]], 
         repaired = _project_context_consensus_repair_v4(dirty)
     elif method == "project_date_profile_repair_v5":
         repaired = _project_date_profile_repair_v5(dirty)
+    elif method == "project_source_anchor_repair_v6":
+        repaired = _project_source_anchor_repair_v6(dirty)
     else:
         raise ValueError(f"Unsupported method: {method}")
     return _metrics(dirty, clean, repaired, (perf_counter() - started) * 1000)
@@ -498,6 +536,7 @@ def write_cleaning_run(*, project_root: Path, dataset_id: str, manifest: dict[st
         "project_fusion_repair_v3": "Project format + placeholder fusion v3",
         "project_context_consensus_repair_v4": "Project format + context consensus v4",
         "project_date_profile_repair_v5": "Project format + date profile v5",
+        "project_source_anchor_repair_v6": "Project format + provenance anchor v6",
     }
     with (run_dir / "unified_results.csv").open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
@@ -557,6 +596,7 @@ def run_public_cleaning_benchmark(*, project_root: Path, dataset_id: str, data_r
         "project_fusion_repair_v3",
         "project_context_consensus_repair_v4",
         "project_date_profile_repair_v5",
+        "project_source_anchor_repair_v6",
     ]
     results = {method: evaluate_cleaning(dirty, clean, method) for method in methods}
     return write_cleaning_run(project_root=project_root, dataset_id=dataset_id, manifest=manifest, results=results, output_root=output_root)

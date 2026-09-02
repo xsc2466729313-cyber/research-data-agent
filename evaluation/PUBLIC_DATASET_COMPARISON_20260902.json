@@ -1,0 +1,79 @@
+{
+  "report_id": "PUBLIC_DATASET_COMPARISON_20260902",
+  "created_at": "2026-09-02",
+  "scope": "public capability-layer benchmarks; not clinical validity or SDTI",
+  "fairness": {
+    "test_sets_modified": false,
+    "samples_filtered": false,
+    "evaluation_rules_modified": false,
+    "test_labels_sent_to_qwen": false
+  },
+  "headline": {
+    "problem_understanding_macro_span_f1": 0.5521925947129488,
+    "retrieval_macro_ndcg_at_10": 0.3920223343760751,
+    "schema_qwen_macro_f1": 0.9018,
+    "entity_project_macro_f1": 0.7449484358677432,
+    "cleaning_v6_macro_cell_f1": 0.9169169359070045
+  },
+  "problem_understanding": {
+    "source_id": "github:bepnye/EBM-NLP",
+    "split": "professional_test_gold",
+    "metric": "macro span F1",
+    "run": "evaluation/public_benchmarks/runs/20260902T063818Z_ebm_nlp_2_00/run.json",
+    "ablation": {
+      "token_lexicon_v1": {"participants": 0.3893487858719646, "interventions": 0.4029795158286778, "outcomes": 0.34697709350356737, "macro": 0.37976846506806994},
+      "project_pico_lexicon_v2": {"participants": 0.4568222801041875, "interventions": 0.4485173595589331, "outcomes": 0.49319145769774536, "macro": 0.466177032453622},
+      "project_pico_context_v3": {"participants": 0.5230139788612342, "interventions": 0.44837364470391994, "outcomes": 0.49855398457583544, "macro": 0.4899805360469965},
+      "project_pico_sequence_v4": {"participants": 0.593087475503296, "interventions": 0.46602658788774, "outcomes": 0.5974637207478102, "macro": 0.5521925947129488}
+    }
+  },
+  "retrieval": {
+    "source_ids": ["beir:scifact", "beir:nfcorpus", "beir:scidocs", "beir:arguana", "beir:fiqa"],
+    "split": "test",
+    "metric": "nDCG@10",
+    "project_method": "dev-selected BGE/CrossEncoder",
+    "baseline_method": "BGE-small-en-v1.5",
+    "macro": {"project_ndcg_at_10": 0.3920223343760751, "baseline_ndcg_at_10": 0.3879530473291564, "project_recall_at_100": 0.6553889049236642, "project_mrr_at_10": 0.45039992096450476},
+    "datasets": [
+      {"dataset": "beir_scifact", "project_ndcg_at_10": 0.6872163518596063, "baseline_ndcg_at_10": 0.6803406629947804, "project_recall_at_100": 0.9383333333333334, "project_mrr_at_10": 0.6584775132275132, "run": "evaluation/public_benchmarks/runs/20260902T060718Z_beir_scifact/run.json"},
+      {"dataset": "beir_nfcorpus", "project_ndcg_at_10": 0.3450072040724718, "baseline_ndcg_at_10": 0.3315364577027044, "project_recall_at_100": 0.29745793338621335, "project_mrr_at_10": 0.558735072976559, "run": "evaluation/public_benchmarks/runs/20260902T061206Z_beir_nfcorpus/run.json"},
+      {"dataset": "beir_scidocs", "project_ndcg_at_10": 0.1909828805144547, "baseline_ndcg_at_10": 0.1909828805144547, "project_recall_at_100": 0.43118333333333336, "project_mrr_at_10": 0.335090873015873, "run": "evaluation/public_benchmarks/runs/20260902T061226Z_beir_scidocs/run.json"},
+      {"dataset": "beir_arguana", "project_ndcg_at_10": 0.3835643108025087, "baseline_ndcg_at_10": 0.3835643108025087, "project_recall_at_100": 0.968705547652916, "project_mrr_at_10": 0.26013118381539435, "run": "evaluation/public_benchmarks/runs/20260902T061321Z_beir_arguana/run.json"},
+      {"dataset": "beir_fiqa", "project_ndcg_at_10": 0.353340924631334, "baseline_ndcg_at_10": 0.353340924631334, "project_recall_at_100": 0.641264376912525, "project_mrr_at_10": 0.43956496178718407, "run": "evaluation/public_benchmarks/runs/20260902T062446Z_beir_fiqa/run.json"}
+    ]
+  },
+  "schema_matching": {
+    "source_id": "github:delftdata/valentine",
+    "metric": "Schema F1",
+    "project_baseline_macro": 0.7994012809802283,
+    "qwen_macro": 0.9018,
+    "qwen_model": "qwen3.8-max",
+    "api_success": "10/10",
+    "api_fallback": 0,
+    "note": "Qwen saw table headers and truncated value profiles, not ground truth."
+  },
+  "entity_matching": {
+    "source_id": "github:anhaidgroup/deepmatcher",
+    "metric": "Entity F1",
+    "project_macro": 0.7449484358677432,
+    "recordlinkage_macro": 0.7440382053236676,
+    "datasets": {"amazon_google": [0.5550847457627118, 0.3532219570405728], "beer_ratebeer": [0.8125, 0.7272727272727273], "dblp_acm": [0.9632107023411371, 0.9688888888888889], "fodors_zagats": [0.9, 1.0], "walmart_amazon": [0.4939467312348668, 0.6708074534161491]}
+  },
+  "cleaning": {
+    "source_ids": ["github:HoloClean/holoclean", "github:BigDaMa/raha"],
+    "metric": "Cell F1",
+    "project_method": "project_source_anchor_repair_v6",
+    "macro_cell_f1": 0.9169169359070045,
+    "datasets": {"hospital": 0.8946796959826276, "beers": 0.983690587138863, "flights": 0.9649731776585674, "movies_1": 0.891616723229114, "rayyan": 0.7796976241900648, "tax": 0.9868438072427909}
+  },
+  "qwen_api_condition": {
+    "model": "qwen3.8-max",
+    "dataset": "beir_scifact",
+    "run": "evaluation/public_benchmarks/runs/20260902T103645Z_qwen_public_benchmark/run.json",
+    "baseline_bm25": {"ndcg_at_10": 0.6039866750406395, "recall_at_100": 0.8278888888888889, "mrr_at_10": 0.5688584656084656},
+    "qwen_rewrite_bm25": {"ndcg_at_10": 0.6453316543630496, "recall_at_100": 0.8518888888888889, "mrr_at_10": 0.6103333333333333},
+    "api_calls": 300,
+    "successful_rewrites": 264,
+    "fallbacks": 36
+  }
+}

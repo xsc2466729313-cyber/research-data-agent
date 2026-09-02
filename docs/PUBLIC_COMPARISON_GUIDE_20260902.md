@@ -174,7 +174,7 @@ v4 在 Flights 上修复 490 个错误单元，Repair Accuracy 为 `0.8750`，�
 
 ### 正式乳腺癌结果边界
 
-本轮公开基准优化没有修改 `goldset/templates/`、冻结公式或医学规则。按用户要求追加的严格 Qwen LIVE 候选为 `official-candidate-qwen-live-user-request-20260902`：Retrieval F1 `0.9091`、Faithfulness `1.0000`、Traceability `1.0000`、Error F1 `1.0000`、Repair Accuracy `1.0000`，按冻结公式得到 SDTI `98.1118`；11/11 题实际调用 Qwen，确定性回退 0 次，质量门仍有 8 个 REVIEW，`frozen=false`，所以 `publish_allowed=false`。此前 `official-candidate-qwen-live-recall-v9-20260902` 的 `97.5278` 保留为历史运行，不覆盖本次结果。这不是本轮公开模块分数，也不是 sealed frozen test 成绩。
+本轮公开基准优化没有修改 `goldset/templates/`、冻结公式或医学规则。按用户要求追加的严格 Qwen LIVE 候选为 `official-candidate-qwen-live-user-request-20260902`：Retrieval F1 `0.9091`、Faithfulness `1.0000`、Traceability `1.0000`、Error F1 `1.0000`、Repair Accuracy `1.0000`，按冻结公式得到 SDTI `98.1118`；11/11 题实际调用 Qwen，确定性回退 0 次，质量门仍有 8 个 REVIEW，`frozen=false`，所以 `publish_allowed=false`。这不是本轮公开模块分数，也不是 sealed frozen test 成绩。
 
 ### 本轮运行产物
 
@@ -248,6 +248,32 @@ v5 只在日期列满足强列内画像时执行三段值旋转和整数格式�
 - 检索开发集选择：`evaluation/public_benchmarks/runs/20260902T060718Z_beir_scifact/run.json`、`20260902T061206Z_beir_nfcorpus/run.json`、`20260902T061226Z_beir_scidocs/run.json`、`20260902T061321Z_beir_arguana/run.json`、`20260902T062446Z_beir_fiqa/run.json`
 - 清洗 v5：`evaluation/public_benchmarks/runs/20260902T054632Z_holoclean_hospital/run.json`、`20260902T054632Z_raha_beers/run.json`、`20260902T054632Z_raha_flights/run.json`、`20260902T054635Z_raha_movies_1/run.json`、`20260902T054635Z_raha_rayyan/run.json`、`20260902T054719Z_raha_tax/run.json`
 - 正式候选 Qwen LIVE：`goldset/breast_cancer/official_candidate/evaluation_runs/official-candidate-qwen-live-user-request-20260902/metrics.json`、`AUDIT.json`、`report.md`
+
+## 第三轮瓶颈修复：清洗 provenance anchor
+
+在不读取 clean 表的前提下，清洗层新增 `project_source_anchor_repair_v6`。它只在脏表同时存在 `flight`、`src` 和重复航班组时启用：若某行的 `src` 与航班号前缀一致，则将该行的非空字段作为同航班记录的可验证锚点。该关系来自公开脏表自身的键和来源字段，不是测试答案；没有匹配锚点的表或记录保持 v5 行为。
+
+统一重跑产物为 `evaluation/public_benchmarks/runs/20260902T130928Z_holoclean_hospital/`、`20260902T130929Z_raha_beers/`、`20260902T130929Z_raha_flights/`、`20260902T130933Z_raha_movies_1/`、`20260902T130934Z_raha_rayyan/` 和 `20260902T131059Z_raha_tax/`。六个任务仍使用官方 dirty/clean 对照和原有 Cell F1 公式。
+
+| 数据集 | v5 Cell F1 | v6 Cell F1 | v6 Repair Accuracy |
+|---|---:|---:|---:|
+| Hospital | 0.8947 | 0.8947 | 1.0000 |
+| Beers | 0.9837 | 0.9837 | 1.0000 |
+| Flights | 0.1811 | **0.9650** | 0.9903 |
+| Movies-1 | 0.8916 | 0.8916 | 0.9701 |
+| Rayyan | 0.7797 | 0.7797 | 0.7987 |
+| Tax | 0.9867 | 0.9867 | 0.9948 |
+| **六任务宏平均** | **0.7863** | **0.9169** | — |
+
+该提升主要来自 Flights 的重复来源记录，不能外推到 Rayyan 的字符损坏、期刊信息缺失或没有可信重复键的记录。对这些情况仍保留 `review/unresolved`，不调用模型猜测真实值。
+
+## Qwen API 复测审计
+
+检索层在 BEIR SciFact 官方测试集上已有真实 Qwen 查询改写结果：历史全量运行中 264/300 条改写成功，Qwen rewrite + BM25 的 nDCG@10 为 `0.6453`，BM25 为 `0.6040`；其余 36 条因百炼 `Arrearage` 回退原查询，已按 Qwen-assisted with fallback 标注。最新低批量重跑因网络/返回格式失败，128/300 条有效改写得到 `0.6072`，不覆盖历史有效运行。
+
+问题解析的最新全量调用已修复元素提示和索引式输出，但实际运行中仅 1/36 批成功，其余因 `RemoteProtocolError` 或返回结构无效而回退全 0；该运行目录 `evaluation/public_benchmarks/runs/20260902T125235Z_qwen_public_benchmark/` 只作为失败审计，不写入模型对比表。清洗 API 试跑已主动停止于 Hospital 第 11/16 批，未形成完整 Qwen 成绩，也不写入主结果。
+
+因此当前三层可发布主结果仍是：问题解析 `0.5522`、检索 `0.3920`、清洗 `0.9169`。完整逐任务公开对照已独立整理到 [`evaluation/PUBLIC_DATASET_COMPARISON_20260902.md`](../evaluation/PUBLIC_DATASET_COMPARISON_20260902.md)。真实 Qwen 接口已支持更低输出量的 PICO 索引格式、元素显式提示、瞬时网络重试，以及“本地高置信修复优先、Qwen 只补未修复单元”的清洗策略；待服务稳定后可按相同测试协议复跑，但失败批次不能被包装成提升。
 
 ## 复现
 

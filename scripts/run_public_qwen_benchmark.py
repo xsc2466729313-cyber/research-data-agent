@@ -19,6 +19,7 @@ from backend.app.agent.qwen_client import QwenClient, QwenClientError
 from backend.app.evaluation.public_cleaning import (
     CLEANING_DATASETS,
     _metrics,
+    _project_source_anchor_repair_v6,
     evaluate_cleaning,
     load_cleaning_dataset,
     prepare_cleaning_dataset,
@@ -51,6 +52,11 @@ def _batches(items: list[dict], size: int):
         yield items[start : start + size]
 
 
+def _account_error(exc: Exception) -> bool:
+    text = str(exc).casefold()
+    return "arrearage" in text or "overdue-payment" in text
+
+
 def run_problem(client: QwenClient, data_root: Path, batch_size: int) -> dict:
     dataset_dir, manifest = prepare_ebm_nlp_dataset(data_root, download=False)
     result: dict[str, object] = {
@@ -63,6 +69,7 @@ def run_problem(client: QwenClient, data_root: Path, batch_size: int) -> dict:
         "api_failures": 0,
         "failure_messages": [],
         "items": 0,
+        "account_blocked": False,
     }
     by_element: dict[str, object] = {}
     for element in PICO_ELEMENTS:
@@ -74,12 +81,17 @@ def run_problem(client: QwenClient, data_root: Path, batch_size: int) -> dict:
         ))
         for batch_number, batch in enumerate(batches, start=1):
             print(f"[problem/{element}] batch {batch_number}/{len(batches)}", flush=True)
+            if result["account_blocked"]:
+                for item in batch:
+                    predictions[str(item["item_id"])] = [0] * len(item["tokens"])
+                continue
             result["api_calls"] = int(result["api_calls"]) + 1
             try:
-                predictions.update(client.label_pico_batch(batch))
+                predictions.update(client.label_pico_batch(batch, element=element))
             except QwenClientError as exc:
                 result["api_failures"] = int(result["api_failures"]) + 1
                 result["failure_messages"].append(f"{element}:{batch[0]['item_id']}:{type(exc).__name__}:{exc}")
+                result["account_blocked"] = _account_error(exc)
                 for item in batch:
                     predictions[str(item["item_id"])] = [0] * len(item["tokens"])
         labels = [predictions[pmid] for pmid, _, _ in examples]
@@ -125,6 +137,7 @@ def run_retrieval(
         "query_count": 0,
         "qwen_native_rewrite_count": 0,
         "raw_query_fallback_count": 0,
+        "account_blocked": False,
     }
     for dataset_id in dataset_ids:
         dataset_dir, manifest = prepare_beir_dataset(dataset_id, data_root, download=False)
@@ -137,6 +150,11 @@ def run_retrieval(
         ))
         for batch_number, batch in enumerate(batches, start=1):
             print(f"[retrieval/{dataset_id}] batch {batch_number}/{len(batches)}", flush=True)
+            if output["account_blocked"]:
+                for item in batch:
+                    rewrites[str(item["item_id"])] = str(item["query"])
+                output["raw_query_fallback_count"] = int(output["raw_query_fallback_count"]) + len(batch)
+                continue
             output["api_calls"] = int(output["api_calls"]) + 1
             try:
                 values = client.rewrite_retrieval_batch(batch)
@@ -146,6 +164,7 @@ def run_retrieval(
             except QwenClientError as exc:
                 output["api_failures"] = int(output["api_failures"]) + 1
                 output["failure_messages"].append(f"{dataset_id}:{batch[0]['item_id']}:{type(exc).__name__}:{exc}")
+                output["account_blocked"] = _account_error(exc)
                 for item in batch:
                     rewrites[str(item["item_id"])] = str(item["query"])
                 output["raw_query_fallback_count"] = int(output["raw_query_fallback_count"]) + len(batch)
@@ -180,11 +199,17 @@ def run_cleaning(
         "api_failures": 0,
         "failure_messages": [],
         "row_count": 0,
+        "account_blocked": False,
     }
     for dataset_id in dataset_ids:
         dataset_dir, manifest = prepare_cleaning_dataset(dataset_id, data_root, download=False)
         dirty, clean = load_cleaning_dataset(dataset_dir)
+        baseline_repaired = evaluate_cleaning(dirty, clean, "project_source_anchor_repair_v6")
         repaired = [row.copy() for row in dirty]
+        deterministic = _project_source_anchor_repair_v6(dirty)
+        # The model only proposes additional cells; established local repairs
+        # remain authoritative and are not overwritten by a model guess.
+        repaired = [row.copy() for row in deterministic]
         columns = list(dirty[0])
         batches = list(_batches(dirty, batch_size))
         for start, rows in enumerate(batches):
@@ -193,6 +218,8 @@ def run_cleaning(
                 {"row_index": index, "values": row}
                 for index, row in enumerate(rows)
             ]
+            if output["account_blocked"]:
+                continue
             output["api_calls"] = int(output["api_calls"]) + 1
             try:
                 repairs = client.clean_table_batch(columns=columns, rows=batch)
@@ -201,16 +228,18 @@ def run_cleaning(
                     column = str(item["column"])
                     if index < 0 or index >= len(repaired) or column not in columns:
                         continue
-                    repaired[index][column] = str(item["value"])
+                    if repaired[index][column] == dirty[index][column]:
+                        repaired[index][column] = str(item["value"])
             except QwenClientError as exc:
                 output["api_failures"] = int(output["api_failures"]) + 1
                 output["failure_messages"].append(f"{dataset_id}:{start * batch_size}:{type(exc).__name__}:{exc}")
+                output["account_blocked"] = _account_error(exc)
         qwen_metrics = _metrics(dirty, clean, repaired, 0.0)
-        baseline = evaluate_cleaning(dirty, clean, "project_date_profile_repair_v5")
+        baseline = baseline_repaired
         output["row_count"] = int(output["row_count"]) + len(dirty)
         output["datasets"][dataset_id] = {
             "manifest": manifest,
-            "baseline_project_date_profile_v5": asdict(baseline),
+            "baseline_project_source_anchor_v6": asdict(baseline),
             "qwen_table_cleaning": asdict(qwen_metrics),
         }
     return output
@@ -249,7 +278,7 @@ def write_run(output_root: Path, payload: dict) -> Path:
     if "cleaning" in payload:
         lines.extend(["## Cleaning: Raha/HoloClean", "", "| Dataset | v5 Cell F1 | Qwen Cell F1 | v5 Repair Accuracy | Qwen Repair Accuracy |", "|---|---:|---:|---:|---:|"])
         for dataset_id, item in payload["cleaning"]["datasets"].items():
-            base, qwen = item["baseline_project_date_profile_v5"], item["qwen_table_cleaning"]
+            base, qwen = item["baseline_project_source_anchor_v6"], item["qwen_table_cleaning"]
             lines.append(f"| {dataset_id} | {base['cell_f1']:.4f} | {qwen['cell_f1']:.4f} | {base['repair_accuracy']:.4f} | {qwen['repair_accuracy']:.4f} |")
         lines.extend(["", f"API calls: {payload['cleaning']['api_calls']}; failures: {payload['cleaning']['api_failures']}", ""])
     lines.extend([

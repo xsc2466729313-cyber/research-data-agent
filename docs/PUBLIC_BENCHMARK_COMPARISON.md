@@ -6,6 +6,8 @@
 
 > 第二轮结果以 [`PUBLIC_COMPARISON_GUIDE_20260902.md`](PUBLIC_COMPARISON_GUIDE_20260902.md) 为准。本文另记录真实 Qwen 公开字段匹配复测；实体匹配因百炼账户在大批量运行时返回 `Arrearage`，不把确定性回退成绩写成 Qwen 成绩。
 
+> **当前清洗更新（2026-09-02）**：source-anchor v6 已在同一官方 dirty/clean 测试上完成统一重跑，六任务宏平均 Cell F1 为 `0.9169`，替代本文历史 v5 清洗宏平均 `0.7863`。详细逐任务结果、代码规则和运行目录见 [`PUBLIC_COMPARISON_GUIDE_20260902.md`](PUBLIC_COMPARISON_GUIDE_20260902.md) 的“第三轮瓶颈修复”节；下文保留 v2/v4/v5 历史数字用于消融追踪。
+
 ## 1. 结论先行
 
 本轮在固定公开测试集上重跑了四个可执行能力层，并增加了两个只使用训练/开发数据拟合的升级方法。

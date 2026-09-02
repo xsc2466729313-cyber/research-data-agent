@@ -4,7 +4,7 @@
 
 端到端总分无法定位问题。本项目将能力拆为问题解析、数据检索、字段对齐、实体匹配和数据清洗五层，分别使用带公开标签的数据集计分。公开基准只诊断通用数据能力，不替代乳腺癌 Gold Set，也不产生正式 SDTI。
 
-> 2026-09-02 统一复现、清洗 v5 / 问题解析 v4 / 检索开发集选择消融及正式结果边界以 [公开对照题号与结果说明](PUBLIC_COMPARISON_GUIDE_20260902.md) 的“第二轮瓶颈优化与统一复测”节为准。本文的历史逐层对照保留用于追踪旧运行。
+> 2026-09-02 统一复现、清洗 v6 / 问题解析 v4 / 检索开发集选择消融及正式结果边界以 [公开对照题号与结果说明](PUBLIC_COMPARISON_GUIDE_20260902.md) 的“第二轮瓶颈优化与统一复测”节为准。本文的历史逐层对照保留用于追踪旧运行。
 
 ## 当前最好成绩
 
@@ -14,7 +14,7 @@
 | 检索 | BEIR 5 个任务 | train/dev selected BGE/CrossEncoder | nDCG@10 宏平均 | **0.3920** |
 | 字段对齐 | Valentine 10 个任务 | Schema Matcher v3 | Schema F1 宏平均 | 0.7994 |
 | 实体匹配 | DeepMatcher 5 个任务 | learned rule v2 | Entity F1 宏平均 | 0.7408 |
-| 数据清洗 | Raha/HoloClean 6 个任务 | date profile v5 | Cell F1 宏平均 | **0.7863** |
+| 数据清洗 | Raha/HoloClean 6 个任务 | source-anchor v6 | Cell F1 宏平均 | **0.9169** |
 
 宏平均只是跨任务诊断，不能把不同层的分数相加或冒充一个总分。每个任务的完整指标和证据见 `docs/PUBLIC_BENCHMARK_COMPARISON.md` 与 `evaluation/public_benchmarks/runs/*/run.json`。
 
@@ -25,7 +25,7 @@
 - value-profile v2 在 Public Art Inventory `0.3333 → 0.8889`、Capital Projects `0.6667 → 1.0000`；DPR 和 DSNY 仍为 `0.5882/0.5333`。
 - learned entity v2 在 DBLP-ACM `0.9602`、Beer-RateBeer `0.8125`，但 Walmart-Amazon `0.4939`。
 - format-profile v2 在 Beers/Movies-1/Tax 为 `0.9837/0.8916/0.9868`；Flights `0.0515`，Hospital 和 Rayyan 为 `0.0000`。
-- 第二轮中，sequence v4 将问题解析宏平均 Span F1 提升到 `0.5522`，开发集选择检索将 nDCG@10 提升到 `0.3920`，date profile v5 将六任务清洗宏平均 Cell F1 提升到 `0.7863`；三层公开基准均未调用 API。
+- 第二轮中，sequence v4 将问题解析宏平均 Span F1 提升到 `0.5522`，开发集选择检索将 nDCG@10 提升到 `0.3920`；第三轮的 source-anchor v6 将六任务清洗宏平均 Cell F1 提升到 `0.9169`，其中 Flights 从 `0.1811` 提升到 `0.9650`。这三层的公开主结果均不把失败的 Qwen 请求计入模型成绩。
 
 ## 数据划分与可信性
 
@@ -44,6 +44,6 @@ DeepMatcher 使用官方 train/valid/test；EBM-NLP 使用训练 crowd labels �
 
 ## 失败解释与下一步
 
-检索层已接入本地 BGE 和公开 CrossEncoder，但全量重排延迟较高；问题解析的轻量序列特征仍低于成熟序列标注基线；字段对齐需要缩写词典、冲突检测和 review 队列；实体匹配需要字符级/字段级深度模型，并对低置信度样本保持 unresolved；清洗层仍应把检测和修复分开，对缺失值、字符损坏和语义错误交由真实来源复核。
+检索层已接入本地 BGE 和公开 CrossEncoder，但全量重排延迟较高；问题解析的轻量序列特征仍低于成熟序列标注基线；字段对齐需要缩写词典、冲突检测和 review 队列；实体匹配需要字符级/字段级深度模型，并对低置信度样本保持 unresolved；清洗层的 v6 只利用公开表内可见的 provenance anchor，不能外推到没有可信重复键的缺失值、字符损坏或语义错误，这些仍需真实来源复核。
 
 项目正式 SDTI 仍按冻结文件 `docs/06_评测指标与SDTI.md` 执行；在验证后的乳腺癌 Gold Set 提供前，不发布 SDTI 数值。

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 from collections.abc import MutableMapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -474,34 +475,43 @@ class QwenClient:
             raise QwenClientError("千问错误诊断结果不是 JSON 对象。")
         return payload
 
-    def label_pico_batch(self, items: list[dict[str, Any]]) -> dict[str, list[int]]:
+    def label_pico_batch(
+        self, items: list[dict[str, Any]], *, element: str
+    ) -> dict[str, list[int]]:
         """Label PICO tokens in a bounded batch without exposing test labels."""
         message = self._chat_json(
             system=(
-                "你是医学文献 PICO span 标注器。对每个文档的 token 逐项输出 0/1，"
-                "只依据文档 token，不猜测隐藏标注。"
+                "你是医学文献 PICO span 标注器。当前只标注一个指定元素，"
+                "只依据文档 token，不猜测隐藏标注。为减少输出，只返回属于该元素的 token 索引。"
             ),
             payload={
-                "任务": "识别每个文档中属于指定 PICO 元素的 token",
+                "任务": "识别每个文档中属于当前 PICO 元素的 token",
+                "当前元素": element,
                 "items": items,
-                "输出": "JSON 对象 labels，键为 item_id，值为与 tokens 等长的 0/1 数组",
+                "输出": "JSON 对象 positive_indices，键为 item_id，值为正类 token 的 0-based 索引数组",
                 "约束": [
                     "不得合并、删除或重排 tokens",
-                    "只能输出 labels 一个对象",
+                    "只能输出 positive_indices 一个对象",
                     "每个 item_id 必须都有结果",
+                    "索引必须在对应 tokens 范围内且不得重复",
                 ],
             },
         )
-        labels = message.get("labels")
-        if not isinstance(labels, dict):
-            raise QwenClientError("千问 PICO 结果缺少 labels 对象。")
+        positive_indices = message.get("positive_indices")
+        if not isinstance(positive_indices, dict):
+            raise QwenClientError("千问 PICO 结果缺少 positive_indices 对象。")
         output: dict[str, list[int]] = {}
         expected = {str(item["item_id"]): len(item.get("tokens") or []) for item in items}
         for item_id, size in expected.items():
-            values = labels.get(item_id)
-            if not isinstance(values, list) or len(values) != size or any(value not in (0, 1, False, True) for value in values):
-                raise QwenClientError(f"千问 PICO labels 长度或取值无效：{item_id}")
-            output[item_id] = [int(value) for value in values]
+            values = positive_indices.get(item_id)
+            if not isinstance(values, list) or any(not isinstance(value, int) or not 0 <= value < size for value in values):
+                raise QwenClientError(f"千问 PICO positive_indices 无效：{item_id}")
+            if len(set(values)) != len(values):
+                raise QwenClientError(f"千问 PICO positive_indices 重复：{item_id}")
+            labels = [0] * size
+            for index in values:
+                labels[index] = 1
+            output[item_id] = labels
         return output
 
     def rewrite_retrieval_batch(self, items: list[dict[str, Any]]) -> dict[str, str]:
@@ -583,6 +593,123 @@ class QwenClient:
                 "value": value,
                 "reason": str(item.get("reason") or "")[:200],
             })
+        return output
+
+    def match_schema_batch(self, items: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+        """Align public-table columns from names and bounded value profiles only."""
+        message = self._chat_json(
+            system=(
+                "你是公开表格字段匹配专家。对每个任务判断 source 列和 target 列是否表达同一字段。"
+                "只依据输入列名、有限样例值和表名，不得猜测或使用隐藏标签。每个 source 最多选择一个 target，"
+                "不确定时不要强行匹配。缩写、连写、单位和同义词要结合值的形态判断。"
+            ),
+            payload={
+                "任务": "批量完成通用 schema matching",
+                "items": items,
+                "输出": {
+                    "matches": {
+                        "每个item_id对应数组": [
+                            {"source_column": "原列名", "target_column": "目标列名", "confidence": 0.0, "reason": "简短依据"}
+                        ]
+                    }
+                },
+                "约束": [
+                    "只能选择输入中存在的列名",
+                    "不要输出测试集真值，不要根据列顺序臆测",
+                    "confidence 必须是 0 到 1 的数；低于 0.60 的候选不要输出",
+                    "同一个 target_column 不得被多个 source_column 使用",
+                    "只输出 JSON 对象",
+                ],
+            },
+        )
+        matches = message.get("matches")
+        if not isinstance(matches, dict):
+            raise QwenClientError("千问字段匹配结果缺少 matches 对象。")
+        output: dict[str, list[dict[str, Any]]] = {}
+        for item in items:
+            item_id = str(item["item_id"])
+            raw = matches.get(item_id, [])
+            if not isinstance(raw, list):
+                raise QwenClientError(f"千问字段匹配结果不是数组：{item_id}")
+            source_columns = set(map(str, item.get("source_columns", [])))
+            target_columns = set(map(str, item.get("target_columns", [])))
+            seen_sources: set[str] = set()
+            seen_targets: set[str] = set()
+            valid: list[dict[str, Any]] = []
+            for candidate in raw:
+                if not isinstance(candidate, dict):
+                    continue
+                source = str(candidate.get("source_column") or "")
+                target = str(candidate.get("target_column") or "")
+                confidence = candidate.get("confidence")
+                if source not in source_columns or target not in target_columns:
+                    continue
+                if source in seen_sources or target in seen_targets:
+                    continue
+                if not isinstance(confidence, (int, float)):
+                    continue
+                confidence = max(0.0, min(1.0, float(confidence)))
+                if confidence < 0.60:
+                    continue
+                seen_sources.add(source)
+                seen_targets.add(target)
+                valid.append({
+                    "source_column": source,
+                    "target_column": target,
+                    "confidence": confidence,
+                    "reason": str(candidate.get("reason") or "")[:240],
+                })
+            output[item_id] = valid
+        return output
+
+    def match_entity_batch(
+        self,
+        items: list[dict[str, Any]],
+        *,
+        training_examples: list[dict[str, Any]] | None = None,
+    ) -> dict[str, dict[str, Any]]:
+        """Judge public candidate record pairs without seeing test labels."""
+        message = self._chat_json(
+            system=(
+                "你是公开实体匹配专家。判断每个 left/right 记录是否指向同一个现实实体。"
+                "综合名称、作者/品牌/地址/电话/型号等字段，容忍大小写、标点、缩写、词序和轻微拼写差异；"
+                "但不要因为单个通用词或价格相近就匹配。输出 match=true/false，无法确定时按 false，"
+                "并给出 0 到 1 的置信度。"
+            ),
+            payload={
+                "任务": "批量完成通用 entity matching",
+                "items": items,
+                "training_examples": training_examples or [],
+                "输出": {
+                    "decisions": {
+                        "每个pair_id对应对象": {"match": False, "confidence": 0.0, "reason": "简短依据"}
+                    }
+                },
+                "约束": [
+                    "只根据输入记录判断，不使用隐藏标签或外部搜索",
+                    "match 必须是布尔值，confidence 必须在 0 到 1 之间",
+                    "没有足够证据时 match=false；不要为了提高召回猜测",
+                    "只输出 JSON 对象",
+                ],
+            },
+        )
+        decisions = message.get("decisions")
+        if not isinstance(decisions, dict):
+            raise QwenClientError("千问实体匹配结果缺少 decisions 对象。")
+        output: dict[str, dict[str, Any]] = {}
+        for item in items:
+            pair_id = str(item["pair_id"])
+            decision = decisions.get(pair_id, {})
+            if not isinstance(decision, dict):
+                raise QwenClientError(f"千问实体匹配结果不是对象：{pair_id}")
+            confidence = decision.get("confidence", 0.0)
+            if not isinstance(confidence, (int, float)):
+                confidence = 0.0
+            output[pair_id] = {
+                "match": bool(decision.get("match", False)),
+                "confidence": max(0.0, min(1.0, float(confidence))),
+                "reason": str(decision.get("reason") or "")[:240],
+            }
         return output
 
     def _chat_json(self, *, system: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -862,19 +989,26 @@ class QwenClient:
             payload["parallel_tool_calls"] = parallel_tool_calls
         if response_format is not None:
             payload["response_format"] = response_format
-        try:
-            response = self.client.post(
-                f"{self.settings.base_url}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {self.settings.api_key}",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
-            )
-        except httpx.TimeoutException as exc:
-            raise QwenClientError(f"{self.settings.provider_label}请求超时。") from exc
-        except httpx.RequestError as exc:
-            raise QwenClientError(f"{self.settings.provider_label}网络连接失败：{type(exc).__name__}。") from exc
+        response = None
+        for attempt in range(3):
+            try:
+                response = self.client.post(
+                    f"{self.settings.base_url}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {self.settings.api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                )
+                break
+            except httpx.TimeoutException as exc:
+                if attempt == 2:
+                    raise QwenClientError(f"{self.settings.provider_label}请求超时。") from exc
+            except httpx.RequestError as exc:
+                if attempt == 2:
+                    raise QwenClientError(f"{self.settings.provider_label}网络连接失败：{type(exc).__name__}。") from exc
+            time.sleep(1.5 * (attempt + 1))
+        assert response is not None
         if response.status_code >= 400:
             try:
                 error = response.json()
