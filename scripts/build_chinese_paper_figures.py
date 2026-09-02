@@ -20,6 +20,7 @@ RUN_ROOT = ROOT / "goldset" / "breast_cancer" / "official_candidate" / "evaluati
 BASELINE_PATH = RUN_ROOT / "official-candidate-20260829T132222Z" / "metrics.json"
 CURRENT_PATH = RUN_ROOT / "official-candidate-qwen-live-audited-final-20260830" / "metrics.json"
 SUMMARY_PATH = ROOT / "evaluation" / "reports" / "qwen38_20260829" / "report_metrics_summary.json"
+PUBLIC_COMPARISON_PATH = ROOT / "evaluation" / "PUBLIC_DATASET_COMPARISON_20260902.json"
 
 FONT_PATH = Path("C:/Windows/Fonts/msyh.ttc")
 FONT = FontProperties(fname=str(FONT_PATH)) if FONT_PATH.exists() else FontProperties()
@@ -165,9 +166,25 @@ def save_planner_comparison(summary: dict) -> Path:
     return path
 
 
-def save_retrieval_comparison(summary: dict) -> Path:
+def save_retrieval_comparison(summary: dict, public_summary: dict) -> Path:
     methods = summary["retrieval"]["methods"]
-    labels = ["关键词检索\n（BM25）", "语义检索\n（BGE）", "简单组合\n（BM25+BGE）"]
+    current = public_summary["retrieval"]["macro"]
+    method_values = [
+        methods[0],
+        methods[1],
+        methods[2],
+        {
+            "ndcg_at_10": current["project_ndcg_at_10"],
+            "recall_at_100": current["project_recall_at_100"],
+            "mrr_at_10": current["project_mrr_at_10"],
+        },
+    ]
+    labels = [
+        "公开基线：BM25",
+        "公开基线：BGE-small\n-en-v1.5",
+        "本项目历史方法：\nBM25+BGE",
+        "本项目当前方法：\nBGE+CrossEncoder",
+    ]
     metric_keys = ["ndcg_at_10", "recall_at_100", "mrr_at_10"]
     metric_labels = ["前十条结果排序质量", "前 100 条结果召回率", "首个相关结果排序得分"]
     colors = [BLUE, TEAL, ORANGE]
@@ -176,7 +193,7 @@ def save_retrieval_comparison(summary: dict) -> Path:
     x = np.arange(len(labels))
     width = 0.23
     for index, (key, metric_label, color) in enumerate(zip(metric_keys, metric_labels, colors, strict=True)):
-        values = [float(method[key]) for method in methods]
+        values = [float(method[key]) for method in method_values]
         bars = ax.bar(x + (index - 1) * width, values, width, label=metric_label, color=color, zorder=3)
         add_value_labels(ax, bars, digits=3, offset=0.012)
     ax.set_ylim(0, 0.76)
@@ -184,13 +201,13 @@ def save_retrieval_comparison(summary: dict) -> Path:
     ax.set_ylabel("指标值（越高越好）", fontproperties=FONT, fontsize=11)
     style_axis(ax)
     ax.legend(loc="upper center", ncol=3, frameon=False, prop=FONT)
-    fig.suptitle("公开检索任务的三种方法对照", x=0.08, y=0.958, ha="left", fontsize=19,
+    fig.suptitle("公开检索基线与本项目方法对照", x=0.08, y=0.958, ha="left", fontsize=19,
                  fontweight="bold", color=TEXT, fontproperties=FONT)
-    fig.text(0.08, 0.902, f"5 个公开数据集，共 {summary['retrieval']['query_count']:,} 条查询",
+    fig.text(0.08, 0.902, f"公开基线：BM25、BGE；本项目方法：历史组合与当前重排，共 {summary['retrieval']['query_count']:,} 条查询",
              ha="left", fontsize=11, color="#475569", fontproperties=FONT)
-    fig.text(0.08, 0.055, "语义检索优先用于寻找语义相近的候选材料；本实验尚未评价加入二次排序后的完整组合。",
+    fig.text(0.08, 0.055, "本项目当前方法在 BGE 初检索后增加 CrossEncoder 重排，nDCG@10 宏平均为 0.3920。",
              ha="left", fontsize=10.0, color="#0F766E", fontweight="bold", fontproperties=FONT)
-    fig.text(0.08, 0.025, "当前实际运行的系统仍结合关键词检索、语义检索和二次排序，完整组合留待独立对照。",
+    fig.text(0.08, 0.025, "公开基线 BGE 的 nDCG@10 宏平均为 0.3880；本项目当前方法提升 0.0041。",
              ha="left", fontsize=9.8, color="#475569", fontproperties=FONT)
     fig.subplots_adjust(left=0.09, right=0.96, top=0.80, bottom=0.18)
     path = IMAGE_DIR / "retrieval-method-comparison-cn-20260831.png"
@@ -237,10 +254,11 @@ def main() -> None:
     IMAGE_DIR.mkdir(parents=True, exist_ok=True)
     plt.rcParams["axes.unicode_minus"] = False
     summary = load(SUMMARY_PATH)
+    public_summary = load(PUBLIC_COMPARISON_PATH)
     outputs = [
         save_system_metrics(),
         save_planner_comparison(summary),
-        save_retrieval_comparison(summary),
+        save_retrieval_comparison(summary, public_summary),
         save_query_strategy(summary),
     ]
     for output in outputs:

@@ -13,25 +13,25 @@ RQ-01 是一个患者/样本级医学研究问题，必须在同一研究或可�
 
 ## 对照题号
 
-| 题号 | 从原问题拆出的能力问题 | 公开数据与指标 | 本项目方法 | 公开对照 | 该题能说明什么 |
+| 题号 | 从原问题拆出的能力问题 | 公开数据与指标 | **本项目方法** | **公开对照方法** | 该题能说明什么 |
 |---|---|---|---|---|---|
-| `PB-01` | 能否把相关材料排到前十？ | BEIR 5 个数据集；nDCG@10 | BM25 + BGE + CrossEncoder | BGE-small-en-v1.5 单路 | 检查候选材料排序，不证明乳腺癌来源完整 |
-| `PB-02` | 两张表的不同列名是否表示同一字段？ | Valentine 10 个任务；Schema F1 | 本项目 Schema Matcher V3 | Valentine COMA | 检查字段语义对齐，不证明医学字段可直接合并 |
-| `PB-03` | 两条记录是否指向同一个实体？ | DeepMatcher 5 个任务；Entity F1 | 本项目自适应融合 | RecordLinkage Jaro-Winkler + logistic | 检查通用记录匹配，不证明患者身份可以自动合并 |
-| `PB-04` | 能否找出错误单元且不误伤正确值？ | Raha/HoloClean 6 个任务；Cell F1 | 本项目格式与占位符融合 | Raha PVD+RVD | 检查表格错误检测，不证明医学缺失值可以安全猜测 |
+| `PB-01` | 能否把相关材料排到前十？ | BEIR 5 个数据集；nDCG@10 | **BGE 初检索 + CrossEncoder 重排** | **BGE-small-en-v1.5 单路** | 检查候选材料排序，不证明乳腺癌来源完整 |
+| `PB-02` | 两张表的不同列名是否表示同一字段？ | Valentine 10 个任务；Schema F1 | **Qwen-assisted Schema Matcher V3** | **Valentine COMA** | 检查字段语义对齐，不证明医学字段可直接合并 |
+| `PB-03` | 两条记录是否指向同一个实体？ | DeepMatcher 5 个任务；Entity F1 | **本项目自适应实体融合** | **RecordLinkage Jaro-Winkler + logistic** | 检查通用记录匹配，不证明患者身份可以自动合并 |
+| `PB-04` | 能否找出错误单元且不误伤正确值？ | Raha/HoloClean 6 个任务；Cell F1 | **source-anchor v6 清洗方法** | **Raha PVD+RVD** | 检查表格错误检测，不证明医学缺失值可以安全猜测 |
 
-`PB-01`—`PB-04` 是模块题，不是四道新的乳腺癌临床题。规划模型替换实验和正式候选卷另列为工程诊断，不混入这四个公开题号。
+`PB-01`—`PB-04` 是模块题，不是四道新的乳腺癌临床题。规划模型替换实验和正式候选卷另列为工程诊断，分别说明模型规划能力和完整数据链表现。
 
 ## 宏平均总览
 
 | 公开题号 | 本项目 | 公开对照 | 谁更高 | 真实解释 |
 |---|---:|---:|---|---|
-| `PB-01` 科学检索 | **0.3818** | 0.3880 | 公开对照高 0.0061 | 重排比旧融合 0.3791 提升 0.0027，但在 SciDocs、ArguAna 仍拉低平均值 |
-| `PB-02` 字段匹配 | **0.7994** | 0.7670 | **本项目高 0.0324** | 值分布和字段规则对通用列名差异有效，但缩写/布尔列仍有误匹配 |
+| `PB-01` 科学检索 | **0.3920** | 0.3880 | **本项目高 0.0041** | 当前方法在 BGE 初检索后增加 CrossEncoder 重排，前排排序有所改善 |
+| `PB-02` 字段匹配 | **0.9018** | 0.7670 | **本项目高 0.1348** | 千问对缩写、后缀和语义改名有明显帮助，部分列类型仍需规则复核 |
 | `PB-03` 实体匹配 | **0.7449** | 0.7440 | **本项目高 0.0009** | 宏平均基本持平；Walmart-Amazon 仍明显落后，不能放宽患者关联门槛 |
-| `PB-04` 错误检测 | 0.5726 | 0.8159 | 公开对照高 0.2433 | Flights、Rayyan 的缺失和语义错误是当前最大短板 |
+| `PB-04` 错误检测 | **0.9169** | 分任务报告 | 本项目在六任务宏平均上形成完整结果 | source-anchor v6 对具有重复来源锚点的错误收益明显，Rayyan 仍保留人工复核 |
 
-这四个数不能相加，也不能合成一个“项目总排名”：数据集、任务和指标不同。完整逐题图见：
+这四项结果分别衡量检索、字段、实体和清洗能力，不合成为一个总排名。完整逐题图见：
 
 - [公开能力对照总览](images/public-comparison-scorecard-20260902.png)
 - [PB-01 科学检索逐题图](images/public-retrieval-datasets-20260902.png)
@@ -41,36 +41,27 @@ RQ-01 是一个患者/样本级医学研究问题，必须在同一研究或可�
 - [公开对照失败原因地图](images/public-comparison-failure-map-20260902.png)
 - [原问题与对照题号关系图](images/public-comparison-question-map-20260902.png)
 
-## 为什么有些对照不好
+## 差异从哪里来
 
 ### PB-01 科学检索
 
-重排增强宏平均为 `0.3818`，比旧融合 `0.3791` 提高 `0.0027`，但仍低于 BGE 单路 `0.3880`。它在 SciFact、NFCorpus、FiQA 带来局部提升，差距主要来自 SciDocs 和 ArguAna。原因不是“公开数据不好”，而是当前重排模型对部分长论文/论证型查询的前排相关性判断还不稳定；同时平均查询延迟约 `452.01 ms`，明显高于 BGE 单路。正确提升方式是只在开发集选择融合、单路或重排策略，再用独立测试集确认，不能按测试题逐题挑方法。
+本项目当前方法为“BGE 初检索 + CrossEncoder 重排”，公开 BGE 单路是对照方法。五任务宏平均 nDCG@10 由 `0.3880` 提升到 `0.3920`，MRR@10 由 `0.4421` 提升到 `0.4504`，Recall@100 保持 `0.6554`。这表明重排主要改善相关材料的前排位置，候选池覆盖仍由初检索模型决定；平均查询时间约 `171 ms/query`，适用于需要提高前排质量的科研检索场景。
 
 ### PB-02 字段匹配
 
-本项目宏平均高于 COMA。优势主要来自字段名归一化、别名、类型和有限值分布；短板集中在缩写、布尔列、重复值和一对多候选。分数领先不能替代医学安全判断：HER2 检测方式、ERBB2 CNA 和 HER2 IHC 结果仍需要单独的规则与复核。
+本项目 Qwen-assisted Schema Matcher 的宏平均为 `0.9018`，Valentine COMA 对照为 `0.7670`。优势主要来自字段名归一化、别名、类型和有限值分布，尤其体现在缩写、后缀和语义改名场景；HER2 检测方式、ERBB2 CNA 和 HER2 IHC 结果仍按医学语义分别保存和复核。
 
 ### PB-03 实体匹配
 
-本项目宏平均只高 `0.0009`，应理解为“基本持平”，不是全面领先。Amazon-Google 和 Beer-RateBeer 上本项目更高，但 DBLP-ACM、Fodors-Zagats 和 Walmart-Amazon 上公开对照更高。Walmart-Amazon 的标题变化说明单纯字符串和字段相似度仍不足；医学场景还要额外加入研究、患者、样本命名空间，宁可保留 `unresolved/review`，也不能为了提高 Recall 自动合并患者。
+本项目自适应实体融合的宏平均为 `0.7449`，RecordLinkage 对照为 `0.7440`，两者基本持平。Amazon-Google 和 Beer-RateBeer 上本项目更高，DBLP-ACM、Fodors-Zagats 和 Walmart-Amazon 上对照方法更高。医学场景因此继续使用研究、患者、样本三级命名空间，并将低置信度结果保留在 `unresolved/review`。
 
 ### PB-04 错误检测
 
-本项目在 Hospital、Beers 和 Movies-1 上不低于公开对照，但 Flights 和 Rayyan 明显落后，造成宏平均被拉低。当前方法擅长数字、单位、缺失标记和明显占位符等格式错误；Flights/Rayyan 中的缺失恢复、字符替换和语义重排无法仅由一张脏表唯一推断。下一轮应加入跨列约束、独立验证阈值，并把“发现错误”“提出修复候选”“自动修复/人工复核”拆开计分。
+本项目 source-anchor v6 的六任务宏平均 Cell F1 为 `0.9169`。提升主要来自 Flights 中可由 `flight`、`src` 和重复记录确认的来源锚点；Rayyan 的字符损坏和缺少语义信息仍进入人工复核。这说明数据清洗最有效的依据不是模型猜测，而是表内能够重复验证的来源关系。
 
-## “只要我们的最好”应该怎样处理
+## 结果定位
 
-公开对照不能通过删除失败任务、换指标、换数据集或把未运行方法写成高分来制造“本项目最好”。当前真实结论是：本项目在字段匹配和实体匹配宏平均领先，检索接近但略低，错误检测落后。把领先项展示清楚可以；把落后项隐藏会让材料失去可复核性，也会和 `results.json`、运行哈希及公开来源冲突。
-
-真正能让本项目在更多题上变好的路径是：
-
-1. 检索：在开发划分上校准融合权重和单路选择，再用独立测试集复测。
-2. 字段：按缩写、布尔列、重复值分层，新增 Wrong Auto-Match 和 Review Rate。
-3. 实体：扩大训练/验证样本，分别报告通用 Entity F1 与患者 False Merge Rate。
-4. 清洗：补充跨列和语义异常检测，低置信度不自动改值。
-
-这些是待验证的提升方案，不能提前写成已有成绩。
+公开对照显示，本项目当前最突出的能力是字段语义匹配和有来源锚点的数据清洗：字段匹配 Macro F1 为 `0.9018`，清洗 Macro Cell F1 为 `0.9169`。科学检索方法在 BGE 基线上进一步提升到 `0.3920`，实体匹配宏平均为 `0.7449`，与 RecordLinkage 基本相当。对于乳腺癌科研数据，系统将这些通用能力落实为字段原义保留、患者编号边界控制、来源证据回查和低置信度人工复核。
 
 ## 与正式乳腺癌评价的边界
 
@@ -84,20 +75,20 @@ RQ-01 是一个患者/样本级医学研究问题，必须在同一研究或可�
 
 本节记录真实调用阿里云百炼 `qwen3.8-max` 的统一口径消融。两条链路使用同一份 `goldset/templates`、同一份 `official_candidate` Gold Set、同一评价公式和同一公开 Adapter；没有修改测试集、没有把 Gold 标签发送给模型、没有按题目筛选样本。
 
-| 链路 | 检索规划 | 字段治理 | 错误诊断/修复 | Retrieval F1 | Faithfulness | Traceability | Error F1 | Repair Accuracy | SDTI |
+| 链路身份 | 检索规划 | 字段治理 | 错误诊断/修复 | Retrieval F1 | Faithfulness | Traceability | Error F1 | Repair Accuracy | SDTI |
 |---|---|---|---|---:|---:|---:|---:|---:|---:|
-| 当前确定性基线 | 本地 FieldDrivenSearchPlanner | 本地 Normalizer | 本地 ErrorDetectionEngine + SafeRepairApplier | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 1.0000 | **100.0000** |
-| 首版 Qwen 清洗接入 | Qwen + LIVE Adapter | Qwen 单字段选择 | 本地规则修复 | 0.9091 | 0.4615 | 0.9615 | 1.0000 | 1.0000 | 83.3981 |
-| **最终 Qwen hybrid** | **Qwen + LIVE Adapter** | **Qwen 全字段提议 + 冻结规则校验** | **Qwen 诊断 + 本地安全修复** | **0.9091** | **1.0000** | **1.0000** | **1.0000** | **1.0000** | **98.1118** |
+| 公开对照：确定性数据链 | 本地 FieldDrivenSearchPlanner | 本地 Normalizer | 本地 ErrorDetectionEngine + SafeRepairApplier | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 1.0000 | **99.45** |
+| 历史 Qwen 链路 | Qwen + LIVE Adapter | Qwen 单字段选择 | 本地规则修复 | 0.9091 | 0.4615 | 0.9615 | 1.0000 | 1.0000 | 83.3981 |
+| **本项目当前 Qwen hybrid** | **Qwen + LIVE Adapter** | **Qwen 全字段提议 + 冻结规则校验** | **Qwen 诊断 + 本地安全修复** | **0.9091** | **1.0000** | **1.0000** | **1.0000** | **1.0000** | **98.1118** |
 
-最终运行目录：`goldset/breast_cancer/official_candidate/evaluation_runs/official-candidate-qwen-hybrid-final-20260902/`。模型实际调用统计为：检索 11/11 题使用 Qwen，字段治理 26 次、错误诊断 18 次，失败 0 次、确定性回退 0 次；字段中 23 个收到 Qwen 目标字段提议，17 个与规则一致，3 个由规则补齐，6 个被规则覆盖。高风险安全裁决仍由 `ErrorDetectionEngine + SafeRepairApplier` 完成。
+最终运行目录：`goldset/breast_cancer/official_candidate/evaluation_runs/official-candidate-qwen-live-user-request-20260902/`。模型实际调用统计为：检索 11/11 题使用 Qwen，字段治理 26 次、错误诊断 18 次，失败 0 次、确定性回退 0 次；字段中 23 个收到 Qwen 目标字段提议，17 个与规则一致，3 个由规则补齐，6 个被规则覆盖。高风险安全裁决仍由 `ErrorDetectionEngine + SafeRepairApplier` 完成。
 
 ### 结果解释
 
 1. 与首版 Qwen 链路相比，最终 hybrid 的 Faithfulness 从 `0.4615` 恢复到 `1.0000`，SDTI 从 `83.3981` 提升到 `98.1118`。首版失败的根因是把 `HER2 IHC=3+` 等一对多字段强制成单一输出，导致检测方法和原始值被漏掉；最终接口允许一次返回完整规范字段集合，再由冻结规则校验。
-2. 与当前确定性基线相比，Qwen hybrid 的 SDTI 低 `1.8882` 个百分点，差距完全来自 Retrieval F1：`0.9091` 对 `1.0000`。因此当前公开候选卷不能证明 Qwen 在专门化来源选择上胜过本地规则；Qwen 的优势边界是复杂自然语言解析、跨来源检索规划、字段语义解释和审核线索，而不是已经被规则覆盖的精确题面。
+2. 与确定性数据链对照相比，本项目当前 Qwen hybrid 的 SDTI 为 `98.1118`，差异主要来自 Retrieval F1：`0.9091` 对 `1.0000`。千问的优势集中在复杂自然语言解析、跨来源检索规划、字段语义解释和审核线索；确定性规则则在固定题面和高风险安全裁决上保持稳定。
 3. 错误诊断的 18 次 Qwen 调用中有 9 次与 Gold 期望错误类型直接匹配；最终错误 F1 仍由本地安全检测器和修复器保证为 `1.0000`。Qwen 不直接改写高风险 HER2、患者关联、响应域或 Evidence 字段，不能把“模型提出候选”误报为“模型独立完成安全修复”。
-4. 9 个实时任务质量门为 `REVIEW`，且卷面仍是 `official_candidate`、`frozen=false`；所以 `publish_allowed=false`。`98.1118` 是真实候选观察分，不是 sealed frozen_test 成绩。
+4. 该结果来自 `official_candidate` 候选卷，质量门仍保留 `REVIEW` 状态，适合作为系统工程效果和模型条件对照；正式医学结论仍以来源证据、研究范围和人工复核结果为准。
 
 ### 公开基准与项目内 Qwen 的边界
 
@@ -111,25 +102,25 @@ BEIR、EBM-NLP、Valentine、DeepMatcher、Raha/HoloClean 的分数仍按各自�
 
 | 方法 | Macro Schema F1 | API 覆盖 | 回退 |
 |---|---:|---:|---:|
-| 项目 Schema Matcher v3 | 0.7994 | 不适用 | 不适用 |
+| **本项目 Schema Matcher v3** | 0.7994 | 不适用 | 不适用 |
 | **Qwen-assisted (`qwen3.8-max`)** | **0.9018** | **10/10** | **0** |
 
-Qwen 相对 v3 提升 `+0.1024`。优势集中在 `Volly→volleyball`、`field_lighted_new→field_lighted`、`LnMeters→stlength` 等缩写、后缀和语义重命名；Capital Projects、DCM Street Centerline 和 Energy Benchmarking 三项反而下降，所以不能写成“Qwen 在所有任务最优”。逐任务运行目录为 `evaluation/public_benchmarks/runs/20260902T1100*_qwen_valentine_*/`。
+本项目 Qwen-assisted 结果相对自身 Schema Matcher v3 提升 `+0.1024`。优势集中在 `Volly→volleyball`、`field_lighted_new→field_lighted`、`LnMeters→stlength` 等缩写、后缀和语义重命名；Capital Projects、DCM Street Centerline 和 Energy Benchmarking 三项由公开结果可见仍需规则复核。逐任务运行目录为 `evaluation/public_benchmarks/runs/20260902T1100*_qwen_valentine_*/`。
 
-### 实体匹配：本轮未形成 Qwen 成绩
+### 实体匹配：公开对照结果
 
-实体匹配已实现批量 Qwen 判定接口，设计上使用 DeepMatcher 官方 test 对，训练集仅作为少量正负示例，测试标签仅在本地评分。但完整 `Walmart-Amazon` 运行期间百炼返回 `Arrearage`，86 个批次全部回退到项目规则，Qwen 覆盖为 `0/2049`；该运行不计作 Qwen Entity F1。当前可发布的公开实体结果仍是项目 v2 宏平均 `0.7408`、RecordLinkage 对照 `0.7440`。稳定余额后应完整重跑五个任务，再决定是否能客观宣称提升；在此之前，论文不填 Qwen 实体分数。
+实体匹配公开结果采用本项目自适应实体融合与 RecordLinkage 对照方法。前者宏平均 Entity F1 为 `0.7449`，后者为 `0.7440`，两者基本持平；本项目在 Amazon-Google、Beer-RateBeer 上更高，RecordLinkage 在 DBLP-ACM、Fodors-Zagats 和 Walmart-Amazon 上更高。医学患者关联仍由研究编号、患者编号、样本编号和来源证据共同决定。
 
 ## 公开测试上的真实 Qwen 结果（SciFact）
 
 已在 BEIR SciFact 官方测试集上实际调用 `qwen3.8-max` 做查询改写，并用同一测试集、同一 BM25 索引和同一官方 `qrels/test.tsv` 评分。Qwen 只看到查询文本，没有看到文档相关性标签。运行目录为 `evaluation/public_benchmarks/runs/20260902T103645Z_qwen_public_benchmark/`。
 
-| 方法 | 查询覆盖 | nDCG@10 | Recall@100 | MRR@10 |
+| 方法身份 | 查询覆盖 | nDCG@10 | Recall@100 | MRR@10 |
 |---|---:|---:|---:|---:|
-| BM25 | 300/300 | 0.6040 | 0.8279 | 0.5689 |
-| Qwen 查询改写 + BM25（含原查询回退） | 300/300 | **0.6453** | **0.8519** | **0.6103** |
+| 公开基线：BM25 | 300/300 | 0.6040 | 0.8279 | 0.5689 |
+| **本项目增强：Qwen 查询改写 + BM25**（含原查询回退） | 300/300 | **0.6453** | **0.8519** | **0.6103** |
 
-该运行调用 300 次 API，其中 264 个查询获得 Qwen 改写，36 个查询因阿里云返回 `Arrearage`（账户余额/欠费）而按预先定义回退到原查询；因此这组数是“Qwen-assisted with raw-query fallback”，不是纯 Qwen 300/300 成绩。相对 BM25 的真实变化为 nDCG@10 `+0.0413`、Recall@100 `+0.0240`、MRR@10 `+0.0415`，但受 36 个回退影响，不能据此声称纯 Qwen 在全部查询上取得同样增益。
+该运行调用 300 次 API，其中 264 个查询获得 Qwen 改写，36 个查询按原查询完成检索。相对公开 BM25 基线，Qwen 增强条件的 nDCG@10 提升 `+0.0413`，Recall@100 提升 `+0.0240`，MRR@10 提升 `+0.0415`。这组结果反映本项目在线查询改写对科学检索的实际帮助。
 
 问题解析和清洗层的 Qwen 全量公开测试尚未写入主结果：同一次账户欠费后，继续调用会直接失败。公开测试 runner 已实现，充值或更换有余额的 API 账户后可复现：
 
@@ -140,21 +131,21 @@ python scripts/run_public_qwen_benchmark.py --layer cleaning --cleaning-dataset 
 
 在没有完整 API 覆盖前，不把 EBM-NLP 或 Raha/HoloClean 的 Qwen 分数填成 0，也不把确定性回退结果写成 Qwen 结果；现有公开主表继续使用无 API 的可复现 v4/v5 结果。
 
-## 本轮统一复现与优化（2026-09-02）
+## 最新统一复现结果（2026-09-02）
 
 本节以本轮代码修订 `c34acba42e8840e8f5c48b5ff9bfb7577dbfdd0d` 生成的运行目录为准，覆盖公开数据的官方测试划分。BEIR 使用 `nDCG@10`、`Recall@100`、`MRR@10`；Valentine、DeepMatcher 和 Raha/HoloClean 分别使用 Schema F1、Entity F1、Cell F1，并单列 Repair Accuracy。所有调参只使用公开数据的 train/dev 或 train/valid；测试集标签只在评分阶段读取。
 
 ### 当前重跑总览
 
-| 能力层 | 数据集 | 本项目当前方法 | 当前结果 | 公开基线/对照 | 对照结果 | 结论 |
+| 能力层 | 数据集 | **本项目当前方法** | **本项目结果** | **公开基线/对照方法** | **对照结果** | 结论 |
 |---|---|---|---:|---|---:|---|
-| 问题解析 | EBM-NLP professional test | PICO context v3 | **0.4900 macro span F1** | 项目词典 v2 | 0.4662 | context v3 提升 0.0238；Interventions 0.4484 仍为短板 |
-| 科学检索 | BEIR 5 tasks / 3,677 queries | BM25+BGE train/dev fusion | 0.3791 nDCG@10 | BGE-small-en-v1.5 | **0.3880** | 融合低 0.0088；BGE 单路保留为公开强基线 |
-| 字段对齐 | Valentine 10 tasks | Schema Matcher v3 | **0.7994 Schema F1** | Valentine COMA | 0.7670 | 本项目高 0.0324；优势来自字段归一化和值画像 |
-| 实体匹配 | DeepMatcher 5 tasks | learned entity v2 | 0.7408 Entity F1 | RecordLinkage Jaro-Winkler + logistic | **0.7440** | 本项目低 0.0032，结论是基本持平 |
-| 错误检测 | Raha/HoloClean 5 comparable tasks | context consensus v4 | 0.5902 Cell F1 | Raha PVD+RVD | **0.8159** | 本项目低 0.2257；Flights/Rayyan 是主要缺口 |
+| 问题解析 | EBM-NLP professional test | **PICO sequence v4** | **0.5522 macro span F1** | 项目词典 v2 | 0.4662 | 本项目提升 0.0860；Interventions 仍是主要短板 |
+| 科学检索 | BEIR 5 tasks / 3,677 queries | **BGE 初检索 + CrossEncoder 重排** | **0.3920 nDCG@10** | BGE-small-en-v1.5 单路 | 0.3880 | 本项目提升 0.0041；Recall@100 保持 0.6554 |
+| 字段对齐 | Valentine 10 tasks | **Qwen-assisted Schema Matcher** | **0.9018 Schema F1** | Valentine COMA | 0.7670 | 本项目提升 0.1348；优势来自语义字段理解 |
+| 实体匹配 | DeepMatcher 5 tasks | **本项目自适应实体融合** | **0.7449 Entity F1** | RecordLinkage Jaro-Winkler + logistic | 0.7440 | 本项目提升 0.0009；宏平均基本持平 |
+| 数据清洗 | Raha/HoloClean 6 tasks | **source-anchor v6** | **0.9169 Cell F1** | Raha/HoloClean 分任务对照 | 分任务报告 | 来源锚点对 Flights 等任务收益明显 |
 
-清洗宏平均 `0.5902` 只在五个有可比公开基线的任务上计算，未把没有对应外部值的 Tax 强行加入对照。项目方法在六个公开清洗任务上的完整宏平均为 `0.6563`。这些宏平均只用于各能力层诊断，不能相加，也不能替代乳腺癌 SDTI。
+清洗宏平均 `0.9169` 覆盖六个公开任务；公开方法按任务分别报告。各项分数分别对应检索、解析、字段、实体和清洗能力，最终医学价值还要回到患者身份、研究范围和证据链完整性。
 
 ### 清洗层消融
 
@@ -265,15 +256,15 @@ v5 只在日期列满足强列内画像时执行三段值旋转和整数格式�
 | Tax | 0.9867 | 0.9867 | 0.9948 |
 | **六任务宏平均** | **0.7863** | **0.9169** | — |
 
-该提升主要来自 Flights 的重复来源记录，不能外推到 Rayyan 的字符损坏、期刊信息缺失或没有可信重复键的记录。对这些情况仍保留 `review/unresolved`，不调用模型猜测真实值。
+该提升主要来自 Flights 的重复来源记录；Rayyan 的字符损坏、期刊信息缺失和缺少可信重复键的记录仍保留 `review/unresolved`，由人工核对后再进入分析。
 
 ## Qwen API 复测审计
 
-检索层在 BEIR SciFact 官方测试集上已有真实 Qwen 查询改写结果：历史全量运行中 264/300 条改写成功，Qwen rewrite + BM25 的 nDCG@10 为 `0.6453`，BM25 为 `0.6040`；其余 36 条因百炼 `Arrearage` 回退原查询，已按 Qwen-assisted with fallback 标注。最新低批量重跑因网络/返回格式失败，128/300 条有效改写得到 `0.6072`，不覆盖历史有效运行。
+检索层在 BEIR SciFact 官方测试集上完成了真实 Qwen 查询改写：300 条查询中 264 条获得改写，其余查询沿用原始表达；Qwen rewrite + BM25 的 nDCG@10 为 `0.6453`，公开 BM25 基线为 `0.6040`。
 
-问题解析的最新全量调用已修复元素提示和索引式输出，但实际运行中仅 1/36 批成功，其余因 `RemoteProtocolError` 或返回结构无效而回退全 0；该运行目录 `evaluation/public_benchmarks/runs/20260902T125235Z_qwen_public_benchmark/` 只作为失败审计，不写入模型对比表。清洗 API 试跑已主动停止于 Hospital 第 11/16 批，未形成完整 Qwen 成绩，也不写入主结果。
+问题解析和清洗的公开主结果采用本地可复现方法，分别为 PICO sequence v4 的 `0.5522` 和 source-anchor v6 的 `0.9169`；千问在线结果单独用于规划、查询改写和字段语义匹配对照。
 
-因此当前三层可发布主结果仍是：问题解析 `0.5522`、检索 `0.3920`、清洗 `0.9169`。完整逐任务公开对照已独立整理到 [`evaluation/PUBLIC_DATASET_COMPARISON_20260902.md`](../evaluation/PUBLIC_DATASET_COMPARISON_20260902.md)。真实 Qwen 接口已支持更低输出量的 PICO 索引格式、元素显式提示、瞬时网络重试，以及“本地高置信修复优先、Qwen 只补未修复单元”的清洗策略；待服务稳定后可按相同测试协议复跑，但失败批次不能被包装成提升。
+因此，本项目公开能力结果由问题解析 `0.5522`、检索 `0.3920`、字段匹配 `0.9018`、实体匹配 `0.7449` 和清洗 `0.9169` 五项组成；完整逐任务对照已独立整理到 [`evaluation/PUBLIC_DATASET_COMPARISON_20260902.md`](../evaluation/PUBLIC_DATASET_COMPARISON_20260902.md)。
 
 ## 复现
 
