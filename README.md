@@ -18,15 +18,18 @@
 | 多癌种扩展 | 乳腺癌专项流程与 17 个其他常见癌种配置 | 按癌种加载研究上下文与安全边界 |
 | 导出审计 | CSV、Excel、Evidence 与运行报告 | 可追溯科研数据包 |
 
-## 核心运行结果
+## 核心对照结果
 
-| 评测 | 结果 |
-|---|---:|
-| 严格千问在线候选（2026-09-02） | **SDTI 98.1118** |
-| 真实 Qwen 字段匹配（Valentine） | **Macro F1 0.9018** |
-| 公开清洗基准（Raha/HoloClean 六任务） | **Cell F1 0.9169** |
+| 能力 | 本项目方法与结果 | 对照方法与结果 | 差值 |
+|---|---:|---:|---:|
+| 问题解析（EBM-NLP） | 序列特征解析：**0.5522** | 项目词典：0.4662 | **+0.0860** |
+| 科学检索（BEIR 五任务主对照） | BGE 初检索 + 重排：**0.3920** | BGE 单路：0.3880 | **+0.0040** |
+| 字段匹配（Valentine） | 千问辅助：**0.9018** | 项目原方法：0.7994；COMA：0.7670 | **+0.1024；+0.1348** |
+| 实体匹配（DeepMatcher） | 自适应融合：**0.7449** | RecordLinkage：0.7440 | **+0.0009** |
+| 数据清洗（Raha/HoloClean） | 来源锚点第6版：**0.9169**（六项） | Raha：0.8159（五项共同任务） | **+0.0870**（共同五项） |
+| 完整乳腺癌链路 | 千问 3.8-Max + 真实来源 + 规则核验：**SDTI 98.1118** | 项目内确定性链路：SDTI 99.45 | 独立口径，不合并 |
 
-严格千问结果来自 `official_candidate` 候选卷，11/11 题实际调用千问、0 次确定性兜底，但尚未封存为 `frozen_test`，不能当作正式冻结成绩。固定规划的数据链开发复测另为 SDTI 99.45。
+上表中的公开数据集结果是在各自官方测试划分上完成的，分数只在同一能力内部比较，不相加为总准确率。完整链路的 98.1118 来自候选题集，固定规划链路的 99.45 来自另一种运行条件，二者用于说明工程表现，不能替代封存测试成绩。
 
 ## 快速启动
 
@@ -50,7 +53,8 @@ python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 | [最终交付索引](docs/FINAL_DELIVERY_INDEX_20260830.md) | 最新交付物与最终正文入口 |
 | [最终正文报告](docs/乳腺癌精准治疗科研数据智能体_专业叙事与规范图示终稿_20260831.md) | 项目设计、数据整合流程与最终展示 |
 | [公开数据集统一对照报告](evaluation/PUBLIC_DATASET_COMPARISON_20260902.md) | 问题解析、科学检索、字段匹配、实体匹配、清洗的真实逐任务指标、消融和 API 条件实验 |
-| [论文及图示阅读包 ZIP](deliverables/乳腺癌精准治疗科研数据智能体_论文及图示阅读包_20260903.zip) | 只含论文、图示、公开对照与必要证据的最终阅读包 |
+| [公开检索统一多方法矩阵](evaluation/PUBLIC_RETRIEVAL_MATRIX_20260903.md) | 同一公开测试集上的多种方法、命中率、召回率、排序质量和耗时 |
+| [论文及图示阅读包 ZIP](deliverables/乳腺癌精准治疗科研数据智能体_论文及图示阅读包_20260904_最终.zip) | 只含论文、图示、公开对照与必要证据的最终阅读包 |
 
 ## 复现评测与图表
 
@@ -66,12 +70,14 @@ python scripts\build_github_report_charts.py
 ```powershell
 python scripts\run_public_problem_benchmark.py
 python scripts\run_public_retrieval_benchmark.py --dataset beir_scifact
+python scripts\run_public_retrieval_benchmark.py --dataset beir_trec_covid --method bm25 --method project_bm25_tuned_v2 --method project_hybrid
+python scripts\build_public_retrieval_matrix.py
 python scripts\run_public_cleaning_benchmark.py
 ```
 
-当前公开主结果为：EBM-NLP 问题解析 macro span F1 `0.5522`，BEIR 五任务检索 macro nDCG@10 `0.3920`，Valentine 字段匹配 macro Schema F1 `0.9018`，DeepMatcher 实体匹配 macro Entity F1 `0.7449`，Raha/HoloClean 六任务清洗 macro Cell F1 `0.9169`。真实 Qwen 条件另存于 `evaluation/public_benchmarks/runs/`；网络失败或格式失败的批次只进入审计，不计作模型成绩。
+当前公开主结果为：EBM-NLP 问题解析平均片段 F1 `0.5522`，BEIR 五任务检索前十条排序质量 `0.3920`，新增 TREC-COVID 医学文献任务 50 个测试问题，Valentine 字段对齐 F1 `0.9018`，DeepMatcher 实体匹配 F1 `0.7449`，Raha/HoloClean 六任务错误单元 F1 `0.9169`。千问真实条件另存于 `evaluation/public_benchmarks/runs/`，并与本地可复现主结果分开说明。
 
-公开数据集的完整统一对照、实体匹配结果、逐任务消融和“为什么问题解析/检索偏低”的分析见 [`evaluation/PUBLIC_DATASET_COMPARISON_20260902.md`](evaluation/PUBLIC_DATASET_COMPARISON_20260902.md)，机器可读索引见 [`evaluation/PUBLIC_DATASET_COMPARISON_20260902.json`](evaluation/PUBLIC_DATASET_COMPARISON_20260902.json)。
+公开数据集的完整统一对照、实体匹配结果、逐任务消融和“为什么问题解析/检索偏低”的分析见 [`evaluation/PUBLIC_DATASET_COMPARISON_20260902.md`](evaluation/PUBLIC_DATASET_COMPARISON_20260902.md)；检索的多方法、多指标同表见 [`evaluation/PUBLIC_RETRIEVAL_MATRIX_20260903.md`](evaluation/PUBLIC_RETRIEVAL_MATRIX_20260903.md)，机器可读结果见 [`evaluation/public_benchmarks/retrieval_matrix_20260903.json`](evaluation/public_benchmarks/retrieval_matrix_20260903.json)。
 
 图表直接读取 `results.json`，不在绘图代码中填写成绩。完整逐方法指标、数据哈希和运行环境均保留在评测产物中。
 

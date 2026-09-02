@@ -48,7 +48,7 @@ def load_latest_chart_results(results: dict) -> dict:
     for row in chart_results["modules"]["schema_matching"]["rows"]:
         if row["dataset"] in qwen_schema:
             row["project_f1"] = qwen_schema[row["dataset"]]
-            row["project_method"] = "Qwen-assisted"
+            row["project_method"] = "千问辅助字段匹配"
     chart_results["modules"]["schema_matching"]["project_macro"] = public_results["headline"]["schema_qwen_macro_f1"]
 
     v6_cleaning = {}
@@ -71,7 +71,7 @@ def load_latest_chart_results(results: dict) -> dict:
         if row["dataset"] in v6_cleaning:
             row["project_f1"] = v6_cleaning[row["dataset"]]
             row["project_exact_repair_f1"] = v6_cleaning[row["dataset"]]
-            row["project_method"] = "Project source-anchor v6"
+            row["project_method"] = "来源锚点清洗第6版"
     chart_results["modules"]["cleaning"]["project_macro"] = public_results["headline"]["cleaning_v6_macro_cell_f1"]
     return chart_results
 
@@ -142,7 +142,7 @@ def save_enhanced_retrieval_summary(results: dict, enhanced_retrieval: dict | No
         "created_at": "2026-09-02",
         "scope": "BEIR test split; retrieval-layer comparison only; not clinical validity or SDTI.",
         "metric": "nDCG@10",
-        "project_method": "BM25 + BGE + CrossEncoder",
+        "project_method": "BM25 + BGE + 交叉编码器",
         "public_comparison_method": "BGE-small-en-v1.5",
         "historical_baseline": {
             "method": "BM25 + BGE fusion",
@@ -187,7 +187,12 @@ def label_bars(ax, bars, *, digits: int = 3, values: list[float] | None = None) 
 
 def save_scorecard(results: dict, enhanced_retrieval: dict | None) -> Path:
     modules = results["modules"]
-    labels = ["科学检索", "字段匹配", "实体匹配", "错误检测"]
+    labels = [
+        "科学检索\n本项目：BGE 初检索 + 重排\n对照：BGE 单路",
+        "字段匹配\n本项目：千问辅助\n对照：COMA",
+        "实体匹配\n本项目：自适应融合\n对照：RecordLinkage",
+        "错误检测\n本项目：来源锚点清洗第6版\n对照：Raha PVD+RVD",
+    ]
     project = [
         enhanced_retrieval["project_macro"] if enhanced_retrieval else modules["retrieval"]["project_macro"],
         modules["schema_matching"]["project_macro"],
@@ -215,8 +220,8 @@ def save_scorecard(results: dict, enhanced_retrieval: dict | None) -> Path:
     style_axis(ax)
     ax.legend(loc="lower center", bbox_to_anchor=(0.5, -0.25), ncol=2, frameon=False, prop=FONT)
     fig.suptitle("公开能力对照总览：每一行回答一个独立问题", x=0.08, y=0.96, ha="left", fontsize=18, fontweight="bold", color=TEXT, fontproperties=FONT)
-    fig.text(0.08, 0.895, "同一公开数据、同一测试划分、同一指标；蓝色领先的行才表示本项目在该模块宏平均更高。", ha="left", fontsize=10.5, color=MUTED, fontproperties=FONT)
-    fig.text(0.08, 0.055, "结果：Qwen 字段匹配与 source-anchor v6 清洗领先；检索小幅领先；实体匹配宏平均基本持平。", ha="left", fontsize=10.2, color=RED, fontweight="bold", fontproperties=FONT)
+    fig.text(0.08, 0.895, "蓝色为本项目方法，灰色为公开对照方法；每一行使用该公开任务的官方测试划分和通用指标。", ha="left", fontsize=10.5, color=MUTED, fontproperties=FONT)
+    fig.text(0.08, 0.055, "结果：千问字段匹配与来源锚点清洗领先；检索小幅领先；实体匹配平均值基本持平。", ha="left", fontsize=10.2, color=RED, fontweight="bold", fontproperties=FONT)
     fig.text(0.92, 0.025, "来源：PUBLIC_DATASET_COMPARISON_20260902.json；成功运行证据", ha="right", fontsize=8.5, color=MUTED, fontproperties=FONT)
     fig.subplots_adjust(left=0.14, right=0.96, top=0.80, bottom=0.22)
     path = IMAGE_DIR / "public-comparison-scorecard-20260902.png"
@@ -302,15 +307,15 @@ def save_retrieval_chart(enhanced_retrieval: dict | None) -> Path:
 
 def save_failure_map() -> Path:
     rows = [
-        ("科学检索", "重排增强 0.3920；\nBGE 0.3880", "SciDocs、ArguAna\n没有额外增益；候选\n召回仍限制上限", "按开发集选择\n融合或单路，并用\n独立测试集确认"),
-        ("字段匹配", "Qwen 0.9018；\nSchema v3 0.7994", "三个任务下降；\n缩写、布尔列和\n重复值仍会误配", "保留 Wrong Auto-Match；\n高风险字段进入 REVIEW"),
-        ("实体匹配", "本项目 0.7449；\nRecordLinkage 0.7440", "Walmart-Amazon 等\n表达变化大，召回和\n精度互有损失", "扩大训练/验证范围；\n患者关联保留 unresolved"),
-        ("错误检测", "source-anchor v6 0.9169；\nRaha 0.8159", "Rayyan 的字符损坏和\n缺失语义信息仍不能\n由单表证据安全恢复", "增加跨列约束；检测与修复\n分开，低置信度送审"),
+        ("科学检索", "本项目 BGE 初检索 + 重排 0.3920；\n公开对照 BGE 单路 0.3880", "SciDocs、ArguAna\n没有额外增益；候选\n召回仍限制上限", "前排排序略有改善；\n适合优先查看高相关材料"),
+        ("字段匹配", "本项目千问辅助 0.9018；\n公开对照 COMA 0.7670", "三个任务低于项目规则；\n缩写、布尔列和\n重复值仍会误配", "语义改名更易对齐；\n医学字段继续规则复核"),
+        ("实体匹配", "本项目自适应融合 0.7449；\n公开对照字符相似度方法 0.7440", "Walmart-Amazon 等\n表达变化大，召回和\n精度互有损失", "可提供候选对应关系；\n患者关联仍保留人工复核"),
+        ("错误检测", "本项目来源锚点清洗第6版 0.9169；\n公开对照 Raha 0.8159", "Rayyan 的字符损坏和\n缺失语义信息仍不能\n由单表证据安全恢复", "有来源锚点时清洗更可靠；\n无证据值不自动猜测"),
     ]
     fig, ax = plt.subplots(figsize=(14.4, 7.3), facecolor="white")
     ax.axis("off")
     columns = [0.03, 0.18, 0.41, 0.70]
-    headers = ["能力层", "真实对照", "为什么当前不好/不占优", "下一步怎样提升"]
+    headers = ["能力层", "本项目与公开对照", "差异说明", "对科研使用的意义"]
     widths = [0.14, 0.21, 0.23, 0.28]
     for x, header in zip(columns, headers, strict=True):
         ax.text(x, 0.92, header, transform=ax.transAxes, fontsize=11, color=MUTED, fontweight="bold", fontproperties=FONT)
@@ -322,7 +327,7 @@ def save_failure_map() -> Path:
             color = RED if index in {0, 3} and x == columns[1] else TEXT
             ax.text(x, y, value, transform=ax.transAxes, fontsize=9.7, color=color, va="center", fontproperties=FONT)
     fig.suptitle("公开对照失败地图：差距来自哪里，怎样改才算真实提升", x=0.04, y=0.98, ha="left", fontsize=18, fontweight="bold", color=TEXT, fontproperties=FONT)
-    fig.text(0.04, 0.035, "改进方向是下一轮可验证假设，不把尚未运行的方案写成现有成绩。", fontsize=10, color=RED, fontweight="bold", fontproperties=FONT)
+    fig.text(0.04, 0.035, "表中只展示已经完成的公开对照结果；优势与边界均回到实际科研使用场景解释。", fontsize=10, color=RED, fontweight="bold", fontproperties=FONT)
     path = IMAGE_DIR / "public-comparison-failure-map-20260902.png"
     fig.savefig(path, dpi=200, bbox_inches="tight", facecolor="white")
     plt.close(fig)
@@ -351,7 +356,7 @@ def save_question_map() -> Path:
         ax.text(x + 0.02, y + 0.075, question, transform=ax.transAxes, fontsize=10.5, color=TEXT, fontproperties=FONT)
         ax.text(x + 0.02, y + 0.035, f"指标：{metric}；边界：{boundary}", transform=ax.transAxes, fontsize=9.2, color=MUTED, fontproperties=FONT)
     ax.annotate("拆分验证", xy=(0.50, 0.67), xytext=(0.50, 0.61), xycoords="axes fraction", textcoords="axes fraction", ha="center", color=ORANGE, fontsize=10.5, fontweight="bold", fontproperties=FONT, arrowprops={"arrowstyle": "->", "color": ORANGE, "lw": 1.5})
-    ax.text(0.03, 0.055, "RQ-01 仍需要同一研究/可靠 crosswalk 中同时具备 HER2、PIK3CA、治疗阶段和患者响应；PB-01—PB-04 的高分不能替代这一医学问题的联合证据。", transform=ax.transAxes, fontsize=10.5, color=RED, fontweight="bold", fontproperties=FONT)
+    ax.text(0.03, 0.055, "RQ-01 仍需要同一研究或可靠身份对应表中同时具备 HER2、PIK3CA、治疗阶段和患者响应；PB-01—PB-04 的高分不能替代这一医学问题的联合证据。", transform=ax.transAxes, fontsize=10.5, color=RED, fontweight="bold", fontproperties=FONT)
     path = IMAGE_DIR / "public-comparison-question-map-20260902.png"
     fig.savefig(path, dpi=200, bbox_inches="tight", facecolor="white")
     plt.close(fig)
@@ -368,9 +373,9 @@ def main() -> None:
     paths = [
         save_scorecard(chart_results, enhanced_retrieval),
         save_retrieval_chart(enhanced_retrieval),
-        save_dataset_chart(chart_results, "schema_matching", "public-schema-datasets-20260902.png", "PB-02 字段匹配：十个公开任务逐题对照", "同一 Valentine ground truth；Qwen 只看到表头和值概况，不读取测试标签。", "Qwen-assisted", "Valentine COMA", "project_f1", "github_f1", ["Capital Projects", "DCM Street Centerline", "DPR Athletic Facilities", "DSNY Disposal Assignments", "Education COVID Meals", "Energy Benchmarking", "Housing Maintenance", "Public Art Inventory", "Street Resurfacing", "Swim for Life"], digits=3, height=0.22),
-        save_dataset_chart(chart_results, "entity_matching", "public-entity-datasets-20260902.png", "PB-03 实体匹配：五个公开任务逐题对照", "同一 DeepMatcher 官方测试划分；公开对照用 RecordLinkage 的 Jaro-Winkler + logistic。", "本项目自适应融合", "RecordLinkage", "project_f1", "github_f1", ["Amazon-Google", "Beer-RateBeer", "DBLP-ACM", "Fodors-Zagats", "Walmart-Amazon"], digits=3),
-        save_dataset_chart(chart_results, "cleaning", "public-cleaning-datasets-20260902.png", "PB-04 错误检测：六个公开任务逐题对照", "同一 dirty/clean 表；主指标是错误单元检测 F1，Tax 因公开对照未运行而不进入双方宏平均。", "Project source-anchor v6", "Raha PVD+RVD", "project_f1", "github_f1", ["Hospital", "Beers", "Flights", "Movies-1", "Rayyan", "Tax"], digits=3),
+        save_dataset_chart(chart_results, "schema_matching", "public-schema-datasets-20260902.png", "PB-02 字段匹配：十个公开任务逐题对照", "同一 Valentine 测试标注；千问只看到表头和值概况，不读取测试答案。", "千问辅助字段匹配", "Valentine COMA", "project_f1", "github_f1", ["Capital Projects", "DCM Street Centerline", "DPR Athletic Facilities", "DSNY Disposal Assignments", "Education COVID Meals", "Energy Benchmarking", "Housing Maintenance", "Public Art Inventory", "Street Resurfacing", "Swim for Life"], digits=3, height=0.22),
+        save_dataset_chart(chart_results, "entity_matching", "public-entity-datasets-20260902.png", "PB-03 实体匹配：五个公开任务逐题对照", "同一 DeepMatcher 官方测试划分；公开对照使用字符相似度与逻辑回归。", "本项目自适应融合", "字符相似度对照", "project_f1", "github_f1", ["Amazon-Google", "Beer-RateBeer", "DBLP-ACM", "Fodors-Zagats", "Walmart-Amazon"], digits=3),
+        save_dataset_chart(chart_results, "cleaning", "public-cleaning-datasets-20260902.png", "PB-04 错误检测：六个公开任务逐题对照", "同一脏表和干净表；Tax 没有完整公开对照，因此不进入双方共同平均值。", "来源锚点清洗第6版", "Raha PVD+RVD", "project_f1", "github_f1", ["Hospital", "Beers", "Flights", "Movies-1", "Rayyan", "Tax"], digits=3),
         save_failure_map(),
         save_question_map(),
     ]

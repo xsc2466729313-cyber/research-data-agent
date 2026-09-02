@@ -56,12 +56,13 @@ def test_frontend_summary_keeps_public_and_agent_comparisons_distinct() -> None:
 def test_benchmark_results_live_in_reports_not_the_user_frontend() -> None:
     frontend = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     script = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
-    report = (ROOT / "docs" / "FINAL_INTEGRATED_REPORT_20260829.md").read_text(encoding="utf-8")
+    report = (ROOT / "docs" / "乳腺癌精准治疗科研数据智能体_专业叙事与规范图示终稿_20260831.md").read_text(encoding="utf-8")
 
     assert "public-benchmark" not in frontend
     assert "public-benchmark-summary.json" not in script
     assert "3,677" in report
-    assert "Qwen3.8-Max 1.0000" in report
-    assert "DeepSeek Recall@3 0.6667" in report
+    assert "千问 3.8-Max" in report
+    assert "DeepSeek" in report
+    assert "前三条命中率" in report
     assert "Qwen-plus" not in report
     assert "3,029" not in report

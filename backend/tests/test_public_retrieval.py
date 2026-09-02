@@ -27,6 +27,9 @@ def test_bm25_and_project_hybrid_retrieve_relevant_document() -> None:
         metrics = evaluate_retriever(retriever, queries, qrels)
         assert metrics.query_count == 1
         assert metrics.ndcg_at_10 == pytest.approx(1.0)
+        assert metrics.hit_rate_at_1 == pytest.approx(1.0)
+        assert metrics.hit_rate_at_10 == pytest.approx(1.0)
+        assert metrics.recall_at_10 == pytest.approx(1.0)
         assert metrics.recall_at_100 == pytest.approx(1.0)
         assert metrics.mrr_at_10 == pytest.approx(1.0)
 
@@ -77,4 +80,7 @@ def test_evaluation_uses_graded_ndcg() -> None:
     )
     assert 0 < metrics.ndcg_at_10 < 1
     assert metrics.recall_at_100 == 1
+    assert metrics.hit_rate_at_1 == 1
+    assert metrics.precision_at_1 == 1
+    assert metrics.recall_at_10 == 1
     assert metrics.mrr_at_10 == 1

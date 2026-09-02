@@ -67,15 +67,36 @@ BEIR_DATASETS = {
         "source_id": "beir:trec-covid",
         "source_url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/trec-covid.zip",
     },
+    "beir_quora": {
+        "archive_name": "quora.zip",
+        "folder_name": "quora",
+        "source_id": "beir:quora",
+        "source_url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/quora.zip",
+    },
 }
 
 
 @dataclass(frozen=True)
 class RetrievalMetrics:
     ndcg_at_10: float
+    precision_at_1: float
+    precision_at_3: float
+    precision_at_5: float
+    precision_at_10: float
+    recall_at_1: float
+    recall_at_3: float
+    recall_at_5: float
+    recall_at_10: float
     recall_at_100: float
+    hit_rate_at_1: float
+    hit_rate_at_3: float
+    hit_rate_at_5: float
+    hit_rate_at_10: float
     mrr_at_10: float
     mean_latency_ms: float
+    std_latency_ms: float
+    p50_latency_ms: float
+    p95_latency_ms: float
     query_count: int
     index_build_seconds: float = 0.0
     estimated_cost_usd: float = 0.0
@@ -431,7 +452,9 @@ def evaluate_retriever(
     if callable(reset):
         reset()
     ndcgs: list[float] = []
-    recalls: list[float] = []
+    precision_by_k: dict[int, list[float]] = {k: [] for k in (1, 3, 5, 10)}
+    recall_by_k: dict[int, list[float]] = {k: [] for k in (1, 3, 5, 10, 100)}
+    hit_by_k: dict[int, list[float]] = {k: [] for k in (1, 3, 5, 10)}
     reciprocal_ranks: list[float] = []
     latencies: list[float] = []
     eligible_queries = [query_id for query_id in sorted(qrels) if query_id in queries]
@@ -453,17 +476,40 @@ def evaluate_retriever(
         ideal = sorted(relevant.values(), reverse=True)[:10]
         idcg = sum((2**gain - 1) / math.log2(rank + 1) for rank, gain in enumerate(ideal, start=1))
         ndcgs.append(dcg / idcg if idcg else 0.0)
-        retrieved_relevant = len(set(ranking[:100]) & set(relevant))
-        recalls.append(retrieved_relevant / len(relevant) if relevant else 0.0)
+        relevant_ids = set(relevant)
+        for k in (1, 3, 5, 10):
+            retrieved_relevant = len(set(ranking[:k]) & relevant_ids)
+            precision_by_k[k].append(retrieved_relevant / k)
+            recall_by_k[k].append(retrieved_relevant / len(relevant) if relevant else 0.0)
+            hit_by_k[k].append(float(retrieved_relevant > 0))
+        retrieved_relevant = len(set(ranking[:100]) & relevant_ids)
+        recall_by_k[100].append(retrieved_relevant / len(relevant) if relevant else 0.0)
         first_rank = next((rank for rank, doc_id in enumerate(ranking[:10], start=1) if doc_id in relevant), None)
         reciprocal_ranks.append(1.0 / first_rank if first_rank else 0.0)
     if not ndcgs:
         raise ValueError("No test queries were shared by queries.jsonl and qrels/test.tsv")
+    mean_latency = sum(latencies) / len(latencies)
+    sorted_latencies = sorted(latencies)
     return RetrievalMetrics(
         ndcg_at_10=sum(ndcgs) / len(ndcgs),
-        recall_at_100=sum(recalls) / len(recalls),
+        precision_at_1=sum(precision_by_k[1]) / len(ndcgs),
+        precision_at_3=sum(precision_by_k[3]) / len(ndcgs),
+        precision_at_5=sum(precision_by_k[5]) / len(ndcgs),
+        precision_at_10=sum(precision_by_k[10]) / len(ndcgs),
+        recall_at_1=sum(recall_by_k[1]) / len(ndcgs),
+        recall_at_3=sum(recall_by_k[3]) / len(ndcgs),
+        recall_at_5=sum(recall_by_k[5]) / len(ndcgs),
+        recall_at_10=sum(recall_by_k[10]) / len(ndcgs),
+        recall_at_100=sum(recall_by_k[100]) / len(ndcgs),
+        hit_rate_at_1=sum(hit_by_k[1]) / len(ndcgs),
+        hit_rate_at_3=sum(hit_by_k[3]) / len(ndcgs),
+        hit_rate_at_5=sum(hit_by_k[5]) / len(ndcgs),
+        hit_rate_at_10=sum(hit_by_k[10]) / len(ndcgs),
         mrr_at_10=sum(reciprocal_ranks) / len(reciprocal_ranks),
-        mean_latency_ms=sum(latencies) / len(latencies),
+        mean_latency_ms=mean_latency,
+        std_latency_ms=math.sqrt(sum((value - mean_latency) ** 2 for value in latencies) / len(latencies)),
+        p50_latency_ms=sorted_latencies[max(0, math.ceil(len(sorted_latencies) * 0.50) - 1)],
+        p95_latency_ms=sorted_latencies[max(0, math.ceil(len(sorted_latencies) * 0.95) - 1)],
         query_count=len(ndcgs),
         index_build_seconds=float(getattr(retriever, "index_build_seconds", 0.0)),
         estimated_cost_usd=float(getattr(retriever, "estimated_cost_usd", 0.0)),
@@ -526,7 +572,13 @@ def write_run_artifacts(
         writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
         for method_id, (label, metrics) in metrics_by_method.items():
-            for metric_name in ("ndcg_at_10", "recall_at_100", "mrr_at_10", "mean_latency_ms", "index_build_seconds", "estimated_cost_usd", "qwen_invocation_rate"):
+            for metric_name in (
+                "ndcg_at_10", "precision_at_1", "precision_at_3", "precision_at_5", "precision_at_10",
+                "recall_at_1", "recall_at_3", "recall_at_5", "recall_at_10", "recall_at_100",
+                "hit_rate_at_1", "hit_rate_at_3", "hit_rate_at_5", "hit_rate_at_10", "mrr_at_10",
+                "mean_latency_ms", "std_latency_ms", "p50_latency_ms", "p95_latency_ms",
+                "index_build_seconds", "estimated_cost_usd", "qwen_invocation_rate",
+            ):
                 value = getattr(metrics, metric_name)
                 writer.writerow({
                     "evaluation_id": run_dir.name,
@@ -540,8 +592,8 @@ def write_run_artifacts(
                     "method_label": label,
                     "metric": metric_name,
                     "value": f"{value:.8f}",
-                    "direction": "lower" if metric_name in {"mean_latency_ms", "index_build_seconds", "estimated_cost_usd"} else "higher",
-                    "unit": "ms_per_query" if metric_name == "mean_latency_ms" else "seconds" if metric_name == "index_build_seconds" else "usd" if metric_name == "estimated_cost_usd" else "ratio",
+                    "direction": "lower" if metric_name in {"mean_latency_ms", "std_latency_ms", "p50_latency_ms", "p95_latency_ms", "index_build_seconds", "estimated_cost_usd"} else "higher",
+                    "unit": "ms_per_query" if metric_name.endswith("latency_ms") else "seconds" if metric_name == "index_build_seconds" else "usd" if metric_name == "estimated_cost_usd" else "ratio",
                     "n": metrics.query_count,
                     "run_count": 1,
                     "seed": "deterministic",
@@ -559,14 +611,15 @@ def write_run_artifacts(
         "",
         "> This is a retrieval-layer test. It is not a full-agent, medical-validity, or SDTI result.",
         "",
-        "| Method | nDCG@10 | Recall@100 | MRR@10 | Mean latency/query | Index build | Local API cost |",
-        "|---|---:|---:|---:|---:|---:|---:|",
+        "| 方法 | 前十条排序 | 前一条命中 | 前三条命中 | 前十条命中 | 前十条召回 | 前百条召回 | 首条排序 | 平均用时 | 用时标准差 | P95用时 | 查询数 |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for _, (label, metrics) in metrics_by_method.items():
         lines.append(
-            f"| {label} | {metrics.ndcg_at_10:.4f} | {metrics.recall_at_100:.4f} | "
-            f"{metrics.mrr_at_10:.4f} | {metrics.mean_latency_ms:.2f} ms | "
-            f"{metrics.index_build_seconds:.2f} s | ${metrics.estimated_cost_usd:.2f} |"
+            f"| {label} | {metrics.ndcg_at_10:.4f} | {metrics.hit_rate_at_1:.4f} | {metrics.hit_rate_at_3:.4f} | "
+            f"{metrics.hit_rate_at_10:.4f} | {metrics.recall_at_10:.4f} | {metrics.recall_at_100:.4f} | "
+            f"{metrics.mrr_at_10:.4f} | {metrics.mean_latency_ms:.2f} ms | {metrics.std_latency_ms:.2f} ms | "
+            f"{metrics.p95_latency_ms:.2f} ms | {metrics.query_count} |"
         )
     lines.extend([
         "",

@@ -31,7 +31,7 @@
     "source_ids": ["beir:scifact", "beir:nfcorpus", "beir:scidocs", "beir:arguana", "beir:fiqa"],
     "split": "test",
     "metric": "nDCG@10",
-    "project_method": "dev-selected BGE/CrossEncoder",
+    "project_method": "BGE-small-en-v1.5 initial retrieval + ms-marco-MiniLM-L6-v2 CrossEncoder reranking on tasks with development labels",
     "baseline_method": "BGE-small-en-v1.5",
     "macro": {"project_ndcg_at_10": 0.3920223343760751, "baseline_ndcg_at_10": 0.3879530473291564, "project_recall_at_100": 0.6553889049236642, "project_mrr_at_10": 0.45039992096450476},
     "datasets": [
