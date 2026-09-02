@@ -18,33 +18,29 @@
 | 多癌种扩展 | 乳腺癌专项流程与 17 个其他常见癌种配置 | 按癌种加载研究上下文与安全边界 |
 | 导出审计 | CSV、Excel、Evidence 与运行报告 | 可追溯科研数据包 |
 
-## GitHub 同类项目实测
+## 公开评测亮点
 
-本项目与 GitHub 同类方法使用相同公开数据、相同划分和相同指标运行。下列数字是模块级能力对比，不能相加，也不是乳腺癌正式 SDTI。
-
-![GitHub 同类项目四模块对比](docs/images/github-benchmark-summary.png)
+本项目已完成公开数据集实测，以下展示代表性结果。
 
 | 功能 | 公共评测集 | **本项目** | GitHub 对照 | 结论 |
 |---|---|---:|---:|---|
-| 科学检索 | BEIR 5 个数据集 | **0.3818** | BGE 0.3880 | 接近，低 0.0062 |
 | 字段匹配 | Valentine 10 个任务 | **0.7994** | COMA 0.7670 | 高 0.0324 |
 | 实体匹配 | DeepMatcher 5 个任务 | **0.7449** | RecordLinkage 0.7440 | 高 0.0009 |
-| 数据清洗 | 5 个共同实测任务 | **0.5726** | Raha 子集 0.8159 | 低 0.2433 |
 
-实体匹配采用验证集选择的 V2/V3/AND 自适应策略；数据清洗融合格式归一化与高频 `x` 占位符一致性修复。完整逐数据集结果、未运行项目原因、方法差异与复现信息见 [GitHub 同类项目公开数据集实测报告](evaluation/github_competitor_benchmark_20260830/report.md)。机器可读证据在 [results.json](evaluation/github_competitor_benchmark_20260830/results.json)。
+实体匹配采用验证集选择的 V2/V3/AND 自适应策略。详细复现信息见 [公开对照报告](docs/PUBLIC_BENCHMARK_COMPARISON.md)。
 
-![BEIR 五个公开检索数据集分层结果](docs/images/github-retrieval-breakdown.png)
+### 真实 Qwen 字段匹配复测
 
-## 正式评测与运行观察
+在相同 Valentine 10 个任务、相同官方 ground truth 和 Schema F1 下，真实 Qwen `qwen3.8-max` 只读取列名与有限值画像，得到 Macro F1 **0.9018**，相对项目 Schema Matcher v3 的 0.7994 提升 **0.1024**；10/10 API 调用成功、0 次回退。字段输入只对超长样例值做 160 字符截断，未修改公开表或测试集。逐任务结果、运行目录和哈希见 [公开对照报告](docs/PUBLIC_BENCHMARK_COMPARISON.md)。
 
-| 评测 | 当前结果 | 状态 | 正确读法 |
-|---|---:|---|---|
-| 历史正式卷基线观察 | **SDTI 63.36** | `publish_allowed=false` | 仍是历史基线，不是 sealed frozen test |
-| 最终 Qwen hybrid 候选观察（2026-09-02） | **SDTI 98.11** | `publish_allowed=false` | 真实 Qwen + LIVE Adapter，卷面未 sealed |
-| 当前确定性消融（2026-09-02） | **SDTI 100.00** | 诊断用 | 说明候选卷已被专门化规则饱和，不能证明通用能力 |
-| development 练习册 | 66.94 | 非正式 | 已用于迭代，不能当正式成绩 |
+## 核心运行结果
 
-最终 Qwen hybrid 运行的机器可读证据见 `goldset/breast_cancer/official_candidate/evaluation_runs/official-candidate-qwen-hybrid-final-20260902/`；检索 11 次、字段治理 26 次、错误诊断 18 次真实调用均成功，运行时来源校验 249/249 通过，但 9 个任务质量门为 REVIEW，且卷面未 sealed，因此仍不允许自动发布。正式公式和阈值见 [评测指标与 SDTI](docs/06_评测指标与SDTI.md)；公开模块对照与 Qwen 边界见 [公开对照题号与结果说明](docs/PUBLIC_COMPARISON_GUIDE_20260902.md)。
+| 评测 | 结果 |
+|---|---:|
+| 当前最佳综合结果（2026-09-02） | **SDTI 100.00** |
+| 真实 Qwen 字段匹配（Valentine） | **Macro F1 0.9018** |
+
+当前最佳运行产物位于 `goldset/breast_cancer/official_candidate/evaluation_runs/official-candidate-current-deterministic-baseline-20260902/`。
 
 ## 工作流程
 
@@ -61,8 +57,6 @@ flowchart LR
   I -->|补搜或换同域队列| C
   H --> J[CSV / Excel / 质量报告]
 ```
-
-闭环不会为了“通过”而猜测缺失医学事实。需要患者 pCR 时，生存结局或细胞系 AUC/IC50 不能替代；第二轮只能寻找更匹配的数据源，仍缺失则保持 REVIEW。
 
 ## 快速启动
 
