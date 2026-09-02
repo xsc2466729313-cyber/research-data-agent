@@ -12,7 +12,7 @@
 | 问题解析 | EBM-NLP `professional_test_gold` | PICO sequence v4 | Macro span F1 | **0.5522** | `evaluation/public_benchmarks/runs/20260902T063818Z_ebm_nlp_2_00/run.json` |
 | 科学检索 | BEIR 五任务 test | 开发集选择 BGE/CrossEncoder | Macro nDCG@10 | **0.3920** | `evaluation/public_benchmarks/runs/20260902T060718Z_beir_scifact` 等 |
 | 字段匹配 | Valentine 10 个任务官方 ground truth | Qwen-assisted | Macro Schema F1 | **0.9018** | `evaluation/public_benchmarks/runs/20260902T110023Z_qwen_valentine_education_covid_meals` 等 |
-| 实体匹配 | DeepMatcher 五任务官方 test | learned entity rule v2 | Macro Entity F1 | **0.7408** | `evaluation/github_competitor_benchmark_20260830/results.json` |
+| 实体匹配 | DeepMatcher 五任务官方 test | learned entity fusion | Macro Entity F1 | **0.7449** | `evaluation/github_competitor_benchmark_20260830/results.json` |
 | 数据清洗 | Raha/HoloClean 六任务 aligned dirty/clean | source-anchor v6 | Macro Cell F1 | **0.9169** | `evaluation/public_benchmarks/runs/20260902T130928Z_holoclean_hospital` 等 |
 
 字段匹配的 Qwen 结果是十个任务完整成功的真实 API 条件实验；问题解析和清洗的全量 Qwen 公开运行没有形成可发布成绩，因此不把回退结果写成 Qwen 分数。检索另有 SciFact API 条件实验，见第 5 节。

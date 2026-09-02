@@ -22,11 +22,11 @@
 
 | 评测 | 结果 |
 |---|---:|
-| 当前最佳综合结果（2026-09-02） | **SDTI 100.00** |
+| 严格千问在线候选（2026-09-02） | **SDTI 98.1118** |
 | 真实 Qwen 字段匹配（Valentine） | **Macro F1 0.9018** |
 | 公开清洗基准（Raha/HoloClean 六任务） | **Cell F1 0.9169** |
 
-当前最佳运行产物位于 `goldset/breast_cancer/official_candidate/evaluation_runs/official-candidate-current-deterministic-baseline-20260902/`。
+严格千问结果来自 `official_candidate` 候选卷，11/11 题实际调用千问、0 次确定性兜底，但尚未封存为 `frozen_test`，不能当作正式冻结成绩。固定规划的数据链开发复测另为 SDTI 99.45。
 
 ## 快速启动
 
@@ -50,7 +50,7 @@ python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 | [最终交付索引](docs/FINAL_DELIVERY_INDEX_20260830.md) | 最新交付物与最终正文入口 |
 | [最终正文报告](docs/乳腺癌精准治疗科研数据智能体_专业叙事与规范图示终稿_20260831.md) | 项目设计、数据整合流程与最终展示 |
 | [公开数据集统一对照报告](evaluation/PUBLIC_DATASET_COMPARISON_20260902.md) | 问题解析、科学检索、字段匹配、实体匹配、清洗的真实逐任务指标、消融和 API 条件实验 |
-| [最新评委阅读包](deliverables/乳腺癌精准治疗科研数据智能体_最新评委阅读包_20260902/README_START_HERE.md) | 当前最完整的独立阅读包 |
+| [论文及图示阅读包](deliverables/乳腺癌精准治疗科研数据智能体_论文及图示阅读包_20260902/README_START_HERE.md) | 只含论文、图示、公开对照与必要证据的最终阅读包 |
 
 ## 复现评测与图表
 
@@ -69,7 +69,7 @@ python scripts\run_public_retrieval_benchmark.py --dataset beir_scifact
 python scripts\run_public_cleaning_benchmark.py
 ```
 
-当前公开主结果为：EBM-NLP 问题解析 macro span F1 `0.5522`，BEIR 五任务检索 macro nDCG@10 `0.3920`，Raha/HoloClean 六任务清洗 macro Cell F1 `0.9169`。真实 Qwen 条件另存于 `evaluation/public_benchmarks/runs/`；网络失败或格式失败的批次只进入审计，不计作模型成绩。
+当前公开主结果为：EBM-NLP 问题解析 macro span F1 `0.5522`，BEIR 五任务检索 macro nDCG@10 `0.3920`，Valentine 字段匹配 macro Schema F1 `0.9018`，DeepMatcher 实体匹配 macro Entity F1 `0.7449`，Raha/HoloClean 六任务清洗 macro Cell F1 `0.9169`。真实 Qwen 条件另存于 `evaluation/public_benchmarks/runs/`；网络失败或格式失败的批次只进入审计，不计作模型成绩。
 
 公开数据集的完整统一对照、实体匹配结果、逐任务消融和“为什么问题解析/检索偏低”的分析见 [`evaluation/PUBLIC_DATASET_COMPARISON_20260902.md`](evaluation/PUBLIC_DATASET_COMPARISON_20260902.md)，机器可读索引见 [`evaluation/PUBLIC_DATASET_COMPARISON_20260902.json`](evaluation/PUBLIC_DATASET_COMPARISON_20260902.json)。
 
