@@ -52,6 +52,7 @@ class DatasetCandidate(ApiModel):
     accession: str | None = None
     title: str
     source_url: str
+    diseases: list[str] = Field(default_factory=list)
     declared_granularity: list[str] = Field(default_factory=list)
     field_hints: list[str] = Field(default_factory=list)
     sample_count: int | None = Field(default=None, ge=0)

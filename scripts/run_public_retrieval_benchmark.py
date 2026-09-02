@@ -18,7 +18,7 @@ def main() -> None:
     parser.add_argument(
         "--method",
         action="append",
-        choices=["bm25", "project_bm25_tuned_v2", "project_hybrid", "vnext_semantic", "vnext_hybrid", "vnext_hybrid_rerank"],
+        choices=["bm25", "project_bm25_tuned_v2", "project_hybrid", "vnext_semantic", "vnext_hybrid", "vnext_hybrid_rerank", "vnext_dev_selected"],
         help="Repeat to run multiple methods.",
     )
     parser.add_argument("--download", action="store_true", help="Download missing official BEIR archives.")

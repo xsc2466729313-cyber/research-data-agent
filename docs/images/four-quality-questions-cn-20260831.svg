@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="#0F172A" flood-opacity="0.10"/></filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M0,0 L12,6 L0,12 Z" fill="#2563EB"/></marker>
+    <style>
+      .title{font:700 44px 'Microsoft YaHei','SimHei',sans-serif;fill:#0F172A}.sub{font:400 23px 'Microsoft YaHei','SimHei',sans-serif;fill:#475569}
+      .num{font:700 24px 'Microsoft YaHei','SimHei',sans-serif;fill:#FFFFFF}.q{font:700 27px 'Microsoft YaHei','SimHei',sans-serif;fill:#0F172A}
+      .body{font:400 20px 'Microsoft YaHei','SimHei',sans-serif;fill:#475569}.result{font:700 21px 'Microsoft YaHei','SimHei',sans-serif;fill:#0F766E}
+      .act{font:700 23px 'Microsoft YaHei','SimHei',sans-serif;fill:#0F172A}.foot{font:400 20px 'Microsoft YaHei','SimHei',sans-serif;fill:#334155}
+    </style>
+  </defs>
+  <rect width="1600" height="900" fill="#FFFFFF"/>
+  <text x="800" y="74" text-anchor="middle" class="title">四个问题决定数据下一步怎么用</text>
+  <text x="800" y="116" text-anchor="middle" class="sub">先核对来源和字段，再核对身份，最后判断是否覆盖当前研究问题</text>
+  <g>
+    <rect x="68" y="204" width="340" height="350" rx="26" fill="#EFF6FF" stroke="#93C5FD" stroke-width="3"/>
+    <circle cx="238" cy="254" r="30" fill="#2563EB"/><text x="238" y="263" text-anchor="middle" class="num">1</text>
+    <text x="238" y="328" text-anchor="middle" class="q">数据从哪里来？</text>
+    <text x="238" y="386" text-anchor="middle" class="body">核对真实入口、数据编号</text>
+    <text x="238" y="422" text-anchor="middle" class="body">以及原始文件</text>
+    <rect x="108" y="474" width="260" height="46" rx="23" fill="#DBEAFE"/>
+    <text x="238" y="504" text-anchor="middle" class="result">来源可回查</text>
+
+    <rect x="442" y="204" width="340" height="350" rx="26" fill="#F0FDFA" stroke="#5EEAD4" stroke-width="3"/>
+    <circle cx="612" cy="254" r="30" fill="#0F766E"/><text x="612" y="263" text-anchor="middle" class="num">2</text>
+    <text x="612" y="328" text-anchor="middle" class="q">关键内容够不够？</text>
+    <text x="612" y="386" text-anchor="middle" class="body">按所需数据清单逐项核对</text>
+    <text x="612" y="422" text-anchor="middle" class="body">避免只看行数和列数</text>
+    <rect x="482" y="474" width="260" height="46" rx="23" fill="#CCFBF1"/>
+    <text x="612" y="504" text-anchor="middle" class="result">字段覆盖清楚</text>
+
+    <rect x="816" y="204" width="340" height="350" rx="26" fill="#FFF7ED" stroke="#FDBA74" stroke-width="3"/>
+    <circle cx="986" cy="254" r="30" fill="#D97706"/><text x="986" y="263" text-anchor="middle" class="num">3</text>
+    <text x="986" y="328" text-anchor="middle" class="q">记录是不是同一个人？</text>
+    <text x="986" y="386" text-anchor="middle" class="body">研究编号与患者编号</text>
+    <text x="986" y="422" text-anchor="middle" class="body">必须共同确认</text>
+    <rect x="856" y="474" width="260" height="46" rx="23" fill="#FFEDD5"/>
+    <text x="986" y="504" text-anchor="middle" class="result">身份关联可靠</text>
+
+    <rect x="1190" y="204" width="340" height="350" rx="26" fill="#ECFDF5" stroke="#6EE7B7" stroke-width="3"/>
+    <circle cx="1360" cy="254" r="30" fill="#059669"/><text x="1360" y="263" text-anchor="middle" class="num">4</text>
+    <text x="1360" y="328" text-anchor="middle" class="q">能回答当前问题吗？</text>
+    <text x="1360" y="386" text-anchor="middle" class="body">核对人群、变量、治疗</text>
+    <text x="1360" y="422" text-anchor="middle" class="body">和结果是否同时满足</text>
+    <rect x="1230" y="474" width="260" height="46" rx="23" fill="#D1FAE5"/>
+    <text x="1360" y="504" text-anchor="middle" class="result">分析用途明确</text>
+  </g>
+  <path d="M412 379 H430" stroke="#2563EB" stroke-width="5" marker-end="url(#arrow)"/>
+  <path d="M786 379 H804" stroke="#2563EB" stroke-width="5" marker-end="url(#arrow)"/>
+  <path d="M1160 379 H1178" stroke="#2563EB" stroke-width="5" marker-end="url(#arrow)"/>
+  <text x="800" y="630" text-anchor="middle" class="act">根据四项核对结果，系统给出三种明确动作</text>
+  <rect x="170" y="676" width="360" height="86" rx="26" fill="#D1FAE5" stroke="#6EE7B7" stroke-width="2"/>
+  <text x="350" y="728" text-anchor="middle" class="act">条件满足：导出数据包</text>
+  <rect x="620" y="676" width="360" height="86" rx="26" fill="#FFEDD5" stroke="#FDBA74" stroke-width="2"/>
+  <text x="800" y="728" text-anchor="middle" class="act">资料不足：继续补查来源</text>
+  <rect x="1070" y="676" width="360" height="86" rx="26" fill="#DBEAFE" stroke="#93C5FD" stroke-width="2"/>
+  <text x="1250" y="728" text-anchor="middle" class="act">身份或含义需确认：人工复核</text>
+  <text x="800" y="838" text-anchor="middle" class="foot">判断结果会直接写入质量说明，使研究者知道“为什么能用，以及下一步做什么”</text>
+</svg>

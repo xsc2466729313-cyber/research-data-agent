@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from backend.app.research_planning.models import ResearchTopic, TopicCreateRequest
+from backend.app.oncology import canonical_disease_name, resolve_cancer_profile
 
 
 _DOMAIN_PATTERNS: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -59,11 +60,15 @@ class ResearchIntentAgent:
 
     @staticmethod
     def _disease(text: str) -> str | None:
-        folded = text.casefold()
-        if "乳腺癌" in text or "breast cancer" in folded:
-            return "breast cancer"
+        if resolve_cancer_profile(text) is not None:
+            return canonical_disease_name(text, title_case=False)
         match = re.search(r"([\u4e00-\u9fff]{1,12}(?:癌|肿瘤))", text)
-        return match.group(1) if match else None
+        if match:
+            return canonical_disease_name(text, title_case=False)
+        folded = text.casefold()
+        if any(token in folded for token in ("cancer", "carcinoma", "sarcoma", "neoplasm")):
+            return canonical_disease_name(text, title_case=False)
+        return None
 
     @staticmethod
     def _population(text: str, disease: str | None) -> str | None:

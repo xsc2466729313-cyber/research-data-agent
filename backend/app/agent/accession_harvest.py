@@ -4,6 +4,7 @@ import re
 from typing import Any
 
 from backend.app.models import ResearchSpec
+from backend.app.oncology import is_breast_cancer, resolve_cancer_profile
 
 
 GSE_PATTERN = re.compile(r"\b(GSE[1-9]\d{2,6})\b", re.IGNORECASE)
@@ -15,10 +16,15 @@ _OUTCOME_MARKERS = (
     "pcr",
     "response",
     "survival",
+    "prognosis",
+    "prognostic",
     "响应",
     "疗效",
     "缓解",
     "生存",
+    "预后",
+    "复发",
+    "死亡",
 )
 
 # Explicit treatment-as-exposure. Do not match 治疗响应 / 新辅助化疗 as a required treatment column.
@@ -55,7 +61,12 @@ _SURVIVAL_MARKERS = (
     "rfs",
     "dfs",
     "pfs",
+    "prognosis",
+    "prognostic",
     "生存",
+    "预后",
+    "复发",
+    "死亡",
     "总生存",
     "无病生存",
     "无复发生存",
@@ -65,6 +76,47 @@ _SURVIVAL_ABBREV_RE = re.compile(r"(?<![A-Za-z])(OS|RFS|DFS|PFS|DMFS)(?![A-Za-z]
 _TIMEPOINT_MARKERS = ("样本时间点", "timepoint", "治疗前后", "配对样本", "基线与治疗后", "纵向")
 _CNA_MARKERS = ("拷贝数", "cna", "amplification", "扩增", "copy number")
 _TNBC_MARKERS = ("triple-negative", "triple negative", "tnbc", "三阴性")
+
+_PRECLINICAL_GEO_MARKERS = (
+    "cell line",
+    "cell culture",
+    "in vitro",
+    "organoid",
+    "xenograft",
+    "mouse model",
+    "murine",
+    " mice",
+    " rat ",
+    "knockdown",
+    "knockout",
+    "shrna",
+    "sirna",
+    "crispr",
+    "transfected",
+    "overexpression",
+    "biological replicate",
+    "primary cells",
+)
+
+_CLINICAL_GEO_MARKERS = (
+    "patient",
+    "clinical cohort",
+    "subject id",
+    "tumor biopsy",
+    "tumour biopsy",
+    "tumor tissue",
+    "tumour tissue",
+    "pretreatment",
+    "pre-treatment",
+    "neoadjuvant",
+    "overall survival",
+    "relapse-free",
+    "disease-free",
+    "follow-up",
+    "clinical response",
+    "pathological complete response",
+    "pathologic complete response",
+)
 
 
 def extract_gse_accessions(text: str) -> list[str]:
@@ -117,6 +169,13 @@ def question_asks_survival(question: str) -> bool:
             "disease free",
             "progression-free",
             "progression free",
+            "prognosis",
+            "prognostic",
+            "recurrence",
+            "mortality",
+            "预后",
+            "复发",
+            "死亡",
         )
     ):
         return True
@@ -187,34 +246,41 @@ def _keyword_terms(spec: ResearchSpec) -> list[str]:
 
 def _outcome_search_clause(spec: ResearchSpec) -> str:
     if asks_pcr(spec):
-        return "response OR pCR OR neoadjuvant"
+        return "\"treatment response\" OR pCR OR neoadjuvant"
     if asks_survival(spec):
-        return "overall survival OR relapse-free survival OR RFS OR OS"
+        return "\"overall survival\" OR \"relapse-free survival\" OR RFS OR OS"
     if needs_clinical_outcome(spec) and "treatment_response" in (spec.outcomes or []):
-        return "response OR pCR OR neoadjuvant"
+        return "\"treatment response\" OR \"clinical response\" OR pCR OR neoadjuvant"
     return ""
 
 
+def _query_term(term: str) -> str:
+    cleaned = str(term or "").strip().replace('"', "")
+    return f'"{cleaned}"' if " " in cleaned else cleaned
+
+
 def catalog_query(spec: ResearchSpec, extra_terms: list[str] | None = None) -> str:
-    parts = [spec.disease or "breast cancer"]
+    clauses = [_query_term(spec.disease or "cancer")]
     extras = [str(term).strip() for term in (extra_terms or []) if str(term).strip()]
     if extras:
-        parts.extend(extras)
+        question_terms = extras
     else:
+        question_terms = []
         if spec.subtype:
-            parts.append(spec.subtype)
-        parts.extend(spec.genes)
-        parts.extend(spec.drugs)
+            question_terms.append(spec.subtype)
+        question_terms.extend(spec.genes)
+        question_terms.extend(spec.drugs)
+    if question_terms:
+        clauses.append("(" + " OR ".join(_query_term(term) for term in question_terms[:8]) + ")")
     outcome = _outcome_search_clause(spec)
     if outcome:
-        parts.append(outcome)
-    if any(item.endswith("mutation") or item == "mutation" for item in spec.required_data_types) or spec.genes:
-        parts.append("mutation OR sequencing")
-    return " ".join(part for part in parts if part).strip()
+        clauses.append(f"({outcome})")
+        clauses.append("(patient OR cohort OR biopsy OR clinical)")
+    return " AND ".join(clause for clause in clauses if clause).strip()
 
 
 def literature_query(spec: ResearchSpec, extra_terms: list[str] | None = None) -> str:
-    parts = [spec.disease or "breast cancer", "GSE"]
+    parts = [spec.disease or "cancer", "GSE"]
     extras = [str(term).strip() for term in (extra_terms or []) if str(term).strip()]
     if extras:
         parts.extend(extras)
@@ -228,9 +294,34 @@ def literature_query(spec: ResearchSpec, extra_terms: list[str] | None = None) -
     return " ".join(part for part in parts if part).strip()
 
 
-def score_geo_text(text: str, spec: ResearchSpec, extra_terms: list[str] | None = None) -> int:
+def geo_text_is_preclinical(text: str) -> bool:
+    blob = f" {(text or '').casefold()} "
+    return any(token in blob for token in _PRECLINICAL_GEO_MARKERS)
+
+
+def geo_text_has_clinical_cohort(text: str) -> bool:
+    blob = (text or "").casefold()
+    return any(token in blob for token in _CLINICAL_GEO_MARKERS)
+
+
+def score_geo_text(
+    text: str,
+    spec: ResearchSpec,
+    extra_terms: list[str] | None = None,
+    n_samples: int | None = None,
+) -> int:
     blob = (text or "").casefold()
     score = 0
+    profile = resolve_cancer_profile(spec.disease)
+    disease_terms = [spec.disease]
+    if profile is not None:
+        disease_terms.extend([profile.canonical_name, profile.label_zh, *profile.aliases])
+    disease_match = any(
+        str(term or "").strip().casefold() in blob
+        for term in disease_terms
+        if len(str(term or "").strip()) >= 4
+    )
+    score += 8 if disease_match else -12
     if asks_pcr(spec) or (needs_clinical_outcome(spec) and not asks_survival(spec)):
         for token in ("pcr", "pathological complete response", "treatment response", "neoadjuvant", "response"):
             if token in blob:
@@ -262,6 +353,20 @@ def score_geo_text(text: str, spec: ResearchSpec, extra_terms: list[str] | None 
             score += 1
     if "breast" in blob:
         score += 1
+    if needs_clinical_outcome(spec):
+        if geo_text_is_preclinical(text):
+            score -= 24
+        elif geo_text_has_clinical_cohort(text):
+            score += 7
+        else:
+            score -= 4
+    if n_samples is not None:
+        if n_samples < 10:
+            score -= 6
+        elif n_samples < 30:
+            score += 1
+        else:
+            score += 5
     return score
 
 
@@ -270,6 +375,8 @@ def seed_geo_accessions(spec: ResearchSpec) -> list[str]:
 
     These are pre-acquisition hints from the source registry, not Gold Set labels.
     """
+    if not is_breast_cancer(spec.disease):
+        return []
     blob = f"{spec.research_goal} {' '.join(spec.drugs)}"
     upper = blob.upper()
     if any(token in upper for token in ("ALPELISIB", "CAPIVASERTIB")) or any(
@@ -304,7 +411,14 @@ def harvest_from_raw_results(raw_results: list[tuple[str, Any]], spec: ResearchS
                     continue
                 text = f"{getattr(record, 'title', '')} {getattr(record, 'summary', '')}"
                 seen.add(accession)
-                ranked.append((score_geo_text(text, spec, extra_terms=_keyword_terms(spec)), accession))
+                score = score_geo_text(
+                    text,
+                    spec,
+                    extra_terms=_keyword_terms(spec),
+                    n_samples=getattr(record, "n_samples", None),
+                )
+                if score > 0:
+                    ranked.append((score, accession))
             continue
         texts = [str(getattr(result, "query", "") or "")]
         if name == "search_europe_pmc":
@@ -316,7 +430,9 @@ def harvest_from_raw_results(raw_results: list[tuple[str, Any]], spec: ResearchS
             if accession in seen:
                 continue
             seen.add(accession)
-            ranked.append((score_geo_text(blob, spec, extra_terms=_keyword_terms(spec)), accession))
+            score = score_geo_text(blob, spec, extra_terms=_keyword_terms(spec))
+            if score > 0:
+                ranked.append((score, accession))
     ranked.sort(key=lambda item: (-item[0], item[1]))
     harvested = [accession for _score, accession in ranked]
     return list(dict.fromkeys([*seed_geo_accessions(spec), *harvested]))

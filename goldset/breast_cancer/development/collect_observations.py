@@ -312,11 +312,7 @@ def observe_error(row) -> tuple[ErrorObservation, dict[str, Any]]:
 
 def planned_system_ids(plan_result) -> list[str]:
     plan = plan_result.source_plan
-    ids = list(plan.selected_dataset_ids) + list(plan.fallback_dataset_ids)
-    for candidate in plan_result.dataset_candidates:
-        if candidate.discovery_evidence_ids:
-            ids.append(candidate.dataset_id)
-    return list(dict.fromkeys(ids))
+    return list(dict.fromkeys(plan.selected_dataset_ids))
 
 
 def observe_retrieval(bundle) -> tuple[list[RetrievalObservation], list[dict[str, Any]]]:

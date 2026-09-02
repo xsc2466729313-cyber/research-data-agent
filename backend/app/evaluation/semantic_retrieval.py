@@ -225,3 +225,35 @@ class CrossEncoderBenchmarkIndex:
             reranked_head = sorted(head, key=lambda doc_id: (-scores[doc_id], doc_id))
             rankings.append((reranked_head + candidates[self.rerank_k :])[:top_k])
         return rankings
+
+
+class DevelopmentSelectedBenchmarkIndex:
+    """Delegate to a retriever selected only from a train/dev split."""
+
+    method_id = "vnext_dev_selected_retrieval_v1"
+    estimated_cost_usd = 0.0
+    qwen_invocation_rate = 0.0
+
+    def __init__(self, selected: Any, *, selected_name: str, fit_split: str, fit_ndcg_at_10: float | None) -> None:
+        self.selected = selected
+        self.selected_name = selected_name
+        self.fit_split = fit_split
+        self.fit_ndcg_at_10 = fit_ndcg_at_10
+        self.doc_ids = selected.doc_ids
+        self.documents = selected.documents
+        self.method_label = f"VNext development-selected ({selected_name})"
+        self.index_build_seconds = getattr(selected, "index_build_seconds", 0.0)
+
+    def reset_query_cache(self) -> None:
+        reset = getattr(self.selected, "reset_query_cache", None)
+        if callable(reset):
+            reset()
+
+    def rank(self, query: str, top_k: int) -> list[str]:
+        return self.selected.rank(query, top_k)
+
+    def rank_many(self, queries: list[str], top_k: int) -> list[list[str]]:
+        rank_many = getattr(self.selected, "rank_many", None)
+        if callable(rank_many):
+            return rank_many(queries, top_k)
+        return [self.rank(query, top_k) for query in queries]

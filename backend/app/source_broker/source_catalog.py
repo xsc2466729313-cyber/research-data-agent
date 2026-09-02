@@ -6,6 +6,7 @@ from typing import Any
 
 import yaml
 
+from backend.app.oncology import CANCER_PROFILES
 from backend.app.source_broker.models import (
     DatasetCandidate,
     ResourceDescriptor,
@@ -80,6 +81,7 @@ class SeedSourceCatalog:
         return output
 
     def _parse_datasets(self, values: list[dict[str, Any]]) -> dict[str, DatasetCandidate]:
+        values = [*values, *self._configured_oncology_datasets(values)]
         output: dict[str, DatasetCandidate] = {}
         for value in values:
             source = self._sources.get(str(value.get("source_id") or ""))
@@ -105,6 +107,7 @@ class SeedSourceCatalog:
                 accession=value.get("accession"),
                 title=str(value["title"]),
                 source_url=str(value["source_url"]),
+                diseases=list(value.get("diseases") or []),
                 declared_granularity=list(value.get("declared_granularity") or []),
                 field_hints=list(value.get("field_hints") or []),
                 access_mode=access_mode,
@@ -119,6 +122,78 @@ class SeedSourceCatalog:
                 raise SourceCatalogError(f"Duplicate dataset_id: {dataset.dataset_id}")
             output[dataset.dataset_id] = dataset
         return output
+
+    @staticmethod
+    def _configured_oncology_datasets(values: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Expose every verified cancer profile through the seed source catalog."""
+
+        existing = {str(value.get("dataset_id") or "") for value in values}
+        generated: list[dict[str, Any]] = []
+        fields = [
+            "study_id",
+            "patient_id",
+            "sample_id",
+            "source_id",
+            "disease",
+            "mutation",
+            "survival",
+            "os_status",
+            "subtype",
+            "age",
+            "stage",
+        ]
+        for profile in CANCER_PROFILES:
+            for study_id in profile.cbioportal_studies:
+                dataset_id = f"cbioportal:{study_id}"
+                if dataset_id in existing:
+                    continue
+                generated.append(
+                    {
+                        "dataset_id": dataset_id,
+                        "source_id": "cbioportal",
+                        "accession": study_id,
+                        "title": f"{profile.canonical_name} (TCGA, PanCancer Atlas)",
+                        "source_url": f"https://www.cbioportal.org/study/summary?id={study_id}",
+                        "diseases": [profile.key],
+                        "declared_granularity": ["patient", "sample"],
+                        "field_hints": fields,
+                        "access_mode": "OPEN_API",
+                        "resources": [
+                            {
+                                "resource_id": f"{dataset_id}:api",
+                                "resource_type": "REST_API",
+                                "url": "https://www.cbioportal.org/api",
+                                "expected_format": "JSON",
+                            }
+                        ],
+                    }
+                )
+            for project_id in profile.gdc_projects:
+                dataset_id = f"gdc:{project_id}"
+                if dataset_id in existing:
+                    continue
+                generated.append(
+                    {
+                        "dataset_id": dataset_id,
+                        "source_id": "gdc",
+                        "accession": project_id,
+                        "title": f"GDC {project_id} {profile.canonical_name} Project",
+                        "source_url": f"https://portal.gdc.cancer.gov/projects/{project_id}",
+                        "diseases": [profile.key],
+                        "declared_granularity": ["patient", "sample"],
+                        "field_hints": fields,
+                        "access_mode": "OPEN_API",
+                        "resources": [
+                            {
+                                "resource_id": f"{dataset_id}:files_api",
+                                "resource_type": "REST_API",
+                                "url": "https://api.gdc.cancer.gov/files",
+                                "expected_format": "JSON",
+                            }
+                        ],
+                    }
+                )
+        return generated
 
 
 @lru_cache(maxsize=1)

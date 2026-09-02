@@ -17,8 +17,15 @@ class DatasetDiscovery:
         papers: list[PaperRecord],
     ) -> list[DatasetCandidate]:
         candidates: dict[str, DatasetCandidate] = {}
-        if SourceDiscovery._is_breast_cancer_contract(contract):
-            candidates.update({item.dataset_id: item for item in self.catalog.datasets()})
+        cancer_profile = SourceDiscovery._cancer_profile(contract)
+        if cancer_profile is not None:
+            candidates.update(
+                {
+                    item.dataset_id: item
+                    for item in self.catalog.datasets()
+                    if cancer_profile.key in item.diseases
+                }
+            )
 
         paper_ids_by_accession: dict[str, list[str]] = {}
         for paper in papers:
@@ -45,6 +52,7 @@ class DatasetDiscovery:
                 accession=accession,
                 title=f"GEO Series {accession}",
                 source_url=source_url,
+                diseases=[cancer_profile.key] if cancer_profile is not None else [],
                 declared_granularity=[],
                 field_hints=[],
                 access_mode="OPEN_API",

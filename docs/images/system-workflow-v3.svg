@@ -46,13 +46,13 @@
 
   <g class="zh">
     <text x="70" y="62" class="title">乳腺癌精准治疗科研数据智能体｜端到端流程与质量闭环</text>
-    <text x="72" y="99" class="subtitle">主链：问题理解 → 真实数据 → 同研究融合 → 质量判定；失败链：诊断缺口 → 换方法 → 再执行</text>
+    <text x="72" y="99" class="subtitle">默认主链：问题理解 → 真实数据 → 同研究边界审计 → 质量判定；失败链：诊断缺口 → 换方法 → 再执行</text>
 
     <!-- Stage labels -->
     <rect x="72" y="126" width="185" height="32" rx="16" fill="#DBEAFE"/>
     <text x="164" y="148" text-anchor="middle" class="label" fill="#1D4ED8">A｜需求与数据发现</text>
     <rect x="72" y="342" width="185" height="32" rx="16" fill="#CCFBF1"/>
-    <text x="164" y="364" text-anchor="middle" class="label" fill="#0F766E">B｜处理、融合与审计</text>
+    <text x="164" y="364" text-anchor="middle" class="label" fill="#0F766E">B｜主链整理与审计</text>
 
     <!-- Top snake: steps 1-5 -->
     <g filter="url(#softShadow)">
@@ -103,16 +103,16 @@
       <text x="1570" y="466" class="stepBody">登记 source_id 和真实来源</text><text x="1570" y="493" class="stepBody">保留 raw_field / raw_value</text>
 
       <circle cx="1204" cy="420" r="20" fill="#0F766E"/><text x="1204" y="427" text-anchor="middle" class="num">7</text>
-      <text x="1240" y="427" class="stepTitle">医学标准化</text>
-      <text x="1204" y="466" class="stepBody">Gene / Drug / Biomarker</text><text x="1204" y="493" class="stepBody">对齐冻结 Canonical Schema</text>
+      <text x="1240" y="427" class="stepTitle">主链字段整理</text>
+      <text x="1204" y="466" class="stepBody">常用研究字段映射</text><text x="1204" y="493" class="stepBody">Canonical 为独立规范化接口</text>
 
       <circle cx="838" cy="420" r="20" fill="#16A34A"/><text x="838" y="427" text-anchor="middle" class="num">8</text>
-      <text x="874" y="427" class="stepTitle">同研究队列融合</text>
-      <text x="838" y="466" class="stepBody">患者 / 样本锚定与命名空间</text><text x="838" y="493" class="stepBody">不同 response_domain 分层</text>
+      <text x="874" y="427" class="stepTitle">身份边界审计</text>
+      <text x="838" y="466" class="stepBody">同研究患者 / 样本命名空间</text><text x="838" y="493" class="stepBody">禁止跨研究自动连接</text>
 
       <circle cx="472" cy="420" r="20" fill="#7C3AED"/><text x="472" y="427" text-anchor="middle" class="num">9</text>
-      <text x="508" y="427" class="stepTitle">Evidence 与 Repair</text>
-      <text x="472" y="466" class="stepBody">字段级证据、冲突检测</text><text x="472" y="493" class="stepBody">确定性修复 / 人工复核</text>
+      <text x="508" y="427" class="stepTitle">来源与缺口审计</text>
+      <text x="472" y="466" class="stepBody">SourceItem / 核心原值</text><text x="472" y="493" class="stepBody">冲突 / REVIEW / 补搜线索</text>
 
       <circle cx="106" cy="420" r="20" fill="#D97706"/><text x="106" y="427" text-anchor="middle" class="num">10</text>
       <text x="142" y="427" class="stepTitle">构建分析矩阵</text>
@@ -134,10 +134,10 @@
       <rect x="378" y="626" width="266" height="88" rx="14" fill="#ECFEFF" stroke="#A5F3FC"/>
       <rect x="662" y="626" width="266" height="88" rx="14" fill="#F0FDF4" stroke="#BBF7D0"/>
       <rect x="946" y="626" width="294" height="88" rx="14" fill="#FFF7ED" stroke="#FED7AA"/>
-      <text x="227" y="657" text-anchor="middle" class="gateTitle">G1｜身份与主表</text><text x="227" y="686" text-anchor="middle" class="gateBody">患者 / 样本是否可可靠定位</text>
-      <text x="511" y="657" text-anchor="middle" class="gateTitle">G2｜结局域匹配</text><text x="511" y="686" text-anchor="middle" class="gateBody">问题结局与数据结局同域</text>
-      <text x="795" y="657" text-anchor="middle" class="gateTitle">G3｜分子覆盖</text><text x="795" y="686" text-anchor="middle" class="gateBody">目标变量是否在同队列可用</text>
-      <text x="1093" y="657" text-anchor="middle" class="gateTitle">G4｜证据与安全</text><text x="1093" y="686" text-anchor="middle" class="gateBody">来源完整、冲突可解释、边界合规</text>
+      <text x="227" y="657" text-anchor="middle" class="gateTitle">G1｜来源可信</text><text x="227" y="686" text-anchor="middle" class="gateBody">source_id / URL / 获取状态</text>
+      <text x="511" y="657" text-anchor="middle" class="gateTitle">G2｜字段质量</text><text x="511" y="686" text-anchor="middle" class="gateBody">覆盖率、缺失与基本质量</text>
+      <text x="795" y="657" text-anchor="middle" class="gateTitle">G3｜实体一致性</text><text x="795" y="686" text-anchor="middle" class="gateBody">研究 / 患者 / 样本边界自洽</text>
+      <text x="1093" y="657" text-anchor="middle" class="gateTitle">G4｜科研适用性</text><text x="1093" y="686" text-anchor="middle" class="gateBody">样本量 / 结局 / 目标变量可用</text>
     </g>
 
     <!-- Decision 1 -->
@@ -153,7 +153,7 @@
     <rect x="1604" y="588" width="78" height="30" rx="15" fill="#16A34A"/>
     <text x="1643" y="609" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF">PASS</text>
     <text x="1604" y="650" class="stepTitle">可信科研数据包</text>
-    <text x="1604" y="681" class="stepBody">Dataset + Evidence</text>
+    <text x="1604" y="681" class="stepBody">Dataset + 来源审计</text>
     <text x="1604" y="707" class="stepBody">报告 + CSV / Parquet / Excel</text>
 
     <!-- Failure diagnosis -->
@@ -161,7 +161,7 @@
     <text x="1454" y="748" class="label" fill="#DC2626">否</text>
     <rect x="1264" y="770" width="342" height="92" rx="18" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="2" filter="url(#softShadow)"/>
     <text x="1435" y="805" text-anchor="middle" class="stepTitle">诊断缺口类型</text>
-    <text x="1435" y="835" text-anchor="middle" class="stepBody">无主表 / 结局错域 / 分子缺失 / 冲突</text>
+    <text x="1435" y="835" text-anchor="middle" class="stepBody">来源不足 / 字段缺失 / 实体冲突 / 任务不适用</text>
 
     <!-- Decision 2 -->
     <path d="M1264 816 H1215" class="flow"/>

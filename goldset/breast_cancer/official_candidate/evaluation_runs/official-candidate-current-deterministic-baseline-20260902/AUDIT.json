@@ -1,0 +1,720 @@
+{
+  "split": "official_candidate",
+  "not_frozen_test": true,
+  "retrieval_method": "deterministic_planner_plan_only",
+  "execution": {
+    "question_count": 11,
+    "model_provider": [],
+    "model_name": [],
+    "used_model_count": 0,
+    "used_qwen_count": 0,
+    "used_qwen_for_all_questions": false,
+    "deterministic_fallback_count": 0,
+    "quality_gate_review_count": 0
+  },
+  "retrieval_traces": [
+    {
+      "question_id": "oc01_chemo_pcr_annotation",
+      "ids": [
+        "GSE25066"
+      ],
+      "error": null,
+      "model_provider": null,
+      "model_name": null,
+      "used_model": false,
+      "used_qwen": false,
+      "deterministic_fallback_used": false,
+      "quality_gate": null,
+      "publish_allowed": null,
+      "source_count": 0
+    },
+    {
+      "question_id": "oc02_her2_neoadjuvant_baseline",
+      "ids": [
+        "GSE76360",
+        "GSE50948"
+      ],
+      "error": null,
+      "model_provider": null,
+      "model_name": null,
+      "used_model": false,
+      "used_qwen": false,
+      "deterministic_fallback_used": false,
+      "quality_gate": null,
+      "publish_allowed": null,
+      "source_count": 0
+    },
+    {
+      "question_id": "oc03_pi3k_inhibitor_same_patient",
+      "ids": [
+        "breast_alpelisib_2020",
+        "brca_mskcc_2019"
+      ],
+      "error": null,
+      "model_provider": null,
+      "model_name": null,
+      "used_model": false,
+      "used_qwen": false,
+      "deterministic_fallback_used": false,
+      "quality_gate": null,
+      "publish_allowed": null,
+      "source_count": 0
+    },
+    {
+      "question_id": "oc04_esr1_mutation_clinical_table",
+      "ids": [
+        "brca_metabric",
+        "TCGA-BRCA"
+      ],
+      "error": null,
+      "model_provider": null,
+      "model_name": null,
+      "used_model": false,
+      "used_qwen": false,
+      "deterministic_fallback_used": false,
+      "quality_gate": null,
+      "publish_allowed": null,
+      "source_count": 0
+    },
+    {
+      "question_id": "oc05_ihc_and_erbb2_cna_cohorts",
+      "ids": [
+        "brca_metabric",
+        "TCGA-BRCA"
+      ],
+      "error": null,
+      "model_provider": null,
+      "model_name": null,
+      "used_model": false,
+      "used_qwen": false,
+      "deterministic_fallback_used": false,
+      "quality_gate": null,
+      "publish_allowed": null,
+      "source_count": 0
+    },
+    {
+      "question_id": "oc06_erbb2_knowledge_evidence",
+      "ids": [
+        "CIViC"
+      ],
+      "error": null,
+      "model_provider": null,
+      "model_name": null,
+      "used_model": false,
+      "used_qwen": false,
+      "deterministic_fallback_used": false,
+      "quality_gate": null,
+      "publish_allowed": null,
+      "source_count": 0
+    },
+    {
+      "question_id": "oc07_trial_outcome_measurements",
+      "ids": [
+        "NCT01104584",
+        "AACT"
+      ],
+      "error": null,
+      "model_provider": null,
+      "model_name": null,
+      "used_model": false,
+      "used_qwen": false,
+      "deterministic_fallback_used": false,
+      "quality_gate": null,
+      "publish_allowed": null,
+      "source_count": 0
+    },
+    {
+      "question_id": "oc08_cell_line_ic50_auc",
+      "ids": [
+        "DepMap"
+      ],
+      "error": null,
+      "model_provider": null,
+      "model_name": null,
+      "used_model": false,
+      "used_qwen": false,
+      "deterministic_fallback_used": false,
+      "quality_gate": null,
+      "publish_allowed": null,
+      "source_count": 0
+    },
+    {
+      "question_id": "oc09_tnbc_receptor_screen",
+      "ids": [
+        "brca_metabric",
+        "TCGA-BRCA"
+      ],
+      "error": null,
+      "model_provider": null,
+      "model_name": null,
+      "used_model": false,
+      "used_qwen": false,
+      "deterministic_fallback_used": false,
+      "quality_gate": null,
+      "publish_allowed": null,
+      "source_count": 0
+    },
+    {
+      "question_id": "oc10_scanb_expression_clinical",
+      "ids": [
+        "GSE96058"
+      ],
+      "error": null,
+      "model_provider": null,
+      "model_name": null,
+      "used_model": false,
+      "used_qwen": false,
+      "deterministic_fallback_used": false,
+      "quality_gate": null,
+      "publish_allowed": null,
+      "source_count": 0
+    },
+    {
+      "question_id": "oc11_hr_positive_her2_negative_strata",
+      "ids": [
+        "brca_metabric",
+        "TCGA-BRCA"
+      ],
+      "error": null,
+      "model_provider": null,
+      "model_name": null,
+      "used_model": false,
+      "used_qwen": false,
+      "deterministic_fallback_used": false,
+      "quality_gate": null,
+      "publish_allowed": null,
+      "source_count": 0
+    }
+  ],
+  "qwen_assistance": {
+    "enabled": false,
+    "field_calls": 0,
+    "field_failures": 0,
+    "field_target_proposal_count": 0,
+    "field_rule_agreement_count": 0,
+    "field_rule_fallback_count": 0,
+    "field_rule_override_count": 0,
+    "error_calls": 0,
+    "error_failures": 0,
+    "error_diagnosis_detected_count": 0,
+    "error_expected_type_match_count": 0,
+    "gold_labels_sent_to_model": false,
+    "deterministic_safety_court": "ErrorDetectionEngine + SafeRepairApplier"
+  },
+  "field_traces": [
+    {
+      "case_id": "oc_f01_ihc3_status",
+      "values": {
+        "her2_assay": "IHC",
+        "her2_raw_value": "3+",
+        "her2_status": "Positive"
+      },
+      "status": "normalized",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "oc_f02_ihc3_assay",
+      "values": {
+        "her2_assay": "IHC",
+        "her2_raw_value": "3+",
+        "her2_status": "Positive"
+      },
+      "status": "normalized",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "oc_f03_ihc3_raw",
+      "values": {
+        "her2_assay": "IHC",
+        "her2_raw_value": "3+",
+        "her2_status": "Positive"
+      },
+      "status": "normalized",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "oc_f04_ihc2_equivocal",
+      "values": {
+        "her2_assay": "IHC",
+        "her2_raw_value": "2+",
+        "her2_status": "Equivocal"
+      },
+      "status": "normalized",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "oc_f05_ihc2_assay",
+      "values": {
+        "her2_assay": "IHC",
+        "her2_raw_value": "2+",
+        "her2_status": "Equivocal"
+      },
+      "status": "normalized",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "oc_f06_ihc2_raw",
+      "values": {
+        "her2_assay": "IHC",
+        "her2_raw_value": "2+",
+        "her2_status": "Equivocal"
+      },
+      "status": "normalized",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "oc_f07_ihc0_negative",
+      "values": {
+        "her2_assay": "IHC",
+        "her2_raw_value": "0",
+        "her2_status": "Negative"
+      },
+      "status": "normalized",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "oc_f08_fish_assay",
+      "values": {
+        "her2_assay": "FISH",
+        "her2_raw_value": "AMP",
+        "her2_status": "Positive"
+      },
+      "status": "normalized",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "oc_f09_fish_status",
+      "values": {
+        "her2_assay": "FISH",
+        "her2_raw_value": "AMP",
+        "her2_status": "Positive"
+      },
+      "status": "normalized",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "oc_f10_cna_gene",
+      "values": {
+        "gene": "ERBB2"
+      },
+      "status": "identity",
+      "kind": "gene"
+    },
+    {
+      "case_id": "oc_f11_cna_not_ihc",
+      "values": {
+        "her2_status": "Unknown"
+      },
+      "status": "safe_cna_not_ihc",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "oc_f12_er_pos",
+      "values": {
+        "er_status": "Positive"
+      },
+      "status": "normalized",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "oc_f13_pr_neg",
+      "values": {
+        "pr_status": "Negative"
+      },
+      "status": "normalized",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "oc_f14_gene_alias",
+      "values": {
+        "gene": "ERBB2"
+      },
+      "status": "normalized",
+      "kind": "gene"
+    },
+    {
+      "case_id": "oc_f15_drug_perjeta",
+      "values": {
+        "drug": "pertuzumab"
+      },
+      "status": "normalized",
+      "kind": "drug"
+    },
+    {
+      "case_id": "oc_f16_pcr_value",
+      "values": {
+        "response": "pCR"
+      },
+      "status": "response_alias",
+      "kind": "passthrough"
+    },
+    {
+      "case_id": "oc_f17_pcr_domain",
+      "values": {
+        "response_domain": "clinical"
+      },
+      "status": "heuristic_response_domain",
+      "kind": "response_domain"
+    },
+    {
+      "case_id": "oc_f18_ic50_domain",
+      "values": {
+        "response_domain": "preclinical_cell_line"
+      },
+      "status": "heuristic_response_domain",
+      "kind": "response_domain"
+    },
+    {
+      "case_id": "oc_f19_ic50_not_pcr",
+      "values": {
+        "response": "IC50"
+      },
+      "status": "response_alias",
+      "kind": "passthrough"
+    },
+    {
+      "case_id": "oc_f20_scanb_source",
+      "values": {
+        "source_id": "geo:GSE96058"
+      },
+      "status": "source_id_from_dataset",
+      "kind": null
+    },
+    {
+      "case_id": "oc_f21_patient_id",
+      "values": {
+        "patient_id": "PT001"
+      },
+      "status": "passthrough",
+      "kind": "passthrough"
+    },
+    {
+      "case_id": "oc_f22_sample_id",
+      "values": {
+        "sample_id": "GSM_pre_A"
+      },
+      "status": "passthrough",
+      "kind": "passthrough"
+    },
+    {
+      "case_id": "oc_f23_civic_domain",
+      "values": {
+        "response_domain": "knowledge_evidence"
+      },
+      "status": "heuristic_response_domain",
+      "kind": "response_domain"
+    },
+    {
+      "case_id": "oc_f24_er_unknown",
+      "values": {
+        "er_status": "Unknown"
+      },
+      "status": "review",
+      "kind": "biomarker"
+    },
+    {
+      "case_id": "oc_f25_residual",
+      "values": {
+        "response": "residual_disease"
+      },
+      "status": "response_alias",
+      "kind": "passthrough"
+    },
+    {
+      "case_id": "oc_f26_nct_source",
+      "values": {
+        "source_id": "nct:NCT01104584"
+      },
+      "status": "source_id_from_dataset",
+      "kind": null
+    }
+  ],
+  "error_traces": [
+    {
+      "case_id": "oc_e01_ihc2_to_positive",
+      "finding_types": [
+        "her2_assay_error"
+      ],
+      "matched_types": [
+        "her2_assay_error"
+      ],
+      "applied": [
+        "SKIPPED"
+      ],
+      "qwen": {
+        "used": false
+      },
+      "qwen_matched_expected_type": false
+    },
+    {
+      "case_id": "oc_e02_cna_as_ihc",
+      "finding_types": [
+        "erbb2_cna_not_ihc"
+      ],
+      "matched_types": [
+        "erbb2_cna_not_ihc"
+      ],
+      "applied": [],
+      "qwen": {
+        "used": false
+      },
+      "qwen_matched_expected_type": false
+    },
+    {
+      "case_id": "oc_e03_ic50_as_pcr",
+      "finding_types": [
+        "schema_mapping_error",
+        "cross_domain_response"
+      ],
+      "matched_types": [
+        "schema_mapping_error",
+        "cross_domain_response"
+      ],
+      "applied": [],
+      "qwen": {
+        "used": false
+      },
+      "qwen_matched_expected_type": false
+    },
+    {
+      "case_id": "oc_e04_low_conf_merge",
+      "finding_types": [
+        "schema_mapping_error",
+        "patient_sample_conflict"
+      ],
+      "matched_types": [
+        "patient_sample_conflict"
+      ],
+      "applied": [],
+      "qwen": {
+        "used": false
+      },
+      "qwen_matched_expected_type": false
+    },
+    {
+      "case_id": "oc_e05_cross_study_id",
+      "finding_types": [
+        "schema_mapping_error",
+        "patient_sample_conflict"
+      ],
+      "matched_types": [
+        "patient_sample_conflict"
+      ],
+      "applied": [],
+      "qwen": {
+        "used": false
+      },
+      "qwen_matched_expected_type": false
+    },
+    {
+      "case_id": "oc_e06_gene_alias",
+      "finding_types": [
+        "gene_alias"
+      ],
+      "matched_types": [
+        "gene_alias"
+      ],
+      "applied": [
+        "APPLIED"
+      ],
+      "qwen": {
+        "used": false
+      },
+      "qwen_matched_expected_type": false
+    },
+    {
+      "case_id": "oc_e07_drug_alias",
+      "finding_types": [
+        "drug_alias"
+      ],
+      "matched_types": [
+        "drug_alias"
+      ],
+      "applied": [
+        "APPLIED"
+      ],
+      "qwen": {
+        "used": false
+      },
+      "qwen_matched_expected_type": false
+    },
+    {
+      "case_id": "oc_e08_duplicate",
+      "finding_types": [
+        "schema_mapping_error",
+        "exact_duplicate"
+      ],
+      "matched_types": [
+        "exact_duplicate"
+      ],
+      "applied": [
+        "APPLIED"
+      ],
+      "qwen": {
+        "used": false
+      },
+      "qwen_matched_expected_type": false
+    },
+    {
+      "case_id": "oc_e09_missing_source",
+      "finding_types": [
+        "missing_required_field",
+        "provenance_missing",
+        "provenance_missing",
+        "provenance_missing"
+      ],
+      "matched_types": [
+        "provenance_missing",
+        "provenance_missing",
+        "provenance_missing"
+      ],
+      "applied": [],
+      "qwen": {
+        "used": false
+      },
+      "qwen_matched_expected_type": false
+    },
+    {
+      "case_id": "oc_e10_join_without_crosswalk",
+      "finding_types": [
+        "schema_mapping_error",
+        "patient_sample_conflict"
+      ],
+      "matched_types": [
+        "patient_sample_conflict"
+      ],
+      "applied": [],
+      "qwen": {
+        "used": false
+      },
+      "qwen_matched_expected_type": false
+    },
+    {
+      "case_id": "oc_e11_clean_ihc3",
+      "finding_types": [],
+      "matched_types": [],
+      "applied": [],
+      "qwen": {
+        "used": false
+      },
+      "qwen_matched_expected_type": false
+    },
+    {
+      "case_id": "oc_e12_clean_er",
+      "finding_types": [],
+      "matched_types": [],
+      "applied": [],
+      "qwen": {
+        "used": false
+      },
+      "qwen_matched_expected_type": false
+    },
+    {
+      "case_id": "oc_e13_missing_response",
+      "finding_types": [
+        "schema_mapping_error",
+        "missing_required_field"
+      ],
+      "matched_types": [
+        "missing_required_field"
+      ],
+      "applied": [],
+      "qwen": {
+        "used": false
+      },
+      "qwen_matched_expected_type": false
+    },
+    {
+      "case_id": "oc_e14_unknown_to_negative",
+      "finding_types": [
+        "schema_mapping_error"
+      ],
+      "matched_types": [
+        "schema_mapping_error"
+      ],
+      "applied": [],
+      "qwen": {
+        "used": false
+      },
+      "qwen_matched_expected_type": false
+    },
+    {
+      "case_id": "oc_e15_authority_conflict",
+      "finding_types": [
+        "schema_mapping_error"
+      ],
+      "matched_types": [
+        "schema_mapping_error"
+      ],
+      "applied": [],
+      "qwen": {
+        "used": false
+      },
+      "qwen_matched_expected_type": false
+    },
+    {
+      "case_id": "oc_e16_empty_raw",
+      "finding_types": [
+        "provenance_missing"
+      ],
+      "matched_types": [
+        "provenance_missing"
+      ],
+      "applied": [],
+      "qwen": {
+        "used": false
+      },
+      "qwen_matched_expected_type": false
+    },
+    {
+      "case_id": "oc_e17_clean_drug",
+      "finding_types": [
+        "casing_normalization"
+      ],
+      "matched_types": [],
+      "applied": [
+        "APPLIED"
+      ],
+      "qwen": {
+        "used": false
+      },
+      "qwen_matched_expected_type": false
+    },
+    {
+      "case_id": "oc_e18_domain_blank",
+      "finding_types": [
+        "invalid_schema_value"
+      ],
+      "matched_types": [
+        "invalid_schema_value"
+      ],
+      "applied": [],
+      "qwen": {
+        "used": false
+      },
+      "qwen_matched_expected_type": false
+    }
+  ],
+  "source_validation": [],
+  "copied_from_development": false,
+  "evaluation_id": "official-candidate-current-deterministic-baseline-20260902",
+  "evaluation_status": "EVALUATED",
+  "gold_set_id": "breast-cancer-official-candidate-20260829",
+  "notice": "xsc approved the held-out official candidate on 2026-08-29 and wrote it to goldset/templates. Not frozen_test. Not frozen for scoring. Do not copy development-split observations into the official dashboard column.",
+  "requested_execution": {
+    "retrieval": "planner",
+    "use_qwen": false,
+    "allow_deterministic_fallback": false
+  },
+  "sdti": {
+    "value": 100.0,
+    "status": "EVALUATED",
+    "formula": "100 * (retrieval_f1 * faithfulness * traceability * error_f1 * repair_accuracy) ** (1/5)",
+    "numerator": null,
+    "denominator": null,
+    "target": 90.0,
+    "target_met": true,
+    "reason": null
+  },
+  "evaluated_at": "2026-09-02T09:10:34.918960+00:00"
+}

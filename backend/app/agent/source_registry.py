@@ -1,4 +1,4 @@
-"""受控的乳腺癌公开数据检索入口目录。
+"""受控的肿瘤公开数据检索入口目录。
 
 入口目录用于扩展自主检索的候选范围，不代表这些入口已经成功获取数据。
 每次实际调用仍由对应 Adapter 做官方接口、格式、缓存和响应校验。
@@ -9,6 +9,11 @@ from __future__ import annotations
 import json
 import re
 from typing import Any
+
+from backend.app.oncology import (
+    is_cbioportal_study_for_disease,
+    is_gdc_project_for_disease,
+)
 
 
 MAX_SOURCE_ENTRIES = 20
@@ -94,4 +99,16 @@ def is_gdc_breast_project_id(value: str) -> bool:
             or normalized.startswith("BREAST")
             or normalized.startswith("CPTAC-")
         )
+    )
+
+
+def is_cancer_study_id(value: str, disease: str) -> bool:
+    return bool(CBIOPORTAL_STUDY_PATTERN.fullmatch(value.strip().casefold())) and (
+        is_cbioportal_study_for_disease(value, disease)
+    )
+
+
+def is_gdc_cancer_project_id(value: str, disease: str) -> bool:
+    return bool(GDC_PROJECT_PATTERN.fullmatch(value.strip().upper())) and (
+        is_gdc_project_for_disease(value, disease)
     )

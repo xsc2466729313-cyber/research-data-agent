@@ -4,6 +4,7 @@ import csv
 import io
 from datetime import datetime, timezone
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
@@ -17,6 +18,9 @@ class DepMapAdapter:
 
     PORTAL_URL = "https://depmap.org/portal/"
     DOWNLOADS_URL = "https://depmap.org/portal/download/api/downloads"
+    FIGSHARE_ARTICLE_API = "https://api.figshare.com/v2/articles/27993248"
+    FIGSHARE_ARTICLE_URL = "https://plus.figshare.com/articles/dataset/DepMap_24Q4_Public/27993248"
+    FIGSHARE_MODEL_FILE = "Model.csv"
 
     def __init__(self, *, client: httpx.Client | None = None, timeout_seconds: float = 60.0) -> None:
         self._owns_client = client is None
@@ -41,7 +45,16 @@ class DepMapAdapter:
                 details={"url": self.DOWNLOADS_URL, "status": response.status_code},
             )
         payload = self._parse_payload(response)
-        records = self._records_from_payload(task_id, payload, query=query, drug=drug, limit=limit)
+        request_url = self.DOWNLOADS_URL
+        release_source: SourceItem | None = None
+        try:
+            records = self._records_from_payload(task_id, payload, query=query, drug=drug, limit=limit)
+        except DepMapAdapterError as exc:
+            if exc.code is not DepMapErrorCode.INVALID_RESPONSE:
+                raise
+            model_csv, release_source = self._load_figshare_model_csv(task_id)
+            records = self._from_model_csv(task_id, model_csv, drug=drug, limit=limit)
+            request_url = self.FIGSHARE_ARTICLE_API
         if not records:
             raise DepMapAdapterError(
                 DepMapErrorCode.NO_RECORDS,
@@ -59,6 +72,8 @@ class DepMapAdapter:
                 status="retrieved",
             )
         ]
+        if release_source is not None:
+            source_items.append(release_source)
         for record in records[:8]:
             source_items.append(
                 SourceItem(
@@ -76,12 +91,84 @@ class DepMapAdapter:
             query=query,
             records=records,
             source_items=source_items,
-            request_url=self.DOWNLOADS_URL,
+            request_url=request_url,
             queried_at=datetime.now(timezone.utc),
             notice=(
                 "DepMap 细胞系药敏的 response_domain 固定为 preclinical_cell_line；"
                 "AUC/IC50 不得解释为患者 pCR 或临床疗效。"
+                + (
+                    "门户目录触发浏览器验证时，细胞系目录来自 Broad DepMap 在 Figshare 发布的 24Q4 Model.csv；"
+                    "该回退只补充模型元数据，不补造缺失的药敏数值。"
+                    if release_source is not None
+                    else ""
+                )
             ),
+        )
+
+    def _load_figshare_model_csv(self, task_id: str) -> tuple[str, SourceItem]:
+        metadata_response = self.client.get(self.FIGSHARE_ARTICLE_API)
+        if metadata_response.status_code >= 400:
+            raise DepMapAdapterError(
+                DepMapErrorCode.NETWORK_ERROR,
+                f"DepMap Figshare 发布元数据返回 HTTP {metadata_response.status_code}。",
+                details={"url": self.FIGSHARE_ARTICLE_API},
+            )
+        try:
+            metadata = metadata_response.json()
+        except ValueError as exc:
+            raise DepMapAdapterError(
+                DepMapErrorCode.INVALID_RESPONSE,
+                "DepMap Figshare 发布元数据不是有效 JSON。",
+                details={"url": self.FIGSHARE_ARTICLE_API},
+            ) from exc
+        files = metadata.get("files") if isinstance(metadata, dict) else None
+        if not isinstance(files, list):
+            raise DepMapAdapterError(
+                DepMapErrorCode.INVALID_RESPONSE,
+                "DepMap Figshare 发布未返回文件清单。",
+                details={"url": self.FIGSHARE_ARTICLE_API},
+            )
+        model_file = next(
+            (
+                item
+                for item in files
+                if isinstance(item, dict)
+                and str(item.get("name") or "").casefold() == self.FIGSHARE_MODEL_FILE.casefold()
+            ),
+            None,
+        )
+        if model_file is None:
+            raise DepMapAdapterError(
+                DepMapErrorCode.NO_RECORDS,
+                f"DepMap Figshare 发布中没有 {self.FIGSHARE_MODEL_FILE}。",
+                details={"url": self.FIGSHARE_ARTICLE_API},
+            )
+        download_url = str(model_file.get("download_url") or "")
+        hostname = (urlparse(download_url).hostname or "").casefold()
+        if not download_url.startswith("https://") or hostname != "ndownloader.figshare.com":
+            raise DepMapAdapterError(
+                DepMapErrorCode.INVALID_RESPONSE,
+                "DepMap Figshare 文件下载地址不在允许的官方域名。",
+                details={"url": download_url},
+            )
+        file_response = self.client.get(download_url)
+        if file_response.status_code >= 400:
+            raise DepMapAdapterError(
+                DepMapErrorCode.NETWORK_ERROR,
+                f"DepMap Figshare Model.csv 返回 HTTP {file_response.status_code}。",
+                details={"url": download_url},
+            )
+        checksum = str(model_file.get("computed_md5") or "").strip()
+        return file_response.text, SourceItem(
+            source_id="depmap:figshare:27993248:model",
+            task_id=task_id,
+            source_name="Broad DepMap 24Q4 Model.csv",
+            source_type="preclinical_cell_line",
+            accession="DepMap",
+            url=self.FIGSHARE_ARTICLE_URL,
+            file_type="csv",
+            checksum=f"md5:{checksum}" if checksum else None,
+            status="retrieved",
         )
 
     def _parse_payload(self, response: httpx.Response) -> dict[str, Any] | str:

@@ -51,3 +51,41 @@ def test_depmap_raises_when_no_breast_models() -> None:
             DepMapAdapter(client=client).search(task_id="task-empty")
 
     assert exc_info.value.code == DepMapErrorCode.NO_RECORDS
+
+
+def test_depmap_uses_official_figshare_release_when_portal_requires_verification() -> None:
+    model_csv = (
+        "ModelID,CellLineName,StrippedCellLineName,OncotreeLineage\n"
+        "ACH-000001,MCF7,MCF7,Breast\n"
+        "ACH-000002,A549,A549,Lung\n"
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if url == DepMapAdapter.DOWNLOADS_URL:
+            return httpx.Response(200, text="<html>Verification</html>", request=request)
+        if url == DepMapAdapter.FIGSHARE_ARTICLE_API:
+            return httpx.Response(
+                200,
+                json={
+                    "files": [
+                        {
+                            "name": "Model.csv",
+                            "download_url": "https://ndownloader.figshare.com/files/1",
+                            "computed_md5": "abc123",
+                        }
+                    ]
+                },
+                request=request,
+            )
+        if url == "https://ndownloader.figshare.com/files/1":
+            return httpx.Response(200, text=model_csv, request=request)
+        raise AssertionError(f"unexpected URL: {url}")
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        result = DepMapAdapter(client=client).search(task_id="task-figshare")
+
+    assert [record.model_id for record in result.records] == ["ACH-000001"]
+    assert result.request_url == DepMapAdapter.FIGSHARE_ARTICLE_API
+    assert any(item.source_id == "depmap:figshare:27993248:model" for item in result.source_items)
+    assert "不补造" in result.notice

@@ -1,0 +1,291 @@
+{
+  "artifact_type": "query_understanding_ablation",
+  "created_at": "2026-08-28T21:13:05.023534+00:00",
+  "methods": {
+    "A_raw": {
+      "status": "EVALUATED",
+      "description": "tuned BM25 on original query"
+    },
+    "B_rules": {
+      "status": "EVALUATED",
+      "description": "rules queries + RRF"
+    },
+    "C_qwen_single": {
+      "status": "NOT_EVALUATED"
+    },
+    "D_qwen_multi": {
+      "status": "NOT_EVALUATED"
+    },
+    "E_rules_qwen": {
+      "status": "NOT_EVALUATED"
+    }
+  },
+  "datasets": {
+    "beir_scifact": {
+      "manifest": {
+        "dataset_id": "beir_scifact",
+        "source_id": "beir:scifact",
+        "source_url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scifact.zip",
+        "archive_sha256": "536e14446a0ba56ed1398ab1055f39fe852686ecad24a6306c80c490fa8e0165",
+        "corpus_sha256": "dec31c8182f3d744c7d2c09423756fd1d17cbef75808db13ba01cc0aab4d1ac6",
+        "queries_sha256": "8ff84a7c903f722981cd8d595c022660140c51867b27608a6d4910db86080313",
+        "qrels_test_sha256": "0864bb985e0ca2367ba217977e72004d549054b2b06666ed9d4825ac7c21284c",
+        "qrels_train_sha256": "a53f2114831916c096b6c37d9e54da68cef4efdcdbd5ed46533601af972acf1d"
+      },
+      "bm25_config": {
+        "k1": 1.2,
+        "b": 0.75,
+        "fit_split": "train"
+      },
+      "qwen_plan_cache_complete": false,
+      "evaluation_query_count": 300,
+      "results": {
+        "A_raw": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.6044493287129828,
+          "recall_at_100": 0.8284444444444444,
+          "mrr_at_10": 0.568510582010582,
+          "mean_latency_ms": 7.256518333451822,
+          "query_count": 300,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 0.0,
+          "fallback_count": 0
+        },
+        "B_rules": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.6066519228652659,
+          "recall_at_100": 0.8323333333333333,
+          "mrr_at_10": 0.5702050264550264,
+          "mean_latency_ms": 15.831481999096772,
+          "query_count": 300,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 0.0,
+          "fallback_count": 0
+        }
+      },
+      "strata": {}
+    },
+    "beir_nfcorpus": {
+      "manifest": {
+        "dataset_id": "beir_nfcorpus",
+        "source_id": "beir:nfcorpus",
+        "source_url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/nfcorpus.zip",
+        "archive_sha256": "efe5be03f8c5b86a5870102d0599d227c8c6e2484328e68c6522560385671b0b",
+        "corpus_sha256": "10cc83ef1826b1425e6a87090b5140b39b27755d5a27e48215a88611c899991f",
+        "queries_sha256": "d024e6621b84925d485ae473d316a0c3af31c62c8068a59fb29d22f7613aef2a",
+        "qrels_test_sha256": "f8fba6ef3d4dd9c3a242a8ba4ae38276fc3622fce7dcbae764766d564542fd2a",
+        "qrels_train_sha256": "6336b80f9bffc4f063f3aa450047ad35c0b7c534efe4a6ba35e16dbace047f6a",
+        "qrels_dev_sha256": "b1d38b5e8f78c4a5820bce2b7ec2db54911d7690dc601e76811846b211180bd8"
+      },
+      "bm25_config": {
+        "k1": 1.8,
+        "b": 0.25,
+        "fit_split": "dev"
+      },
+      "qwen_plan_cache_complete": false,
+      "evaluation_query_count": 323,
+      "results": {
+        "A_raw": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.2902228424137962,
+          "recall_at_100": 0.2206128747160837,
+          "mrr_at_10": 0.5061010369059905,
+          "mean_latency_ms": 0.9063746138250934,
+          "query_count": 323,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 0.0,
+          "fallback_count": 0
+        },
+        "B_rules": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.28866112644217895,
+          "recall_at_100": 0.2246608620613642,
+          "mrr_at_10": 0.500329254508821,
+          "mean_latency_ms": 2.2052095967075345,
+          "query_count": 323,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 0.0,
+          "fallback_count": 0
+        }
+      },
+      "strata": {}
+    },
+    "beir_scidocs": {
+      "manifest": {
+        "dataset_id": "beir_scidocs",
+        "source_id": "beir:scidocs",
+        "source_url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scidocs.zip",
+        "archive_sha256": "96640201687767c9b1fcc5af7a80b90fb325b37fa25329c2586c25edcfa17ef1",
+        "corpus_sha256": "328bb38854179c83ee40d4f49fae2ef7209ede7163785193cbdcd5906b28eecc",
+        "queries_sha256": "3c85b68419bd579ff52edb58f9e7b32eb3d18bc83435edb71dbb68aaf79531d6",
+        "qrels_test_sha256": "dcd3d7f77417294bb6f338537f3c28d8a5ea72b30fe6633f407fa85528767e35"
+      },
+      "bm25_config": {
+        "k1": 1.5,
+        "b": 0.75,
+        "fit_split": "none"
+      },
+      "qwen_plan_cache_complete": false,
+      "evaluation_query_count": 1000,
+      "results": {
+        "A_raw": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.14898146417097713,
+          "recall_at_100": 0.33723333333333333,
+          "mrr_at_10": 0.2660515873015873,
+          "mean_latency_ms": 44.57518449972849,
+          "query_count": 1000,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 0.0,
+          "fallback_count": 0
+        },
+        "B_rules": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.14939807819836273,
+          "recall_at_100": 0.3322333333333333,
+          "mrr_at_10": 0.26685555555555557,
+          "mean_latency_ms": 66.50606759998482,
+          "query_count": 1000,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 0.0,
+          "fallback_count": 0
+        }
+      },
+      "strata": {}
+    },
+    "beir_arguana": {
+      "manifest": {
+        "dataset_id": "beir_arguana",
+        "source_id": "beir:arguana",
+        "source_url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/arguana.zip",
+        "archive_sha256": "cfdf79adce27a401b3cd3ea267903134dbfab2c6afeb95d7fe5724a00bf7557b",
+        "corpus_sha256": "0627982cec4ee896df6dc98604ef6b499c83fd87a19eaaeb3f23b88bbef6cbce",
+        "queries_sha256": "f8b7c903f95d9a2d291de3915a8fac25085e9db679f19f59fea4145bfd1df618",
+        "qrels_test_sha256": "0c47b481fa8b47fb9ca5e74bc8a017bdea14518c0e4a5d21345291180b3aca76"
+      },
+      "bm25_config": {
+        "k1": 1.5,
+        "b": 0.75,
+        "fit_split": "none"
+      },
+      "qwen_plan_cache_complete": false,
+      "evaluation_query_count": 1406,
+      "results": {
+        "A_raw": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.30674996985510244,
+          "recall_at_100": 0.9054054054054054,
+          "mrr_at_10": 0.19829048973785815,
+          "mean_latency_ms": 52.61878904696603,
+          "query_count": 1406,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 0.0,
+          "fallback_count": 0
+        },
+        "B_rules": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.3067938159655451,
+          "recall_at_100": 0.9018492176386913,
+          "mrr_at_10": 0.19834185689448847,
+          "mean_latency_ms": 121.2247406118195,
+          "query_count": 1406,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 0.0,
+          "fallback_count": 0
+        }
+      },
+      "strata": {}
+    },
+    "beir_fiqa": {
+      "manifest": {
+        "dataset_id": "beir_fiqa",
+        "source_id": "beir:fiqa",
+        "source_url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/fiqa.zip",
+        "archive_sha256": "32c7df99ed21252fdfb2cf3f5673502a8d245ee0c44c4a133570d92ce2b3ad02",
+        "corpus_sha256": "ff593e4df9933955dc3af83be0c3fa28ac7465f627e08c2e53593e734d506517",
+        "queries_sha256": "eede1e61d4a0188940239b53ebc2da91f577a6a34679c812d1eb9090c29877bc",
+        "qrels_test_sha256": "6adc2a640dcdd22bb8b3858f89107adef2a7c3db20a63550dfa7a0f71e379e44",
+        "qrels_train_sha256": "e46a99529aa61b12e086a5c057e4e0ecaeda9502e53d5fe855efce778f1ec59a",
+        "qrels_dev_sha256": "03b27e547cd29dc721c3b93ce8ddd70df6b2d0ce954d8ef3659d386e8cd72c11"
+      },
+      "bm25_config": {
+        "k1": 1.2,
+        "b": 0.75,
+        "fit_split": "dev"
+      },
+      "qwen_plan_cache_complete": false,
+      "evaluation_query_count": 648,
+      "results": {
+        "A_raw": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.22298736140356143,
+          "recall_at_100": 0.48432716974383644,
+          "mrr_at_10": 0.2753423231432491,
+          "mean_latency_ms": 97.01629428969615,
+          "query_count": 648,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 0.0,
+          "fallback_count": 0
+        },
+        "B_rules": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.22183910002412302,
+          "recall_at_100": 0.4750936306491862,
+          "mrr_at_10": 0.2739620076425632,
+          "mean_latency_ms": 197.90877237670585,
+          "query_count": 648,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 0.0,
+          "fallback_count": 0
+        }
+      },
+      "strata": {}
+    }
+  },
+  "planner_model_id": null,
+  "selection_manifest": null,
+  "notice": "Retrieval-layer diagnostics only; no clinical or SDTI claim. Qwen groups require an external plan cache and never receive qrels.",
+  "macro_average_equal_weight": {
+    "A_raw": {
+      "status": "EVALUATED",
+      "dataset_count": 5,
+      "ndcg_at_10": 0.314678193311284,
+      "recall_at_100": 0.5552046455286207,
+      "mrr_at_10": 0.36285920381985337,
+      "mean_latency_ms": 40.47463215673351
+    },
+    "B_rules": {
+      "status": "EVALUATED",
+      "dataset_count": 5,
+      "ndcg_at_10": 0.31466880869909514,
+      "recall_at_100": 0.5532340754031816,
+      "mrr_at_10": 0.3619387402112909,
+      "mean_latency_ms": 80.7352544368629,
+      "delta_vs_A": {
+        "ndcg_at_10": -9.384612188856334e-06,
+        "recall_at_100": -0.0019705701254391084,
+        "mrr_at_10": -0.0009204636085624607,
+        "mean_latency_ms": 40.26062228012939
+      }
+    },
+    "C_qwen_single": {
+      "status": "NOT_EVALUATED"
+    },
+    "D_qwen_multi": {
+      "status": "NOT_EVALUATED"
+    },
+    "E_rules_qwen": {
+      "status": "NOT_EVALUATED"
+    }
+  }
+}

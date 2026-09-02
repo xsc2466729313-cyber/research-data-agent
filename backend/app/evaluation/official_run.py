@@ -9,6 +9,7 @@ from typing import Any, Callable
 from urllib.parse import urlparse
 
 from backend.app.agent.models import AgentDataMode, AgentTaskRequest
+from backend.app.agent.qwen_client import QwenClient
 from backend.app.agent.search_planner import FieldDrivenSearchPlanner
 from backend.app.agent.service import ResearchAgentService
 from backend.app.evaluation.goldset import GoldSetCsvLoader, compute_gold_set_checksum
@@ -27,6 +28,7 @@ from backend.app.evaluation.observe import (
     observe_field,
     retrieval_observations_from_ids,
 )
+from backend.app.evaluation.retrieval_selection import final_retrieval_ids
 from backend.app.evaluation.service import EvaluationService
 from backend.app.models import ApiModel, SourceItem
 
@@ -42,6 +44,7 @@ OFFICIAL_SOURCE_HOSTS = (
     "clinicaltrials.gov",
     "depmap.org",
     "europepmc.org",
+    "figshare.com",
     "gdc.cancer.gov",
     "maayanlab.cloud",
     "ncbi.nlm.nih.gov",
@@ -136,35 +139,14 @@ def ids_from_agent(
         ),
         task_id=f"official-{question_id}",
     )
-    found: list[str] = []
-    for call in result.tool_calls:
-        status = str(call.status or "").casefold()
-        if any(token in status for token in ("失败", "fail", "error")):
-            continue
-        args = call.arguments or {}
-        for key in ("accession", "study_id", "nct_id", "project_id"):
-            value = str(args.get(key) or "").strip()
-            if value:
-                found.append(value)
-        if call.tool_name == "search_civic":
-            found.append("CIViC")
-        if call.tool_name == "search_depmap":
-            found.append("DepMap")
-        if call.tool_name == "search_trials":
-            found.append("AACT")
-    for item in result.source_items:
-        if item.accession:
-            found.append(item.accession)
-        if item.source_id:
-            found.append(item.source_id)
-    for item in result.candidate_sources:
-        if item.dataset_id:
-            found.append(item.dataset_id)
-        if item.accession:
-            found.append(item.accession)
+    found = final_retrieval_ids(
+        result.tool_calls,
+        modeling_dataset=result.modeling_dataset,
+        source_datasets=result.source_datasets,
+    )
     quality_gate = result.quality_gate_report
     return RetrievalRun(
-        ids=list(dict.fromkeys(found)),
+        ids=found,
         model_provider="qwen" if result.used_qwen else result.model_provider,
         model_name=result.model_name,
         used_model=result.used_model,
@@ -229,6 +211,7 @@ def collect_observations(
     retrieval_label: str | None = None,
     require_qwen: bool = False,
     fail_on_retrieval_error: bool = False,
+    qwen_client: QwenClient | None = None,
 ) -> tuple[
     BenchmarkObservations,
     dict[str, Any],
@@ -289,12 +272,47 @@ def collect_observations(
 
     field_obs = []
     error_obs = []
+    qwen_field_calls = 0
+    qwen_field_failures = 0
+    qwen_field_target_proposals = 0
+    qwen_field_rule_agreements = 0
+    qwen_field_rule_fallbacks = 0
+    qwen_field_rule_overrides = 0
+    qwen_error_calls = 0
+    qwen_error_failures = 0
+    qwen_error_confirmations = 0
+    qwen_error_expected_type_matches = 0
+    field_traces: list[dict[str, Any]] = []
+    error_traces: list[dict[str, Any]] = []
     unresolved_high_risk = 0
     for row in bundle.field_gold:
-        observation, _trace = observe_field(row)
+        observation, trace = observe_field(row, qwen_client=qwen_client)
+        if trace.get("qwen", {}).get("used"):
+            qwen_field_calls += 1
+        if trace.get("qwen", {}).get("failed"):
+            qwen_field_failures += 1
+        if trace.get("qwen", {}).get("proposed_target"):
+            qwen_field_target_proposals += 1
+        if trace.get("qwen", {}).get("agreed_with_rule"):
+            qwen_field_rule_agreements += 1
+        if trace.get("qwen", {}).get("rule_fallback"):
+            qwen_field_rule_fallbacks += 1
+        if trace.get("qwen", {}).get("rule_override"):
+            qwen_field_rule_overrides += 1
+        field_traces.append({"case_id": row.case_id, **trace})
         field_obs.append(observation)
     for row in bundle.error_gold:
-        observation, _trace = observe_error(row)
+        observation, trace = observe_error(row, qwen_client=qwen_client)
+        qwen_trace = trace.get("qwen", {})
+        if qwen_trace.get("used"):
+            qwen_error_calls += 1
+        if qwen_trace.get("failed"):
+            qwen_error_failures += 1
+        if qwen_trace.get("detected"):
+            qwen_error_confirmations += 1
+        if trace.get("qwen_matched_expected_type"):
+            qwen_error_expected_type_matches += 1
+        error_traces.append({"case_id": row.case_id, **trace})
         error_obs.append(observation)
         if (
             row.risk_level.value == "high"
@@ -334,6 +352,23 @@ def collect_observations(
             ),
         },
         "retrieval_traces": traces,
+        "qwen_assistance": {
+            "enabled": qwen_client is not None,
+            "field_calls": qwen_field_calls,
+            "field_failures": qwen_field_failures,
+            "field_target_proposal_count": qwen_field_target_proposals,
+            "field_rule_agreement_count": qwen_field_rule_agreements,
+            "field_rule_fallback_count": qwen_field_rule_fallbacks,
+            "field_rule_override_count": qwen_field_rule_overrides,
+            "error_calls": qwen_error_calls,
+            "error_failures": qwen_error_failures,
+            "error_diagnosis_detected_count": qwen_error_confirmations,
+            "error_expected_type_match_count": qwen_error_expected_type_matches,
+            "gold_labels_sent_to_model": False,
+            "deterministic_safety_court": "ErrorDetectionEngine + SafeRepairApplier",
+        },
+        "field_traces": field_traces,
+        "error_traces": error_traces,
         "source_validation": source_validation_details,
         "copied_from_development": False,
     }
@@ -380,22 +415,28 @@ def run_official_evaluation(
         retrieval_label = "agent_qwen_live" if use_qwen else "agent_deterministic_live"
     elif retrieval_fn is None:
         retrieval_label = "deterministic_planner_plan_only"
-    observations, audit, unresolved, source_validation = collect_observations(
-        bundle,
-        retrieval_fn=retrieval_fn,
-        retrieval_label=retrieval_label,
-        require_qwen=(
-            not injected_retrieval
-            and retrieval == "agent"
-            and use_qwen
-            and not allow_deterministic_fallback
-        ),
-        fail_on_retrieval_error=(
-            not injected_retrieval
-            and retrieval == "agent"
-            and not allow_deterministic_fallback
-        ),
-    )
+    qwen_assist_client = QwenClient() if use_qwen and retrieval == "agent" else None
+    try:
+        observations, audit, unresolved, source_validation = collect_observations(
+            bundle,
+            retrieval_fn=retrieval_fn,
+            retrieval_label=retrieval_label,
+            require_qwen=(
+                not injected_retrieval
+                and retrieval == "agent"
+                and use_qwen
+                and not allow_deterministic_fallback
+            ),
+            fail_on_retrieval_error=(
+                not injected_retrieval
+                and retrieval == "agent"
+                and not allow_deterministic_fallback
+            ),
+            qwen_client=qwen_assist_client,
+        )
+    finally:
+        if qwen_assist_client is not None:
+            qwen_assist_client.close()
     execution_audit = audit["execution"]
     provider = execution_audit["model_provider"]
     model_name = execution_audit["model_name"]

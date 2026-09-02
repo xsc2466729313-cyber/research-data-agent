@@ -137,11 +137,11 @@ class QwenClient:
             "type": "function",
             "function": {
                 "name": "search_gdc",
-                "description": "检索 GDC/TCGA 乳腺癌项目和临床、突变、表达或拷贝数文件。",
+                "description": "检索 GDC/TCGA 肿瘤项目和临床、突变、表达或拷贝数文件。",
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "project_id": {"type": "string", "description": "例如 TCGA-BRCA"},
+                        "project_id": {"type": "string", "description": "GDC 项目 ID，例如 TCGA-BRCA、TCGA-PAAD 或 TCGA-GBM"},
                         "data_types": {"type": "array", "items": {"type": "string"}},
                         "max_files": {"type": "integer", "minimum": 1, "maximum": 20},
                     },
@@ -168,11 +168,11 @@ class QwenClient:
             "type": "function",
             "function": {
                 "name": "search_cbioportal",
-                "description": "从 cBioPortal 获取乳腺癌患者/样本临床表、突变和离散 CNA，用于构建科研数据宽表。",
+                "description": "从 cBioPortal 获取肿瘤患者/样本临床表、突变和离散 CNA，用于构建科研数据宽表。",
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "study_id": {"type": "string", "description": "例如 brca_metabric"},
+                        "study_id": {"type": "string", "description": "cBioPortal 研究 ID，例如 brca_metabric 或 paad_tcga_pan_can_atlas_2018"},
                         "gene_symbols": {"type": "array", "items": {"type": "string"}},
                         "max_records": {"type": "integer", "minimum": 10, "maximum": 10000},
                     },
@@ -184,7 +184,7 @@ class QwenClient:
             "type": "function",
             "function": {
                 "name": "search_trials",
-                "description": "检索 ClinicalTrials.gov 乳腺癌临床试验、干预和结局。",
+                "description": "检索 ClinicalTrials.gov 肿瘤临床试验、干预和结局。",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -221,7 +221,7 @@ class QwenClient:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "query": {"type": "string", "description": "例如 breast cancer GSE25066"},
+                        "query": {"type": "string", "description": "例如 lung adenocarcinoma EGFR"},
                         "max_records": {"type": "integer", "minimum": 1, "maximum": 100},
                     },
                     "required": ["query"],
@@ -238,7 +238,7 @@ class QwenClient:
                     "properties": {
                         "query": {
                             "type": "string",
-                            "description": "例如 HER2 positive breast cancer PIK3CA trastuzumab response",
+                            "description": "例如 lung adenocarcinoma EGFR treatment response",
                         },
                         "max_records": {"type": "integer", "minimum": 1, "maximum": 100},
                     },
@@ -254,7 +254,7 @@ class QwenClient:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "query": {"type": "string", "description": "乳腺癌、基因、药物和结局组合查询"},
+                        "query": {"type": "string", "description": "癌种、基因、药物和结局组合查询"},
                         "max_records": {"type": "integer", "minimum": 1, "maximum": 100},
                     },
                     "required": ["query"],
@@ -265,11 +265,11 @@ class QwenClient:
             "type": "function",
             "function": {
                 "name": "search_depmap",
-                "description": "检索 DepMap 乳腺癌细胞系药敏（AUC/IC50）。结果的 response_domain 必须是 preclinical_cell_line，不能当作患者疗效。",
+                "description": "检索 DepMap 肿瘤细胞系药敏（AUC/IC50）。结果的 response_domain 必须是 preclinical_cell_line，不能当作患者疗效。",
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "query": {"type": "string", "description": "例如 breast cancer cell line lapatinib AUC"},
+                        "query": {"type": "string", "description": "例如 lung adenocarcinoma cell line osimertinib AUC"},
                         "drug": {"type": "string"},
                         "max_records": {"type": "integer", "minimum": 1, "maximum": 200},
                     },
@@ -326,7 +326,7 @@ class QwenClient:
 
     def extract_research_spec(self, question: str, task_id: str) -> ResearchSpec:
         prompt = {
-            "任务": "把乳腺癌科研问题解析为严格 JSON",
+            "任务": "把肿瘤科研问题解析为严格 JSON",
             "科研问题": question,
             "JSON字段": {
                 "research_goal": "原始目标",
@@ -350,7 +350,7 @@ class QwenClient:
             messages=[
                 {
                     "role": "system",
-                    "content": "你是乳腺癌科研数据规划器。请严格按照 JSON 输出并保持医学语义。",
+                    "content": "你是肿瘤科研数据规划器。请严格按照 JSON 输出并保持癌种、队列和医学语义。",
                 },
                 {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)},
             ],
@@ -360,7 +360,7 @@ class QwenClient:
             payload = json.loads(message.get("content") or "{}")
             payload["task_id"] = task_id
             payload.setdefault("research_goal", question)
-            payload.setdefault("disease", "Breast Cancer")
+            payload.setdefault("disease", "Cancer")
             payload.setdefault("required_data_types", ["clinical"])
             payload.setdefault("genes", [])
             payload.setdefault("variants", [])
@@ -370,6 +370,236 @@ class QwenClient:
             return ResearchSpec.model_validate(payload)
         except (json.JSONDecodeError, ValidationError, TypeError) as exc:
             raise QwenClientError("千问返回的科研任务 JSON 未通过 Schema 校验。") from exc
+
+    def normalize_research_field(
+        self,
+        *,
+        source_dataset: str,
+        raw_field: str,
+        raw_value: str,
+        allowed_fields: list[str],
+    ) -> dict[str, Any]:
+        """Map one observed research field without exposing its gold label."""
+        prompt = {
+            "任务": "将一条乳腺癌科研数据原始字段映射为冻结 CanonicalRecord 字段",
+            "来源数据集": source_dataset,
+            "原始字段": raw_field,
+            "原始值": raw_value,
+            "允许的规范字段": allowed_fields,
+            "输出字段": {
+                "canonical_values": "对象；列出该原始字段能支持的全部规范字段和值，键只能来自允许字段",
+                "confidence": "0 到 1 之间的小数",
+                "needs_review": "高风险或语义不确定时为 true",
+                "rationale": "不超过 80 字的依据",
+            },
+            "约束": [
+                "不得猜测不存在的患者、样本、治疗响应或来源事实",
+                "必须保留 raw_field 与 raw_value，不改写原始值",
+                "HER2 IHC 2+ 只能是 Equivocal/REVIEW，不能是 Positive",
+                "ERBB2 CNA amplification 不得映射为 HER2 IHC Positive",
+                "IC50/AUC 属于 preclinical_cell_line，不能写成患者 pCR",
+                "一个原始字段可同时产生多个规范字段，例如 HER2 IHC 3+ 应同时给出 her2_status、her2_assay、her2_raw_value",
+                "来源编号字段应带来源命名空间，例如 GSE 为 geo:、NCT 为 nct:、TCGA 为 gdc:",
+                "只输出 JSON 对象",
+            ],
+        }
+        message = self._chat(
+            messages=[
+                {
+                    "role": "system",
+                    "content": "你是乳腺癌科研数据字段治理器。只做字段语义映射，不编造数据。",
+                },
+                {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)},
+            ],
+            response_format={"type": "json_object"},
+        )
+        try:
+            payload = json.loads(message.get("content") or "{}")
+        except (json.JSONDecodeError, TypeError) as exc:
+            raise QwenClientError("千问字段治理结果不是有效 JSON。") from exc
+        if not isinstance(payload, dict):
+            raise QwenClientError("千问字段治理结果不是 JSON 对象。")
+        return payload
+
+    def diagnose_research_error(self, *, original_record: dict[str, Any]) -> dict[str, Any]:
+        """Detect one record-level quality issue without exposing benchmark labels."""
+        prompt = {
+            "任务": "诊断一条乳腺癌科研记录是否存在数据质量或医学语义错误",
+            "原始记录": original_record,
+            "输出字段": {
+                "detected": "是否发现错误",
+                "error_type": "错误类型；无错误时为 null",
+                "candidate_repair": "候选修复对象，例如 {field, value}；不能确定时为 null",
+                "confidence": "0 到 1 之间的小数",
+                "needs_review": "需要人工复核时为 true",
+                "rationale": "不超过 100 字的依据",
+            },
+            "可用错误类型": [
+                "her2_assay_error",
+                "patient_sample_conflict",
+                "schema_mapping_error",
+                "provenance_missing",
+                "gene_alias",
+                "drug_alias",
+                "duplicate",
+                "missing",
+                "unit",
+                "typo",
+            ],
+            "约束": [
+                "只能根据原始记录判断，不能假设有隐藏标签或干净表",
+                "HER2 IHC 2+ 不得改为 Positive",
+                "ERBB2 CNA 不等于 HER2 IHC positive",
+                "低置信度或跨研究患者关联必须 unresolved 并 needs_review=true",
+                "IC50/AUC 与患者 pCR 必须区分 response_domain",
+                "缺 source_id/raw_field/raw_value 时只能报告问题，不能补造值",
+                "只输出 JSON 对象",
+            ],
+        }
+        message = self._chat(
+            messages=[
+                {
+                    "role": "system",
+                    "content": "你是乳腺癌科研数据质量审查器。优先发现风险，不擅自改写高风险事实。",
+                },
+                {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)},
+            ],
+            response_format={"type": "json_object"},
+        )
+        try:
+            payload = json.loads(message.get("content") or "{}")
+        except (json.JSONDecodeError, TypeError) as exc:
+            raise QwenClientError("千问错误诊断结果不是有效 JSON。") from exc
+        if not isinstance(payload, dict):
+            raise QwenClientError("千问错误诊断结果不是 JSON 对象。")
+        return payload
+
+    def label_pico_batch(self, items: list[dict[str, Any]]) -> dict[str, list[int]]:
+        """Label PICO tokens in a bounded batch without exposing test labels."""
+        message = self._chat_json(
+            system=(
+                "你是医学文献 PICO span 标注器。对每个文档的 token 逐项输出 0/1，"
+                "只依据文档 token，不猜测隐藏标注。"
+            ),
+            payload={
+                "任务": "识别每个文档中属于指定 PICO 元素的 token",
+                "items": items,
+                "输出": "JSON 对象 labels，键为 item_id，值为与 tokens 等长的 0/1 数组",
+                "约束": [
+                    "不得合并、删除或重排 tokens",
+                    "只能输出 labels 一个对象",
+                    "每个 item_id 必须都有结果",
+                ],
+            },
+        )
+        labels = message.get("labels")
+        if not isinstance(labels, dict):
+            raise QwenClientError("千问 PICO 结果缺少 labels 对象。")
+        output: dict[str, list[int]] = {}
+        expected = {str(item["item_id"]): len(item.get("tokens") or []) for item in items}
+        for item_id, size in expected.items():
+            values = labels.get(item_id)
+            if not isinstance(values, list) or len(values) != size or any(value not in (0, 1, False, True) for value in values):
+                raise QwenClientError(f"千问 PICO labels 长度或取值无效：{item_id}")
+            output[item_id] = [int(value) for value in values]
+        return output
+
+    def rewrite_retrieval_batch(self, items: list[dict[str, Any]]) -> dict[str, str]:
+        """Rewrite retrieval queries without receiving corpus relevance labels."""
+        message = self._chat_json(
+            system=(
+                "你是科学文献检索查询改写器。保持原问题的事实和否定关系，"
+                "为词法检索生成一个简洁英文查询。不得假设任何文档相关性。"
+            ),
+            payload={
+                "任务": "为每个查询生成可用于 BM25 的查询改写",
+                "items": items,
+                "输出": "JSON 对象 rewrites，键为 item_id，值为查询字符串",
+                "约束": [
+                    "不得生成答案、文档编号或相关性判断",
+                    "保留原查询中的关键实体、否定和比较关系",
+                    "每个 item_id 必须都有结果",
+                ],
+            },
+        )
+        rewrites = message.get("rewrites")
+        if not isinstance(rewrites, dict):
+            raise QwenClientError("千问检索改写结果缺少 rewrites 对象。")
+        output: dict[str, str] = {}
+        for item in items:
+            item_id = str(item["item_id"])
+            value = rewrites.get(item_id)
+            if not isinstance(value, str) or not value.strip():
+                raise QwenClientError(f"千问检索改写为空：{item_id}")
+            output[item_id] = value.strip()
+        return output
+
+    def clean_table_batch(
+        self,
+        *,
+        columns: list[str],
+        rows: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Propose dirty-table repairs from the dirty table only."""
+        message = self._chat_json(
+            system=(
+                "你是公开数据集错误清洗器。只依据给出的脏表和表内重复模式识别高置信异常；"
+                "不能访问清洁参考表，不确定就不修改。"
+            ),
+            payload={
+                "任务": "提出脏表中可由表内证据唯一确认的单元格修复",
+                "columns": columns,
+                "rows": rows,
+                "输出": "JSON 数组 repairs，每项为 {row_index, column, value, reason}",
+                "约束": [
+                    "row_index 必须是输入行的 index",
+                    "column 必须来自 columns",
+                    "只提出能由重复值、明显格式模式或跨列约束确认的修复",
+                    "不要猜测缺失的真实值，不要整行重写，不要改列名",
+                    "value 必须是字符串",
+                ],
+            },
+        )
+        repairs = message.get("repairs")
+        if not isinstance(repairs, list):
+            raise QwenClientError("千问清洗结果不是 repairs 数组。")
+        allowed = set(columns)
+        output: list[dict[str, Any]] = []
+        for item in repairs:
+            if not isinstance(item, dict):
+                raise QwenClientError("千问清洗 repair 项不是对象。")
+            row_index = item.get("row_index")
+            column = item.get("column")
+            value = item.get("value")
+            if not isinstance(row_index, int) or not 0 <= row_index < len(rows):
+                raise QwenClientError("千问清洗 row_index 无效。")
+            if not isinstance(column, str) or column not in allowed:
+                raise QwenClientError("千问清洗 column 不在输入列中。")
+            if not isinstance(value, str):
+                raise QwenClientError("千问清洗 value 必须是字符串。")
+            output.append({
+                "row_index": row_index,
+                "column": column,
+                "value": value,
+                "reason": str(item.get("reason") or "")[:200],
+            })
+        return output
+
+    def _chat_json(self, *, system: str, payload: dict[str, Any]) -> dict[str, Any]:
+        message = self._chat(
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+            ],
+            response_format={"type": "json_object"},
+        )
+        try:
+            value = json.loads(message.get("content") or "{}")
+        except (json.JSONDecodeError, TypeError) as exc:
+            raise QwenClientError("千问批量结果不是有效 JSON。") from exc
+        if not isinstance(value, dict):
+            raise QwenClientError("千问批量结果不是 JSON 对象。")
+        return value
 
     def choose_tools(
         self,
@@ -511,7 +741,7 @@ class QwenClient:
             {
                 "role": "system",
                 "content": (
-                    "你是乳腺癌科研数据智能体。只能复述后续 JSON 中明确给出的统计事实。"
+                    "你是肿瘤科研数据智能体。只能复述后续 JSON 中明确给出的统计事实。"
                     "禁止自行声称患者均为某亚型、具有某治疗方案或某突变类型；禁止把工具的原始记录数"
                     "称为患者数。不得把相关性描述成因果关系，不得生成患者治疗建议。"
                     "请输出 JSON 对象，且只包含 summary 一个字符串字段。"
@@ -575,7 +805,7 @@ class QwenClient:
                 {
                     "role": "system",
                     "content": (
-                        "你是医学科研问题设计助手。只生成可检索、可审计的乳腺癌科研问题，"
+                        "你是医学科研问题设计助手。只生成与种子问题同癌种、可检索、可审计的肿瘤科研问题，"
                         "不得生成患者事实、结果或治疗建议。请严格输出 JSON。"
                     ),
                 },

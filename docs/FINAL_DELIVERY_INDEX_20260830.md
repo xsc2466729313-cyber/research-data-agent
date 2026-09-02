@@ -16,6 +16,7 @@
 | 项目 README | [../README.md](../README.md) | 完成 |
 | 机器可读正式指标 | [official metrics.json](../goldset/breast_cancer/official_candidate/evaluation_runs/official-candidate-20260829T132222Z/metrics.json) | 完成 |
 | 公开同类项目对比证据 | [results.json](../evaluation/github_competitor_benchmark_20260830/results.json) | 完成 |
+| 公开对照题号与解释 | [PUBLIC_COMPARISON_GUIDE_20260902.md](PUBLIC_COMPARISON_GUIDE_20260902.md) | 完成 |
 
 ## 验收结果
 
@@ -34,6 +35,7 @@
 2. 读框架说明与系统设计，理解模型、工具、规则、Evidence 和质量门的责任边界。
 3. 读结果报告与指标检测报告，区分正式 SDTI、development 观察和公开模块基准。
 4. 通过视觉资产索引查看系统框图、端到端流程图和界面截图。
+5. 需要看公开对照时，先读 [PUBLIC_COMPARISON_GUIDE_20260902.md](PUBLIC_COMPARISON_GUIDE_20260902.md)，再看逐题图和机器可读结果。
 
 ## 不能误读的边界
 

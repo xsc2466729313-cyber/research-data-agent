@@ -1,0 +1,1484 @@
+{
+  "artifact_type": "query_understanding_ablation",
+  "created_at": "2026-08-28T21:07:07.761173+00:00",
+  "methods": {
+    "A_raw": {
+      "status": "EVALUATED",
+      "description": "tuned BM25 on original query"
+    },
+    "B_rules": {
+      "status": "EVALUATED",
+      "description": "rules queries + RRF"
+    },
+    "C_qwen_single": {
+      "status": "EVALUATED"
+    },
+    "D_qwen_multi": {
+      "status": "EVALUATED"
+    },
+    "E_rules_qwen": {
+      "status": "EVALUATED"
+    }
+  },
+  "datasets": {
+    "beir_scifact": {
+      "manifest": {
+        "dataset_id": "beir_scifact",
+        "source_id": "beir:scifact",
+        "source_url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scifact.zip",
+        "archive_sha256": "536e14446a0ba56ed1398ab1055f39fe852686ecad24a6306c80c490fa8e0165",
+        "corpus_sha256": "dec31c8182f3d744c7d2c09423756fd1d17cbef75808db13ba01cc0aab4d1ac6",
+        "queries_sha256": "8ff84a7c903f722981cd8d595c022660140c51867b27608a6d4910db86080313",
+        "qrels_test_sha256": "0864bb985e0ca2367ba217977e72004d549054b2b06666ed9d4825ac7c21284c",
+        "qrels_train_sha256": "a53f2114831916c096b6c37d9e54da68cef4efdcdbd5ed46533601af972acf1d"
+      },
+      "bm25_config": {
+        "k1": 1.2,
+        "b": 0.75,
+        "fit_split": "train"
+      },
+      "qwen_plan_cache_complete": true,
+      "evaluation_query_count": 15,
+      "results": {
+        "A_raw": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.4812271624545443,
+          "recall_at_100": 0.6933333333333334,
+          "mrr_at_10": 0.4777777777777778,
+          "mean_latency_ms": 5.198786671583851,
+          "query_count": 15,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 0.0,
+          "fallback_count": 0
+        },
+        "B_rules": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.4766055996594371,
+          "recall_at_100": 0.66,
+          "mrr_at_10": 0.4722222222222222,
+          "mean_latency_ms": 10.454780001115674,
+          "query_count": 15,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 0.0,
+          "fallback_count": 0
+        },
+        "C_qwen_single": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.4685028561998695,
+          "recall_at_100": 0.7533333333333334,
+          "mrr_at_10": 0.45674603174603173,
+          "mean_latency_ms": 2.05823333041432,
+          "query_count": 15,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 1.0,
+          "fallback_count": 0
+        },
+        "D_qwen_multi": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.47124739953547723,
+          "recall_at_100": 0.7533333333333334,
+          "mrr_at_10": 0.45674603174603173,
+          "mean_latency_ms": 4.559073325557013,
+          "query_count": 15,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 1.0,
+          "fallback_count": 0
+        },
+        "E_rules_qwen": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.46841995401530706,
+          "recall_at_100": 0.74,
+          "mrr_at_10": 0.45,
+          "mean_latency_ms": 15.201246666644389,
+          "query_count": 15,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 1.0,
+          "fallback_count": 0
+        }
+      },
+      "strata": {
+        "long": {
+          "query_count": 5,
+          "results": {
+            "A_raw": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.3,
+              "recall_at_100": 0.6,
+              "mrr_at_10": 0.26666666666666666,
+              "mean_latency_ms": 7.335720013361424,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "B_rules": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.28613531161467864,
+              "recall_at_100": 0.6,
+              "mrr_at_10": 0.25,
+              "mean_latency_ms": 14.377599989529699,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "C_qwen_single": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.28613531161467864,
+              "recall_at_100": 0.6,
+              "mrr_at_10": 0.25,
+              "mean_latency_ms": 2.7681599953211844,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "D_qwen_multi": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.28613531161467864,
+              "recall_at_100": 0.6,
+              "mrr_at_10": 0.25,
+              "mean_latency_ms": 5.151980003574863,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "E_rules_qwen": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.28613531161467864,
+              "recall_at_100": 0.6,
+              "mrr_at_10": 0.25,
+              "mean_latency_ms": 20.920940005453303,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            }
+          }
+        },
+        "medium": {
+          "query_count": 5,
+          "results": {
+            "A_raw": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.5773705614469083,
+              "recall_at_100": 0.8,
+              "mrr_at_10": 0.5666666666666667,
+              "mean_latency_ms": 5.033520003780723,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "B_rules": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.5773705614469083,
+              "recall_at_100": 0.7,
+              "mrr_at_10": 0.5666666666666667,
+              "mean_latency_ms": 10.52170000039041,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "C_qwen_single": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.5386852807234541,
+              "recall_at_100": 0.9,
+              "mrr_at_10": 0.4916666666666667,
+              "mean_latency_ms": 2.0254199975170195,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "D_qwen_multi": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.5386852807234541,
+              "recall_at_100": 0.9,
+              "mrr_at_10": 0.4916666666666667,
+              "mean_latency_ms": 5.040640005609021,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "E_rules_qwen": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.5436814873636329,
+              "recall_at_100": 0.9,
+              "mrr_at_10": 0.5,
+              "mean_latency_ms": 15.323580004042014,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            }
+          }
+        },
+        "short": {
+          "query_count": 5,
+          "results": {
+            "A_raw": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.5663109259167245,
+              "recall_at_100": 0.6799999999999999,
+              "mrr_at_10": 0.6,
+              "mean_latency_ms": 2.80558000667952,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "B_rules": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.5663109259167245,
+              "recall_at_100": 0.6799999999999999,
+              "mrr_at_10": 0.6,
+              "mean_latency_ms": 6.025799998315051,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "C_qwen_single": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.5806879762614756,
+              "recall_at_100": 0.76,
+              "mrr_at_10": 0.6285714285714286,
+              "mean_latency_ms": 1.2753400020301342,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "D_qwen_multi": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.5889216062682989,
+              "recall_at_100": 0.76,
+              "mrr_at_10": 0.6285714285714286,
+              "mean_latency_ms": 2.9985800094436854,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "E_rules_qwen": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.57544306306761,
+              "recall_at_100": 0.72,
+              "mrr_at_10": 0.6,
+              "mean_latency_ms": 8.688179997261614,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            }
+          }
+        }
+      }
+    },
+    "beir_nfcorpus": {
+      "manifest": {
+        "dataset_id": "beir_nfcorpus",
+        "source_id": "beir:nfcorpus",
+        "source_url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/nfcorpus.zip",
+        "archive_sha256": "efe5be03f8c5b86a5870102d0599d227c8c6e2484328e68c6522560385671b0b",
+        "corpus_sha256": "10cc83ef1826b1425e6a87090b5140b39b27755d5a27e48215a88611c899991f",
+        "queries_sha256": "d024e6621b84925d485ae473d316a0c3af31c62c8068a59fb29d22f7613aef2a",
+        "qrels_test_sha256": "f8fba6ef3d4dd9c3a242a8ba4ae38276fc3622fce7dcbae764766d564542fd2a",
+        "qrels_train_sha256": "6336b80f9bffc4f063f3aa450047ad35c0b7c534efe4a6ba35e16dbace047f6a",
+        "qrels_dev_sha256": "b1d38b5e8f78c4a5820bce2b7ec2db54911d7690dc601e76811846b211180bd8"
+      },
+      "bm25_config": {
+        "k1": 1.8,
+        "b": 0.25,
+        "fit_split": "dev"
+      },
+      "qwen_plan_cache_complete": true,
+      "evaluation_query_count": 15,
+      "results": {
+        "A_raw": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.3354291666515688,
+          "recall_at_100": 0.14391624764234373,
+          "mrr_at_10": 0.5355555555555556,
+          "mean_latency_ms": 0.7281333363304535,
+          "query_count": 15,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 0.0,
+          "fallback_count": 0
+        },
+        "B_rules": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.329519216444449,
+          "recall_at_100": 0.1438676679160288,
+          "mrr_at_10": 0.5188888888888888,
+          "mean_latency_ms": 1.5005000052042305,
+          "query_count": 15,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 0.0,
+          "fallback_count": 0
+        },
+        "C_qwen_single": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.3358917560229612,
+          "recall_at_100": 0.15458276651321598,
+          "mrr_at_10": 0.5144444444444445,
+          "mean_latency_ms": 0.8184800002103051,
+          "query_count": 15,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 1.0,
+          "fallback_count": 0
+        },
+        "D_qwen_multi": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.327180938901279,
+          "recall_at_100": 0.1772210817396763,
+          "mrr_at_10": 0.495,
+          "mean_latency_ms": 2.418513330242907,
+          "query_count": 15,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 1.0,
+          "fallback_count": 0
+        },
+        "E_rules_qwen": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.342217965818339,
+          "recall_at_100": 0.1815694792361845,
+          "mrr_at_10": 0.53,
+          "mean_latency_ms": 3.886386670637876,
+          "query_count": 15,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 1.0,
+          "fallback_count": 0
+        }
+      },
+      "strata": {
+        "long": {
+          "query_count": 5,
+          "results": {
+            "A_raw": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.19232265570958976,
+              "recall_at_100": 0.1174749899959984,
+              "mrr_at_10": 0.33999999999999997,
+              "mean_latency_ms": 1.625480008078739,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "B_rules": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.20124419067841398,
+              "recall_at_100": 0.1094717887154862,
+              "mrr_at_10": 0.37333333333333335,
+              "mean_latency_ms": 2.7993800002150238,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "C_qwen_single": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.20958103764018907,
+              "recall_at_100": 0.10963185274109644,
+              "mrr_at_10": 0.35666666666666663,
+              "mean_latency_ms": 1.2234599911607802,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "D_qwen_multi": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.18096853412246755,
+              "recall_at_100": 0.10238695478191276,
+              "mrr_at_10": 0.30666666666666664,
+              "mean_latency_ms": 3.4372599911876023,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "E_rules_qwen": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.20335130647363014,
+              "recall_at_100": 0.11339335734293716,
+              "mrr_at_10": 0.35666666666666663,
+              "mean_latency_ms": 6.090099998982623,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            }
+          }
+        },
+        "medium": {
+          "query_count": 5,
+          "results": {
+            "A_raw": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.25123860431752865,
+              "recall_at_100": 0.07963352492048573,
+              "mrr_at_10": 0.4666666666666667,
+              "mean_latency_ms": 0.6053799937944859,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "B_rules": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.23731137636713523,
+              "recall_at_100": 0.07325724572867254,
+              "mrr_at_10": 0.3833333333333333,
+              "mean_latency_ms": 1.567100000102073,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "C_qwen_single": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.23619027318260807,
+              "recall_at_100": 0.09229175276858699,
+              "mrr_at_10": 0.38666666666666666,
+              "mean_latency_ms": 0.613359990529716,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "D_qwen_multi": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.23987309959932043,
+              "recall_at_100": 0.07943457583374015,
+              "mrr_at_10": 0.35333333333333333,
+              "mean_latency_ms": 2.121179999085143,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "E_rules_qwen": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.27333625134257433,
+              "recall_at_100": 0.0782816753444749,
+              "mrr_at_10": 0.4333333333333333,
+              "mean_latency_ms": 3.3748799934983253,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            }
+          }
+        },
+        "short": {
+          "query_count": 5,
+          "results": {
+            "A_raw": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.5627262399275881,
+              "recall_at_100": 0.23464022801054701,
+              "mrr_at_10": 0.8,
+              "mean_latency_ms": 0.009480002336204052,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "B_rules": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.5500020822877977,
+              "recall_at_100": 0.2488739693039277,
+              "mrr_at_10": 0.8,
+              "mean_latency_ms": 0.5373799940571189,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "C_qwen_single": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.5619039572460863,
+              "recall_at_100": 0.2618246940299645,
+              "mrr_at_10": 0.8,
+              "mean_latency_ms": 0.4115200019441545,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "D_qwen_multi": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.560701182982049,
+              "recall_at_100": 0.34984171460337604,
+              "mrr_at_10": 0.825,
+              "mean_latency_ms": 1.8212399969343096,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "E_rules_qwen": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.5499663396388126,
+              "recall_at_100": 0.35303340502114133,
+              "mrr_at_10": 0.8,
+              "mean_latency_ms": 2.270840003620833,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            }
+          }
+        }
+      }
+    },
+    "beir_scidocs": {
+      "manifest": {
+        "dataset_id": "beir_scidocs",
+        "source_id": "beir:scidocs",
+        "source_url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scidocs.zip",
+        "archive_sha256": "96640201687767c9b1fcc5af7a80b90fb325b37fa25329c2586c25edcfa17ef1",
+        "corpus_sha256": "328bb38854179c83ee40d4f49fae2ef7209ede7163785193cbdcd5906b28eecc",
+        "queries_sha256": "3c85b68419bd579ff52edb58f9e7b32eb3d18bc83435edb71dbb68aaf79531d6",
+        "qrels_test_sha256": "dcd3d7f77417294bb6f338537f3c28d8a5ea72b30fe6633f407fa85528767e35"
+      },
+      "bm25_config": {
+        "k1": 1.5,
+        "b": 0.75,
+        "fit_split": "none"
+      },
+      "qwen_plan_cache_complete": true,
+      "evaluation_query_count": 15,
+      "results": {
+        "A_raw": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.20740201595789484,
+          "recall_at_100": 0.52,
+          "mrr_at_10": 0.3308201058201058,
+          "mean_latency_ms": 25.429666665149853,
+          "query_count": 15,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 0.0,
+          "fallback_count": 0
+        },
+        "B_rules": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.20086606356913775,
+          "recall_at_100": 0.52,
+          "mrr_at_10": 0.32415343915343914,
+          "mean_latency_ms": 54.3165533298937,
+          "query_count": 15,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 0.0,
+          "fallback_count": 0
+        },
+        "C_qwen_single": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.20670909763703835,
+          "recall_at_100": 0.52,
+          "mrr_at_10": 0.3195238095238095,
+          "mean_latency_ms": 7.750726669716339,
+          "query_count": 15,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 1.0,
+          "fallback_count": 0
+        },
+        "D_qwen_multi": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.20003667981218712,
+          "recall_at_100": 0.52,
+          "mrr_at_10": 0.2986772486772487,
+          "mean_latency_ms": 28.799460001755506,
+          "query_count": 15,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 1.0,
+          "fallback_count": 0
+        },
+        "E_rules_qwen": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.19734636385041507,
+          "recall_at_100": 0.52,
+          "mrr_at_10": 0.33285714285714285,
+          "mean_latency_ms": 83.01802666198152,
+          "query_count": 15,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 1.0,
+          "fallback_count": 0
+        }
+      },
+      "strata": {
+        "long": {
+          "query_count": 5,
+          "results": {
+            "A_raw": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.34212120677274704,
+              "recall_at_100": 0.6,
+              "mrr_at_10": 0.575,
+              "mean_latency_ms": 30.81147999037057,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "B_rules": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.34212120677274704,
+              "recall_at_100": 0.6,
+              "mrr_at_10": 0.575,
+              "mean_latency_ms": 66.96097999811172,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "C_qwen_single": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.3692365433733522,
+              "recall_at_100": 0.6,
+              "mrr_at_10": 0.5916666666666667,
+              "mean_latency_ms": 9.092480002436787,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "D_qwen_multi": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.3571195813392541,
+              "recall_at_100": 0.6,
+              "mrr_at_10": 0.5535714285714286,
+              "mean_latency_ms": 46.48219999508001,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "E_rules_qwen": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.34212120677274704,
+              "recall_at_100": 0.6,
+              "mrr_at_10": 0.5650000000000001,
+              "mean_latency_ms": 109.7435400064569,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            }
+          }
+        },
+        "medium": {
+          "query_count": 5,
+          "results": {
+            "A_raw": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.18538427257815498,
+              "recall_at_100": 0.6,
+              "mrr_at_10": 0.28888888888888886,
+              "mean_latency_ms": 34.82910000020638,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "B_rules": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.18538427257815498,
+              "recall_at_100": 0.6,
+              "mrr_at_10": 0.28888888888888886,
+              "mean_latency_ms": 73.56424000463448,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "C_qwen_single": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.15439941170779897,
+              "recall_at_100": 0.6,
+              "mrr_at_10": 0.23333333333333334,
+              "mean_latency_ms": 4.652219993295148,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "D_qwen_multi": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.15439941170779897,
+              "recall_at_100": 0.6,
+              "mrr_at_10": 0.23333333333333334,
+              "mean_latency_ms": 19.31724000023678,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "E_rules_qwen": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.174825173421987,
+              "recall_at_100": 0.6,
+              "mrr_at_10": 0.325,
+              "mean_latency_ms": 93.74335999600589,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            }
+          }
+        },
+        "short": {
+          "query_count": 5,
+          "results": {
+            "A_raw": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.09470056852278252,
+              "recall_at_100": 0.36,
+              "mrr_at_10": 0.1285714285714286,
+              "mean_latency_ms": 12.085420003859326,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "B_rules": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.07509271135651112,
+              "recall_at_100": 0.36,
+              "mrr_at_10": 0.10857142857142858,
+              "mean_latency_ms": 26.251940004294738,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "C_qwen_single": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.09649133782996387,
+              "recall_at_100": 0.36,
+              "mrr_at_10": 0.1335714285714286,
+              "mean_latency_ms": 7.512040005531162,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "D_qwen_multi": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.08859104638950833,
+              "recall_at_100": 0.36,
+              "mrr_at_10": 0.10912698412698411,
+              "mean_latency_ms": 21.279159997357056,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "E_rules_qwen": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.07509271135651112,
+              "recall_at_100": 0.36,
+              "mrr_at_10": 0.10857142857142858,
+              "mean_latency_ms": 44.26638000877574,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            }
+          }
+        }
+      }
+    },
+    "beir_arguana": {
+      "manifest": {
+        "dataset_id": "beir_arguana",
+        "source_id": "beir:arguana",
+        "source_url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/arguana.zip",
+        "archive_sha256": "cfdf79adce27a401b3cd3ea267903134dbfab2c6afeb95d7fe5724a00bf7557b",
+        "corpus_sha256": "0627982cec4ee896df6dc98604ef6b499c83fd87a19eaaeb3f23b88bbef6cbce",
+        "queries_sha256": "f8b7c903f95d9a2d291de3915a8fac25085e9db679f19f59fea4145bfd1df618",
+        "qrels_test_sha256": "0c47b481fa8b47fb9ca5e74bc8a017bdea14518c0e4a5d21345291180b3aca76"
+      },
+      "bm25_config": {
+        "k1": 1.5,
+        "b": 0.75,
+        "fit_split": "none"
+      },
+      "qwen_plan_cache_complete": true,
+      "evaluation_query_count": 15,
+      "results": {
+        "A_raw": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.3929548731545586,
+          "recall_at_100": 0.8666666666666667,
+          "mrr_at_10": 0.24619047619047618,
+          "mean_latency_ms": 48.44861333064424,
+          "query_count": 15,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 0.0,
+          "fallback_count": 0
+        },
+        "B_rules": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.3929548731545586,
+          "recall_at_100": 0.8666666666666667,
+          "mrr_at_10": 0.24619047619047618,
+          "mean_latency_ms": 98.57698666552703,
+          "query_count": 15,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 0.0,
+          "fallback_count": 0
+        },
+        "C_qwen_single": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.26854843779947807,
+          "recall_at_100": 0.9333333333333333,
+          "mrr_at_10": 0.13396825396825396,
+          "mean_latency_ms": 9.395059999466563,
+          "query_count": 15,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 1.0,
+          "fallback_count": 0
+        },
+        "D_qwen_multi": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.2721164027262253,
+          "recall_at_100": 0.8666666666666667,
+          "mrr_at_10": 0.15444444444444444,
+          "mean_latency_ms": 44.998619998417176,
+          "query_count": 15,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 1.0,
+          "fallback_count": 0
+        },
+        "E_rules_qwen": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.32784278048464416,
+          "recall_at_100": 0.8666666666666667,
+          "mrr_at_10": 0.20285714285714285,
+          "mean_latency_ms": 146.894306668158,
+          "query_count": 15,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 1.0,
+          "fallback_count": 0
+        }
+      },
+      "strata": {
+        "long": {
+          "query_count": 5,
+          "results": {
+            "A_raw": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.4190385680952497,
+              "recall_at_100": 1.0,
+              "mrr_at_10": 0.24523809523809526,
+              "mean_latency_ms": 54.66943999635987,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "B_rules": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.4190385680952497,
+              "recall_at_100": 1.0,
+              "mrr_at_10": 0.24523809523809526,
+              "mean_latency_ms": 112.62209999840707,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "C_qwen_single": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.369896923469826,
+              "recall_at_100": 1.0,
+              "mrr_at_10": 0.19166666666666665,
+              "mean_latency_ms": 9.374839992960915,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "D_qwen_multi": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.31783938640148846,
+              "recall_at_100": 1.0,
+              "mrr_at_10": 0.17777777777777776,
+              "mean_latency_ms": 42.31509999954142,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "E_rules_qwen": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.4051738797099283,
+              "recall_at_100": 1.0,
+              "mrr_at_10": 0.22857142857142856,
+              "mean_latency_ms": 156.34583999635652,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            }
+          }
+        },
+        "medium": {
+          "query_count": 5,
+          "results": {
+            "A_raw": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.5385072130432615,
+              "recall_at_100": 1.0,
+              "mrr_at_10": 0.3833333333333333,
+              "mean_latency_ms": 52.25446000113152,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "B_rules": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.5385072130432615,
+              "recall_at_100": 1.0,
+              "mrr_at_10": 0.3833333333333333,
+              "mean_latency_ms": 104.55931999604218,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "C_qwen_single": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.29784028584033717,
+              "recall_at_100": 1.0,
+              "mrr_at_10": 0.14833333333333334,
+              "mean_latency_ms": 12.869159993715584,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "D_qwen_multi": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.3437686988833708,
+              "recall_at_100": 1.0,
+              "mrr_at_10": 0.20555555555555555,
+              "mean_latency_ms": 54.98969999025576,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "E_rules_qwen": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.4236133388501875,
+              "recall_at_100": 1.0,
+              "mrr_at_10": 0.3,
+              "mean_latency_ms": 159.3347799964249,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            }
+          }
+        },
+        "short": {
+          "query_count": 5,
+          "results": {
+            "A_raw": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.22131883832516452,
+              "recall_at_100": 0.6,
+              "mrr_at_10": 0.11000000000000001,
+              "mean_latency_ms": 42.10812000092119,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "B_rules": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.22131883832516452,
+              "recall_at_100": 0.6,
+              "mrr_at_10": 0.11000000000000001,
+              "mean_latency_ms": 85.743440000806,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "C_qwen_single": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.1379081040882711,
+              "recall_at_100": 0.8,
+              "mrr_at_10": 0.06190476190476191,
+              "mean_latency_ms": 8.886839996557683,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "D_qwen_multi": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.15474112289381664,
+              "recall_at_100": 0.6,
+              "mrr_at_10": 0.08,
+              "mean_latency_ms": 43.354699993506074,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "E_rules_qwen": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.15474112289381664,
+              "recall_at_100": 0.6,
+              "mrr_at_10": 0.08,
+              "mean_latency_ms": 133.28474000445567,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            }
+          }
+        }
+      }
+    },
+    "beir_fiqa": {
+      "manifest": {
+        "dataset_id": "beir_fiqa",
+        "source_id": "beir:fiqa",
+        "source_url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/fiqa.zip",
+        "archive_sha256": "32c7df99ed21252fdfb2cf3f5673502a8d245ee0c44c4a133570d92ce2b3ad02",
+        "corpus_sha256": "ff593e4df9933955dc3af83be0c3fa28ac7465f627e08c2e53593e734d506517",
+        "queries_sha256": "eede1e61d4a0188940239b53ebc2da91f577a6a34679c812d1eb9090c29877bc",
+        "qrels_test_sha256": "6adc2a640dcdd22bb8b3858f89107adef2a7c3db20a63550dfa7a0f71e379e44",
+        "qrels_train_sha256": "e46a99529aa61b12e086a5c057e4e0ecaeda9502e53d5fe855efce778f1ec59a",
+        "qrels_dev_sha256": "03b27e547cd29dc721c3b93ce8ddd70df6b2d0ce954d8ef3659d386e8cd72c11"
+      },
+      "bm25_config": {
+        "k1": 1.2,
+        "b": 0.75,
+        "fit_split": "dev"
+      },
+      "qwen_plan_cache_complete": true,
+      "evaluation_query_count": 15,
+      "results": {
+        "A_raw": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.15848975281728978,
+          "recall_at_100": 0.5545454545454546,
+          "mrr_at_10": 0.1784126984126984,
+          "mean_latency_ms": 78.3317800029181,
+          "query_count": 15,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 0.0,
+          "fallback_count": 0
+        },
+        "B_rules": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.15848975281728978,
+          "recall_at_100": 0.5545454545454546,
+          "mrr_at_10": 0.1784126984126984,
+          "mean_latency_ms": 168.4436066658236,
+          "query_count": 15,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 0.0,
+          "fallback_count": 0
+        },
+        "C_qwen_single": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.1783533865102947,
+          "recall_at_100": 0.39898989898989895,
+          "mrr_at_10": 0.1922222222222222,
+          "mean_latency_ms": 11.105193343246356,
+          "query_count": 15,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 1.0,
+          "fallback_count": 0
+        },
+        "D_qwen_multi": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.18575959652000773,
+          "recall_at_100": 0.4073232323232323,
+          "mrr_at_10": 0.20396825396825397,
+          "mean_latency_ms": 82.84914000153852,
+          "query_count": 15,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 1.0,
+          "fallback_count": 0
+        },
+        "E_rules_qwen": {
+          "status": "EVALUATED",
+          "ndcg_at_10": 0.1675379507370029,
+          "recall_at_100": 0.5545454545454546,
+          "mrr_at_10": 0.20222222222222222,
+          "mean_latency_ms": 247.69294666475616,
+          "query_count": 15,
+          "index_build_seconds": 0.0,
+          "estimated_cost_usd": 0.0,
+          "qwen_invocation_rate": 1.0,
+          "fallback_count": 0
+        }
+      },
+      "strata": {
+        "long": {
+          "query_count": 5,
+          "results": {
+            "A_raw": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.0312852484015171,
+              "recall_at_100": 0.2,
+              "mrr_at_10": 0.02857142857142857,
+              "mean_latency_ms": 117.80410000355914,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "B_rules": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.0312852484015171,
+              "recall_at_100": 0.2,
+              "mrr_at_10": 0.02857142857142857,
+              "mean_latency_ms": 242.6739600021392,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "C_qwen_single": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.04692787260227564,
+              "recall_at_100": 0.13333333333333333,
+              "mrr_at_10": 0.06666666666666667,
+              "mean_latency_ms": 10.735199990449473,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "D_qwen_multi": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.04692787260227564,
+              "recall_at_100": 0.15833333333333333,
+              "mrr_at_10": 0.06666666666666667,
+              "mean_latency_ms": 141.86116000055335,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "E_rules_qwen": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.059216382193173045,
+              "recall_at_100": 0.2,
+              "mrr_at_10": 0.1,
+              "mean_latency_ms": 396.1972000019159,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            }
+          }
+        },
+        "medium": {
+          "query_count": 5,
+          "results": {
+            "A_raw": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.2827346579368133,
+              "recall_at_100": 0.8636363636363636,
+              "mrr_at_10": 0.30666666666666664,
+              "mean_latency_ms": 77.38877999945544,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "B_rules": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.2827346579368133,
+              "recall_at_100": 0.8636363636363636,
+              "mrr_at_10": 0.30666666666666664,
+              "mean_latency_ms": 158.39403999852948,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "C_qwen_single": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.3266829348150695,
+              "recall_at_100": 0.8636363636363636,
+              "mrr_at_10": 0.31,
+              "mean_latency_ms": 16.403100005118176,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "D_qwen_multi": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.34890156484420864,
+              "recall_at_100": 0.8636363636363636,
+              "mrr_at_10": 0.34523809523809523,
+              "mean_latency_ms": 82.26991999545135,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "E_rules_qwen": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.28194811790429675,
+              "recall_at_100": 0.8636363636363636,
+              "mrr_at_10": 0.30666666666666664,
+              "mean_latency_ms": 231.2601200013887,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            }
+          }
+        },
+        "short": {
+          "query_count": 5,
+          "results": {
+            "A_raw": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.1614493521135389,
+              "recall_at_100": 0.6,
+              "mrr_at_10": 0.2,
+              "mean_latency_ms": 40.67562000127509,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "B_rules": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.1614493521135389,
+              "recall_at_100": 0.6,
+              "mrr_at_10": 0.2,
+              "mean_latency_ms": 74.90081999567337,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 0.0,
+              "fallback_count": 0
+            },
+            "C_qwen_single": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.1614493521135389,
+              "recall_at_100": 0.2,
+              "mrr_at_10": 0.2,
+              "mean_latency_ms": 10.041300003649667,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "D_qwen_multi": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.1614493521135389,
+              "recall_at_100": 0.2,
+              "mrr_at_10": 0.2,
+              "mean_latency_ms": 24.60041999584064,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            },
+            "E_rules_qwen": {
+              "status": "EVALUATED",
+              "ndcg_at_10": 0.1614493521135389,
+              "recall_at_100": 0.6,
+              "mrr_at_10": 0.2,
+              "mean_latency_ms": 99.65895999339409,
+              "query_count": 5,
+              "index_build_seconds": 0.0,
+              "estimated_cost_usd": 0.0,
+              "qwen_invocation_rate": 1.0,
+              "fallback_count": 0
+            }
+          }
+        }
+      }
+    }
+  },
+  "planner_model_id": "qwen3.8-max",
+  "selection_manifest": "data\\output\\evaluation\\qwen38_full_evaluation_20260829\\query_subset_manifest.json",
+  "notice": "Retrieval-layer diagnostics only; no clinical or SDTI claim. Qwen groups require an external plan cache and never receive qrels.",
+  "macro_average_equal_weight": {
+    "A_raw": {
+      "status": "EVALUATED",
+      "dataset_count": 5,
+      "ndcg_at_10": 0.3151005942071713,
+      "recall_at_100": 0.5556923404375597,
+      "mrr_at_10": 0.35375132275132276,
+      "mean_latency_ms": 31.627396001325298
+    },
+    "B_rules": {
+      "status": "EVALUATED",
+      "dataset_count": 5,
+      "ndcg_at_10": 0.31168710112897446,
+      "recall_at_100": 0.54901595782563,
+      "mrr_at_10": 0.34797354497354493,
+      "mean_latency_ms": 66.65848533351286,
+      "delta_vs_A": {
+        "ndcg_at_10": -0.0034134930781968276,
+        "recall_at_100": -0.00667638261192971,
+        "mrr_at_10": -0.005777777777777826,
+        "mean_latency_ms": 35.03108933218756
+      }
+    },
+    "C_qwen_single": {
+      "status": "EVALUATED",
+      "dataset_count": 5,
+      "ndcg_at_10": 0.29160110683392837,
+      "recall_at_100": 0.5520478664339563,
+      "mrr_at_10": 0.3233809523809524,
+      "mean_latency_ms": 6.225538668610776,
+      "delta_vs_A": {
+        "ndcg_at_10": -0.023499487373242922,
+        "recall_at_100": -0.0036444740036033485,
+        "mrr_at_10": -0.03037037037037038,
+        "mean_latency_ms": -25.40185733271452
+      }
+    },
+    "D_qwen_multi": {
+      "status": "EVALUATED",
+      "dataset_count": 5,
+      "ndcg_at_10": 0.29126820349903526,
+      "recall_at_100": 0.5449088628125818,
+      "mrr_at_10": 0.3217671957671958,
+      "mean_latency_ms": 32.72496133150223,
+      "delta_vs_A": {
+        "ndcg_at_10": -0.02383239070813603,
+        "recall_at_100": -0.010783477624977889,
+        "mrr_at_10": -0.03198412698412695,
+        "mean_latency_ms": 1.0975653301769306
+      }
+    },
+    "E_rules_qwen": {
+      "status": "EVALUATED",
+      "dataset_count": 5,
+      "ndcg_at_10": 0.30067300298114163,
+      "recall_at_100": 0.5725563200896612,
+      "mrr_at_10": 0.34358730158730155,
+      "mean_latency_ms": 99.3385826664356,
+      "delta_vs_A": {
+        "ndcg_at_10": -0.014427591226029657,
+        "recall_at_100": 0.016863979652101513,
+        "mrr_at_10": -0.010164021164021209,
+        "mean_latency_ms": 67.7111866651103
+      }
+    }
+  }
+}

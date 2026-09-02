@@ -18,6 +18,7 @@ from typing import Iterable
 from backend.app.retrieval_text_features import retrieval_tokens
 from backend.app.evaluation.semantic_retrieval import (
     CrossEncoderBenchmarkIndex,
+    DevelopmentSelectedBenchmarkIndex,
     HybridSemanticBenchmarkIndex,
     SentenceTransformerBenchmarkIndex,
 )
@@ -342,6 +343,25 @@ def fit_hybrid_weights(
     return HybridWeightConfig(best[1], best[2], fit_split, best[0])
 
 
+def select_development_retriever(
+    candidates: dict[str, object],
+    queries: dict[str, str],
+    dataset_dir: Path,
+) -> tuple[str, str, float | None, str]:
+    """Select a candidate without inspecting held-out test qrels."""
+
+    fit_split = "dev" if (dataset_dir / "qrels" / "dev.tsv").exists() else "train"
+    fit_qrels = _load_qrels(dataset_dir, fit_split)
+    if not fit_qrels:
+        return "semantic", fit_split, None, "no train/dev qrels; fixed semantic fallback"
+    scores = {
+        name: evaluate_retriever(candidate, queries, fit_qrels).ndcg_at_10
+        for name, candidate in candidates.items()
+    }
+    selected_name = max(scores, key=lambda name: (scores[name], name == "semantic"))
+    return selected_name, fit_split, scores[selected_name], json.dumps(scores, sort_keys=True)
+
+
 class ProjectHybridHashIndex:
     """Efficient benchmark adapter for the project's deterministic hybrid rank formula.
 
@@ -571,11 +591,12 @@ def run_public_retrieval_benchmark(
     dataset_dir, manifest = prepare_beir_dataset(dataset_id, data_root, download=download)
     corpus, queries, qrels = load_beir(dataset_dir)
     method_results: dict[str, tuple[str, RetrievalMetrics]] = {}
-    method_configs: dict[str, RetrievalConfig] = {}
+    method_configs: dict[str, object] = {}
     tuned_config: RetrievalConfig | None = None
     semantic_index: SentenceTransformerBenchmarkIndex | None = None
     hybrid_index: HybridSemanticBenchmarkIndex | None = None
     hybrid_config: HybridWeightConfig | None = None
+    selected_index: DevelopmentSelectedBenchmarkIndex | None = None
     vnext = load_vnext_config().retrieval
     cache_root = data_root / ".vnext_embedding_cache"
 
@@ -633,6 +654,34 @@ def run_public_retrieval_benchmark(
             retriever = CrossEncoderBenchmarkIndex(
                 get_hybrid(), model_name=vnext.reranker_backend, rerank_k=10
             )
+            method_id = retriever.method_id
+        elif method == "vnext_dev_selected":
+            if selected_index is None:
+                candidates: dict[str, object] = {"semantic": get_semantic()}
+                fit_qrels = _load_qrels(
+                    dataset_dir,
+                    "dev" if (dataset_dir / "qrels" / "dev.tsv").exists() else "train",
+                )
+                if fit_qrels:
+                    candidates["hybrid_rerank"] = CrossEncoderBenchmarkIndex(
+                        get_hybrid(), model_name=vnext.reranker_backend, rerank_k=10
+                    )
+                selected_name, fit_split, fit_score, score_summary = select_development_retriever(
+                    candidates, queries, dataset_dir
+                )
+                selected_index = DevelopmentSelectedBenchmarkIndex(
+                    candidates[selected_name],
+                    selected_name=selected_name,
+                    fit_split=fit_split,
+                    fit_ndcg_at_10=fit_score,
+                )
+                method_configs[selected_index.method_id] = {
+                    "selected_name": selected_name,
+                    "fit_split": fit_split,
+                    "fit_ndcg_at_10": fit_score,
+                    "candidate_scores": score_summary,
+                }
+            retriever = selected_index
             method_id = retriever.method_id
         else:
             raise ValueError(f"Unsupported method: {method}")

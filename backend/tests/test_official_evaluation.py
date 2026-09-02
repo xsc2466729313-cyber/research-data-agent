@@ -12,11 +12,32 @@ from backend.app.evaluation.official_run import (
     run_official_evaluation,
     validate_retrieved_sources,
 )
+from backend.app.evaluation.retrieval_selection import final_retrieval_ids
 from backend.app.models import SourceItem
 from backend.app.main import app
 
 
 client = TestClient(app)
+
+
+def test_final_retrieval_ids_excludes_exploratory_candidates() -> None:
+    ids = final_retrieval_ids(
+        [
+            {
+                "tool_name": "search_depmap",
+                "arguments": {"query": "breast cancer IC50 AUC"},
+                "status": "success",
+            },
+            {
+                "tool_name": "search_geo_catalog",
+                "arguments": {"query": "breast cancer response"},
+                "status": "success",
+                "candidate_sources": ["GSE76360", "GSE25066"],
+            },
+        ]
+    )
+
+    assert ids == ["DepMap"]
 
 
 def test_official_launch_defaults_to_strict_qwen_agent() -> None:

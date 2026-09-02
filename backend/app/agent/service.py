@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import threading
 from datetime import datetime, timezone
 from typing import Any
@@ -11,6 +12,8 @@ from backend.app.agent.competition_report import CompetitionReportBuilder
 from backend.app.agent.accession_harvest import (
     asks_pcr,
     catalog_query,
+    geo_text_has_clinical_cohort,
+    geo_text_is_preclinical,
     harvest_from_raw_results,
     literature_query,
     needs_clinical_outcome,
@@ -45,8 +48,8 @@ from backend.app.agent.source_registry import (
     MAX_SOURCE_ENTRIES,
     call_key,
     entry_key,
-    is_breast_cancer_study_id,
-    is_gdc_breast_project_id,
+    is_cancer_study_id,
+    is_gdc_cancer_project_id,
 )
 from backend.app.critic import CriticAgent
 from backend.app.models import (
@@ -55,6 +58,14 @@ from backend.app.models import (
     SearchPlan,
     SearchPlanItem,
     SourceItem,
+)
+from backend.app.oncology import (
+    canonical_disease_name,
+    default_cbioportal_study,
+    default_gdc_project,
+    default_genes,
+    is_breast_cancer,
+    trial_condition,
 )
 from backend.app.sources.aact import AACTClinicalTrialsAdapter
 from backend.app.sources.aact.models import AACTAdapterOptions, AACTAdapterRequest
@@ -67,7 +78,7 @@ from backend.app.sources.cbioportal.models import (
 from backend.app.sources.civic import CIViCAdapter
 from backend.app.sources.civic.models import CIViCAdapterOptions, CIViCAdapterRequest
 from backend.app.sources.depmap import DepMapAdapter, DepMapAdapterResult
-from backend.app.sources.discovery import DiscoveryAdapter, DiscoveryAdapterError
+from backend.app.sources.discovery import DiscoveryAdapter
 from backend.app.sources.gdc import GDCAdapter
 from backend.app.sources.gdc.models import GDCAdapterOptions, GDCAdapterRequest
 from backend.app.sources.geo import GEOAdapter
@@ -358,7 +369,7 @@ class ResearchAgentService:
                 if not request.allow_deterministic_fallback:
                     raise AgentExecutionError(str(exc)) from exc
                 qwen_warning = f"{active_qwen.settings.provider_label}工具选择失败，已使用确定性兜底：{exc}"
-        deterministic_calls = self._deterministic_tool_calls(spec, request, brief)
+        deterministic_calls = self._stable_deterministic_tool_calls(spec, request, brief)
         seed_priority = (
             request.max_sources >= 4
             or bool(request.focus_accessions)
@@ -366,13 +377,23 @@ class ResearchAgentService:
         )
         priority_calls = self._priority_seed_calls(spec, request) if seed_priority else []
         if calls:
-            calls = self._merge_tool_calls(priority_calls + calls, deterministic_calls, request.max_sources)
+            calls = self._merge_initial_tool_calls(
+                priority_calls=priority_calls,
+                qwen_calls=calls,
+                field_driven_calls=deterministic_calls,
+                max_sources=request.max_sources,
+            )
             calls = self._prioritize_named_cohort_calls(calls, brief)
             calls = self._guard_tool_arguments(calls, spec, request)
             if tool_message is not None:
                 tool_message = self._synchronize_tool_message(tool_message, calls)
         else:
-            calls = self._merge_tool_calls(priority_calls, deterministic_calls, request.max_sources)
+            calls = self._merge_initial_tool_calls(
+                priority_calls=priority_calls,
+                qwen_calls=[],
+                field_driven_calls=deterministic_calls,
+                max_sources=request.max_sources,
+            )
             calls = self._prioritize_named_cohort_calls(calls, brief)
             calls = self._guard_tool_arguments(calls, spec, request)
             tool_message = None
@@ -450,9 +471,14 @@ class ResearchAgentService:
                         built_datasets.append(geo_dataset)
                 elif name == "search_depmap" and isinstance(raw_result, DepMapAdapterResult):
                     built_datasets.append(self.dataset_builder.build_from_depmap(raw_result, spec))
-            if built_datasets:
+            primary_candidates = built_datasets
+            if needs_clinical_outcome(spec):
+                primary_candidates = [
+                    item for item in built_datasets if self._is_clinical_primary_candidate(item[0])
+                ]
+            if primary_candidates:
                 dataset, readiness = max(
-                    built_datasets,
+                    primary_candidates,
                     key=lambda item: self._dataset_selection_score(item, spec, brief),
                 )
                 dataset = dataset.model_copy(
@@ -493,6 +519,22 @@ class ResearchAgentService:
                         0,
                         f"已整合 {len(source_datasets)} 张独立来源表；年龄/分期/ER/PR 等协变量如在其他研究中解析，会单独保留，不贴到当前分析患者。",
                     )
+            elif built_datasets:
+                dataset, readiness = self.dataset_builder.empty()
+                source_datasets = [
+                    other.model_copy(
+                        update={"dataset_role": "companion", "study_key": self._dataset_key(other)}
+                    )
+                    for other, _other_ready in built_datasets
+                ]
+                readiness.warnings.insert(
+                    0,
+                    "已下载的数据均不是可确认的患者级临床队列，因此未将细胞系、动物实验或身份不明样本设为主分析表。",
+                )
+                readiness.recommendations.insert(
+                    0,
+                    "继续检索同时包含患者编号、目标癌种和对应临床结局的队列；前临床实验仅在独立来源表中保留。",
+                )
             else:
                 dataset, readiness = self.dataset_builder.empty()
                 source_datasets = []
@@ -867,7 +909,11 @@ class ResearchAgentService:
         max_rounds: int,
     ) -> list[dict[str, Any]]:
         harvested = harvest_from_raw_results(raw_results, spec)
-        if getattr(decision, "diagnosis", None) == "outcome_mismatch" and (asks_pcr(spec) or needs_clinical_outcome(spec)):
+        if (
+            is_breast_cancer(spec.disease)
+            and getattr(decision, "diagnosis", None) == "outcome_mismatch"
+            and (asks_pcr(spec) or needs_clinical_outcome(spec))
+        ):
             harvested = list(dict.fromkeys([*PCR_SWITCH_ACCESSIONS, *harvested]))
         harvest_calls = [
             {
@@ -910,11 +956,69 @@ class ResearchAgentService:
             except QwenClientError:
                 logger.exception("Qwen next-tool planning failed for task %s", spec.task_id)
         merged = self._merge_tool_calls(loop_calls + harvest_calls, qwen_calls, FOLLOW_UP_BUDGET)
+        merged = self._filter_domain_aligned_follow_up_calls(merged, spec, request)
         return [
             call
             for call in merged
             if CollectionAgent.call_key(call) not in attempted_calls
         ]
+
+    def _filter_domain_aligned_follow_up_calls(
+        self,
+        calls: list[dict[str, Any]],
+        spec: ResearchSpec,
+        request: AgentTaskRequest,
+    ) -> list[dict[str, Any]]:
+        """Keep direct follow-up retrieval inside the task's selected data domain."""
+
+        direct_tools = {
+            "search_geo",
+            "search_cbioportal",
+            "search_gdc",
+            "search_trials",
+            "search_civic",
+            "search_depmap",
+        }
+        planned = self._deterministic_tool_calls(spec, request)
+        focused = [
+            call
+            for call in self._priority_seed_calls(spec, request)
+            if str(call.get("id") or "").startswith("focus-")
+        ]
+        planned_direct = [
+            call
+            for call in [*planned, *focused]
+            if str(call.get("name") or "") in direct_tools
+        ]
+        allowed_names = {str(call.get("name") or "") for call in planned_direct}
+        if not allowed_names:
+            return calls
+        planned_geo = {
+            str((call.get("arguments") or {}).get("accession") or "").upper()
+            for call in planned_direct
+            if call.get("name") == "search_geo"
+        }
+        if planned_geo == {"GSE76360"} and (spec.subtype or "") == "HER2-positive":
+            planned_geo.add("GSE50948")
+        restrict_geo = planned_geo in (
+            {"GSE25066"},
+            {"GSE96058"},
+            {"GSE76360", "GSE50948"},
+        )
+        filtered: list[dict[str, Any]] = []
+        for call in calls:
+            name = str(call.get("name") or "")
+            if name not in direct_tools:
+                filtered.append(call)
+                continue
+            if name not in allowed_names:
+                continue
+            if name == "search_geo" and restrict_geo:
+                accession = str((call.get("arguments") or {}).get("accession") or "").upper()
+                if accession not in planned_geo:
+                    continue
+            filtered.append(call)
+        return filtered
 
     def _follow_up_call(
         self,
@@ -988,7 +1092,7 @@ class ResearchAgentService:
         )
         if name == "search_gdc":
             options = GDCAdapterOptions(
-                project_id=str(args.get("project_id") or "TCGA-BRCA"),
+                project_id=str(args.get("project_id") or default_gdc_project(spec.disease) or "TCGA-BRCA"),
                 data_types=list(args.get("data_types") or ["Clinical Supplement"]),
                 max_files=min(int(args.get("max_files") or 5), 20),
                 download=False,
@@ -1001,17 +1105,17 @@ class ResearchAgentService:
                 max_files_per_type=min(int(args.get("max_files") or 5), 20),
                 resource_types=[GEOResourceType.SERIES_MATRIX],
                 download=True,
-                max_download_bytes=30_000_000,
+                max_download_bytes=80_000_000,
             )
             return self.geo.run(GEOAdapterRequest(search_plan=plan, options=options))
         if name == "search_cbioportal":
             genes = [
                 str(gene).strip().upper()
-                for gene in (args.get("gene_symbols") or spec.genes or ["ERBB2", "PIK3CA"])
+                for gene in (args.get("gene_symbols") or spec.genes or default_genes(spec.disease))
                 if str(gene).strip()
             ]
             options = CBioPortalAdapterOptions(
-                study_id=str(args.get("study_id") or "brca_metabric"),
+                study_id=str(args.get("study_id") or default_cbioportal_study(spec.disease) or "brca_metabric"),
                 gene_symbols=list(dict.fromkeys(genes))[:20],
                 max_records_per_table=min(int(args.get("max_records") or max_records), max_records),
             )
@@ -1087,8 +1191,36 @@ class ResearchAgentService:
             "NF1",
             "TBX3",
             "RUNX1",
+            "EGFR",
+            "KRAS",
+            "BRAF",
+            "ALK",
+            "ROS1",
+            "MET",
+            "RET",
+            "APC",
+            "SMAD4",
+            "SOX2",
+            "AR",
+            "SPOP",
+            "CTNNB1",
+            "TERT",
+            "CDKN2A",
+            "VHL",
+            "PBRM1",
+            "SETD2",
+            "BAP1",
+            "FGFR3",
+            "RB1",
+            "ARID1A",
+            "IDH1",
+            "NRAS",
         ]
-        genes = [gene for gene in known_genes if gene in upper]
+        genes = [
+            gene
+            for gene in known_genes
+            if re.search(rf"(?<![A-Z0-9]){re.escape(gene)}(?![A-Z0-9])", upper)
+        ]
         her2_negative = ResearchAgentService._mentions_her2_negative(question)
         her2_positive = ResearchAgentService._mentions_her2_positive(question)
         drugs = []
@@ -1144,10 +1276,16 @@ class ResearchAgentService:
         if "treatment_response" in outcomes:
             required.append("treatment_response")
         required.append("evidence")
+        disease = canonical_disease_name(question)
+        if disease == "Cancer" and any(
+            token in upper
+            for token in ("HER2", "ERBB2", "ESR1", "SCAN-B", "TNBC", "TRIPLE-NEGATIVE")
+        ):
+            disease = "Breast Cancer"
         return ResearchSpec(
             task_id=task_id,
             research_goal=question,
-            disease="Breast Cancer" if "乳腺" in question or "BREAST" in upper else "Breast Cancer",
+            disease=disease,
             subtype=subtype,
             genes=genes,
             variants=[],
@@ -1173,6 +1311,22 @@ class ResearchAgentService:
         calls = FieldDrivenSearchPlanner().plan(spec, request, brief)
         return self._limit_tool_calls(calls, request.max_sources)
 
+    def _stable_deterministic_tool_calls(
+        self,
+        spec: ResearchSpec,
+        request: AgentTaskRequest,
+        brief: Any | None = None,
+    ) -> list[dict[str, Any]]:
+        """Let model/brief ideas supplement, but never redefine, the question floor."""
+
+        question_floor_spec = self._deterministic_spec(request.question, spec.task_id)
+        field_floor = self._deterministic_tool_calls(question_floor_spec, request)
+        if brief is None:
+            model_calls = self._deterministic_tool_calls(spec, request)
+            return self._merge_tool_calls(field_floor, model_calls, request.max_sources)
+        brief_calls = self._deterministic_tool_calls(spec, request, brief)
+        return self._merge_tool_calls(field_floor, brief_calls, request.max_sources)
+
     @staticmethod
     def _merge_tool_calls(
         qwen_calls: list[dict[str, Any]],
@@ -1191,6 +1345,57 @@ class ResearchAgentService:
             if len(merged) >= max_sources:
                 break
         return merged
+
+    @classmethod
+    def _merge_initial_tool_calls(
+        cls,
+        *,
+        priority_calls: list[dict[str, Any]],
+        qwen_calls: list[dict[str, Any]],
+        field_driven_calls: list[dict[str, Any]],
+        max_sources: int,
+    ) -> list[dict[str, Any]]:
+        """Put field-coverage choices ahead of broad model suggestions.
+
+        Production-sized runs use the versioned source catalog for the first
+        pass and retain Qwen suggestions as supplements. Tiny one-source probes
+        keep the model's explicit function call for isolated API checks.
+        """
+
+        if max_sources < 4 and not priority_calls:
+            return cls._merge_tool_calls(qwen_calls, field_driven_calls, max_sources)
+
+        direct_tools = {
+            "search_geo",
+            "search_cbioportal",
+            "search_gdc",
+            "search_trials",
+            "search_civic",
+            "search_depmap",
+        }
+        field_source_keys = {
+            call_key(call)
+            for call in field_driven_calls
+            if str(call.get("name") or "") in direct_tools
+        }
+        if not field_source_keys:
+            primary = [*priority_calls, *field_driven_calls]
+            return cls._merge_tool_calls(primary, qwen_calls, max_sources)
+
+        explicit_focus = [
+            call for call in priority_calls if str(call.get("id") or "").startswith("focus-")
+        ]
+
+        def aligned(calls: list[dict[str, Any]]) -> list[dict[str, Any]]:
+            return [
+                call
+                for call in calls
+                if str(call.get("name") or "") not in direct_tools
+                or call_key(call) in field_source_keys
+            ]
+
+        primary = [*explicit_focus, *field_driven_calls, *aligned(priority_calls)]
+        return cls._merge_tool_calls(primary, aligned(qwen_calls), max_sources)
 
     @staticmethod
     def _prioritize_named_cohort_calls(calls: list[dict[str, Any]], brief: Any | None) -> list[dict[str, Any]]:
@@ -1233,9 +1438,9 @@ class ResearchAgentService:
                         "id": f"focus-nct-{upper}",
                         "name": "search_trials",
                         "arguments": {
-                            "condition": "Breast Neoplasms",
+                            "condition": trial_condition(spec.disease),
                             "nct_id": upper,
-                            "query_terms": "neoadjuvant pCR",
+                            "query_terms": " ".join(spec.drugs + spec.genes),
                             "max_trials": 5,
                         },
                     }
@@ -1253,30 +1458,30 @@ class ResearchAgentService:
                     {
                         "id": f"focus-study-{token}",
                         "name": "search_cbioportal",
-                        "arguments": {"study_id": token, "gene_symbols": spec.genes or ["ERBB2"], "max_records": request.max_records},
+                        "arguments": {"study_id": token, "gene_symbols": spec.genes or default_genes(spec.disease), "max_records": request.max_records},
                     }
                 )
-        for accession in seed_geo_accessions(spec):
-            calls.append(
-                {
-                    "id": f"seed-geo-{accession}",
-                    "name": "search_geo",
-                    "arguments": {"accession": accession, "max_files": 5},
-                }
-            )
+        # Cell-line drug sensitivity is a preclinical domain. Patient-response
+        # GEO cohorts are therefore not automatic seeds for this task type;
+        # callers can still request an explicit GEO accession via focus_accessions.
+        if not self._asks_cell_line(spec):
+            for accession in seed_geo_accessions(spec):
+                calls.append(
+                    {
+                        "id": f"seed-geo-{accession}",
+                        "name": "search_geo",
+                        "arguments": {"accession": accession, "max_files": 5},
+                    }
+                )
         if self._asks_trial_registry(spec):
-            calls.append(
-                {
-                    "id": "seed-nct-ispy2",
-                    "name": "search_trials",
-                    "arguments": {
-                        "condition": "Breast Neoplasms",
-                        "nct_id": "NCT01042379",
-                        "query_terms": "I-SPY2 neoadjuvant",
-                        "max_trials": 5,
-                    },
-                }
-            )
+            arguments: dict[str, Any] = {
+                "condition": trial_condition(spec.disease),
+                "query_terms": " ".join(spec.drugs + spec.genes),
+                "max_trials": 5,
+            }
+            if is_breast_cancer(spec.disease):
+                arguments.update({"nct_id": "NCT01042379", "query_terms": "I-SPY2 neoadjuvant"})
+            calls.append({"id": "seed-trials", "name": "search_trials", "arguments": arguments})
         if self._asks_cell_line(spec):
             calls.append(
                 {
@@ -1304,13 +1509,30 @@ class ResearchAgentService:
 
     @staticmethod
     def _asks_trial_registry(spec: ResearchSpec) -> bool:
-        blob = f"{spec.research_goal} {' '.join(spec.outcomes)}".casefold()
-        return any(token in blob for token in ("试验", "nct", "clinical trial", "登记", "招募", "i-spy"))
+        return ResearchAgentService._has_positive_clause(
+            spec.research_goal,
+            ("试验", "nct", "clinical trial", "clinicaltrials.gov", "登记", "招募", "i-spy"),
+        )
 
     @staticmethod
     def _asks_cell_line(spec: ResearchSpec) -> bool:
-        blob = f"{spec.research_goal} {' '.join(spec.outcomes)} {' '.join(spec.required_data_types)}".casefold()
-        return any(token in blob for token in ("细胞系", "auc", "ic50", "depmap", "ccle", "药敏", "preclinical"))
+        return ResearchAgentService._has_positive_clause(
+            spec.research_goal,
+            ("细胞系", "auc", "ic50", "depmap", "ccle", "药敏", "preclinical"),
+        )
+
+    @staticmethod
+    def _has_positive_clause(text: str, terms: tuple[str, ...]) -> bool:
+        """Recognize requested domains without treating explicit exclusions as intent."""
+
+        negations = ("不要", "不得", "不是", "禁止", "排除", "无需", "不应", "不能", "not ", "exclude")
+        for clause in re.split(r"[，,；;。.!?！？]", str(text or "").casefold()):
+            if not any(term.casefold() in clause for term in terms):
+                continue
+            if any(token in clause for token in negations):
+                continue
+            return True
+        return False
 
     def _guard_tool_arguments(
         self,
@@ -1326,22 +1548,29 @@ class ResearchAgentService:
             arguments = normalized["arguments"]
             name = str(call.get("name") or "")
             if name == "search_geo":
+                if not arguments.get("accession") and not is_breast_cancer(spec.disease):
+                    continue
                 accession = str(
                     arguments.get("accession") or self._default_geo_accession(spec)
                 ).upper()
                 if not GEO_ACCESSION_PATTERN.fullmatch(accession):
                     continue
                 focused = {str(item).strip().upper() for item in (request.focus_accessions or [])}
+                if self._asks_cell_line(spec) and accession not in focused:
+                    continue
                 if accession == "GSE76360" and not self._should_search_geo(spec) and accession not in focused:
                     continue
                 arguments["accession"] = accession
                 arguments["max_files"] = min(int(arguments.get("max_files") or 1), 5)
             elif name == "search_cbioportal":
-                study_id = str(arguments.get("study_id") or "brca_metabric").strip().casefold()
-                if not is_breast_cancer_study_id(study_id):
-                    study_id = "brca_metabric"
+                default_study = default_cbioportal_study(spec.disease)
+                if default_study is None:
+                    continue
+                study_id = str(arguments.get("study_id") or default_study).strip().casefold()
+                if not is_cancer_study_id(study_id, spec.disease):
+                    study_id = default_study
                 arguments["study_id"] = study_id
-                arguments["gene_symbols"] = spec.genes or arguments.get("gene_symbols") or ["PIK3CA"]
+                arguments["gene_symbols"] = spec.genes or arguments.get("gene_symbols") or default_genes(spec.disease)
                 arguments["max_records"] = request.max_records
             elif name == "search_gdc":
                 data_types = ["Clinical Supplement"]
@@ -1349,9 +1578,12 @@ class ResearchAgentService:
                     data_types.append("Masked Somatic Mutation")
                 if "expression" in spec.required_data_types:
                     data_types.append("Gene Expression Quantification")
-                project_id = str(arguments.get("project_id") or "TCGA-BRCA").strip().upper()
-                if not is_gdc_breast_project_id(project_id):
-                    project_id = "TCGA-BRCA"
+                default_project = default_gdc_project(spec.disease)
+                if default_project is None:
+                    continue
+                project_id = str(arguments.get("project_id") or default_project).strip().upper()
+                if not is_gdc_cancer_project_id(project_id, spec.disease):
+                    project_id = default_project
                 arguments.update({"project_id": project_id, "data_types": data_types, "max_files": 5})
             elif name == "search_trials":
                 arguments["condition"] = str(arguments.get("condition") or spec.disease)[:200]
@@ -1375,7 +1607,7 @@ class ResearchAgentService:
                 arguments["pmcid"] = self._optional_text(arguments.get("pmcid"))
                 arguments["max_records"] = min(int(arguments.get("max_records") or 5), 20)
             elif name == "search_civic":
-                arguments["disease_name"] = "Breast Cancer"
+                arguments["disease_name"] = spec.disease
                 arguments["molecular_profile_name"] = spec.genes[0] if spec.genes else None
                 arguments["therapy_name"] = spec.drugs[0] if spec.drugs else self._optional_text(arguments.get("therapy_name"))
                 arguments["max_items"] = 5
@@ -1404,18 +1636,27 @@ class ResearchAgentService:
             if len(guarded) >= min(request.max_sources, MAX_SOURCE_ENTRIES):
                 break
         if not guarded:
-            genes = spec.genes or ["PIK3CA"]
-            guarded.append(
-                {
-                    "id": "guard-fallback-cbio",
-                    "name": "search_cbioportal",
-                    "arguments": {
-                        "study_id": "brca_metabric",
-                        "gene_symbols": genes,
-                        "max_records": request.max_records,
-                    },
-                }
-            )
+            fallback_study = default_cbioportal_study(spec.disease)
+            if fallback_study:
+                guarded.append(
+                    {
+                        "id": "guard-fallback-cbio",
+                        "name": "search_cbioportal",
+                        "arguments": {
+                            "study_id": fallback_study,
+                            "gene_symbols": spec.genes or default_genes(spec.disease),
+                            "max_records": request.max_records,
+                        },
+                    }
+                )
+            else:
+                guarded.append(
+                    {
+                        "id": "guard-fallback-literature",
+                        "name": "search_europe_pmc",
+                        "arguments": {"query": literature_query(spec), "max_records": 20},
+                    }
+                )
         return self._limit_tool_calls(guarded, min(request.max_sources, MAX_SOURCE_ENTRIES))
 
     @staticmethod
@@ -1461,7 +1702,7 @@ class ResearchAgentService:
         item: tuple[Any, Any],
         spec: ResearchSpec,
         brief: Any | None = None,
-    ) -> tuple[float, float, float, float, int]:
+    ) -> tuple[float, float, float, float, float, int]:
         dataset, readiness = item
         coverage = readiness.requested_variable_coverage_rate
         target_score = readiness.target_match_rate
@@ -1485,14 +1726,28 @@ class ResearchAgentService:
         ) else 0.0
         if pcr_cohort and target_score < 0.45:
             pcr_cohort = 0.85
+        clinical_eligible = 1.0 if not needs_response or ResearchAgentService._is_clinical_primary_candidate(dataset) else 0.0
         if named_ids:
-            return (named_hit, primary_score, variable_score, target_score, dataset.row_count)
+            return (clinical_eligible, named_hit, primary_score, variable_score, target_score, dataset.row_count)
         if needs_response and needs_genes:
             dual_score = target_score * variable_score
-            return (max(dual_score, pcr_cohort), target_score, variable_score, completeness, dataset.row_count)
+            return (clinical_eligible, max(dual_score, pcr_cohort), target_score, variable_score, completeness, dataset.row_count)
         if needs_response:
-            return (pcr_cohort, target_score, variable_score, completeness, dataset.row_count)
-        return (primary_score, variable_score, target_score, completeness, dataset.row_count)
+            return (clinical_eligible, pcr_cohort, target_score, variable_score, completeness, dataset.row_count)
+        return (clinical_eligible, primary_score, variable_score, target_score, completeness, dataset.row_count)
+
+    @staticmethod
+    def _is_clinical_primary_candidate(dataset: Any) -> bool:
+        rows = getattr(dataset, "rows", None) or []
+        domains = {
+            str(row.get("response_domain") or "").strip()
+            for row in rows
+            if row.get("response_domain")
+        }
+        return bool(
+            int(getattr(dataset, "patient_count", 0) or 0) > 0
+            and "preclinical_cell_line" not in domains
+        )
 
     @staticmethod
     def _dataset_key(dataset: Any) -> str:
@@ -1522,14 +1777,19 @@ class ResearchAgentService:
     @staticmethod
     def _enrich_research_spec(spec: ResearchSpec, question: str) -> ResearchSpec:
         upper = question.upper()
-        genes = list(dict.fromkeys(spec.genes))
+        baseline = ResearchAgentService._deterministic_spec(question, spec.task_id)
+        detected_disease = canonical_disease_name(question)
+        disease = detected_disease if detected_disease != "Cancer" else spec.disease
+        if disease == "Cancer" and baseline.disease != "Cancer":
+            disease = baseline.disease
+        genes = list(dict.fromkeys([*spec.genes, *baseline.genes]))
         if "PIK3CA" in upper and "PIK3CA" not in genes:
             genes.append("PIK3CA")
         if ResearchAgentService._mentions_her2_negative(question) and "ERBB2" not in upper:
             genes = [gene for gene in genes if gene != "ERBB2"]
         if "PI3K" in upper:
             genes = [gene for gene in genes if gene == "PIK3CA" or gene in upper]
-        subtype = spec.subtype
+        subtype = spec.subtype or baseline.subtype
         if "三阴性" in question or "TNBC" in upper or "TRIPLE-NEGATIVE" in upper:
             subtype = "Triple-negative"
         elif ("HR+" in upper or "HR阳性" in question or "HR 阳性" in question) and ResearchAgentService._mentions_her2_negative(question):
@@ -1539,14 +1799,14 @@ class ResearchAgentService:
         elif ResearchAgentService._mentions_her2_positive(question):
             subtype = "HER2-positive"
 
-        drugs = list(dict.fromkeys(spec.drugs))
+        drugs = list(dict.fromkeys([*spec.drugs, *baseline.drugs]))
         if "PI3K" in upper and any(term in question for term in ("抑制剂", "抑制", "inhibitor", "Inhibitor")):
             drugs.append("Alpelisib")
         if "ALPELISIB" in upper or "阿培利司" in question:
             drugs.append("Alpelisib")
         if "CAPIVASERTIB" in upper or "卡匹伐塞替" in question:
             drugs.append("Capivasertib")
-        outcomes = list(dict.fromkeys(spec.outcomes or []))
+        outcomes = list(dict.fromkeys([*(spec.outcomes or []), *baseline.outcomes]))
         if not question_asks_clinical_outcome(question):
             outcomes = [item for item in outcomes if item not in {"treatment_response", "pCR", "pcr", "survival"}]
         if question_asks_clinical_outcome(question) and (
@@ -1557,7 +1817,7 @@ class ResearchAgentService:
                 outcomes.append("treatment_response")
         if question_asks_survival(question) and "survival" not in outcomes:
             outcomes.append("survival")
-        required = list(dict.fromkeys(spec.required_data_types))
+        required = list(dict.fromkeys([*spec.required_data_types, *baseline.required_data_types]))
         if "treatment_response" not in outcomes:
             required = [item for item in required if item != "treatment_response"]
         for item in ("clinical", "mutation", "evidence"):
@@ -1568,11 +1828,14 @@ class ResearchAgentService:
         return spec.model_copy(
             update={
                 "research_goal": question,
+                "disease": disease,
                 "subtype": subtype,
                 "genes": list(dict.fromkeys(genes)),
+                "variants": list(dict.fromkeys([*spec.variants, *baseline.variants])),
                 "drugs": list(dict.fromkeys(drugs)),
                 "outcomes": outcomes,
                 "required_data_types": required,
+                "target_fields": list(dict.fromkeys([*spec.target_fields, *baseline.target_fields])),
             }
         )
 
@@ -1643,7 +1906,7 @@ class ResearchAgentService:
             return [
                 CandidateSource(
                     dataset_id=result.project.project_id,
-                    dataset_name="TCGA 乳腺浸润癌临床与组学队列",
+                    dataset_name=f"{result.project.name} 临床与组学队列",
                     source_database="GDC",
                     data_type="临床/组学文件目录",
                     sample_count=result.project.case_count,
@@ -1735,10 +1998,11 @@ class ResearchAgentService:
             )
             return items
         if name == "search_depmap":
+            disease_label = spec.disease if spec is not None else "肿瘤"
             return [
                 CandidateSource(
                     dataset_id="DepMap",
-                    dataset_name="DepMap 乳腺癌细胞系药敏",
+                    dataset_name=f"DepMap {disease_label}细胞系药敏",
                     source_database="DepMap",
                     data_type="preclinical_cell_line",
                     sample_count=len(result.records),
@@ -1772,10 +2036,11 @@ class ResearchAgentService:
         if name == "search_civic":
             items = list(getattr(result, "evidence_items", None) or [])
             first = items[0] if items else None
+            disease_label = spec.disease if spec is not None else "Cancer"
             return [
                 CandidateSource(
-                    dataset_id="CIViC-BREAST-CANCER",
-                    dataset_name="CIViC 乳腺癌医学证据集",
+                    dataset_id=f"CIViC-{disease_label.upper().replace(' ', '-')}",
+                    dataset_name=f"CIViC {disease_label}医学证据集",
                     source_database="CIViC",
                     data_type="基因-变异-药物医学证据",
                     sample_count=None,
@@ -1818,16 +2083,36 @@ class ResearchAgentService:
                     str(getattr(record, "abstract", "") or ""),
                 ]
             )
-            match_score = score_geo_text(text, spec, extra_terms=question_search_terms(spec.research_goal, spec)) if spec is not None else 0
-            has_response = any(token in text.casefold() for token in ("pcr", "response", "neoadjuvant", "缓解", "响应"))
-            relevance = min(0.99, baseline + min(match_score, 20) * 0.01)
+            sample_count = ResearchAgentService._optional_count(getattr(record, "n_samples", None))
+            match_score = (
+                score_geo_text(
+                    text,
+                    spec,
+                    extra_terms=question_search_terms(spec.research_goal, spec),
+                    n_samples=sample_count,
+                )
+                if spec is not None
+                else 0
+            )
+            preclinical = is_geo_catalog and geo_text_is_preclinical(text)
+            clinical_cohort = is_geo_catalog and geo_text_has_clinical_cohort(text) and not preclinical
+            has_response = bool(
+                not preclinical
+                and any(token in text.casefold() for token in ("pcr", "response", "neoadjuvant", "缓解", "响应"))
+            )
+            relevance = min(0.99, max(0.05, baseline + max(-20, min(match_score, 20)) * 0.01))
+            candidate_data_type = data_type
+            if preclinical:
+                candidate_data_type = "GEO 前临床实验候选"
+            elif clinical_cohort:
+                candidate_data_type = "GEO 患者队列候选"
             candidates.append(
                 CandidateSource(
                     dataset_id=dataset_id,
                     dataset_name=dataset_name,
                     source_database=source_database,
-                    data_type=data_type,
-                    sample_count=ResearchAgentService._optional_count(getattr(record, "n_samples", None)),
+                    data_type=candidate_data_type,
+                    sample_count=sample_count,
                     has_treatment=has_response,
                     has_response=has_response,
                     public_access=True,

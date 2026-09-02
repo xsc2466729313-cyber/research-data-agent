@@ -1,0 +1,87 @@
+version: "0.1"
+frozen: true
+
+fields:
+  study_id:
+    type: string
+    required: true
+  patient_id:
+    type: string
+    required: false
+  sample_id:
+    type: string
+    required: false
+
+  disease:
+    type: string
+    required: true
+  subtype:
+    type: string
+    required: false
+  stage:
+    type: string
+    required: false
+
+  er_status:
+    type: string
+    allowed: [Positive, Negative, Equivocal, Unknown]
+    required: false
+  pr_status:
+    type: string
+    allowed: [Positive, Negative, Equivocal, Unknown]
+    required: false
+  her2_status:
+    type: string
+    allowed: [Positive, Negative, Equivocal, Unknown]
+    required: false
+  her2_assay:
+    type: string
+    allowed: [IHC, FISH, ISH, CISH, SISH, Other, Unknown]
+    required: false
+  her2_raw_value:
+    type: string
+    required: false
+
+  gene:
+    type: string
+    required: false
+  variant:
+    type: string
+    required: false
+  mutation_status:
+    type: string
+    allowed: [Mutated, WildType, Unknown]
+    required: false
+
+  drug:
+    type: string
+    required: false
+  treatment:
+    type: string
+    required: false
+
+  response_domain:
+    type: string
+    allowed: [clinical, preclinical_cell_line, clinical_trial, knowledge_evidence]
+    required: false
+  response_type:
+    type: string
+    required: false
+  response:
+    type: string
+    required: false
+
+  source_id:
+    type: string
+    required: true
+  raw_field:
+    type: string
+    required: true
+  raw_value:
+    type: string
+    required: true
+  confidence:
+    type: number
+    minimum: 0
+    maximum: 1
+    required: true

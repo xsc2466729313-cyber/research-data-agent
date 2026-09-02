@@ -5,6 +5,7 @@ from typing import Any
 
 from backend.app.agent.accession_harvest import asks_pcr, asks_survival, needs_clinical_outcome
 from backend.app.models import ResearchSpec
+from backend.app.oncology import is_breast_cancer
 
 
 PCR_SWITCH_ACCESSIONS = ("GSE25066", "GSE76360", "GSE50948")
@@ -127,6 +128,13 @@ def diagnose_outcome_gap(
     has_pcr = bool(present_set & PCR_CANONICAL) or bool(present_set & PCR_SYNONYMS)
     has_survival = bool(present_set & SURVIVAL_CANONICAL) or bool(present_set & SURVIVAL_SYNONYMS)
     has_cell = bool(present_set & {"auc", "ic50"})
+    breast_specific = is_breast_cancer(spec.disease if spec is not None else question)
+    response_accessions = list(PCR_SWITCH_ACCESSIONS) if breast_specific else []
+    response_tools = ["search_geo", "search_trials"] if breast_specific else [
+        "search_geo_catalog",
+        "search_trials",
+        "search_cbioportal",
+    ]
     unmapped_survival = bool(present_set & SURVIVAL_SYNONYMS) and not bool(present_set & {"os_status", "os_months", "dfs_status", "dfs_months"})
     unmapped_pcr = bool(present_set & PCR_SYNONYMS) and not bool(present_set & {"pcr", "pcr_binary", "treatment_response"})
 
@@ -145,9 +153,13 @@ def diagnose_outcome_gap(
                 gap_kind="wrong_cohort",
                 needed=needed,
                 present=present,
-                focus_accessions=list(PCR_SWITCH_ACCESSIONS),
-                focus_tools=["search_geo", "search_trials"],
-                rationale="当前队列只有生存结局，与本题 pCR/治疗响应不同域。第二轮改搜 GSE25066、GSE76360、GSE50948。",
+                focus_accessions=response_accessions,
+                focus_tools=response_tools,
+                rationale=(
+                    "当前队列只有生存结局，与本题 pCR/治疗响应不同域。第二轮改搜乳腺癌患者响应队列。"
+                    if breast_specific
+                    else "当前队列只有生存结局，与本题治疗响应不同域。第二轮按当前癌种重新发现响应队列。"
+                ),
                 forbidden_note="禁止用总体生存冒充 pCR。",
             )
         if has_cell and not has_pcr:
@@ -155,18 +167,22 @@ def diagnose_outcome_gap(
                 gap_kind="wrong_cohort",
                 needed=needed,
                 present=present,
-                focus_accessions=list(PCR_SWITCH_ACCESSIONS),
-                focus_tools=["search_geo"],
-                rationale="当前是细胞系药敏表，不能当患者 pCR。第二轮改搜 GEO 患者响应队列。",
+                focus_accessions=response_accessions,
+                focus_tools=response_tools,
+                rationale="当前是细胞系药敏表，不能当患者临床响应。第二轮按当前癌种重新发现患者队列。",
                 forbidden_note="禁止把 AUC/IC50 写成患者 pCR。",
             )
         return OutcomeRepairPlan(
             gap_kind="missing",
             needed=needed,
             present=present,
-            focus_accessions=list(PCR_SWITCH_ACCESSIONS) + list(TRIAL_SWITCH_IDS),
-            focus_tools=["search_geo", "search_trials"],
-            rationale="当前表没有识别到本题结局。第二轮补搜含 pCR/治疗响应的 GEO 系列和登记试验。",
+            focus_accessions=(response_accessions + list(TRIAL_SWITCH_IDS) if breast_specific else []),
+            focus_tools=response_tools,
+            rationale=(
+                "当前表没有识别到本题结局。第二轮补搜含 pCR/治疗响应的乳腺癌 GEO 系列和登记试验。"
+                if breast_specific
+                else "当前表没有识别到本题结局。第二轮按当前癌种重新发现队列、试验和公开数据。"
+            ),
             forbidden_note="分不清域则进入 review，不跨域贴值。",
         )
 
@@ -184,7 +200,7 @@ def diagnose_outcome_gap(
             needed=needed,
             present=present,
             focus_tools=["search_cbioportal", "search_gdc"],
-            rationale="本题要生存结局，当前表未识别到 OS/RFS/DSS。第二轮改搜 METABRIC/TCGA 临床表。",
+            rationale="本题要生存结局，当前表未识别到 OS/RFS/DSS。第二轮改搜当前癌种的 cBioPortal/TCGA 临床表。",
         )
 
     if needed == "cell_line":

@@ -6,7 +6,7 @@ sources:
     source_name: cBioPortal
     source_kind: public_cancer_genomics_portal
     source_url: https://www.cbioportal.org/
-    domains: [oncology, breast_cancer]
+    domains: [oncology, multi_cancer]
     access_modes: [OPEN_API]
     structuredness: 0.95
     authority: 0.90
@@ -20,7 +20,7 @@ sources:
     source_name: NCBI GEO
     source_kind: public_functional_genomics_repository
     source_url: https://www.ncbi.nlm.nih.gov/geo/
-    domains: [biomedicine, oncology, breast_cancer]
+    domains: [biomedicine, oncology, multi_cancer]
     access_modes: [OPEN_API, MANUAL_DOWNLOAD]
     structuredness: 0.72
     authority: 0.95
@@ -34,7 +34,7 @@ sources:
     source_name: NCI Genomic Data Commons
     source_kind: public_cancer_genomics_repository
     source_url: https://portal.gdc.cancer.gov/
-    domains: [oncology, breast_cancer]
+    domains: [oncology, multi_cancer]
     access_modes: [OPEN_API, CONTROLLED_ACCESS]
     structuredness: 0.95
     authority: 0.98
@@ -50,6 +50,7 @@ datasets:
     accession: brca_metabric
     title: METABRIC Breast Cancer Study
     source_url: https://www.cbioportal.org/study/summary?id=brca_metabric
+    diseases: [breast_cancer]
     declared_granularity: [patient, sample]
     field_hints: [study_id, patient_id, sample_id, source_id, disease, mutation, survival, os_status, dfs_status, er_status, pr_status, her2_status, intclust, subtype, age, stage]
     access_mode: OPEN_API
@@ -67,6 +68,7 @@ datasets:
     accession: brca_tcga_pan_can_atlas_2018
     title: TCGA Pan-Cancer Atlas Breast Cancer
     source_url: https://www.cbioportal.org/study/summary?id=brca_tcga_pan_can_atlas_2018
+    diseases: [breast_cancer]
     declared_granularity: [patient, sample]
     field_hints: [study_id, patient_id, sample_id, source_id, disease, mutation, survival, os_status, er_status, pr_status, her2_status, subtype, age, stage]
     access_mode: OPEN_API
@@ -84,6 +86,7 @@ datasets:
     accession: brca_tcga
     title: TCGA Breast Cancer
     source_url: https://www.cbioportal.org/study/summary?id=brca_tcga
+    diseases: [breast_cancer]
     declared_granularity: [patient, sample]
     field_hints: [study_id, patient_id, sample_id, source_id, disease, mutation, survival, os_status, er_status, her2_status, subtype]
     access_mode: OPEN_API
@@ -101,6 +104,7 @@ datasets:
     accession: breast_alpelisib_2020
     title: Breast Alpelisib 2020
     source_url: https://www.cbioportal.org/study/summary?id=breast_alpelisib_2020
+    diseases: [breast_cancer]
     declared_granularity: [patient, sample]
     field_hints: [study_id, patient_id, sample_id, source_id, disease, mutation, pik3ca_mutation, treatment_response]
     access_mode: OPEN_API
@@ -118,6 +122,7 @@ datasets:
     accession: brca_mskcc_2019
     title: MSKCC Breast Cancer 2019
     source_url: https://www.cbioportal.org/study/summary?id=brca_mskcc_2019
+    diseases: [breast_cancer]
     declared_granularity: [patient, sample]
     field_hints: [study_id, patient_id, sample_id, source_id, disease, mutation, pik3ca_mutation, treatment_response]
     access_mode: OPEN_API
@@ -135,6 +140,7 @@ datasets:
     accession: GSE25066
     title: GEO Series GSE25066
     source_url: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE25066
+    diseases: [breast_cancer]
     declared_granularity: [sample, observation]
     field_hints: [study_id, sample_id, source_id, disease, gene_expression, pcr, treatment_response, er_status, her2_status, subtype]
     access_mode: OPEN_API
@@ -152,6 +158,7 @@ datasets:
     accession: GSE76360
     title: GEO Series GSE76360
     source_url: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE76360
+    diseases: [breast_cancer]
     declared_granularity: [patient, sample, observation]
     field_hints: [study_id, patient_id, sample_id, source_id, disease, gene_expression, treatment_response, pcr, her2_status]
     access_mode: OPEN_API
@@ -169,6 +176,7 @@ datasets:
     accession: GSE50948
     title: HER2-positive Neoadjuvant Response Cohort GSE50948
     source_url: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE50948
+    diseases: [breast_cancer]
     declared_granularity: [patient, sample, observation]
     field_hints: [study_id, patient_id, sample_id, source_id, disease, gene_expression, treatment_response, pcr, her2_status]
     access_mode: OPEN_API
@@ -186,6 +194,7 @@ datasets:
     accession: GSE96058
     title: SCAN-B Breast Cancer Expression Cohort GSE96058
     source_url: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE96058
+    diseases: [breast_cancer]
     declared_granularity: [patient, sample, observation]
     field_hints: [study_id, patient_id, sample_id, source_id, disease, gene_expression, er_status, pr_status, her2_status, subtype, age, stage]
     access_mode: OPEN_API
@@ -203,6 +212,7 @@ datasets:
     accession: TCGA-BRCA
     title: GDC TCGA Breast Cancer Project
     source_url: https://portal.gdc.cancer.gov/projects/TCGA-BRCA
+    diseases: [breast_cancer]
     declared_granularity: [patient, sample]
     field_hints: [study_id, patient_id, sample_id, source_id, disease, mutation, survival, os_status, er_status, her2_status, subtype, age, stage]
     access_mode: OPEN_API
@@ -211,6 +221,81 @@ datasets:
     legacy_needles: []
     resources:
       - resource_id: gdc:TCGA-BRCA:files_api
+        resource_type: REST_API
+        url: https://api.gdc.cancer.gov/files
+        expected_format: JSON
+
+  - dataset_id: cbioportal:luad_tcga_pan_can_atlas_2018
+    source_id: cbioportal
+    accession: luad_tcga_pan_can_atlas_2018
+    title: Lung Adenocarcinoma (TCGA, PanCancer Atlas)
+    source_url: https://www.cbioportal.org/study/summary?id=luad_tcga_pan_can_atlas_2018
+    diseases: [lung_adenocarcinoma]
+    declared_granularity: [patient, sample]
+    field_hints: [study_id, patient_id, sample_id, source_id, disease, mutation, survival, os_status, subtype, age, stage]
+    access_mode: OPEN_API
+    resources:
+      - resource_id: cbioportal:luad_tcga_pan_can_atlas_2018:api
+        resource_type: REST_API
+        url: https://www.cbioportal.org/api
+        expected_format: JSON
+
+  - dataset_id: gdc:TCGA-LUAD
+    source_id: gdc
+    accession: TCGA-LUAD
+    title: GDC TCGA Lung Adenocarcinoma Project
+    source_url: https://portal.gdc.cancer.gov/projects/TCGA-LUAD
+    diseases: [lung_adenocarcinoma]
+    declared_granularity: [patient, sample]
+    field_hints: [study_id, patient_id, sample_id, source_id, disease, mutation, survival, os_status, subtype, age, stage]
+    access_mode: OPEN_API
+    resources:
+      - resource_id: gdc:TCGA-LUAD:files_api
+        resource_type: REST_API
+        url: https://api.gdc.cancer.gov/files
+        expected_format: JSON
+
+  - dataset_id: cbioportal:coadread_tcga_pan_can_atlas_2018
+    source_id: cbioportal
+    accession: coadread_tcga_pan_can_atlas_2018
+    title: Colorectal Adenocarcinoma (TCGA, PanCancer Atlas)
+    source_url: https://www.cbioportal.org/study/summary?id=coadread_tcga_pan_can_atlas_2018
+    diseases: [colorectal_cancer]
+    declared_granularity: [patient, sample]
+    field_hints: [study_id, patient_id, sample_id, source_id, disease, mutation, survival, os_status, subtype, age, stage]
+    access_mode: OPEN_API
+    resources:
+      - resource_id: cbioportal:coadread_tcga_pan_can_atlas_2018:api
+        resource_type: REST_API
+        url: https://www.cbioportal.org/api
+        expected_format: JSON
+
+  - dataset_id: gdc:TCGA-COAD
+    source_id: gdc
+    accession: TCGA-COAD
+    title: GDC TCGA Colon Adenocarcinoma Project
+    source_url: https://portal.gdc.cancer.gov/projects/TCGA-COAD
+    diseases: [colorectal_cancer]
+    declared_granularity: [patient, sample]
+    field_hints: [study_id, patient_id, sample_id, source_id, disease, mutation, survival, os_status, subtype, age, stage]
+    access_mode: OPEN_API
+    resources:
+      - resource_id: gdc:TCGA-COAD:files_api
+        resource_type: REST_API
+        url: https://api.gdc.cancer.gov/files
+        expected_format: JSON
+
+  - dataset_id: gdc:TCGA-READ
+    source_id: gdc
+    accession: TCGA-READ
+    title: GDC TCGA Rectum Adenocarcinoma Project
+    source_url: https://portal.gdc.cancer.gov/projects/TCGA-READ
+    diseases: [colorectal_cancer]
+    declared_granularity: [patient, sample]
+    field_hints: [study_id, patient_id, sample_id, source_id, disease, mutation, survival, os_status, subtype, age, stage]
+    access_mode: OPEN_API
+    resources:
+      - resource_id: gdc:TCGA-READ:files_api
         resource_type: REST_API
         url: https://api.gdc.cancer.gov/files
         expected_format: JSON

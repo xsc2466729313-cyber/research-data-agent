@@ -351,6 +351,56 @@ def _project_fusion_repair_v3(dirty: list[dict[str, str]]) -> list[dict[str, str
     return output
 
 
+def _project_context_consensus_repair_v4(dirty: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Add conservative repeated-flight context to the v3 repair pass."""
+
+    output = _project_fusion_repair_v3(dirty)
+    if "flight" not in dirty[0]:
+        return output
+    groups: dict[str, list[dict[str, str]]] = defaultdict(list)
+    for row in dirty:
+        if row["flight"]:
+            groups[row["flight"]].append(row)
+    for column in dirty[0]:
+        if column == "flight":
+            continue
+        group_values = {
+            key: {row[column] for row in rows if row[column]}
+            for key, rows in groups.items()
+        }
+        for index, row in enumerate(dirty):
+            values = group_values.get(row["flight"], set())
+            if not row[column] and len(values) == 1:
+                output[index][column] = next(iter(values))
+    return output
+
+
+def _project_date_profile_repair_v5(dirty: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Normalize a table-wide, self-evident three-part date serialization error."""
+
+    output = _project_context_consensus_repair_v4(dirty)
+    date_columns = [
+        column
+        for column in dirty[0]
+        if "date" in column.casefold() or "created_at" in column.casefold()
+    ]
+    for column in date_columns:
+        values = [str(row[column] or "").strip() for row in dirty]
+        parts = [value.split("/") for value in values if value]
+        valid = [item for item in parts if len(item) == 3 and all(part.isdigit() for part in item)]
+        if len(valid) < max(20, int(len(values) * 0.7)):
+            continue
+        middle_one_ratio = sum(item[1] == "1" for item in valid) / len(valid)
+        if middle_one_ratio < 0.8:
+            continue
+        for index, row in enumerate(dirty):
+            item = str(row[column] or "").strip().split("/")
+            if len(item) != 3 or not all(part.isdigit() for part in item):
+                continue
+            output[index][column] = "/".join((str(int(item[1])), str(int(item[2])), item[0].zfill(2)))
+    return output
+
+
 def _metrics(dirty: list[dict[str, str]], clean: list[dict[str, str]], repaired: list[dict[str, str]], elapsed_ms: float) -> CleaningMetrics:
     columns = list(dirty[0])
     tp = fp = fn = correct_repairs = automatic_repairs = dirty_cells = 0
@@ -402,6 +452,10 @@ def evaluate_cleaning(dirty: list[dict[str, str]], clean: list[dict[str, str]], 
         repaired = _project_format_profile_repair(dirty)
     elif method == "project_fusion_repair_v3":
         repaired = _project_fusion_repair_v3(dirty)
+    elif method == "project_context_consensus_repair_v4":
+        repaired = _project_context_consensus_repair_v4(dirty)
+    elif method == "project_date_profile_repair_v5":
+        repaired = _project_date_profile_repair_v5(dirty)
     else:
         raise ValueError(f"Unsupported method: {method}")
     return _metrics(dirty, clean, repaired, (perf_counter() - started) * 1000)
@@ -441,6 +495,9 @@ def write_cleaning_run(*, project_root: Path, dataset_id: str, manifest: dict[st
         "column_mode": "Column mode baseline",
         "project_portability_consensus_clean_v1": "Project consensus clean v1",
         "project_format_profile_v2": "Project format profile v2",
+        "project_fusion_repair_v3": "Project format + placeholder fusion v3",
+        "project_context_consensus_repair_v4": "Project format + context consensus v4",
+        "project_date_profile_repair_v5": "Project format + date profile v5",
     }
     with (run_dir / "unified_results.csv").open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
@@ -497,6 +554,9 @@ def run_public_cleaning_benchmark(*, project_root: Path, dataset_id: str, data_r
         "column_mode",
         "project_portability_consensus_clean_v1",
         "project_format_profile_v2",
+        "project_fusion_repair_v3",
+        "project_context_consensus_repair_v4",
+        "project_date_profile_repair_v5",
     ]
     results = {method: evaluate_cleaning(dirty, clean, method) for method in methods}
     return write_cleaning_run(project_root=project_root, dataset_id=dataset_id, manifest=manifest, results=results, output_root=output_root)

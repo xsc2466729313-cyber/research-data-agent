@@ -2,6 +2,10 @@
 
 > 当前主报告已迁移到 [`evaluation/github_competitor_benchmark_20260830/report.md`](../evaluation/github_competitor_benchmark_20260830/report.md)。新报告使用同一公开数据、同一划分和同一指标，实际运行 GitHub 外部方法；本文保留为项目内部方法迭代记录。
 
+> 2026-09-02 统一复现和优化结果以 [`PUBLIC_COMPARISON_GUIDE_20260902.md`](PUBLIC_COMPARISON_GUIDE_20260902.md) 的“本轮统一复现与优化”节为准。本文的 v2 数字保留为历史记录，不与当前 v4 清洗运行混用。
+
+> 第二轮真实优化结果以 [`PUBLIC_COMPARISON_GUIDE_20260902.md`](PUBLIC_COMPARISON_GUIDE_20260902.md) 的“第二轮瓶颈优化与统一复测”节为准：问题解析 sequence v4 宏平均 Span F1 `0.5522`，检索开发集选择宏平均 nDCG@10 `0.3920`，清洗 date profile v5 六任务宏平均 Cell F1 `0.7863`。公开基准三层本轮 API 调用均为 0；正式乳腺癌候选 Qwen LIVE 是独立评测。
+
 ## 1. 结论先行
 
 本轮在固定公开测试集上重跑了四个可执行能力层，并增加了两个只使用训练/开发数据拟合的升级方法。

@@ -51,3 +51,29 @@ def test_fusion_repair_recovers_repeated_placeholder_typos() -> None:
     clean = [{"name": "alpha"}] * 11
     result = evaluate_cleaning(dirty, clean, "project_fusion_repair_v3")
     assert result.cell_f1 == pytest.approx(1.0)
+
+
+def test_context_consensus_repairs_only_unique_repeated_flight_values() -> None:
+    dirty = [
+        {"flight": "AA-1", "scheduled": "10:00", "actual": ""},
+        {"flight": "AA-1", "scheduled": "10:00", "actual": "10:15"},
+        {"flight": "AA-2", "scheduled": "", "actual": "11:20"},
+        {"flight": "AA-2", "scheduled": "12:00", "actual": "11:25"},
+    ]
+    clean = [
+        {"flight": "AA-1", "scheduled": "10:00", "actual": "10:15"},
+        {"flight": "AA-1", "scheduled": "10:00", "actual": "10:15"},
+        {"flight": "AA-2", "scheduled": "12:00", "actual": "11:20"},
+        {"flight": "AA-2", "scheduled": "12:00", "actual": "11:25"},
+    ]
+    result = evaluate_cleaning(dirty, clean, "project_context_consensus_repair_v4")
+    assert result.correct_repairs == 2
+    assert result.false_positive == 0
+
+
+def test_date_profile_repairs_only_a_table_wide_rotated_date_profile() -> None:
+    dirty = [{"article_jcreated_at": "1/1/14"}] * 20 + [{"article_jcreated_at": ""}]
+    clean = [{"article_jcreated_at": "1/14/01"}] * 20 + [{"article_jcreated_at": ""}]
+    result = evaluate_cleaning(dirty, clean, "project_date_profile_repair_v5")
+    assert result.correct_repairs == 20
+    assert result.false_positive == 0

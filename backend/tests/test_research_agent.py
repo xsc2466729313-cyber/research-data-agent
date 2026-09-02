@@ -1011,6 +1011,49 @@ def test_empty_geo_outcome_column_is_not_treated_as_matched_target(tmp_path: Pat
     assert "treatment_response" not in names
 
 
+def test_geo_cell_line_perturbation_is_not_labeled_as_patient_response(tmp_path: Path) -> None:
+    geo = _geo_matrix_result(
+        tmp_path,
+        [
+            '!Series_title\t"GBP2 enhances anti-PD-L1 response in colorectal cancer"',
+            '!Series_summary\t"In vitro assays and organoid models were used to study GBP2"',
+            '!Series_overall_design\t"HCT116 colorectal cancer cells with stable GBP2 knockdown versus negative control"',
+            '!Sample_title\t"shControl_1"\t"shControl_2"\t"shControl_3"\t"shGBP2_1"\t"shGBP2_2"\t"shGBP2_3"',
+            '!Sample_geo_accession\t"GSM1"\t"GSM2"\t"GSM3"\t"GSM4"\t"GSM5"\t"GSM6"',
+            '!Sample_source_name_ch1\t"Colorectal cancer"\t"Colorectal cancer"\t"Colorectal cancer"\t"Colorectal cancer"\t"Colorectal cancer"\t"Colorectal cancer"',
+            '!Sample_characteristics_ch1\t"cell line: HCT116; treatment: shControl"\t"cell line: HCT116; treatment: shControl"\t"cell line: HCT116; treatment: shControl"\t"cell line: HCT116; treatment: shGBP2"\t"cell line: HCT116; treatment: shGBP2"\t"cell line: HCT116; treatment: shGBP2"',
+            "!series_matrix_table_begin",
+        ],
+        accession="GSE305943",
+    )
+    spec = ResearchSpec(
+        task_id="task-crc-geo",
+        research_goal="研究结直肠癌 GBP2 与患者治疗响应的关系",
+        disease="Colorectal Cancer",
+        genes=["GBP2"],
+        outcomes=["treatment_response"],
+        required_data_types=["clinical", "treatment_response"],
+    )
+
+    built = ResearchDatasetBuilder().build_from_geo(geo, spec)
+
+    assert built is not None
+    dataset, readiness = built
+    assert dataset.row_count == 6
+    assert dataset.patient_count == 0
+    assert dataset.sample_count == 6
+    assert "非患者临床队列" in dataset.unit_of_analysis
+    assert {row["response_domain"] for row in dataset.rows} == {"preclinical_cell_line"}
+    assert {row["experimental_group"] for row in dataset.rows} == {"shControl", "shGBP2"}
+    assert all(row.get("treatment") is None for row in dataset.rows)
+    assert all(row["sample_type"] == "细胞系" for row in dataset.rows)
+    assert all(row["sample_source"] == "HCT116" for row in dataset.rows)
+    assert dataset.target_column is None
+    assert readiness.target_match is False
+    assert ResearchAgentService._is_clinical_primary_candidate(dataset) is False
+    assert "不能作为患者临床响应主分析表" in readiness.warnings[0]
+
+
 def test_pcr_question_seeds_named_geo_when_source_budget_allows() -> None:
     question = "研究三阴性乳腺癌中 BRCA1/BRCA2 突变与新辅助化疗病理完全缓解（pCR）的关系，并整理患者级科研数据集"
     request = AgentTaskRequest(
@@ -1289,3 +1332,167 @@ def test_qwen_seed_merge_respects_max_sources() -> None:
     assert len(merged) <= 4
     accessions = [str(call["arguments"].get("accession") or "") for call in merged if call["name"] == "search_geo"]
     assert "GSE76360" in accessions or "GSE25066" in accessions
+
+
+def test_production_budget_prioritizes_field_coverage_over_broad_qwen_call() -> None:
+    question = "比较乳腺癌细胞系的药物 IC50 和 AUC，不要患者临床疗效队列"
+    service = ResearchAgentService()
+    spec = service._enrich_research_spec(
+        service._deterministic_spec(question, "task-field-first"),
+        question,
+    )
+    request = AgentTaskRequest(question=question, use_qwen=False, max_sources=6)
+    merged = service._merge_initial_tool_calls(
+        priority_calls=service._priority_seed_calls(spec, request),
+        qwen_calls=[
+            {
+                "id": "qwen-broad-geo",
+                "name": "search_geo",
+                "arguments": {"accession": "GSE76360", "max_files": 5},
+            }
+        ],
+        field_driven_calls=service._deterministic_tool_calls(spec, request),
+        max_sources=request.max_sources,
+    )
+    guarded = service._guard_tool_arguments(merged, spec, request)
+
+    assert guarded[0]["name"] == "search_depmap"
+    assert not any(call["name"] == "search_geo" for call in guarded)
+
+
+def test_negative_source_examples_do_not_become_search_intent() -> None:
+    service = ResearchAgentService()
+    chemo_question = "只要乳腺癌新辅助化疗患者级 pCR，不要把细胞系筛药或知识库当成正例"
+    chemo_spec = service._enrich_research_spec(
+        service._deterministic_spec(chemo_question, "task-negative-cell-line"),
+        chemo_question,
+    )
+    scanb_question = "分析 SCAN-B 表达与临床特征，不要把它当成新辅助 pCR 专用试验"
+    scanb_spec = service._enrich_research_spec(
+        service._deterministic_spec(scanb_question, "task-negative-trial"),
+        scanb_question,
+    )
+
+    assert service._asks_cell_line(chemo_spec) is False
+    assert service._asks_trial_registry(scanb_spec) is False
+
+    request = AgentTaskRequest(question=chemo_question, use_qwen=False, max_sources=6)
+    merged = service._merge_initial_tool_calls(
+        priority_calls=service._priority_seed_calls(chemo_spec, request),
+        qwen_calls=[],
+        field_driven_calls=service._deterministic_tool_calls(chemo_spec, request),
+        max_sources=request.max_sources,
+    )
+    accessions = [
+        call["arguments"].get("accession")
+        for call in merged
+        if call["name"] == "search_geo"
+    ]
+    assert accessions == ["GSE25066"]
+
+
+def test_follow_up_calls_stay_in_selected_research_domain() -> None:
+    question = "查找乳腺癌 ERBB2 变异的文献级预测性证据，不是患者疗效或细胞系 AUC"
+    service = ResearchAgentService()
+    spec = service._enrich_research_spec(
+        service._deterministic_spec(question, "task-evidence-domain"),
+        question,
+    )
+    request = AgentTaskRequest(question=question, use_qwen=False, max_sources=6)
+    civic_call = next(
+        call
+        for call in service._deterministic_tool_calls(spec, request)
+        if call["name"] == "search_civic"
+    )
+    filtered = service._filter_domain_aligned_follow_up_calls(
+        [
+            civic_call,
+            {"id": "bad-depmap", "name": "search_depmap", "arguments": {"query": "breast AUC"}},
+            {"id": "bad-gdc", "name": "search_gdc", "arguments": {"project_id": "TCGA-BRCA"}},
+            {"id": "literature", "name": "search_europe_pmc", "arguments": {"query": "ERBB2"}},
+        ],
+        spec,
+        request,
+    )
+
+    assert civic_call in filtered
+    assert any(call["name"] == "search_europe_pmc" for call in filtered)
+    assert not any(call["name"] in {"search_depmap", "search_gdc"} for call in filtered)
+
+
+def test_qwen_spec_cannot_drop_explicit_question_fields() -> None:
+    question = "哪些乳腺癌队列同时提供 HER2 免疫组化和 ERBB2 拷贝数"
+    sparse_model_spec = ResearchSpec(
+        task_id="task-spec-floor",
+        research_goal=question,
+        disease="Cancer",
+        genes=[],
+        required_data_types=["evidence"],
+        target_fields=[],
+    )
+
+    enriched = ResearchAgentService._enrich_research_spec(sparse_model_spec, question)
+
+    assert enriched.disease == "Breast Cancer"
+    assert "ERBB2" in enriched.genes
+    assert "gene" in enriched.target_fields
+    assert "mutation_status" in enriched.target_fields
+
+
+def test_question_floor_is_not_displaced_by_model_added_intent() -> None:
+    service = ResearchAgentService()
+    harmonization_question = "哪些乳腺癌队列同时提供 HER2 免疫组化和 ERBB2 拷贝数，并将两者分列保存"
+    noisy_harmonization_spec = ResearchSpec(
+        task_id="task-question-floor-harmonization",
+        research_goal=harmonization_question,
+        disease="Breast Cancer",
+        genes=["ERBB2"],
+        drugs=["Trastuzumab"],
+        outcomes=["treatment_response"],
+        required_data_types=["clinical", "mutation", "treatment_response", "evidence"],
+    )
+    request = AgentTaskRequest(question=harmonization_question, use_qwen=False, max_sources=6)
+
+    calls = service._stable_deterministic_tool_calls(noisy_harmonization_spec, request)
+    direct = {
+        (call["name"], str(call["arguments"].get("study_id") or call["arguments"].get("project_id") or ""))
+        for call in calls
+    }
+
+    assert ("search_cbioportal", "brca_metabric") in direct
+    assert ("search_gdc", "TCGA-BRCA") in direct
+
+    evidence_question = "查找乳腺癌 ERBB2 变异的文献级预测性证据，不是患者疗效或细胞系 AUC"
+    noisy_evidence_spec = ResearchSpec(
+        task_id="task-question-floor-evidence",
+        research_goal=evidence_question,
+        disease="Breast Cancer",
+        genes=["ERBB2"],
+        drugs=["Trastuzumab"],
+        outcomes=["treatment_response"],
+        required_data_types=["clinical", "mutation", "treatment_response", "evidence"],
+    )
+    evidence_request = AgentTaskRequest(question=evidence_question, use_qwen=False, max_sources=6)
+
+    evidence_calls = service._stable_deterministic_tool_calls(noisy_evidence_spec, evidence_request)
+
+    assert evidence_calls[0]["name"] == "search_civic"
+
+
+def test_field_coverage_floor_keeps_both_same_patient_pi3k_cohorts() -> None:
+    question = "激素受体阳性乳腺癌接受 PI3K 抑制剂时，在同一患者记录保留 PIK3CA 与临床响应"
+    service = ResearchAgentService()
+    spec = service._enrich_research_spec(
+        service._deterministic_spec(question, "task-pi3k-floor"),
+        question,
+    )
+    request = AgentTaskRequest(question=question, use_qwen=False, max_sources=6)
+
+    calls = service._stable_deterministic_tool_calls(spec, request)
+    studies = {
+        str(call["arguments"].get("study_id") or "")
+        for call in calls
+        if call["name"] == "search_cbioportal"
+    }
+
+    assert {"breast_alpelisib_2020", "brca_mskcc_2019"}.issubset(studies)

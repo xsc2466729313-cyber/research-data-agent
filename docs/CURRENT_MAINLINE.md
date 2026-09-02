@@ -36,14 +36,14 @@ Critic → Reflexion / 任务内 goal_loop + 两轮闭环
 | Quality | Quality V2 | — | 阶段 09 Repair 闭环 |
 | 闭环 | Critic + 任务内多轮 goal_loop 补搜 + 两轮 closed-loop | — | 固定 GSE/METABRIC 策略仅 fallback |
 | 数据 Adapter | GDC / GEO / cBioPortal / AACT / CIViC / DepMap / 论文表图注 | — | `/api/tasks/mock` |
-| 正式指标观察 | 历史基线 **63.36**；严格 Qwen LIVE 候选 **91.75**，两者均 `publish_allowed=false` 且不是 `frozen_test` | BEIR / Valentine / DeepMatcher；development 千问 LIVE **66.94（非正式）** | — |
+| 正式指标观察 | Qwen hybrid 候选 **98.11**；当前确定性消融 **100.00**；均 `publish_allowed=false` 且不是 `frozen_test` | BEIR / Valentine / DeepMatcher；development 千问 LIVE **66.94（非正式）** | — |
 
 ## 正式评测路径
 
 - 考卷入口：`goldset/templates/`（来自 `goldset/breast_cancer/official_candidate/`，审核人 xsc，2026-08-29）
 - 行数：retrieval 50 / field 26 / error 18；`gold_set_id=breast-cancer-official-candidate-20260829`
 - 采集与评分：`POST /api/evaluation/official-run`，或 `python goldset/breast_cancer/official_candidate/collect_official_sdti.py`；默认千问 + LIVE Adapter 且禁止静默兜底，模型名与本次真实来源校验写入评测审计
-- 最新产物：`goldset/breast_cancer/official_candidate/evaluation_runs/official-candidate-20260829T132222Z/`（`metrics.json` / `report.md` / `AUDIT.json`）
+- 最新 Qwen hybrid 产物：`goldset/breast_cancer/official_candidate/evaluation_runs/official-candidate-qwen-hybrid-final-20260902/`（`metrics.json` / `report.md` / `AUDIT.json`）；真实调用为检索 11 次、字段治理 26 次、错误诊断 18 次，失败 0 次
 - 允许 `allow_reviewed_unfrozen=True` 是因为 manifest 仍 `frozen=false`；这是正式卷实测，不是 sealed `frozen_test`
 - **禁止**把 `goldset/breast_cancer/development/` 的 66.94 填进正式栏
 
@@ -55,7 +55,8 @@ Critic → Reflexion / 任务内 goal_loop + 两轮闭环
 |---|---|---|
 | 检索能力 | BGE nDCG@10 0.3880 vs BM25 0.3147（3,677 查询） | BEIR，不是正式 Retrieval F1 |
 | 历史基线 SDTI | **63.36**，publish_allowed=false | 未调用 Qwen |
-| 严格 Qwen LIVE 候选 | **91.75**，publish_allowed=false | 11/11 Qwen；5 个任务 REVIEW；不是 frozen_test |
+| Qwen hybrid 候选 | **98.11**，publish_allowed=false | 检索 11/11、字段 26、错误 18 次 Qwen；召回率 83.33%；9 个任务 REVIEW；不是 frozen_test |
+| 当前确定性消融 | **100.00**，publish_allowed=false | 候选卷对专门化规则饱和；只作诊断，不代表公开通用基准 |
 | 非正式 SDTI | 66.94 | development 千问 LIVE，禁止进正式栏 |
 | 质量门 | 任务上常见 REVIEW；正式安全门 FAIL | 缺 pCR/HER2 仍缺 |
 
@@ -75,4 +76,4 @@ Critic → Reflexion / 任务内 goal_loop + 两轮闭环
 
 规划工作台先选候选、冻结 Research Contract，再生成 Source Plan 与数据集。高级工作台默认开启千问规划、任务内迭代补搜与两轮闭环：解析问题 → 选工具取数 → 诊断缺口 → 换队列/补 DepMap/NCT/论文抽取 → 再评 readiness。单元格可打开 Evidence Drawer；质量门 REVIEW 进入人工审核队列。
 
-正式 SDTI 入口是 `goldset/templates/`。严格 Qwen LIVE 观察产物为 `official-candidate-qwen-live-audited-final-20260830`（91.75）；运行时来源校验 186/186 通过，但 5 个任务质量门 REVIEW 且卷面未 sealed，不得自动发布。`goldset/breast_cancer/development/` 的 66.94 仅作非正式对照。
+正式 SDTI 入口是 `goldset/templates/`。当前 Qwen hybrid 观察产物为 `official-candidate-qwen-hybrid-final-20260902`（98.11）；检索、字段治理和错误诊断共 55 次真实千问调用、API 失败 0 次，运行时来源校验 249/249 通过，但 9 个任务质量门 REVIEW 且卷面未 sealed，不得自动发布。当前确定性消融为 100.00，说明该卷不能证明 Qwen 胜过专门化规则；公开通用能力仍以 BEIR、EBM-NLP、Raha/HoloClean 等分层结果为准。

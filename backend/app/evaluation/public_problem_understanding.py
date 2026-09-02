@@ -52,6 +52,15 @@ class PicoLexiconConfig:
     fit_split: str
 
 
+@dataclass(frozen=True)
+class PicoSequenceConfig:
+    threshold: float
+    min_count: int
+    gap_fill: int
+    fit_documents: int
+    fit_split: str
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -255,6 +264,119 @@ def _predict_context_lexicon(
     return output
 
 
+def _sequence_feature_keys(tokens: list[str], index: int) -> tuple[str, ...]:
+    token = _normalise_token(tokens[index])
+    previous = _normalise_token(tokens[index - 1]) if index else "<B>"
+    previous_two = _normalise_token(tokens[index - 2]) if index > 1 else "<B2>"
+    following = _normalise_token(tokens[index + 1]) if index + 1 < len(tokens) else "<E>"
+    following_two = _normalise_token(tokens[index + 2]) if index + 2 < len(tokens) else "<E2>"
+    return (
+        f"token={token}",
+        f"left={previous}|{token}",
+        f"right={token}|{following}",
+        f"window={previous}|{token}|{following}",
+        f"left2={previous_two}|{previous}|{token}",
+        f"right2={token}|{following}|{following_two}",
+    )
+
+
+def _fit_sequence_feature_lexicon(
+    examples: list[tuple[str, list[str], list[int]]], *, min_count: int = 2
+) -> dict[str, float]:
+    counts: dict[str, list[int]] = defaultdict(lambda: [0, 0])
+    for _, tokens, labels in examples:
+        for index, label in enumerate(labels):
+            for key in _sequence_feature_keys(tokens, index):
+                counts[key][0] += label
+                counts[key][1] += 1
+    return {
+        key: positive / total
+        for key, (positive, total) in counts.items()
+        if total >= min_count
+    }
+
+
+def _predict_sequence_features(
+    examples: list[tuple[str, list[str], list[int]]],
+    feature_lexicon: dict[str, float],
+    *,
+    threshold: float,
+    gap_fill: int,
+    prepared_features: list[list[tuple[str, ...]]] | None = None,
+) -> list[list[int]]:
+    weights = (1.0, 0.65, 0.65, 1.0, 0.8, 0.8)
+    output: list[list[int]] = []
+    feature_rows = prepared_features or [
+        [_sequence_feature_keys(tokens, index) for index in range(len(tokens))]
+        for _, tokens, _ in examples
+    ]
+    for (_, tokens, _), row_features in zip(examples, feature_rows):
+        scores: list[float] = []
+        for features in row_features:
+            observed = [
+                (weight, feature_lexicon[key])
+                for key, weight in zip(features, weights)
+                if key in feature_lexicon
+            ]
+            denominator = sum(weight for weight, _ in observed)
+            scores.append(sum(weight * value for weight, value in observed) / denominator if denominator else 0.0)
+        labels = [int(score >= threshold) for score in scores]
+        if gap_fill > 0:
+            index = 0
+            while index < len(labels):
+                if labels[index]:
+                    index += 1
+                    continue
+                end = index
+                while end < len(labels) and not labels[end]:
+                    end += 1
+                if index > 0 and end < len(labels) and end - index <= gap_fill:
+                    labels[index:end] = [1] * (end - index)
+                index = end
+        output.append(labels)
+    return output
+
+
+def _select_sequence_config(
+    examples: list[tuple[str, list[str], list[int]]],
+) -> PicoSequenceConfig:
+    """Choose span boundary settings on a deterministic train-only fold."""
+
+    development = [
+        example
+        for example in examples
+        if int(hashlib.sha256(example[0].encode("utf-8")).hexdigest()[-2:], 16) % 5 == 0
+    ]
+    fitting = [example for example in examples if example not in development]
+    if not development or not fitting:
+        return PicoSequenceConfig(0.5, 2, 0, len(examples), "train")
+    best: tuple[float, float, int, int] | None = None
+    prepared_features = [
+        [_sequence_feature_keys(tokens, index) for index in range(len(tokens))]
+        for _, tokens, _ in development
+    ]
+    for min_count in (1, 2, 3, 5):
+        lexicon = _fit_sequence_feature_lexicon(fitting, min_count=min_count)
+        for threshold in (0.30, 0.40, 0.50, 0.60, 0.70):
+            for gap_fill in (0, 1, 2):
+                metrics = _evaluate_labels(
+                    _predict_sequence_features(
+                        development,
+                        lexicon,
+                        threshold=threshold,
+                        gap_fill=gap_fill,
+                        prepared_features=prepared_features,
+                    ),
+                    development,
+                    0.0,
+                )
+                candidate = (metrics.f1, threshold, min_count, gap_fill)
+                if best is None or candidate > best:
+                    best = candidate
+    assert best is not None
+    return PicoSequenceConfig(best[1], best[2], best[3], len(examples), "train_internal_dev")
+
+
 def _select_lexicon_config(
     examples: list[tuple[str, list[str], list[int]]],
 ) -> PicoLexiconConfig:
@@ -308,19 +430,31 @@ def evaluate_pico_dataset(
         element: _fit_context_lexicon(train_by_element[element], v2_configs[element].min_count)
         for element in PICO_ELEMENTS
     }
+    sequence_configs = {
+        element: _select_sequence_config(train_by_element[element])
+        for element in PICO_ELEMENTS
+    }
+    sequence_lexicons = {
+        element: _fit_sequence_feature_lexicon(
+            train_by_element[element], min_count=sequence_configs[element].min_count
+        )
+        for element in PICO_ELEMENTS
+    }
     methods: dict[str, dict[str, PicoMetrics]] = {
         "zero_prediction": {},
         "token_lexicon_v1": {},
         "project_pico_lexicon_v2": {},
         "project_pico_context_v3": {},
+        "project_pico_sequence_v4": {},
     }
-    configs: dict[str, dict[str, PicoLexiconConfig]] = {
+    configs: dict[str, dict[str, object]] = {
         "token_lexicon_v1": {
             element: PicoLexiconConfig(0.5, 2, len(train_by_element[element]), "train")
             for element in PICO_ELEMENTS
         },
         "project_pico_lexicon_v2": v2_configs,
         "project_pico_context_v3": v2_configs,
+        "project_pico_sequence_v4": sequence_configs,
     }
     for element in PICO_ELEMENTS:
         test_examples = test_by_element[element]
@@ -349,6 +483,17 @@ def evaluate_pico_dataset(
                 context_lexicons[element],
                 token_weight=0.5,
                 threshold=v2_configs[element].threshold,
+            ),
+            test_examples,
+            (time.perf_counter() - started) * 1000,
+        )
+        started = time.perf_counter()
+        methods["project_pico_sequence_v4"][element] = _evaluate_labels(
+            _predict_sequence_features(
+                test_examples,
+                sequence_lexicons[element],
+                threshold=sequence_configs[element].threshold,
+                gap_fill=sequence_configs[element].gap_fill,
             ),
             test_examples,
             (time.perf_counter() - started) * 1000,
@@ -383,7 +528,7 @@ def write_problem_run(
     project_root: Path,
     manifest: dict[str, str],
     results: dict[str, dict[str, PicoMetrics]],
-    configs: dict[str, dict[str, PicoLexiconConfig]],
+    configs: dict[str, dict[str, object]],
     output_root: Path,
 ) -> Path:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -422,6 +567,7 @@ def write_problem_run(
         "token_lexicon_v1": "Train token lexicon v1",
         "project_pico_lexicon_v2": "Project PICO lexicon v2",
         "project_pico_context_v3": "Project PICO context v3",
+        "project_pico_sequence_v4": "Project PICO sequence v4",
     }
     with (run_dir / "unified_results.csv").open("w", encoding="utf-8-sig", newline="") as handle:
         import csv

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from uuid import uuid4
 
 from backend.app.literature.models import PaperRecord
+from backend.app.oncology import is_breast_cancer, resolve_cancer_profile
 from backend.app.research_planning.evidence import evidence_references
 from backend.app.research_planning.models import (
     FeasibilityComponents,
@@ -46,6 +48,30 @@ class ResearchFormulationAgent:
         ("ESR1", ("ESR1",)),
         ("AKT1", ("AKT1",)),
         ("PTEN", ("PTEN",)),
+        ("EGFR", ("EGFR",)),
+        ("KRAS", ("KRAS",)),
+        ("BRAF", ("BRAF",)),
+        ("APC", ("APC",)),
+        ("SMAD4", ("SMAD4",)),
+        ("SOX2", ("SOX2",)),
+        ("AR", ("AR",)),
+        ("SPOP", ("SPOP",)),
+        ("CTNNB1", ("CTNNB1",)),
+        ("TERT", ("TERT",)),
+        ("CDKN2A", ("CDKN2A",)),
+        ("VHL", ("VHL",)),
+        ("PBRM1", ("PBRM1",)),
+        ("SETD2", ("SETD2",)),
+        ("BAP1", ("BAP1",)),
+        ("FGFR3", ("FGFR3",)),
+        ("RB1", ("RB1",)),
+        ("ARID1A", ("ARID1A",)),
+        ("IDH1", ("IDH1",)),
+        ("NRAS", ("NRAS",)),
+        ("NF1", ("NF1",)),
+        ("CDH1", ("CDH1",)),
+        ("CCND1", ("CCND1",)),
+        ("RET", ("RET",)),
     )
     _OUTCOMES = (
         ("pathological complete response", ("pCR", "pathological complete response", "病理完全缓解")),
@@ -123,9 +149,19 @@ class ResearchFormulationAgent:
         if not papers:
             return []
         corpus = self._corpus(papers)
-        genes = [name for name, aliases in self._GENES if any(alias.casefold() in corpus for alias in aliases)]
+        breast_specific = is_breast_cancer(topic.disease)
+        genes = [
+            name
+            for name, aliases in self._GENES
+            if any(
+                re.search(rf"(?<![a-z0-9]){re.escape(alias.casefold())}(?![a-z0-9])", corpus)
+                for alias in aliases
+            )
+        ]
         outcomes = [name for name, aliases in self._OUTCOMES if any(alias.casefold() in corpus for alias in aliases)]
-        her2 = "her2" in corpus or "erbb2" in corpus or "her2" in topic.topic.casefold()
+        her2 = breast_specific and (
+            "her2" in corpus or "erbb2" in corpus or "her2" in topic.topic.casefold()
+        )
         neoadjuvant = "neoadjuvant" in corpus or "新辅助" in topic.topic
         expression = any(token in corpus for token in ("expression", "transcriptom", "基因表达"))
         subtype = any(token in corpus for token in ("subtype", "亚型", "receptor", "triple"))
@@ -139,6 +175,27 @@ class ResearchFormulationAgent:
         )
         primary_gene = genes[0] if genes else ("ERBB2" if her2 else "molecular exposure")
         primary_outcome = outcomes[0] if outcomes else (topic.known_outcome or "treatment response")
+        folded_outcome = primary_outcome.casefold()
+        outcome_field = (
+            "pCR"
+            if "pcr" in folded_outcome or "complete" in folded_outcome
+            else "survival"
+            if "survival" in folded_outcome
+            else "treatment_response"
+        )
+        molecular_fields = (
+            f"{primary_gene}_mutation" if primary_gene != "molecular exposure" else "primary_exposure",
+            *(("her2_status",) if breast_specific else ()),
+            outcome_field,
+            "treatment",
+        )
+        subgroup_label = "不同受体亚型" if breast_specific else "不同临床或分子亚组"
+        subgroup_exposure = "ER/PR/HER2 receptor subtype" if breast_specific else "clinical or molecular subgroup"
+        subgroup_fields = (
+            *(('er_status', 'pr_status', 'her2_status') if breast_specific else ('subgroup',)),
+            outcome_field,
+            "treatment",
+        )
         drafts = [
             _QuestionDraft(
                 question=f"{primary_gene} 状态是否与{self._zh_population(population)}的{self._zh_outcome(primary_outcome)}有关？",
@@ -146,21 +203,21 @@ class ResearchFormulationAgent:
                 population=population,
                 exposure=f"{primary_gene} status",
                 outcome=primary_outcome,
-                field_hints=(f"{primary_gene}_mutation" if primary_gene != "molecular exposure" else "primary_exposure", "her2_status", "pCR" if "pCR" in primary_outcome or "complete" in primary_outcome else "treatment_response", "treatment"),
+                field_hints=molecular_fields,
                 evidence_terms=tuple(filter(None, (primary_gene, "HER2" if her2 else "", primary_outcome, "neoadjuvant" if neoadjuvant else ""))),
                 evidence_groups=self._groups(primary_gene, primary_outcome, her2),
                 perspectives=("molecular", "outcome"),
                 generation_source="EVIDENCE_AGENT",
             ),
             _QuestionDraft(
-                question=f"{'新辅助治疗' if neoadjuvant else '当前治疗'}后，不同受体亚型的{self._zh_outcome(primary_outcome)}是否存在差异？",
+                question=f"{'新辅助治疗' if neoadjuvant else '当前治疗'}后，{subgroup_label}的{self._zh_outcome(primary_outcome)}是否存在差异？",
                 research_type="association",
                 population=population,
-                exposure="ER/PR/HER2 receptor subtype" if subtype or her2 else "clinical subgroup",
+                exposure=subgroup_exposure,
                 outcome=primary_outcome,
-                field_hints=("er_status", "pr_status", "her2_status", "pCR" if "complete" in primary_outcome else "treatment_response", "treatment"),
-                evidence_terms=("subtype", "HER2", primary_outcome, "neoadjuvant" if neoadjuvant else "treatment"),
-                evidence_groups=(("subtype", "receptor", "HER2", "ERBB2", "triple"), (primary_outcome, "pCR", "response", "survival")),
+                field_hints=subgroup_fields,
+                evidence_terms=("subtype", "HER2" if breast_specific else "subgroup", primary_outcome, "neoadjuvant" if neoadjuvant else "treatment"),
+                evidence_groups=(("subtype", "receptor", "HER2", "ERBB2", "triple") if breast_specific else ("subtype", "subgroup", "molecular"), (primary_outcome, "pCR", "response", "survival")),
                 perspectives=("clinical", "treatment"),
                 generation_source="EVIDENCE_AGENT",
             ),
@@ -173,7 +230,7 @@ class ResearchFormulationAgent:
                     population=population,
                     exposure="pretreatment gene expression features",
                     outcome=primary_outcome,
-                    field_hints=("gene_expression", "sample_timepoint", "pCR" if "complete" in primary_outcome else "treatment_response", "treatment"),
+                    field_hints=("gene_expression", "sample_timepoint", outcome_field, "treatment"),
                     evidence_terms=("gene expression", "predict", primary_outcome, "neoadjuvant" if neoadjuvant else "treatment"),
                     evidence_groups=(("gene expression", "transcriptom", "expression"), ("predict", "prediction", "pCR", "response")),
                     perspectives=("molecular", "methodology"),
@@ -187,7 +244,7 @@ class ResearchFormulationAgent:
                 population=population,
                 exposure=primary_gene,
                 outcome=primary_outcome,
-                field_hints=("study_id", "patient_id", "source_id", f"{primary_gene}_mutation", "pCR" if "complete" in primary_outcome else "treatment_response"),
+                field_hints=("study_id", "patient_id", "source_id", f"{primary_gene}_mutation", outcome_field),
                 evidence_terms=("cohort", "dataset", "GSE", primary_gene, primary_outcome),
                 evidence_groups=(("GSE", "cohort", "dataset", "accession"), (primary_gene, primary_outcome, "pCR", "response")),
                 perspectives=("data",),
@@ -294,9 +351,12 @@ class ResearchFormulationAgent:
 
     @staticmethod
     def _zh_population(population: str) -> str:
-        if "HER2" in population:
+        profile = resolve_cancer_profile(population)
+        if profile is not None and profile.key == "breast_cancer" and "HER2" in population:
             return "HER2 阳性乳腺癌患者"
-        return "乳腺癌患者"
+        if profile is not None:
+            return f"{profile.label_zh}患者"
+        return population
 
     @staticmethod
     def _zh_outcome(outcome: str) -> str:

@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="6" stdDeviation="9" flood-color="#0F172A" flood-opacity="0.12"/></filter>
+    <marker id="redArrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M0 0 L12 6 L0 12 Z" fill="#DC2626"/></marker>
+    <style>
+      .title{font:700 42px 'Microsoft YaHei','SimHei',sans-serif;fill:#0F172A}.sub{font:400 23px 'Microsoft YaHei','SimHei',sans-serif;fill:#475569}
+      .badgeN{font:700 30px 'Microsoft YaHei','SimHei',sans-serif;fill:#1D4ED8}.badgeT{font:500 20px 'Microsoft YaHei','SimHei',sans-serif;fill:#475569}
+      .call{font:700 22px 'Microsoft YaHei','SimHei',sans-serif;fill:#B91C1C}.th{font:700 19px 'Microsoft YaHei','SimHei',sans-serif;fill:#FFFFFF}
+      .td{font:400 17px 'Microsoft YaHei','SimHei',sans-serif;fill:#1E293B}.tdb{font:700 17px 'Microsoft YaHei','SimHei',sans-serif;fill:#0F766E}
+      .code{font:400 15px Consolas,'Microsoft YaHei',sans-serif;fill:#64748B}.note{font:400 19px 'Microsoft YaHei','SimHei',sans-serif;fill:#334155}
+    </style>
+  </defs>
+  <rect width="1600" height="900" fill="#FFFFFF"/>
+  <text x="800" y="68" text-anchor="middle" class="title">GSE76360 治疗效果记录：从 50 名患者得到 48 条有效记录</text>
+  <text x="800" y="108" text-anchor="middle" class="sub">先保留全部患者，再把 2 条缺失记录单独列出，统计分母因此清楚可核对</text>
+
+  <g>
+    <rect x="120" y="142" width="270" height="104" rx="20" fill="#EFF6FF" stroke="#93C5FD" stroke-width="2"/>
+    <text x="255" y="185" text-anchor="middle" class="badgeN">50 名</text><text x="255" y="220" text-anchor="middle" class="badgeT">治疗前已有记录的患者</text>
+    <rect x="430" y="142" width="270" height="104" rx="20" fill="#ECFDF5" stroke="#6EE7B7" stroke-width="2"/>
+    <text x="565" y="185" text-anchor="middle" class="badgeN" fill="#047857">48 条</text><text x="565" y="220" text-anchor="middle" class="badgeT">有效治疗效果记录</text>
+    <rect x="740" y="142" width="220" height="104" rx="20" fill="#FFF7ED" stroke="#FDBA74" stroke-width="2"/>
+    <text x="850" y="185" text-anchor="middle" class="badgeN" fill="#C2410C">33 条</text><text x="850" y="220" text-anchor="middle" class="badgeT">达到客观缓解</text>
+    <rect x="1000" y="142" width="220" height="104" rx="20" fill="#F5F3FF" stroke="#C4B5FD" stroke-width="2"/>
+    <text x="1110" y="185" text-anchor="middle" class="badgeN" fill="#6D28D9">9 条</text><text x="1110" y="220" text-anchor="middle" class="badgeT">病理完全缓解</text>
+    <rect x="1260" y="142" width="220" height="104" rx="20" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="2"/>
+    <text x="1370" y="185" text-anchor="middle" class="badgeN" fill="#B91C1C">6 条</text><text x="1370" y="220" text-anchor="middle" class="badgeT">未达到客观缓解</text>
+  </g>
+
+  <rect x="90" y="334" width="1420" height="438" rx="22" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="90" y="334" width="1420" height="58" rx="22" fill="#1E40AF"/>
+  <rect x="90" y="370" width="1420" height="22" fill="#1E40AF"/>
+  <!-- aligned column grid: 90,255,435,615,790,955,1260,1510 -->
+  <g class="th" text-anchor="middle">
+    <text x="172" y="370">研究编号</text><text x="345" y="370">患者编号</text><text x="525" y="370">样本编号</text>
+    <text x="702" y="370">疾病</text><text x="872" y="370">HER2 状态</text><text x="1107" y="370">治疗效果</text><text x="1385" y="370">病理完全缓解</text>
+  </g>
+  <g stroke="#E2E8F0" stroke-width="2">
+    <line x1="255" y1="334" x2="255" y2="772"/><line x1="435" y1="334" x2="435" y2="772"/><line x1="615" y1="334" x2="615" y2="772"/>
+    <line x1="790" y1="334" x2="790" y2="772"/><line x1="955" y1="334" x2="955" y2="772"/><line x1="1260" y1="334" x2="1260" y2="772"/>
+    <line x1="90" y1="392" x2="1510" y2="392"/><line x1="90" y1="455" x2="1510" y2="455"/><line x1="90" y1="518" x2="1510" y2="518"/>
+    <line x1="90" y1="581" x2="1510" y2="581"/><line x1="90" y1="644" x2="1510" y2="644"/><line x1="90" y1="707" x2="1510" y2="707"/>
+  </g>
+  <g class="td" text-anchor="middle">
+    <text x="172" y="431">GSE76360</text><text x="345" y="431">GSE76360-119</text><text x="525" y="431">GSM1982110</text><text x="702" y="431">乳腺癌</text><text x="872" y="431">HER2 阳性</text><text x="1107" y="431" class="tdb">未达到客观缓解</text><text x="1385" y="431">未达到</text>
+    <text x="172" y="494">GSE76360</text><text x="345" y="494">GSE76360-120</text><text x="525" y="494">GSM1982112</text><text x="702" y="494">乳腺癌</text><text x="872" y="494">HER2 阳性</text><text x="1107" y="494" class="tdb">达到客观缓解</text><text x="1385" y="494">—</text>
+    <text x="172" y="557">GSE76360</text><text x="345" y="557">GSE76360-122</text><text x="525" y="557">GSM1982114</text><text x="702" y="557">乳腺癌</text><text x="872" y="557">HER2 阳性</text><text x="1107" y="557" class="tdb">达到客观缓解</text><text x="1385" y="557">—</text>
+    <text x="172" y="620">GSE76360</text><text x="345" y="620">GSE76360-123</text><text x="525" y="620">GSM1982116</text><text x="702" y="620">乳腺癌</text><text x="872" y="620">HER2 阳性</text><text x="1107" y="620" class="tdb">达到客观缓解</text><text x="1385" y="620">—</text>
+    <text x="172" y="683">GSE76360</text><text x="345" y="683">GSE76360-125</text><text x="525" y="683">GSM1982118</text><text x="702" y="683">乳腺癌</text><text x="872" y="683">HER2 阳性</text><text x="1107" y="683" class="tdb">未达到客观缓解</text><text x="1385" y="683">未达到</text>
+    <text x="172" y="746">GSE76360</text><text x="345" y="746">GSE76360-126</text><text x="525" y="746">GSM1982120</text><text x="702" y="746">乳腺癌</text><text x="872" y="746">HER2 阳性</text><text x="1107" y="746" class="tdb">达到客观缓解</text><text x="1385" y="746">—</text>
+  </g>
+
+  <rect x="112" y="278" width="330" height="46" rx="12" fill="#FFFFFF" stroke="#DC2626" stroke-width="3"/><text x="277" y="309" text-anchor="middle" class="call">研究—患者—样本三级编号</text>
+  <path d="M420 324 L500 360" stroke="#DC2626" stroke-width="4" fill="none" marker-end="url(#redArrow)"/>
+  <rect x="1012" y="278" width="300" height="46" rx="12" fill="#FFFFFF" stroke="#DC2626" stroke-width="3"/><text x="1162" y="309" text-anchor="middle" class="call">治疗效果统一用中文呈现</text>
+  <path d="M1135 324 L1115 360" stroke="#DC2626" stroke-width="4" fill="none" marker-end="url(#redArrow)"/>
+
+  <rect x="142" y="810" width="1316" height="58" rx="18" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="2"/>
+  <text x="800" y="846" text-anchor="middle" class="note">表中展示 6 条代表记录；完整表保留全部 50 名患者，2 条缺失记录仍在原表中，但不计入 48 条疗效构成统计。</text>
+</svg>

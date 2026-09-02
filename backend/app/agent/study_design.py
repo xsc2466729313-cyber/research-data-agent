@@ -23,13 +23,14 @@ from backend.app.agent.models import (
     StudyVariable,
 )
 from backend.app.models import CandidateSource, ResearchSpec, SourceItem
+from backend.app.oncology import disease_match_terms, is_breast_cancer
 
 
 SOURCE_CATALOG: dict[str, tuple[str, list[str]]] = {
     "GDC / TCGA": ("患者临床、表达、突变与拷贝数", ["clinical", "mutation", "expression"]),
     "GTEx": ("健康人体组织与正常对照表达", ["normal_tissue", "expression"]),
     "NCBI GEO": ("外部表达、治疗响应与验证队列", ["expression", "treatment_response", "survival"]),
-    "cBioPortal / METABRIC": ("乳腺癌临床与分子整合队列", ["clinical", "mutation", "expression", "survival"]),
+    "cBioPortal": ("肿瘤临床与分子整合队列", ["clinical", "mutation", "expression", "survival"]),
     "ClinicalTrials.gov": ("治疗方案、试验设计与临床结局", ["clinical_trial", "treatment_response"]),
     "GDSC": ("细胞系药物敏感性 AUC / IC50", ["preclinical_cell_line"]),
     "DepMap": ("细胞系依赖性与药物敏感性", ["preclinical_cell_line"]),
@@ -93,6 +94,12 @@ PROTOCOL_COVARIATES: list[tuple[str, str]] = [
     ("er_status", "ER 状态"),
     ("pr_status", "PR 状态"),
 ]
+
+
+def protocol_covariates(spec: ResearchSpec) -> list[tuple[str, str]]:
+    if is_breast_cancer(spec.disease):
+        return PROTOCOL_COVARIATES
+    return [(field, label) for field, label in PROTOCOL_COVARIATES if field in {"age", "stage"}]
 
 # Same-cohort clinical fields that can stand in as covariates when published.
 SAME_COHORT_COVARIATES: list[tuple[str, str]] = [
@@ -247,14 +254,15 @@ class StudyDesignBuilder:
         rows = [dict(row) for row in dataset.rows]
         steps: list[CohortFilterStep] = []
         current = rows
+        disease_terms = disease_match_terms(spec.disease)
         current = self._step(
             steps,
             current,
             "include_disease",
             "目标疾病",
             "纳入",
-            "disease 应为乳腺癌；字段缺失时保留记录并进入复核。",
-            lambda row: self._contains(row.get("disease"), "breast", "乳腺"),
+            f"disease 应与 {spec.disease} 一致；字段缺失时保留记录并进入复核。",
+            lambda row: self._contains(row.get("disease"), *disease_terms),
             active=any(self._has_value(row.get("disease")) for row in current),
         )
         current = self._step(
@@ -372,7 +380,7 @@ class StudyDesignBuilder:
             patient_count=len({row.get("patient_id") for row in final_rows if self._has_value(row.get("patient_id"))}),
             sample_count=len({row.get("sample_id") for row in final_rows if self._has_value(row.get("sample_id"))}),
             inclusion_criteria=[
-                "Breast Cancer",
+                spec.disease,
                 "Primary Tumor",
                 "HER2 status available" if "HER2" in (spec.subtype or "").upper() else "研究对象字段可识别",
                 "Mutation available" if spec.genes else "研究暴露字段可识别",
@@ -465,7 +473,7 @@ class StudyDesignBuilder:
             variables.append(("outcome", "研究结局", "结局", True, list(dict.fromkeys(outcome_fields))))
         elif "expression" in spec.required_data_types:
             variables.append(("outcome", "表达量", "结局", False, ["expression"]))
-        for field, label in PROTOCOL_COVARIATES:
+        for field, label in protocol_covariates(spec):
             variables.append((field, label, "协变量", False, VARIABLE_FIELD_ALIASES.get(field, [field])))
         rows_preview = list(getattr(dataset, "rows", []) or [])
         for field, label in SAME_COHORT_COVARIATES:
@@ -639,12 +647,12 @@ class StudyDesignBuilder:
         dataset: Any = None,
         source_datasets: list[Any] | None = None,
     ) -> list[str]:
-        del spec
         columns = columns or set()
         rows = list(getattr(dataset, "rows", []) or [])
         labels: list[str] = []
         seen: set[str] = set()
-        for field, label in [*SAME_COHORT_COVARIATES, *PROTOCOL_COVARIATES]:
+        planned_covariates = protocol_covariates(spec)
+        for field, label in [*SAME_COHORT_COVARIATES, *planned_covariates]:
             if label in seen:
                 continue
             aliases = VARIABLE_FIELD_ALIASES.get(field, [field])
@@ -660,13 +668,13 @@ class StudyDesignBuilder:
                 labels.append(label)
                 seen.add(label)
         pack = covariate_fields_in_pack(dataset, source_datasets)
-        for field, label in PROTOCOL_COVARIATES:
+        for field, label in planned_covariates:
             if label in seen:
                 continue
             if field in pack:
                 labels.append(f"{label}（独立来源表）")
                 seen.add(label)
-        for _field, label in PROTOCOL_COVARIATES:
+        for _field, label in planned_covariates:
             if label not in seen:
                 labels.append(f"{label}（本队列未发布）")
         return labels
@@ -693,7 +701,7 @@ class StudyDesignBuilder:
             return f"{coverage_text}当前结果没有该字段；不能用候选库摘要代替患者级变量。".strip()
         if role == "协变量":
             return (
-                "本公开队列未发布该患者级字段；禁止把其他研究的年龄/分期/ER/PR 贴到当前患者。"
+                "本公开队列未发布该患者级字段；禁止把其他研究的临床协变量贴到当前患者。"
                 "同队列已提供的临床协变量已单独列出。"
             )
         return f"{coverage_text}当前结果没有该字段；不能用候选库摘要代替患者级变量。".strip()
@@ -706,16 +714,17 @@ class StudyDesignBuilder:
             return f"Expression(Tumor) − Expression(Normal)，分层因子 C={exposure}"
         if research_type == "cross_cohort_reproducibility":
             return f"在独立命名队列内估计 {exposure} 与分层变量的关联，再比较方向是否可重复；禁止跨研究按编号合并患者"
-        return f"Y = f(X, G, C)，X={exposure}，Y={outcome}，C=同队列临床协变量（原研究未发布的年龄/分期/受体状态保留为缺口）"
+        return f"Y = f(X, G, C)，X={exposure}，Y={outcome}，C=同队列临床协变量（原研究未发布字段保留为缺口）"
 
     @staticmethod
     def _cohort_rules(spec: ResearchSpec, brief: ResearchBrief | None = None) -> list[str]:
-        rules = ["疾病为乳腺癌", "优先保留原发肿瘤样本", "保留患者/样本与来源证据"]
+        rules = [f"疾病为 {spec.disease}", "优先保留原发肿瘤样本", "保留患者/样本与来源证据"]
         named = [cohort.name for cohort in (brief.named_cohorts if brief else []) if cohort.role == "named_primary"]
         if named:
             rules.append("命名队列 " + "、".join(named) + " 各自独立分析，禁止跨研究按患者编号合并")
         if spec.subtype:
-            rules.append(f"按 {spec.subtype} 进行亚型筛选；HER2 检测维度单独保留")
+            subtype_note = "；HER2 检测维度单独保留" if is_breast_cancer(spec.disease) else ""
+            rules.append(f"按 {spec.subtype} 进行亚型筛选{subtype_note}")
         elif brief and any(field.field_id == "her2_status" for field in brief.fields if field.priority == "primary"):
             rules.append("HER2 作为分层变量保留原始 IHC/FISH 状态；IHC 2+ 不自动判阳，CNA 不能代替 IHC")
         if spec.genes:

@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="6" stdDeviation="9" flood-color="#0F172A" flood-opacity="0.12"/></filter>
+    <marker id="redArrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M0 0 L12 6 L0 12 Z" fill="#DC2626"/></marker>
+    <style>
+      .title{font:700 42px 'Microsoft YaHei','SimHei',sans-serif;fill:#0F172A}.sub{font:400 23px 'Microsoft YaHei','SimHei',sans-serif;fill:#475569}
+      .head{font:700 22px 'Microsoft YaHei','SimHei',sans-serif;fill:#FFFFFF}.td{font:400 21px 'Microsoft YaHei','SimHei',sans-serif;fill:#334155}
+      .std{font:700 21px 'Microsoft YaHei','SimHei',sans-serif;fill:#1D4ED8}.raw{font:400 20px Consolas,'Microsoft YaHei',sans-serif;fill:#475569}
+      .call{font:700 23px 'Microsoft YaHei','SimHei',sans-serif;fill:#B91C1C}.label{font:700 20px 'Microsoft YaHei','SimHei',sans-serif;fill:#0F766E}
+      .note{font:400 19px 'Microsoft YaHei','SimHei',sans-serif;fill:#334155}.small{font:400 17px 'Microsoft YaHei','SimHei',sans-serif;fill:#64748B}
+    </style>
+  </defs>
+  <rect width="1600" height="900" fill="#FFFFFF"/>
+  <text x="800" y="68" text-anchor="middle" class="title">一个中文标准值怎样回到数据库原始写法</text>
+  <text x="800" y="108" text-anchor="middle" class="sub">以 GEO 样本 GSM1982110 为例：标准值方便分析，原始值方便核对</text>
+
+  <rect x="160" y="154" width="1280" height="586" rx="28" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="160" y="154" width="1280" height="72" rx="28" fill="#1E40AF"/>
+  <rect x="160" y="196" width="1280" height="30" fill="#1E40AF"/>
+  <text x="300" y="199" text-anchor="middle" class="head">中文字段</text>
+  <text x="760" y="199" text-anchor="middle" class="head">中文标准值（直接用于阅读和分析）</text>
+  <text x="1210" y="199" text-anchor="middle" class="head">GEO 原始值（用于回查）</text>
+  <g stroke="#E2E8F0" stroke-width="2">
+    <line x1="440" y1="154" x2="440" y2="740"/><line x1="1040" y1="154" x2="1040" y2="740"/>
+    <line x1="160" y1="226" x2="1440" y2="226"/><line x1="160" y1="308" x2="1440" y2="308"/>
+    <line x1="160" y1="390" x2="1440" y2="390"/><line x1="160" y1="472" x2="1440" y2="472"/>
+    <line x1="160" y1="554" x2="1440" y2="554"/><line x1="160" y1="636" x2="1440" y2="636"/>
+  </g>
+  <g text-anchor="middle">
+    <text x="300" y="276" class="td">受试者编号</text><text x="740" y="276" class="std">119</text><text x="1210" y="276" class="raw">119</text>
+    <text x="300" y="358" class="td">疾病状态</text><text x="740" y="358" class="std">HER2 阳性乳腺癌</text><text x="1210" y="358" class="raw">HER2+ Breast Cancer</text>
+    <text x="300" y="440" class="td">采样时间点</text><text x="740" y="440" class="std">治疗前基线</text><text x="1210" y="440" class="raw">baseline</text>
+    <text x="300" y="522" class="td">治疗效果</text><text x="740" y="522" class="std">未达到客观缓解</text><text x="1210" y="522" class="raw">NOR</text>
+    <text x="300" y="604" class="td">雌激素受体状态</text><text x="740" y="604" class="std">阴性</text><text x="1210" y="604" class="raw">Neg</text>
+    <text x="300" y="686" class="td">孕激素受体状态</text><text x="740" y="686" class="std">阴性</text><text x="1210" y="686" class="raw">Neg</text>
+  </g>
+
+  <rect x="300" y="118" width="350" height="48" rx="12" fill="#FFFFFF" stroke="#DC2626" stroke-width="3"/><text x="475" y="150" text-anchor="middle" class="call">中文标准值：便于统一统计</text>
+  <path d="M610 166 L720 210" stroke="#DC2626" stroke-width="4" fill="none" marker-end="url(#redArrow)"/>
+  <rect x="978" y="118" width="330" height="48" rx="12" fill="#FFFFFF" stroke="#DC2626" stroke-width="3"/><text x="1143" y="150" text-anchor="middle" class="call">数据库原始值：便于复核</text>
+  <path d="M1110 166 L1190 210" stroke="#DC2626" stroke-width="4" fill="none" marker-end="url(#redArrow)"/>
+
+  <rect x="160" y="774" width="610" height="82" rx="18" fill="#ECFDF5" stroke="#6EE7B7" stroke-width="2"/>
+  <text x="465" y="808" text-anchor="middle" class="label">当前已经做到</text>
+  <text x="465" y="837" text-anchor="middle" class="small">每行登记来源；GEO 等已接入原始说明的来源可按值回查</text>
+  <rect x="830" y="774" width="610" height="82" rx="18" fill="#EFF6FF" stroke="#93C5FD" stroke-width="2"/>
+  <text x="1135" y="808" text-anchor="middle" class="label" fill="#1D4ED8">沿同一规则继续完善</text>
+  <text x="1135" y="837" text-anchor="middle" class="small">把更多主表和补充表的关键值逐步贯通到原字段与原值</text>
+</svg>

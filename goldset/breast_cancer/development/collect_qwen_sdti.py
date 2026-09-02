@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -36,15 +35,10 @@ from backend.app.evaluation.models import (
     EvaluationRequest,
     RetrievalObservation,
 )
+from backend.app.evaluation.retrieval_selection import final_retrieval_ids
 from backend.app.evaluation.service import EvaluationService
 
 RUN_DIR = ROOT / "qwen_runs"
-GSE_RE = re.compile(r"\bGSE[1-9]\d{2,6}\b", re.IGNORECASE)
-NCT_RE = re.compile(r"\bNCT\d{8}\b", re.IGNORECASE)
-CBIOPORTAL_RE = re.compile(
-    r"\b(?:brca_metabric|breast_alpelisib_2020|brca_mskcc_2019|brca_tcga[a-z0-9_]*)\b",
-    re.IGNORECASE,
-)
 
 
 def require_qwen() -> QwenClient:
@@ -57,78 +51,21 @@ def require_qwen() -> QwenClient:
     return client
 
 
-def _add(found: list[str], value: object) -> None:
-    if value is None:
-        return
-    text = str(value).strip()
-    if text:
-        found.append(text)
-
-
-def _call_succeeded(status: str) -> bool:
-    text = str(status or "")
-    lowered = text.casefold()
-    return not any(token in text or token in lowered for token in ("失败", "fail", "error"))
-
-
 def ids_from_payload(payload: dict[str, Any]) -> list[str]:
-    """Count only sources the agent actually returned or successfully fetched."""
-    found: list[str] = []
-    structured: list[str] = []
-    for call in payload.get("tools") or []:
-        if not _call_succeeded(str(call.get("status") or "")):
-            continue
-        args = call.get("arguments") or {}
-        for key in ("accession", "study_id", "nct_id", "project_id"):
-            _add(found, args.get(key))
-        structured.append(json.dumps(args, ensure_ascii=False))
-        name = call.get("tool_name")
-        if name == "search_civic":
-            found.append("CIViC")
-        if name == "search_trials":
-            found.append("AACT")
-        if name == "search_gdc":
-            project = str(args.get("project_id") or "").strip()
-            found.append(project or "TCGA-BRCA")
-        if name == "search_depmap":
-            found.append("DepMap")
-    for source in payload.get("candidate_sources") or []:
-        _add(found, source.get("dataset_id"))
-        _add(found, source.get("accession"))
-        structured.append(str(source.get("dataset_id") or ""))
-        structured.append(str(source.get("accession") or ""))
-    for item in payload.get("source_items") or []:
-        _add(found, item.get("accession"))
-        _add(found, item.get("source_id"))
-        structured.append(str(item.get("source_id") or ""))
-        structured.append(str(item.get("accession") or ""))
-    blob = " ".join(structured)
-    found.extend(GSE_RE.findall(blob))
-    found.extend(NCT_RE.findall(blob))
-    found.extend(CBIOPORTAL_RE.findall(blob))
-    if "depmap" in blob.casefold() or "ccle" in blob.casefold():
-        found.append("DepMap")
-    if "civic" in blob.casefold() and "CIViC" not in found:
-        found.append("CIViC")
-    return list(dict.fromkeys(found))
+    """Count final selected/materialized sources, not exploratory discoveries."""
+    return final_retrieval_ids(
+        payload.get("tools") or [],
+        modeling_dataset=payload.get("modeling_dataset"),
+        source_datasets=payload.get("source_datasets") or [],
+    )
 
 
 def ids_from_agent(result: AgentTaskResult) -> list[str]:
-    payload = {
-        "tools": [
-            {"tool_name": call.tool_name, "status": call.status, "arguments": call.arguments}
-            for call in result.tool_calls
-        ],
-        "source_items": [
-            {"source_id": item.source_id, "accession": item.accession}
-            for item in result.source_items
-        ],
-        "candidate_sources": [
-            {"dataset_id": item.dataset_id, "accession": item.accession}
-            for item in result.candidate_sources
-        ],
-    }
-    return ids_from_payload(payload)
+    return final_retrieval_ids(
+        result.tool_calls,
+        modeling_dataset=result.modeling_dataset,
+        source_datasets=result.source_datasets,
+    )
 
 
 def run_one_question(
@@ -190,6 +127,14 @@ def run_one_question(
                 "source_database": item.source_database,
             }
             for item in result.candidate_sources
+        ],
+        "modeling_dataset": {
+            "study_key": result.modeling_dataset.study_key,
+            "rows": result.modeling_dataset.rows[:1],
+        },
+        "source_datasets": [
+            {"study_key": item.study_key, "rows": item.rows[:1]}
+            for item in result.source_datasets
         ],
         "row_count": result.modeling_dataset.row_count,
         "analysis_ready": result.readiness.analysis_ready,

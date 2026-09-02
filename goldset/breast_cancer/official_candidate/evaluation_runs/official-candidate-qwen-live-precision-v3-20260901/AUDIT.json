@@ -1,0 +1,1750 @@
+{
+  "split": "official_candidate",
+  "not_frozen_test": true,
+  "retrieval_method": "agent_qwen_live",
+  "execution": {
+    "question_count": 11,
+    "model_provider": "qwen",
+    "model_name": "qwen3.8-max",
+    "used_model_count": 11,
+    "used_qwen_count": 11,
+    "used_qwen_for_all_questions": true,
+    "deterministic_fallback_count": 0,
+    "quality_gate_review_count": 7
+  },
+  "retrieval_traces": [
+    {
+      "question_id": "oc01_chemo_pcr_annotation",
+      "ids": [
+        "AACT",
+        "GSE76360"
+      ],
+      "error": null,
+      "model_provider": "qwen",
+      "model_name": "qwen3.8-max",
+      "used_model": true,
+      "used_qwen": true,
+      "deterministic_fallback_used": false,
+      "quality_gate": "PASS",
+      "publish_allowed": true,
+      "source_count": 31
+    },
+    {
+      "question_id": "oc02_her2_neoadjuvant_baseline",
+      "ids": [
+        "GSE305943",
+        "GSE313876",
+        "GSE328605"
+      ],
+      "error": null,
+      "model_provider": "qwen",
+      "model_name": "qwen3.8-max",
+      "used_model": true,
+      "used_qwen": true,
+      "deterministic_fallback_used": false,
+      "quality_gate": "REVIEW",
+      "publish_allowed": false,
+      "source_count": 24
+    },
+    {
+      "question_id": "oc03_pi3k_inhibitor_same_patient",
+      "ids": [
+        "breast_alpelisib_2020",
+        "TCGA-BRCA",
+        "brca_mskcc_2019",
+        "AACT"
+      ],
+      "error": null,
+      "model_provider": "qwen",
+      "model_name": "qwen3.8-max",
+      "used_model": true,
+      "used_qwen": true,
+      "deterministic_fallback_used": false,
+      "quality_gate": "REVIEW",
+      "publish_allowed": false,
+      "source_count": 43
+    },
+    {
+      "question_id": "oc04_esr1_mutation_clinical_table",
+      "ids": [
+        "brca_mskcc_2019",
+        "TCGA-BRCA",
+        "brca_tcga_pan_can_atlas_2018",
+        "brca_metabric"
+      ],
+      "error": null,
+      "model_provider": "qwen",
+      "model_name": "qwen3.8-max",
+      "used_model": true,
+      "used_qwen": true,
+      "deterministic_fallback_used": false,
+      "quality_gate": "PASS",
+      "publish_allowed": true,
+      "source_count": 40
+    },
+    {
+      "question_id": "oc05_ihc_and_erbb2_cna_cohorts",
+      "ids": [
+        "brca_metabric",
+        "TCGA-BRCA"
+      ],
+      "error": null,
+      "model_provider": "qwen",
+      "model_name": "qwen3.8-max",
+      "used_model": true,
+      "used_qwen": true,
+      "deterministic_fallback_used": false,
+      "quality_gate": "PASS",
+      "publish_allowed": true,
+      "source_count": 34
+    },
+    {
+      "question_id": "oc06_erbb2_knowledge_evidence",
+      "ids": [
+        "AACT",
+        "GSE305943",
+        "GSE313876"
+      ],
+      "error": null,
+      "model_provider": "qwen",
+      "model_name": "qwen3.8-max",
+      "used_model": true,
+      "used_qwen": true,
+      "deterministic_fallback_used": false,
+      "quality_gate": "REVIEW",
+      "publish_allowed": false,
+      "source_count": 53
+    },
+    {
+      "question_id": "oc07_trial_outcome_measurements",
+      "ids": [
+        "NCT01104584",
+        "AACT",
+        "NCT01042379"
+      ],
+      "error": null,
+      "model_provider": "qwen",
+      "model_name": "qwen3.8-max",
+      "used_model": true,
+      "used_qwen": true,
+      "deterministic_fallback_used": false,
+      "quality_gate": "REVIEW",
+      "publish_allowed": false,
+      "source_count": 35
+    },
+    {
+      "question_id": "oc08_cell_line_ic50_auc",
+      "ids": [
+        "AACT"
+      ],
+      "error": null,
+      "model_provider": "qwen",
+      "model_name": "qwen3.8-max",
+      "used_model": true,
+      "used_qwen": true,
+      "deterministic_fallback_used": false,
+      "quality_gate": "REVIEW",
+      "publish_allowed": false,
+      "source_count": 31
+    },
+    {
+      "question_id": "oc09_tnbc_receptor_screen",
+      "ids": [
+        "brca_metabric",
+        "TCGA-BRCA",
+        "AACT",
+        "GSE96058",
+        "GSE344886"
+      ],
+      "error": null,
+      "model_provider": "qwen",
+      "model_name": "qwen3.8-max",
+      "used_model": true,
+      "used_qwen": true,
+      "deterministic_fallback_used": false,
+      "quality_gate": "REVIEW",
+      "publish_allowed": false,
+      "source_count": 47
+    },
+    {
+      "question_id": "oc10_scanb_expression_clinical",
+      "ids": [
+        "GSE96058",
+        "NCT01042379",
+        "AACT",
+        "GSE76360"
+      ],
+      "error": null,
+      "model_provider": "qwen",
+      "model_name": "qwen3.8-max",
+      "used_model": true,
+      "used_qwen": true,
+      "deterministic_fallback_used": false,
+      "quality_gate": "PASS",
+      "publish_allowed": true,
+      "source_count": 50
+    },
+    {
+      "question_id": "oc11_hr_positive_her2_negative_strata",
+      "ids": [
+        "TCGA-BRCA",
+        "brca_tcga",
+        "brca_tcga_pan_can_atlas_2018",
+        "GSE344886",
+        "AACT"
+      ],
+      "error": null,
+      "model_provider": "qwen",
+      "model_name": "qwen3.8-max",
+      "used_model": true,
+      "used_qwen": true,
+      "deterministic_fallback_used": false,
+      "quality_gate": "REVIEW",
+      "publish_allowed": false,
+      "source_count": 52
+    }
+  ],
+  "source_validation": [
+    {
+      "source_id": "ncbi-geo-catalog:GSE345466",
+      "accession": "GSE345466",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE345466",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE344966",
+      "accession": "GSE344966",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE344966",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE344950",
+      "accession": "GSE344950",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE344950",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE344924",
+      "accession": "GSE344924",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE344924",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE341435",
+      "accession": "GSE341435",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE341435",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE338556",
+      "accession": "GSE338556",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE338556",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE336143",
+      "accession": "GSE336143",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE336143",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE329906",
+      "accession": "GSE329906",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE329906",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE328605",
+      "accession": "GSE328605",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE328605",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE327385",
+      "accession": "GSE327385",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE327385",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE314809",
+      "accession": "GSE314809",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE314809",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE313876",
+      "accession": "GSE313876",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE313876",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE306364",
+      "accession": "GSE306364",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE306364",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE305950",
+      "accession": "GSE305950",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE305950",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE305943",
+      "accession": "GSE305943",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE305943",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE345429",
+      "accession": "GSE345429",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE345429",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE344892",
+      "accession": "GSE344892",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE344892",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE344886",
+      "accession": "GSE344886",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE344886",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE326171",
+      "accession": "GSE326171",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE326171",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE319350",
+      "accession": "GSE319350",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE319350",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT01556243",
+      "accession": "NCT01556243",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT01556243",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT03926091",
+      "accession": "NCT03926091",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT03926091",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT07344974",
+      "accession": "NCT07344974",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT07344974",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT00820690",
+      "accession": "NCT00820690",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT00820690",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT00388713",
+      "accession": "NCT00388713",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT00388713",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT02003560",
+      "accession": "NCT02003560",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT02003560",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT02112682",
+      "accession": "NCT02112682",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT02112682",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT06468124",
+      "accession": "NCT06468124",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT06468124",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT03661424",
+      "accession": "NCT03661424",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT03661424",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT07729423",
+      "accession": "NCT07729423",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT07729423",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "geo:GSE76360:9b094e05fab406de",
+      "accession": "GSE76360",
+      "url": "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE76nnn/GSE76360/matrix/GSE76360_series_matrix.txt.gz",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc-fulltext:PMC13156104",
+      "accession": "PMC13156104",
+      "url": "https://europepmc.org/article/PMC/13156104",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "geo:GSE305943:ef4486b81e9d7a03",
+      "accession": "GSE305943",
+      "url": "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE305nnn/GSE305943/matrix/GSE305943_series_matrix.txt.gz",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "geo:GSE313876:8a4b197e3a4bf19e",
+      "accession": "GSE313876",
+      "url": "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE313nnn/GSE313876/matrix/GSE313876_series_matrix.txt.gz",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "geo:GSE328605:4e85510b75a8c831",
+      "accession": "GSE328605",
+      "url": "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE328nnn/GSE328605/matrix/GSE328605_series_matrix.txt.gz",
+      "status": "downloaded",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:breast_alpelisib_2020:study_metadata:28f7ec03af22",
+      "accession": "breast_alpelisib_2020",
+      "url": "https://www.cbioportal.org/api/studies/breast_alpelisib_2020",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:breast_alpelisib_2020:molecular_profiles:d8948f0a8857",
+      "accession": "breast_alpelisib_2020",
+      "url": "https://www.cbioportal.org/api/studies/breast_alpelisib_2020/molecular-profiles",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:breast_alpelisib_2020:sample_lists:e555c3050e02",
+      "accession": "breast_alpelisib_2020",
+      "url": "https://www.cbioportal.org/api/studies/breast_alpelisib_2020/sample-lists",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:breast_alpelisib_2020:genes:54860d86e1d9",
+      "accession": "breast_alpelisib_2020",
+      "url": "https://www.cbioportal.org/api/genes/fetch",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:breast_alpelisib_2020:mutations:7f8dd3d8f345",
+      "accession": "breast_alpelisib_2020",
+      "url": "https://www.cbioportal.org/api/molecular-profiles/breast_alpelisib_2020_mutations/mutations/fetch",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:breast_alpelisib_2020:discrete_cna:78c28eb20f54",
+      "accession": "breast_alpelisib_2020",
+      "url": "https://www.cbioportal.org/api/molecular-profiles/breast_alpelisib_2020_cna/discrete-copy-number/fetch",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:breast_alpelisib_2020:clinical_sample:31fde5661479",
+      "accession": "breast_alpelisib_2020",
+      "url": "https://www.cbioportal.org/api/studies/breast_alpelisib_2020/clinical-data",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:breast_alpelisib_2020:clinical_patient:70e548f11bc4",
+      "accession": "breast_alpelisib_2020",
+      "url": "https://www.cbioportal.org/api/studies/breast_alpelisib_2020/clinical-data",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "gdc:f40c0625-045a-4df8-a17e-ebbdc634567b",
+      "accession": "TCGA-BRCA",
+      "url": "https://api.gdc.cancer.gov/data/f40c0625-045a-4df8-a17e-ebbdc634567b",
+      "status": "discovered",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "gdc:ae4e23d8-78a4-474f-9ccb-4242fff41438",
+      "accession": "TCGA-BRCA",
+      "url": "https://api.gdc.cancer.gov/data/ae4e23d8-78a4-474f-9ccb-4242fff41438",
+      "status": "discovered",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "gdc:2fbe34fd-cea9-4d4e-90f3-2f7afc54c5c6",
+      "accession": "TCGA-BRCA",
+      "url": "https://api.gdc.cancer.gov/data/2fbe34fd-cea9-4d4e-90f3-2f7afc54c5c6",
+      "status": "discovered",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "gdc:b9fef882-4ff3-439e-b997-0b572984f3c0",
+      "accession": "TCGA-BRCA",
+      "url": "https://api.gdc.cancer.gov/data/b9fef882-4ff3-439e-b997-0b572984f3c0",
+      "status": "discovered",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "gdc:044e5f26-5496-44d1-9191-e69448047a16",
+      "accession": "TCGA-BRCA",
+      "url": "https://api.gdc.cancer.gov/data/044e5f26-5496-44d1-9191-e69448047a16",
+      "status": "discovered",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc-fulltext:PMC13316136",
+      "accession": "PMC13316136",
+      "url": "https://europepmc.org/article/PMC/13316136",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_mskcc_2019:study_metadata:c06cc82fdece",
+      "accession": "brca_mskcc_2019",
+      "url": "https://www.cbioportal.org/api/studies/brca_mskcc_2019",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_mskcc_2019:molecular_profiles:70305db7a76d",
+      "accession": "brca_mskcc_2019",
+      "url": "https://www.cbioportal.org/api/studies/brca_mskcc_2019/molecular-profiles",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_mskcc_2019:sample_lists:4f53300a5c3d",
+      "accession": "brca_mskcc_2019",
+      "url": "https://www.cbioportal.org/api/studies/brca_mskcc_2019/sample-lists",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_mskcc_2019:genes:54860d86e1d9",
+      "accession": "brca_mskcc_2019",
+      "url": "https://www.cbioportal.org/api/genes/fetch",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_mskcc_2019:mutations:c885421463c2",
+      "accession": "brca_mskcc_2019",
+      "url": "https://www.cbioportal.org/api/molecular-profiles/brca_mskcc_2019_mutations/mutations/fetch",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_mskcc_2019:discrete_cna:86e533662f6e",
+      "accession": "brca_mskcc_2019",
+      "url": "https://www.cbioportal.org/api/molecular-profiles/brca_mskcc_2019_gistic/discrete-copy-number/fetch",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_mskcc_2019:clinical_sample:e6e54a763356",
+      "accession": "brca_mskcc_2019",
+      "url": "https://www.cbioportal.org/api/studies/brca_mskcc_2019/clinical-data",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_mskcc_2019:clinical_patient:23ff24538265",
+      "accession": "brca_mskcc_2019",
+      "url": "https://www.cbioportal.org/api/studies/brca_mskcc_2019/clinical-data",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT05768139",
+      "accession": "NCT05768139",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT05768139",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_mskcc_2019:genes:d9a24714dfe4",
+      "accession": "brca_mskcc_2019",
+      "url": "https://www.cbioportal.org/api/genes/fetch",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_mskcc_2019:mutations:a54fce2b96d4",
+      "accession": "brca_mskcc_2019",
+      "url": "https://www.cbioportal.org/api/molecular-profiles/brca_mskcc_2019_mutations/mutations/fetch",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_mskcc_2019:discrete_cna:06657acb4fcd",
+      "accession": "brca_mskcc_2019",
+      "url": "https://www.cbioportal.org/api/molecular-profiles/brca_mskcc_2019_gistic/discrete-copy-number/fetch",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc-fulltext:PMC13322506",
+      "accession": "PMC13322506",
+      "url": "https://europepmc.org/article/PMC/13322506",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga_pan_can_atlas_2018:study_metadata:4db267861884",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "url": "https://www.cbioportal.org/api/studies/brca_tcga_pan_can_atlas_2018",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga_pan_can_atlas_2018:molecular_profiles:e4861fe53ad5",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "url": "https://www.cbioportal.org/api/studies/brca_tcga_pan_can_atlas_2018/molecular-profiles",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga_pan_can_atlas_2018:sample_lists:c0486a3a6764",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "url": "https://www.cbioportal.org/api/studies/brca_tcga_pan_can_atlas_2018/sample-lists",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga_pan_can_atlas_2018:genes:d9a24714dfe4",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "url": "https://www.cbioportal.org/api/genes/fetch",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga_pan_can_atlas_2018:mutations:a7f9a1bb8a72",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "url": "https://www.cbioportal.org/api/molecular-profiles/brca_tcga_pan_can_atlas_2018_mutations/mutations/fetch",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga_pan_can_atlas_2018:discrete_cna:bd4ae59c169e",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "url": "https://www.cbioportal.org/api/molecular-profiles/brca_tcga_pan_can_atlas_2018_gistic/discrete-copy-number/fetch",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga_pan_can_atlas_2018:clinical_sample:7d81d6d0740b",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "url": "https://www.cbioportal.org/api/studies/brca_tcga_pan_can_atlas_2018/clinical-data",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga_pan_can_atlas_2018:clinical_patient:7ee5beb627ad",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "url": "https://www.cbioportal.org/api/studies/brca_tcga_pan_can_atlas_2018/clinical-data",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:study_metadata:0db8e459111b",
+      "accession": "brca_metabric",
+      "url": "https://www.cbioportal.org/api/studies/brca_metabric",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:molecular_profiles:bbcf05920051",
+      "accession": "brca_metabric",
+      "url": "https://www.cbioportal.org/api/studies/brca_metabric/molecular-profiles",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:sample_lists:3b1e49268d04",
+      "accession": "brca_metabric",
+      "url": "https://www.cbioportal.org/api/studies/brca_metabric/sample-lists",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:genes:d9a24714dfe4",
+      "accession": "brca_metabric",
+      "url": "https://www.cbioportal.org/api/genes/fetch",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:mutations:a728151f058b",
+      "accession": "brca_metabric",
+      "url": "https://www.cbioportal.org/api/molecular-profiles/brca_metabric_mutations/mutations/fetch",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:discrete_cna:8fce0c7923b7",
+      "accession": "brca_metabric",
+      "url": "https://www.cbioportal.org/api/molecular-profiles/brca_metabric_cna/discrete-copy-number/fetch",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:clinical_sample:59a52162c94c",
+      "accession": "brca_metabric",
+      "url": "https://www.cbioportal.org/api/studies/brca_metabric/clinical-data",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:clinical_patient:63fcee9405ee",
+      "accession": "brca_metabric",
+      "url": "https://www.cbioportal.org/api/studies/brca_metabric/clinical-data",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE295024",
+      "accession": "GSE295024",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE295024",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE147745",
+      "accession": "GSE147745",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE147745",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE190386",
+      "accession": "GSE190386",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE190386",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE190385",
+      "accession": "GSE190385",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE190385",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE190384",
+      "accession": "GSE190384",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE190384",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE202203",
+      "accession": "GSE202203",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE202203",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE124648",
+      "accession": "GSE124648",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE124648",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE124647",
+      "accession": "GSE124647",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE124647",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE78285",
+      "accession": "GSE78285",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE78285",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE78284",
+      "accession": "GSE78284",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE78284",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:genes:03ca42b62e3b",
+      "accession": "brca_metabric",
+      "url": "https://www.cbioportal.org/api/genes/fetch",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:mutations:d34e978128b1",
+      "accession": "brca_metabric",
+      "url": "https://www.cbioportal.org/api/molecular-profiles/brca_metabric_mutations/mutations/fetch",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:discrete_cna:b27faa529cf9",
+      "accession": "brca_metabric",
+      "url": "https://www.cbioportal.org/api/molecular-profiles/brca_metabric_cna/discrete-copy-number/fetch",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc-fulltext:PMC13320176",
+      "accession": "PMC13320176",
+      "url": "https://europepmc.org/article/PMC/13320176",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:42220423",
+      "accession": "PMID:42220423",
+      "url": "https://europepmc.org/article/MED/42220423",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:42192904",
+      "accession": "PMID:42192904",
+      "url": "https://europepmc.org/article/MED/42192904",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:42278436",
+      "accession": "PMID:42278436",
+      "url": "https://europepmc.org/article/MED/42278436",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:42074578",
+      "accession": "PMID:42074578",
+      "url": "https://europepmc.org/article/MED/42074578",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:41931218",
+      "accession": "PMID:41931218",
+      "url": "https://europepmc.org/article/MED/41931218",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:41683961",
+      "accession": "PMID:41683961",
+      "url": "https://europepmc.org/article/MED/41683961",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:42075798",
+      "accession": "PMID:42075798",
+      "url": "https://europepmc.org/article/MED/42075798",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:41968987",
+      "accession": "PMID:41968987",
+      "url": "https://europepmc.org/article/MED/41968987",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:42196390",
+      "accession": "PMID:42196390",
+      "url": "https://europepmc.org/article/MED/42196390",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:41560751",
+      "accession": "PMID:41560751",
+      "url": "https://europepmc.org/article/MED/41560751",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:42187597",
+      "accession": "PMID:42187597",
+      "url": "https://europepmc.org/article/MED/42187597",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:41977448",
+      "accession": "PMID:41977448",
+      "url": "https://europepmc.org/article/MED/41977448",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:41214389",
+      "accession": "PMID:41214389",
+      "url": "https://europepmc.org/article/MED/41214389",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:41870274",
+      "accession": "PMID:41870274",
+      "url": "https://europepmc.org/article/MED/41870274",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:41836111",
+      "accession": "PMID:41836111",
+      "url": "https://europepmc.org/article/MED/41836111",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:42345853",
+      "accession": "PMID:42345853",
+      "url": "https://europepmc.org/article/MED/42345853",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:42003932",
+      "accession": "PMID:42003932",
+      "url": "https://europepmc.org/article/MED/42003932",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:42151668",
+      "accession": "PMID:42151668",
+      "url": "https://europepmc.org/article/MED/42151668",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:42198208",
+      "accession": "PMID:42198208",
+      "url": "https://europepmc.org/article/MED/42198208",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:PMC13298351",
+      "accession": "PMC13298351",
+      "url": "https://europepmc.org/article/PMC/PMC13298351",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT02188550",
+      "accession": "NCT02188550",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT02188550",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT01196390",
+      "accession": "NCT01196390",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT01196390",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT03086785",
+      "accession": "NCT03086785",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT03086785",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT05803889",
+      "accession": "NCT05803889",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT05803889",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT01484080",
+      "accession": "NCT01484080",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT01484080",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT07762885",
+      "accession": "NCT07762885",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT07762885",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT04293276",
+      "accession": "NCT04293276",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT04293276",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT05311176",
+      "accession": "NCT05311176",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT05311176",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT01104584",
+      "accession": "NCT01104584",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT01104584",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc-fulltext:PMC13320195",
+      "accession": "PMC13320195",
+      "url": "https://europepmc.org/article/PMC/13320195",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT01042379",
+      "accession": "NCT01042379",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT01042379",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT05558722",
+      "accession": "NCT05558722",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT05558722",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT00934856",
+      "accession": "NCT00934856",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT00934856",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT01940497",
+      "accession": "NCT01940497",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT01940497",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT06307249",
+      "accession": "NCT06307249",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT06307249",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT06068985",
+      "accession": "NCT06068985",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT06068985",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT03499353",
+      "accession": "NCT03499353",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT03499353",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT07782840",
+      "accession": "NCT07782840",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT07782840",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT03863301",
+      "accession": "NCT03863301",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT03863301",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT00524303",
+      "accession": "NCT00524303",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT00524303",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT03749421",
+      "accession": "NCT03749421",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT03749421",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT06606730",
+      "accession": "NCT06606730",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT06606730",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT05485766",
+      "accession": "NCT05485766",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT05485766",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:genes:42e47e938c72",
+      "accession": "brca_metabric",
+      "url": "https://www.cbioportal.org/api/genes/fetch",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:mutations:e524ff9b4fbe",
+      "accession": "brca_metabric",
+      "url": "https://www.cbioportal.org/api/molecular-profiles/brca_metabric_mutations/mutations/fetch",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_metabric:discrete_cna:f0c24add052c",
+      "accession": "brca_metabric",
+      "url": "https://www.cbioportal.org/api/molecular-profiles/brca_metabric_cna/discrete-copy-number/fetch",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT02110641",
+      "accession": "NCT02110641",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT02110641",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT01141530",
+      "accession": "NCT01141530",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT01141530",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT00031681",
+      "accession": "NCT00031681",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT00031681",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT03723928",
+      "accession": "NCT03723928",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT03723928",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT01173497",
+      "accession": "NCT01173497",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT01173497",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT03095352",
+      "accession": "NCT03095352",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT03095352",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT05618613",
+      "accession": "NCT05618613",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT05618613",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT06746870",
+      "accession": "NCT06746870",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT06746870",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT02672475",
+      "accession": "NCT02672475",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT02672475",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT00073528",
+      "accession": "NCT00073528",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT00073528",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "geo:GSE96058:d0f3e05cb3f3e6a2",
+      "accession": "GSE96058",
+      "url": "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE96nnn/GSE96058/matrix/GSE96058-GPL11154_series_matrix.txt.gz",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "geo:GSE96058:4675ecf9d3611b24",
+      "accession": "GSE96058",
+      "url": "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE96nnn/GSE96058/matrix/GSE96058-GPL18573_series_matrix.txt.gz",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "geo:GSE344886:15ae1e266fc8e434",
+      "accession": "GSE344886",
+      "url": "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE344nnn/GSE344886/matrix/GSE344886_series_matrix.txt.gz",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE96058",
+      "accession": "GSE96058",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE96058",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE81540",
+      "accession": "GSE81540",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE81540",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE81538",
+      "accession": "GSE81538",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE81538",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "ncbi-geo-catalog:GSE60789",
+      "accession": "GSE60789",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE60789",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:41771848",
+      "accession": "PMID:41771848",
+      "url": "https://europepmc.org/article/MED/41771848",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:40274959",
+      "accession": "PMID:40274959",
+      "url": "https://europepmc.org/article/MED/40274959",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:41719166",
+      "accession": "PMID:41719166",
+      "url": "https://europepmc.org/article/MED/41719166",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:39996781",
+      "accession": "PMID:39996781",
+      "url": "https://europepmc.org/article/MED/39996781",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:38946549",
+      "accession": "PMID:38946549",
+      "url": "https://europepmc.org/article/MED/38946549",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:39755581",
+      "accession": "PMID:39755581",
+      "url": "https://europepmc.org/article/MED/39755581",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:40498965",
+      "accession": "PMID:40498965",
+      "url": "https://europepmc.org/article/MED/40498965",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:41198706",
+      "accession": "PMID:41198706",
+      "url": "https://europepmc.org/article/MED/41198706",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:40117361",
+      "accession": "PMID:40117361",
+      "url": "https://europepmc.org/article/MED/40117361",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:40476057",
+      "accession": "PMID:40476057",
+      "url": "https://europepmc.org/article/MED/40476057",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:38845177",
+      "accession": "PMID:38845177",
+      "url": "https://europepmc.org/article/MED/38845177",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:37231145",
+      "accession": "PMID:37231145",
+      "url": "https://europepmc.org/article/MED/37231145",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:35742947",
+      "accession": "PMID:35742947",
+      "url": "https://europepmc.org/article/MED/35742947",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:40908300",
+      "accession": "PMID:40908300",
+      "url": "https://europepmc.org/article/MED/40908300",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:38395907",
+      "accession": "PMID:38395907",
+      "url": "https://europepmc.org/article/MED/38395907",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:36879037",
+      "accession": "PMID:36879037",
+      "url": "https://europepmc.org/article/MED/36879037",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:34712060",
+      "accession": "PMID:34712060",
+      "url": "https://europepmc.org/article/MED/34712060",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:36059530",
+      "accession": "PMID:36059530",
+      "url": "https://europepmc.org/article/MED/36059530",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:PMC11177578",
+      "accession": "PMC11177578",
+      "url": "https://europepmc.org/article/PMC/PMC11177578",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "europepmc:41049729",
+      "accession": "PMID:41049729",
+      "url": "https://europepmc.org/article/MED/41049729",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga:study_metadata:89e6ea1f33d6",
+      "accession": "brca_tcga",
+      "url": "https://www.cbioportal.org/api/studies/brca_tcga",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga:molecular_profiles:2781f6d15cd1",
+      "accession": "brca_tcga",
+      "url": "https://www.cbioportal.org/api/studies/brca_tcga/molecular-profiles",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga:sample_lists:6e36716abfe6",
+      "accession": "brca_tcga",
+      "url": "https://www.cbioportal.org/api/studies/brca_tcga/sample-lists",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga:genes:02ab075549d4",
+      "accession": "brca_tcga",
+      "url": "https://www.cbioportal.org/api/genes/fetch",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga:mutations:0ee0e5e1afa4",
+      "accession": "brca_tcga",
+      "url": "https://www.cbioportal.org/api/molecular-profiles/brca_tcga_mutations/mutations/fetch",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga:discrete_cna:13e8b0643b85",
+      "accession": "brca_tcga",
+      "url": "https://www.cbioportal.org/api/molecular-profiles/brca_tcga_gistic/discrete-copy-number/fetch",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga:clinical_sample:6d8fa4e87a48",
+      "accession": "brca_tcga",
+      "url": "https://www.cbioportal.org/api/studies/brca_tcga/clinical-data",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga:clinical_patient:edc084fdc738",
+      "accession": "brca_tcga",
+      "url": "https://www.cbioportal.org/api/studies/brca_tcga/clinical-data",
+      "status": "cached",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga_pan_can_atlas_2018:genes:02ab075549d4",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "url": "https://www.cbioportal.org/api/genes/fetch",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga_pan_can_atlas_2018:mutations:bfe57dfa40ef",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "url": "https://www.cbioportal.org/api/molecular-profiles/brca_tcga_pan_can_atlas_2018_mutations/mutations/fetch",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "cbioportal:brca_tcga_pan_can_atlas_2018:discrete_cna:eb0f16ef62ce",
+      "accession": "brca_tcga_pan_can_atlas_2018",
+      "url": "https://www.cbioportal.org/api/molecular-profiles/brca_tcga_pan_can_atlas_2018_gistic/discrete-copy-number/fetch",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT01385137",
+      "accession": "NCT01385137",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT01385137",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT00463489",
+      "accession": "NCT00463489",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT00463489",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT00115505",
+      "accession": "NCT00115505",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT00115505",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    },
+    {
+      "source_id": "clinicaltrials:NCT00893061",
+      "accession": "NCT00893061",
+      "url": "https://clinicaltrials.gov/api/v2/studies/NCT00893061",
+      "status": "retrieved",
+      "valid": true,
+      "reason": "successful_adapter_result_on_official_https_host"
+    }
+  ],
+  "copied_from_development": false,
+  "evaluation_id": "official-candidate-qwen-live-precision-v3-20260901",
+  "evaluation_status": "EVALUATED",
+  "gold_set_id": "breast-cancer-official-candidate-20260829",
+  "notice": "xsc approved the held-out official candidate on 2026-08-29 and wrote it to goldset/templates. Not frozen_test. Not frozen for scoring. Do not copy development-split observations into the official dashboard column.",
+  "requested_execution": {
+    "retrieval": "agent",
+    "use_qwen": true,
+    "allow_deterministic_fallback": false
+  },
+  "sdti": {
+    "value": 95.010129398197,
+    "status": "EVALUATED",
+    "formula": "100 * (retrieval_f1 * faithfulness * traceability * error_f1 * repair_accuracy) ** (1/5)",
+    "numerator": null,
+    "denominator": null,
+    "target": 90.0,
+    "target_met": true,
+    "reason": null
+  },
+  "evaluated_at": "2026-09-01T13:09:24.714089+00:00"
+}

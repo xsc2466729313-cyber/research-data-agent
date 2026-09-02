@@ -30,6 +30,25 @@ const TERM_TRANSLATIONS = {
   "Breast Carcinoma": "乳腺癌",
   "breast cancer": "乳腺癌",
   "breast carcinoma": "乳腺癌",
+  "Lung Adenocarcinoma": "肺腺癌",
+  "lung adenocarcinoma": "肺腺癌",
+  "Colorectal Cancer": "结直肠癌",
+  "colorectal cancer": "结直肠癌",
+  "Lung Squamous Cell Carcinoma": "肺鳞癌",
+  "Prostate Adenocarcinoma": "前列腺腺癌",
+  "Liver Hepatocellular Carcinoma": "肝细胞癌",
+  "Stomach Adenocarcinoma": "胃腺癌",
+  "Pancreatic Adenocarcinoma": "胰腺腺癌",
+  "Ovarian Serous Cystadenocarcinoma": "卵巢浆液性癌",
+  "Kidney Renal Clear Cell Carcinoma": "肾透明细胞癌",
+  "Bladder Urothelial Carcinoma": "膀胱尿路上皮癌",
+  "Uterine Corpus Endometrial Carcinoma": "子宫内膜癌",
+  "Head and Neck Squamous Cell Carcinoma": "头颈鳞癌",
+  Glioblastoma: "胶质母细胞瘤",
+  "Thyroid Carcinoma": "甲状腺癌",
+  "Skin Cutaneous Melanoma": "皮肤黑色素瘤",
+  "Cervical Cancer": "宫颈癌",
+  "Esophageal Carcinoma": "食管癌",
   "HER2-positive": "HER2 阳性",
   "HER2-positive breast carcinoma": "HER2 阳性乳腺癌",
   "HER2-positive breast cancer": "HER2 阳性乳腺癌",
@@ -985,14 +1004,31 @@ function renderCandidates(candidates) {
   </tr>`).join("");
 }
 
+function datasetResponseDomain(dataset) {
+  const domains = new Set((dataset?.rows || []).map((row) => row.response_domain).filter(Boolean));
+  if (domains.size === 1) return [...domains][0];
+  return domains.size > 1 ? "mixed" : null;
+}
+
+function datasetTabLabel(dataset, fallback) {
+  const domain = datasetResponseDomain(dataset);
+  if (domain === "preclinical_cell_line") return `${dataset.name || fallback} · 前临床`;
+  if (dataset.patient_count > 0) return `${dataset.name || fallback} · 患者级`;
+  return dataset.name || fallback;
+}
+
 function renderDataset(dataset, sourceDatasets) {
   if (state.result && sourceDatasets) state.result.source_datasets = sourceDatasets;
   const companions = (sourceDatasets || state.result?.source_datasets || []);
   const pack = [
-    { key: "primary", label: "主分析表", table: dataset },
+    {
+      key: "primary",
+      label: dataset?.patient_count > 0 ? "主分析表 · 患者级" : "主分析表",
+      table: dataset,
+    },
     ...companions.map((item, index) => ({
       key: item.study_key || `companion-${index}`,
-      label: item.name || `来源表 ${index + 1}`,
+      label: datasetTabLabel(item, `来源表 ${index + 1}`),
       table: item,
     })),
   ].filter((item) => item.table);
@@ -1027,7 +1063,11 @@ function renderDataset(dataset, sourceDatasets) {
   document.querySelector("#dataset-view-note").textContent = state.datasetView === "audit"
     ? `当前显示全部 ${dataset.columns.length} 个字段；原始样本特征已拆分为中文键值。`
     : `当前按本题显示 ${visibleColumns.length} 个关键字段，已隐藏 ${secondaryColumns.length} 个次要临床字段和 ${auditColumns.length} 个审计字段；导出文件保留全部字段。`;
-  document.querySelector("#dataset-note").textContent = `分析单位：${dataset.unit_of_analysis}；患者 ${dataset.patient_count} 名，样本 ${dataset.sample_count} 个；研究结局字段：${fieldLabel(dataset, dataset.target_column)}。${pack.length > 1 ? `多源数据包共 ${pack.length} 张表，当前查看「${selected.label}」；独立来源表不与主分析患者合并。` : ""}`;
+  const responseDomain = datasetResponseDomain(dataset);
+  const populationNote = responseDomain === "preclinical_cell_line"
+    ? `前临床实验样本 ${dataset.sample_count} 个；不含患者临床响应，不参与患者主分析`
+    : `患者 ${dataset.patient_count} 名，样本 ${dataset.sample_count} 个`;
+  document.querySelector("#dataset-note").textContent = `分析单位：${dataset.unit_of_analysis}；${populationNote}；研究结局字段：${fieldLabel(dataset, dataset.target_column)}。${pack.length > 1 ? `多源数据包共 ${pack.length} 张表，当前查看「${selected.label}」；独立来源表不与主分析患者合并。` : ""}`;
   if (!dataset.rows.length) {
     head.innerHTML = "";
     body.innerHTML = "";
@@ -3260,7 +3300,7 @@ function renderPlannerFlowSummary() {
       <div><small>研究规划已自动完成</small><h3>${escapeHtml(plannerText(contract.research_question))}</h3><p>系统根据 ${paperCount} 篇真实论文和公开数据可用性，自动明确了研究问题、研究方案和数据准备路径。你不需要在多个候选项之间做技术选择。</p></div>
     </article>
     <div class="planner-plan-grid">
-      <article class="planner-plan-item"><span>研究对象</span><strong>${escapeHtml(localizeNarrative(plannerText(contract.population, "乳腺癌研究人群")))}</strong></article>
+      <article class="planner-plan-item"><span>研究对象</span><strong>${escapeHtml(localizeNarrative(plannerText(contract.population, "肿瘤研究人群")))}</strong></article>
       <article class="planner-plan-item"><span>比较或影响因素</span><strong>${escapeHtml(localizeNarrative(plannerText(contract.exposure, "待从数据中确认")))}</strong></article>
       <article class="planner-plan-item"><span>主要观察结果</span><strong>${escapeHtml(localizeNarrative(plannerText(contract.outcome, "治疗响应或预后")))}</strong></article>
       <article class="planner-plan-item"><span>研究方法</span><strong>${escapeHtml(plannerResearchType(contract.research_type))}</strong></article>

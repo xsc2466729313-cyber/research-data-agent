@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import json
 from typing import Any
 
 from backend.app.evaluation.models import ErrorObservation, FieldObservation, RetrievalObservation
@@ -38,6 +39,34 @@ BIOMARKER_FIELDS = {
     "pr_status",
 }
 
+CANONICAL_FIELDS = frozenset(
+    {
+        "study_id",
+        "patient_id",
+        "sample_id",
+        "disease",
+        "subtype",
+        "stage",
+        "er_status",
+        "pr_status",
+        "her2_status",
+        "her2_assay",
+        "her2_raw_value",
+        "gene",
+        "variant",
+        "mutation_status",
+        "drug",
+        "treatment",
+        "response_domain",
+        "response_type",
+        "response",
+        "source_id",
+        "raw_field",
+        "raw_value",
+        "confidence",
+    }
+)
+
 
 def gold_id_matches(gold_id: str, system_id: str) -> bool:
     gold = gold_id.strip().casefold()
@@ -73,7 +102,106 @@ def _normalizer_for(canonical_field: str, raw_field: str) -> NormalizerKind | No
     return NormalizerKind.PASSTHROUGH
 
 
-def observe_field(row: Any) -> tuple[FieldObservation, dict[str, Any]]:
+def _qwen_field_observation(row: Any, qwen_client: Any) -> tuple[FieldObservation, dict[str, Any]]:
+    payload = qwen_client.normalize_research_field(
+        source_dataset=str(row.source_dataset),
+        raw_field=str(row.raw_field),
+        raw_value=str(row.raw_value),
+        allowed_fields=sorted(CANONICAL_FIELDS),
+    )
+    proposed = payload.get("canonical_values")
+    values = dict(proposed) if isinstance(proposed, dict) else {}
+    legacy_field = str(payload.get("canonical_field") or "").strip()
+    if legacy_field:
+        values.setdefault(legacy_field, payload.get("canonical_value"))
+    companions = payload.get("companion_fields")
+    if isinstance(companions, dict):
+        for key, value in companions.items():
+            values.setdefault(str(key), value)
+    invalid_fields = sorted(set(values) - CANONICAL_FIELDS)
+    if invalid_fields:
+        raise ValueError("Qwen returned fields outside the frozen schema")
+
+    raw_field = str(row.raw_field)
+    raw_value = str(row.raw_value).strip()
+    # These are safety constraints, not benchmark-specific corrections.
+    if re.search(r"CNA|CNV|COPY[_\s-]?NUMBER", raw_field, re.I):
+        values["her2_status"] = "Unknown"
+    if raw_value.casefold() in {"2+", "ihc 2+", "ihc2+"} and "her2" in raw_field.casefold():
+        values["her2_status"] = "Equivocal"
+        values.setdefault("her2_assay", "IHC")
+        values.setdefault("her2_raw_value", raw_value)
+    if raw_field.upper() in {"AUC", "IC50"}:
+        values["response"] = raw_field.upper()
+        values["response_domain"] = "preclinical_cell_line"
+
+    target_field = str(row.canonical_field)
+    qwen_target_value = values.get(target_field)
+    qwen_proposed_target = qwen_target_value is not None and str(qwen_target_value).strip() != ""
+    deterministic, _ = _observe_field_deterministic(row)
+    rule_resolved = deterministic.canonical_value != "UNRESOLVED"
+    qwen_agreed_with_rule = (
+        qwen_proposed_target
+        and rule_resolved
+        and str(qwen_target_value) == deterministic.canonical_value
+    )
+    if rule_resolved:
+        value = deterministic.canonical_value
+        used_rule_fallback = not qwen_proposed_target
+        used_rule_override = qwen_proposed_target and not qwen_agreed_with_rule
+    elif qwen_proposed_target:
+        value = qwen_target_value
+        used_rule_fallback = False
+        used_rule_override = False
+    else:
+        value = deterministic.canonical_value
+        used_rule_fallback = True
+        used_rule_override = False
+    evidence = bool(row.source_dataset and row.raw_field and raw_value)
+    if value is None or str(value).strip() in {"", "UNRESOLVED"}:
+        value = "UNRESOLVED"
+        evidence = False
+    return (
+        FieldObservation(
+            case_id=row.case_id,
+            canonical_field=target_field,
+            canonical_value=str(value),
+            evidence_complete_valid=evidence,
+        ),
+        {
+            "status": "qwen_assisted",
+            "qwen": {
+                "used": True,
+                "needs_review": bool(payload.get("needs_review", False)),
+                "confidence": payload.get("confidence"),
+                "rationale": str(payload.get("rationale") or "")[:300],
+                "proposed_values": values,
+                "proposed_target": qwen_proposed_target,
+                "agreed_with_rule": qwen_agreed_with_rule,
+                "rule_fallback": used_rule_fallback,
+                "rule_override": used_rule_override,
+            },
+        },
+    )
+
+
+def observe_field(row: Any, *, qwen_client: Any | None = None) -> tuple[FieldObservation, dict[str, Any]]:
+    if qwen_client is not None:
+        try:
+            return _qwen_field_observation(row, qwen_client)
+        except Exception as exc:
+            fallback_observation, fallback_trace = _observe_field_deterministic(row)
+            fallback_trace["qwen"] = {
+                "used": True,
+                "failed": True,
+                "fallback": "deterministic",
+                "error": f"{exc.__class__.__name__}: {exc}",
+            }
+            return fallback_observation, fallback_trace
+    return _observe_field_deterministic(row)
+
+
+def _observe_field_deterministic(row: Any) -> tuple[FieldObservation, dict[str, Any]]:
     biomarker = BiomarkerNormalizer()
     gene = GeneNormalizer()
     drug = DrugNormalizer()
@@ -230,15 +358,43 @@ def project_error_seed(record: dict[str, Any]) -> dict[str, Any]:
     return projected
 
 
-def observe_error(row: Any) -> tuple[ErrorObservation, dict[str, Any]]:
-    import json
+def observe_error(row: Any, *, qwen_client: Any | None = None) -> tuple[ErrorObservation, dict[str, Any]]:
+    qwen_trace: dict[str, Any] = {"used": False}
+    if qwen_client is not None:
+        record_for_model = _as_record(row.original_record)
+        try:
+            payload = qwen_client.diagnose_research_error(original_record=record_for_model)
+            error_type = str(payload.get("error_type") or "").strip()
+            allowed_types = set(ERROR_TYPE_MATCH) | {"casing_normalization"}
+            if error_type and error_type not in allowed_types:
+                raise ValueError("Qwen returned an unsupported error type")
+            qwen_trace = {
+                "used": True,
+                "detected": bool(payload.get("detected", False)),
+                "error_type": error_type or None,
+                "needs_review": bool(payload.get("needs_review", False)),
+                "confidence": payload.get("confidence"),
+                "candidate_repair": payload.get("candidate_repair"),
+                "rationale": str(payload.get("rationale") or "")[:300],
+            }
+        except Exception as exc:
+            qwen_trace = {
+                "used": True,
+                "failed": True,
+                "fallback": "deterministic",
+                "error": f"{exc.__class__.__name__}: {exc}",
+            }
 
     record = project_error_seed(_as_record(row.original_record))
     quality = QualityRecord(record_id=row.case_id, record=record)
     detection = ErrorDetectionEngine().detect([quality], task_id=row.case_id)
     wanted = ERROR_TYPE_MATCH.get(row.error_type, {row.error_type})
     matched = [item for item in detection.findings if item.error_type in wanted]
-    detected = bool(matched)
+    qwen_error_type = str(qwen_trace.get("error_type") or "")
+    qwen_matched = bool(qwen_trace.get("detected")) and (
+        qwen_error_type == row.error_type or qwen_error_type in wanted
+    )
+    detected = bool(matched) or qwen_matched
     applied_statuses: list[str] = []
     auto = False
     repaired = None
@@ -278,6 +434,8 @@ def observe_error(row: Any) -> tuple[ErrorObservation, dict[str, Any]]:
         "finding_types": [item.error_type for item in detection.findings],
         "matched_types": [item.error_type for item in matched],
         "applied": applied_statuses,
+        "qwen": qwen_trace,
+        "qwen_matched_expected_type": qwen_matched,
     }
 
 

@@ -6,8 +6,15 @@ from typing import Any, Callable, Literal
 from backend.app.agent.accession_harvest import catalog_query, literature_query, needs_clinical_outcome
 from backend.app.agent.models import AgentGoalStatus, CollectionGap, CollectionSearchAction
 from backend.app.agent.search_planner import geo_search_applicable, question_search_terms
-from backend.app.agent.study_design import PROTOCOL_COVARIATES, covariate_fields_in_pack
+from backend.app.agent.study_design import covariate_fields_in_pack, protocol_covariates
 from backend.app.models import ResearchSpec
+from backend.app.oncology import (
+    default_cbioportal_study,
+    default_gdc_project,
+    default_genes,
+    is_breast_cancer,
+    resolve_cancer_profile,
+)
 
 
 Diagnosis = Literal[
@@ -55,11 +62,19 @@ def _her2_positive_response(spec: ResearchSpec) -> bool:
 
 
 def _should_search_geo(spec: ResearchSpec) -> bool:
-    return geo_search_applicable(spec)
+    return is_breast_cancer(spec.disease) and geo_search_applicable(spec)
 
 
 def _genes(spec: ResearchSpec) -> list[str]:
-    return spec.genes or ["ERBB2", "PIK3CA"]
+    return spec.genes or default_genes(spec.disease)
+
+
+def _breast_only(spec: ResearchSpec) -> bool:
+    return is_breast_cancer(spec.disease)
+
+
+def _configured_non_breast(spec: ResearchSpec) -> bool:
+    return resolve_cancer_profile(spec.disease) is not None and not is_breast_cancer(spec.disease)
 
 
 STRATEGIES: tuple[MethodStrategy, ...] = (
@@ -84,7 +99,8 @@ STRATEGIES: tuple[MethodStrategy, ...] = (
             "gene_symbols": _genes(spec),
             "max_records": max_records,
         },
-        applicable=lambda spec: "PIK3CA" in {gene.upper() for gene in spec.genes}
+        applicable=lambda spec: _breast_only(spec)
+        and "PIK3CA" in {gene.upper() for gene in spec.genes}
         and (
             "treatment_response" in spec.outcomes or "treatment_response" in spec.required_data_types
         ),
@@ -110,10 +126,30 @@ STRATEGIES: tuple[MethodStrategy, ...] = (
             "gene_symbols": _genes(spec),
             "max_records": max_records,
         },
-        applicable=lambda spec: "PIK3CA" in {gene.upper() for gene in spec.genes}
+        applicable=lambda spec: _breast_only(spec)
+        and "PIK3CA" in {gene.upper() for gene in spec.genes}
         and (
             "treatment_response" in spec.outcomes or "treatment_response" in spec.required_data_types
         ),
+    ),
+    MethodStrategy(
+        strategy_id="cohort.cbio.cancer_default",
+        label="检索当前癌种的 cBioPortal 临床与分子队列",
+        tool_name="search_cbioportal",
+        source_name="cBioPortal",
+        priority=3,
+        diagnoses=frozenset(
+            {"no_patient_table", "missing_same_cohort_exposure", "missing_clinical_covariates", "residual_gaps"}
+        ),
+        primary_cohort=True,
+        has_response=False,
+        has_mutation=True,
+        argument_builder=lambda spec, max_records: {
+            "study_id": default_cbioportal_study(spec.disease),
+            "gene_symbols": _genes(spec),
+            "max_records": max_records,
+        },
+        applicable=_configured_non_breast,
     ),
     MethodStrategy(
         strategy_id="cohort.geo.gse76360",
@@ -169,6 +205,7 @@ STRATEGIES: tuple[MethodStrategy, ...] = (
             "gene_symbols": _genes(spec),
             "max_records": max_records,
         },
+        applicable=_breast_only,
     ),
     MethodStrategy(
         strategy_id="cohort.cbio.tcga",
@@ -187,6 +224,7 @@ STRATEGIES: tuple[MethodStrategy, ...] = (
             "gene_symbols": _genes(spec),
             "max_records": max_records,
         },
+        applicable=_breast_only,
     ),
     MethodStrategy(
         strategy_id="cohort.cbio.pancan",
@@ -203,6 +241,7 @@ STRATEGIES: tuple[MethodStrategy, ...] = (
             "gene_symbols": _genes(spec),
             "max_records": max_records,
         },
+        applicable=_breast_only,
     ),
     MethodStrategy(
         strategy_id="files.gdc.clinical_mutation",
@@ -219,6 +258,24 @@ STRATEGIES: tuple[MethodStrategy, ...] = (
             "data_types": ["Clinical Supplement", "Masked Somatic Mutation"],
             "max_files": 20,
         },
+        applicable=_breast_only,
+    ),
+    MethodStrategy(
+        strategy_id="files.gdc.cancer_default",
+        label="检索当前癌种的 GDC/TCGA 临床补充与突变文件",
+        tool_name="search_gdc",
+        source_name="GDC / TCGA",
+        priority=7,
+        diagnoses=frozenset({"missing_clinical_covariates", "missing_same_cohort_exposure", "residual_gaps"}),
+        primary_cohort=False,
+        has_response=False,
+        has_mutation=True,
+        argument_builder=lambda spec, max_records: {
+            "project_id": default_gdc_project(spec.disease),
+            "data_types": ["Clinical Supplement", "Masked Somatic Mutation"],
+            "max_files": 20,
+        },
+        applicable=_configured_non_breast,
     ),
     MethodStrategy(
         strategy_id="context.trials",
@@ -233,7 +290,10 @@ STRATEGIES: tuple[MethodStrategy, ...] = (
         argument_builder=lambda spec, max_records: {
             "condition": spec.disease,
             "query_terms": " ".join(spec.drugs + spec.genes),
-            "nct_id": "NCT01042379" if any(token in spec.research_goal for token in ("试验", "NCT", "登记", "I-SPY")) else None,
+            "nct_id": "NCT01042379"
+            if is_breast_cancer(spec.disease)
+            and any(token in spec.research_goal for token in ("试验", "NCT", "登记", "I-SPY"))
+            else None,
             "max_trials": 10,
         },
     ),
@@ -269,7 +329,7 @@ STRATEGIES: tuple[MethodStrategy, ...] = (
         has_response=False,
         has_mutation=False,
         argument_builder=lambda spec, max_records: {
-            "query": " ".join(["Breast Cancer", *spec.genes[:3], "table"]).strip(),
+            "query": " ".join([spec.disease, *spec.genes[:3], "table"]).strip(),
             "max_records": 5,
         },
         applicable=lambda spec: "evidence" in (spec.required_data_types or [])
@@ -385,7 +445,8 @@ class GoalLoopController:
         if needs_genes:
             same_cohort_exposure = gene_coverage is not None and gene_coverage >= 0.75
         pack_fields = covariate_fields_in_pack(dataset, source_datasets)
-        covariate_pack = len(pack_fields) >= len(PROTOCOL_COVARIATES)
+        planned_covariates = protocol_covariates(spec)
+        covariate_pack = all(field in pack_fields for field, _label in planned_covariates)
 
         if target_match_rate is not None:
             outcome_evidence = f"结局匹配率 {target_match_rate:.0%}"
@@ -438,7 +499,7 @@ class GoalLoopController:
                 evidence=(
                     f"已解析 {', '.join(pack_fields)}"
                     if pack_fields
-                    else "主分析表未发布年龄/分期/ER/PR，待补独立临床来源表"
+                    else "主分析表未发布本题所需临床协变量，待补独立临床来源表"
                 ),
             ),
         ]
@@ -463,9 +524,10 @@ class GoalLoopController:
         )
         required_met = all(not goal.required or goal.met for goal in goals)
         pack_fields = covariate_fields_in_pack(dataset, source_datasets)
-        covariate_ids = {field for field, _label in PROTOCOL_COVARIATES}
+        planned_covariates = protocol_covariates(spec)
+        covariate_ids = {field for field, _label in planned_covariates}
         if required_met:
-            if len(pack_fields) < len(PROTOCOL_COVARIATES) and (
+            if not all(field in pack_fields for field in covariate_ids) and (
                 any(gap.variable_id in covariate_ids for gap in gaps) or not pack_fields
             ):
                 return "missing_clinical_covariates"
@@ -581,7 +643,7 @@ class GoalLoopController:
                     action="continue",
                     diagnosis=diagnosis,
                     quality_gate="PARTIAL",
-                    note="主分析变量已齐；继续检索独立临床来源表补齐年龄/分期/ER/PR，不把这些字段贴到当前分析患者。",
+                    note="主分析变量已齐；继续检索独立临床来源表补齐本题所需协变量，不把跨研究字段贴到当前分析患者。",
                     goals=goals,
                     actions=actions,
                     next_strategy_ids=[item.strategy_id for item in actions if item.strategy_id],

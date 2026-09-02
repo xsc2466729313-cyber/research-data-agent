@@ -45,7 +45,23 @@
 
 图表由评测 `results.json` 生成，不在绘图脚本里手填成绩。四个模块使用不同数据与指标，只能逐行比较。
 
-## 6. 图像验收
+## 6. 公开对照增强图（2026-09-02）
+
+本轮新增图只覆盖公开能力对照和解释，不修改已有系统架构图、端到端流程图或内容结构图。它们统一读取 `evaluation/github_competitor_benchmark_20260830/results.json`，并保留本项目领先、持平和落后的真实结果。
+
+| 图像 | 作用 |
+|---|---|
+| [public-comparison-scorecard-20260902.png](images/public-comparison-scorecard-20260902.png) | 四个公开能力层宏平均总览 |
+| [public-retrieval-datasets-20260902.png](images/public-retrieval-datasets-20260902.png) | `PB-01` 五个检索数据集逐项对照 |
+| [public-schema-datasets-20260902.png](images/public-schema-datasets-20260902.png) | `PB-02` 十个字段匹配任务逐项对照 |
+| [public-entity-datasets-20260902.png](images/public-entity-datasets-20260902.png) | `PB-03` 五个实体匹配任务逐项对照 |
+| [public-cleaning-datasets-20260902.png](images/public-cleaning-datasets-20260902.png) | `PB-04` 六个错误检测任务逐项对照 |
+| [public-comparison-failure-map-20260902.png](images/public-comparison-failure-map-20260902.png) | 解释当前不占优的原因和下一步验证方案 |
+| [public-comparison-question-map-20260902.png](images/public-comparison-question-map-20260902.png) | 保留 `RQ-01`，说明它与 `PB-01`—`PB-04` 的关系 |
+
+题号、对照方法、指标含义和失败原因见 [PUBLIC_COMPARISON_GUIDE_20260902.md](PUBLIC_COMPARISON_GUIDE_20260902.md)。
+
+## 7. 图像验收
 
 | 检查 | 结果 |
 |---|---|

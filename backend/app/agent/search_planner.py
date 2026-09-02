@@ -6,6 +6,7 @@ from typing import Any
 from backend.app.agent.accession_harvest import asks_pcr, asks_survival, catalog_query, literature_query, needs_clinical_outcome
 from backend.app.agent.models import ResearchBrief
 from backend.app.models import ResearchSpec
+from backend.app.oncology import default_genes, is_breast_cancer, resolve_cancer_profile, trial_condition
 from backend.app.source_broker.source_catalog import seed_legacy_study_profiles
 
 _STOPWORDS = {
@@ -305,7 +306,9 @@ class FieldDrivenSearchPlanner:
     """Rank public sources by the question's primary fields and keywords."""
 
     def plan(self, spec: ResearchSpec, request: Any, brief: ResearchBrief | None = None) -> list[dict[str, Any]]:
-        genes = spec.genes or ["PIK3CA"]
+        cancer_profile = resolve_cancer_profile(spec.disease)
+        breast_specific = is_breast_cancer(spec.disease)
+        genes = spec.genes or default_genes(spec.disease)
         max_records = int(getattr(request, "max_records", 10_000) or 10_000)
         primary_ids = _primary_field_ids(brief, spec)
         intents = _question_intents(spec)
@@ -320,7 +323,7 @@ class FieldDrivenSearchPlanner:
         ranked = sorted(
             (
                 (_profile_score(profile, primary_ids, named_ids, spec), index, profile)
-                for index, profile in enumerate(_STUDY_PROFILES)
+                for index, profile in enumerate(_STUDY_PROFILES if breast_specific else ())
             ),
             key=lambda item: (-item[0], item[1]),
         )
@@ -365,7 +368,37 @@ class FieldDrivenSearchPlanner:
                 args["data_types"] = data_types
                 args["max_files"] = 5
             cohort_calls.append((profile["tool"], args))
-        if "patient_stratification" in intents and not cohort_calls:
+        if cancer_profile is not None and not breast_specific and not intents & {
+            "cell_line",
+            "trial_registry",
+            "knowledge_only",
+        }:
+            if cancer_profile.cbioportal_studies:
+                cohort_calls.append(
+                    (
+                        "search_cbioportal",
+                        {
+                            "study_id": cancer_profile.cbioportal_studies[0],
+                            "gene_symbols": genes,
+                            "max_records": max_records,
+                        },
+                    )
+                )
+            if cancer_profile.gdc_projects:
+                data_types = ["Clinical Supplement"]
+                if spec.genes or "mutation" in (spec.required_data_types or []):
+                    data_types.append("Masked Somatic Mutation")
+                cohort_calls.append(
+                    (
+                        "search_gdc",
+                        {
+                            "project_id": cancer_profile.gdc_projects[0],
+                            "data_types": data_types,
+                            "max_files": 5,
+                        },
+                    )
+                )
+        if breast_specific and "patient_stratification" in intents and not cohort_calls:
             for profile in _STUDY_PROFILES:
                 fields = profile.get("fields") or frozenset()
                 if profile["tool"] in {"search_cbioportal", "search_gdc"} and "subtype" in fields:
@@ -387,7 +420,7 @@ class FieldDrivenSearchPlanner:
                 selected.extend(call for call in cohort_calls[1:] if call[0] != first_tool and len(selected) < 2)
                 selected.extend(call for call in cohort_calls[1:] if call not in selected and len(selected) < 2)
                 cohort_calls = selected
-        if "ERBB2" in spec.genes and not intents & {"harmonization", "knowledge_only"} and (
+        if breast_specific and "ERBB2" in spec.genes and not intents & {"harmonization", "knowledge_only"} and (
             asks_pcr(spec) or "treatment_response" in (spec.outcomes or [])
         ):
             if not any(name == "search_geo" and args.get("accession") == "GSE76360" for name, args in cohort_calls):
@@ -410,7 +443,7 @@ class FieldDrivenSearchPlanner:
                     (
                         "search_civic",
                         {
-                            "disease_name": "Breast Cancer",
+                            "disease_name": spec.disease,
                             "molecular_profile_name": " ".join(genes),
                             "therapy_name": spec.drugs[0] if spec.drugs else None,
                             "max_items": 5,
@@ -422,7 +455,7 @@ class FieldDrivenSearchPlanner:
                     (
                         "search_trials",
                         {
-                            "condition": "Breast Cancer",
+                            "condition": trial_condition(spec.disease),
                             "query_terms": " ".join(spec.drugs + genes + terms[:6]),
                             "max_trials": 5,
                         },
@@ -434,7 +467,7 @@ class FieldDrivenSearchPlanner:
                 (
                     "search_civic",
                     {
-                        "disease_name": "Breast Cancer",
+                        "disease_name": spec.disease,
                         "molecular_profile_name": " ".join(genes),
                         "therapy_name": None,
                         "max_items": 5,
@@ -445,7 +478,7 @@ class FieldDrivenSearchPlanner:
             aux_late.append(
                 (
                     "search_biosample",
-                    {"query": " ".join(["Breast Cancer", *genes, *terms[:8]]).strip(), "max_records": 20},
+                    {"query": " ".join([spec.disease, *genes, *terms[:8]]).strip(), "max_records": 20},
                 )
             )
         if "cell_line" in intents:
@@ -453,25 +486,31 @@ class FieldDrivenSearchPlanner:
                 (
                     "search_depmap",
                     {
-                        "query": " ".join(["Breast Cancer cell line", *spec.drugs[:2], "AUC IC50"]).strip(),
+                        "query": " ".join([f"{spec.disease} cell line", *spec.drugs[:2], "AUC IC50"]).strip(),
                         "drug": spec.drugs[0] if spec.drugs else None,
                         "max_records": 50,
                     },
                 )
             )
         if "trial_registry" in intents:
-            trial_id = "NCT01042379" if any(
-                token in spec.research_goal for token in ("I-SPY", "NCT01042379")
-            ) else "NCT01104584"
+            trial_id = (
+                "NCT01042379"
+                if breast_specific and any(token in spec.research_goal for token in ("I-SPY", "NCT01042379"))
+                else "NCT01104584"
+                if breast_specific
+                else None
+            )
+            trial_arguments = {
+                "condition": trial_condition(spec.disease),
+                "query_terms": " ".join(spec.drugs + genes + terms[:6]),
+                "max_trials": 5,
+            }
+            if trial_id:
+                trial_arguments["nct_id"] = trial_id
             aux_early.append(
                 (
                     "search_trials",
-                    {
-                        "condition": "Breast Neoplasms",
-                        "nct_id": trial_id,
-                        "query_terms": "I-SPY2 neoadjuvant",
-                        "max_trials": 5,
-                    },
+                    trial_arguments,
                 )
             )
         if "knowledge_only" in intents or any(
@@ -480,7 +519,7 @@ class FieldDrivenSearchPlanner:
             aux_late.append(
                 (
                     "extract_paper_assets",
-                    {"query": " ".join(["Breast Cancer", *genes, *terms[:6], "table"]).strip(), "max_records": 5},
+                    {"query": " ".join([spec.disease, *genes, *terms[:6], "table"]).strip(), "max_records": 5},
                 )
             )
         lead = 1 if cohort_calls and cohort_calls[0][0] == "search_geo" else min(2, len(cohort_calls))
@@ -569,7 +608,7 @@ class FieldDrivenSearchPlanner:
             for cohort in (brief.named_cohorts if brief else [])
             if cohort.role in {"named_primary", "inferred_primary"}
         ]
-        unique = infer_cohorts_from_fields(_primary_field_ids(brief, spec))
+        unique = infer_cohorts_from_fields(_primary_field_ids(brief, spec)) if is_breast_cancer(spec.disease) else []
         affinity = [item["name"] for item in unique if item["name"] not in named]
         if named:
             extra = f"；主字段还指向 { '、'.join(affinity) }" if affinity else ""

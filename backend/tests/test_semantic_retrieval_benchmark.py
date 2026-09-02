@@ -7,6 +7,7 @@ import numpy as np
 from backend.app.evaluation.public_retrieval import BM25Index, evaluate_retriever
 from backend.app.evaluation.semantic_retrieval import (
     CrossEncoderBenchmarkIndex,
+    DevelopmentSelectedBenchmarkIndex,
     HybridSemanticBenchmarkIndex,
     SentenceTransformerBenchmarkIndex,
 )
@@ -57,3 +58,22 @@ def test_semantic_hybrid_and_reranker_share_frozen_corpus_without_test_tuning(tm
     calls_before_batch = len(fake_cross_encoder.calls)
     assert reranked.rank_many(["HER2 response", "HER2 response"], 2) == [expected, expected]
     assert fake_cross_encoder.calls[calls_before_batch:] == [1] * 6
+
+
+def test_development_selected_index_delegates_without_adding_model_calls(tmp_path: Path) -> None:
+    corpus = {"d1": "alpha", "d2": "beta"}
+    semantic = SentenceTransformerBenchmarkIndex(
+        corpus,
+        model_name="fake-model",
+        cache_path=tmp_path / "selected.npy",
+        model=FakeEmbeddingModel(),
+        query_instruction="",
+    )
+    selected = DevelopmentSelectedBenchmarkIndex(
+        semantic,
+        selected_name="semantic",
+        fit_split="dev",
+        fit_ndcg_at_10=0.5,
+    )
+    assert selected.rank("alpha", 1) == semantic.rank("alpha", 1)
+    assert selected.method_id == "vnext_dev_selected_retrieval_v1"

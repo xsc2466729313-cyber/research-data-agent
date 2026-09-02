@@ -19,6 +19,7 @@ from backend.app.agent.models import (
 )
 from backend.app.agent.search_planner import FieldDrivenSearchPlanner, infer_cohorts_from_fields, question_search_terms
 from backend.app.models import ResearchSpec
+from backend.app.oncology import is_breast_cancer
 from backend.app.research_planning.models import FieldRequirement, ResearchContract
 
 _REPRODUCIBILITY_MARKERS = (
@@ -159,7 +160,7 @@ class ResearchBriefBuilder:
         type_id, type_label = self._research_type(text, spec, needs_outcome)
         named_cohorts = self._named_cohorts(text)
         fields = self._fields(text, spec, named_cohorts)
-        named_cohorts = self._attach_inferred_cohorts(named_cohorts, fields)
+        named_cohorts = self._attach_inferred_cohorts(named_cohorts, fields, spec)
         if named_cohorts and not any(field.field_id == "study_id" for field in fields):
             fields = self._fields(text, spec, named_cohorts)
         primary_labels = [field.label for field in fields if field.priority == "primary"]
@@ -391,7 +392,10 @@ class ResearchBriefBuilder:
     def _attach_inferred_cohorts(
         named_cohorts: list[NamedCohort],
         fields: list[PrioritizedField],
+        spec: ResearchSpec,
     ) -> list[NamedCohort]:
+        if not is_breast_cancer(spec.disease):
+            return named_cohorts
         seen_names = {cohort.name for cohort in named_cohorts}
         seen_ids = {cohort.study_id for cohort in named_cohorts if cohort.study_id}
         primary_ids = {field.field_id for field in fields if field.priority == "primary"}
@@ -474,12 +478,13 @@ class ResearchBriefBuilder:
             )
         add("patient_id", "患者编号", "important", "分析单位与去重依据。", ["patient_id"])
         add("sample_id", "样本编号", "important", "样本级溯源与重复样本识别。", ["sample_id"])
-        add("disease", "疾病", "important", "确认乳腺癌边界。", ["disease", "cancer_type", "diagnosis"])
+        add("disease", "疾病", "important", f"确认 {spec.disease} 研究人群边界。", ["disease", "cancer_type", "diagnosis"])
         add("sample_type", "样本类型", "important", "原发/转移/正常组织必须可区分。", ["sample_type"])
-        if any(field.field_id == "er_status" for field in fields) and "pr_status" not in seen:
-            add("pr_status", "PR 状态", "important", "ER 题可同时看 PR；未点名则不挡主目标。", ["pr_status"])
-        if "her2_status" not in seen:
-            add("her2_status", "HER2 状态", "secondary", "未点名的受体协变量，有则用，无则保留缺口。", ["her2_status"])
+        if is_breast_cancer(spec.disease):
+            if any(field.field_id == "er_status" for field in fields) and "pr_status" not in seen:
+                add("pr_status", "PR 状态", "important", "ER 题可同时看 PR；未点名则不挡主目标。", ["pr_status"])
+            if "her2_status" not in seen:
+                add("her2_status", "HER2 状态", "secondary", "未点名的受体协变量，有则用，无则保留缺口。", ["her2_status"])
         add("age", "年龄", "secondary", "次要临床协变量；原研究未发布则不得跨队列补值。", ["age", "age_group"])
         add("stage", "分期", "secondary", "次要临床协变量；不同分期版本不能混用。", ["stage"])
         return fields

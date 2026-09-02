@@ -11,6 +11,8 @@ from backend.app.agent.accession_harvest import (
     asks_pcr,
     asks_survival,
     asks_treatment,
+    geo_text_has_clinical_cohort,
+    geo_text_is_preclinical,
     is_tnbc_question,
     needs_clinical_outcome,
 )
@@ -21,6 +23,7 @@ from backend.app.agent.models import (
     ModelingDataset,
 )
 from backend.app.models import ResearchSpec
+from backend.app.oncology import resolve_cancer_profile
 from backend.app.sources.cbioportal.models import CBioPortalAdapterResult
 from backend.app.sources.depmap.models import DepMapAdapterResult
 from backend.app.sources.geo.models import GEOAdapterResult, GEOResourceType
@@ -44,6 +47,8 @@ CHINESE_LABELS = {
     "her2_status": "HER2 状态",
     "subtype": "疾病亚型",
     "treatment": "治疗方案",
+    "experimental_group": "实验分组",
+    "experimental_response": "实验响应",
     "os_status": "总生存状态",
     "os_months": "总生存时间（月）",
     "dfs_status": "无病生存状态",
@@ -105,6 +110,8 @@ FIELD_DESCRIPTIONS = {
     "her2_status": "临床 HER2 状态；IHC 2+ 不会被自动判为阳性。",
     "subtype": "疾病亚型；由同一样本的 HER2/患者状态字段解析，不从其他研究推断。",
     "treatment": "该样本所属研究记录的治疗方案；研究级统一方案会标注来源，不跨患者贴值。",
+    "experimental_group": "细胞系或动物实验中的扰动/对照分组；不得解释为患者治疗方案。",
+    "experimental_response": "前临床实验记录的响应；不得解释为患者临床疗效。",
     "os_status": "随访截止时总生存结局状态。",
     "os_months": "从原研究定义的起点到死亡或末次随访的月数。",
     "dfs_status": "无病生存事件状态。",
@@ -438,7 +445,7 @@ class ResearchDatasetBuilder:
                     "sample_id": record.model_id,
                     "cell_line_id": record.model_id,
                     "cell_line_name": record.cell_line_name,
-                    "disease": "Breast Cancer",
+                    "disease": spec.disease,
                     "drug": record.drug,
                     "auc": record.auc,
                     "ic50": record.ic50,
@@ -466,8 +473,10 @@ class ResearchDatasetBuilder:
             DatasetColumn(name="raw_field", label_zh="原始字段", data_type="string", role="audit", description="原始字段"),
             DatasetColumn(name="raw_value", label_zh="原始值", data_type="string", role="audit", description="原始值"),
         ]
+        cancer_profile = resolve_cancer_profile(spec.disease)
+        disease_label = cancer_profile.label_zh if cancer_profile is not None else spec.disease
         dataset = ModelingDataset(
-            name="DepMap 乳腺癌细胞系药敏",
+            name=f"DepMap {disease_label}细胞系药敏",
             unit_of_analysis="细胞系",
             columns=columns,
             rows=rows,
@@ -651,12 +660,17 @@ class ResearchDatasetBuilder:
             return None
 
         sample_data: dict[str, list[str]] = {}
+        series_metadata: list[str] = []
         characteristics: list[list[str]] = []
         try:
             with gzip.open(path, "rt", encoding="utf-8", errors="replace", newline="") as handle:
                 for line in handle:
                     if line.startswith("!series_matrix_table_begin"):
                         break
+                    if line.startswith("!Series_"):
+                        fields = next(csv.reader([line.rstrip("\r\n")], delimiter="\t"))
+                        series_metadata.extend(value for value in fields[1:] if value)
+                        continue
                     if not line.startswith("!Sample_"):
                         continue
                     fields = next(csv.reader([line.rstrip("\r\n")], delimiter="\t"))
@@ -676,6 +690,8 @@ class ResearchDatasetBuilder:
         source_names = sample_data.get("source_name_ch1") or sample_data.get("source_name_ch2") or []
         if not accessions:
             return None
+        series_context = " ".join(series_metadata)
+        series_is_preclinical = geo_text_is_preclinical(series_context)
         rows: list[dict[str, Any]] = []
         cleaned_values = 0
         for index, sample_id in enumerate(accessions):
@@ -696,28 +712,49 @@ class ResearchDatasetBuilder:
                 or ""
             ).strip()
             treatment_response = self._geo_mapped_value(parsed, "treatment_response")
+            treatment = self._geo_mapped_value(parsed, "treatment")
+            row_context = " ".join(
+                [
+                    series_context,
+                    titles[index] if index < len(titles) else "",
+                    str(source_name or ""),
+                    " ".join(raw_items),
+                ]
+            )
+            preclinical = series_is_preclinical or geo_text_is_preclinical(row_context)
+            clinical = not preclinical and bool(subject or geo_text_has_clinical_cohort(row_context))
+            response_domain = "preclinical_cell_line" if preclinical else "clinical" if clinical else None
+            cell_line = parsed.get("cell_line") or parsed.get("cell_line_name")
+            sample_type = self._geo_mapped_value(parsed, "sample_type") or self._infer_sample_type(
+                source_name or parsed.get("source_name") or parsed.get("tissue")
+            )
+            sample_source = self._geo_mapped_value(parsed, "sample_source") or source_name
+            if preclinical:
+                sample_type = "细胞系" if self._has_filled(cell_line) else "前临床实验样本"
+                sample_source = cell_line or sample_source
             row = {
                 "study_id": result.accession,
-                "patient_id": f"{result.accession}-{subject}" if subject else None,
+                "patient_id": f"{result.accession}-{subject}" if subject and not preclinical else None,
                 "sample_id": sample_id,
                 "source_id": resource.source_item.source_id,
                 "sample_title": titles[index] if index < len(titles) else None,
                 "disease": self._geo_mapped_value(parsed, "disease"),
                 "timepoint": self._geo_mapped_value(parsed, "sample_timepoint"),
                 "sample_timepoint": self._geo_mapped_value(parsed, "sample_timepoint"),
-                "sample_type": self._geo_mapped_value(parsed, "sample_type")
-                or self._infer_sample_type(source_name or parsed.get("source_name") or parsed.get("tissue")),
-                "sample_source": self._geo_mapped_value(parsed, "sample_source") or source_name,
-                "treatment_response": treatment_response,
-                "pcr": self._geo_mapped_value(parsed, "pcr"),
+                "sample_type": sample_type,
+                "sample_source": sample_source,
+                "treatment_response": None if preclinical else treatment_response,
+                "experimental_response": treatment_response if preclinical else None,
+                "pcr": None if preclinical else self._geo_mapped_value(parsed, "pcr"),
                 "er_status": self._geo_mapped_value(parsed, "er_status"),
                 "pr_status": self._geo_mapped_value(parsed, "pr_status"),
                 "her2_status": self._geo_mapped_value(parsed, "her2_status"),
-                "treatment": self._geo_mapped_value(parsed, "treatment"),
+                "treatment": None if preclinical else treatment,
+                "experimental_group": treatment if preclinical else None,
                 "stage": self._geo_mapped_value(parsed, "stage"),
                 "age": self._geo_mapped_value(parsed, "age"),
                 "subtype": self._geo_mapped_value(parsed, "subtype"),
-                "response_domain": "患者临床响应",
+                "response_domain": response_domain,
                 "raw_characteristics": "；".join(item for item in raw_items if item),
             }
             for gene in spec.genes:
@@ -734,7 +771,11 @@ class ResearchDatasetBuilder:
             self._enrich_geo_row_from_status(row, parsed, result.accession)
             rows.append(row)
 
-        baseline_rows = [row for row in rows if row.get("timepoint") == "基线"]
+        baseline_rows = [
+            row
+            for row in rows
+            if row.get("timepoint") == "基线" and row.get("response_domain") != "preclinical_cell_line"
+        ]
         filtered_count = len(rows) - len(baseline_rows)
         if baseline_rows:
             rows = baseline_rows
@@ -746,16 +787,28 @@ class ResearchDatasetBuilder:
             "统一疾病、受体状态、取样时间点和术后响应的分类值。",
             "从同一样本特征解析亚型、HER2 和治疗字段，不从其他研究补患者。",
         ]
+        preclinical_count = sum(row.get("response_domain") == "preclinical_cell_line" for row in rows)
+        clinical_count = sum(row.get("response_domain") == "clinical" for row in rows)
+        if preclinical_count:
+            cleaning_actions.append(
+                f"识别 {preclinical_count} 个前临床实验样本；将 shRNA/敲低等扰动移入实验分组，不标作患者治疗方案。"
+            )
         cleaning_actions.extend(alias_actions)
         cleaning_actions.extend(derive_actions)
         if filtered_count:
             cleaning_actions.append(
                 f"主分析表保留 {len(rows)} 个基线样本，分离 {filtered_count} 个治疗后配对样本，避免同一患者跨分析分区。"
             )
+        if preclinical_count == len(rows):
+            unit = "前临床实验样本（非患者临床队列）"
+        elif clinical_count == len(rows):
+            unit = "基线患者样本（一名患者一行）"
+        else:
+            unit = "样本（患者身份或响应域未完全确认）"
         dataset = self._dataset_from_rows(
             rows,
             name=f"{DATASET_NAMES.get(result.accession, result.accession)}科研数据集",
-            unit="基线患者样本（一名患者一行）",
+            unit=unit,
             spec=spec,
         )
         report = self._readiness(
@@ -765,6 +818,15 @@ class ResearchDatasetBuilder:
             duplicate_row_count=duplicate_count,
             cleaning_actions=cleaning_actions,
         )
+        if preclinical_count:
+            report.warnings.insert(
+                0,
+                f"该 GEO 队列含 {preclinical_count} 个细胞系/前临床实验样本，不能作为患者临床响应主分析表。",
+            )
+            report.recommendations.insert(
+                0,
+                "如题目研究患者疗效或生存，应改用含患者编号和对应临床结局的队列；本表仅作为机制证据独立保留。",
+            )
         return dataset, report
 
     def _dataset_from_rows(
@@ -1040,6 +1102,8 @@ class ResearchDatasetBuilder:
         text = str(source_name or "").casefold()
         if not text:
             return None
+        if any(token in text for token in ("cell line", "cell culture", "细胞系")):
+            return "细胞系"
         if any(token in text for token in ("metastasis", "metastatic", "转移")):
             return "转移灶"
         if any(token in text for token in ("normal", "healthy", "正常")):
@@ -1422,7 +1486,7 @@ class ResearchDatasetBuilder:
             actions.append(f"由同队列年龄派生年龄分组 {age_n} 行。")
         if altered_n:
             actions.append(
-                f"由同队列突变和/或离散拷贝数派生基因分子改变标记；拷贝数扩增不得解释为免疫组化阳性。"
+                "由同队列突变和/或离散拷贝数派生基因分子改变标记；拷贝数扩增不得解释为免疫组化阳性。"
             )
         if brca_n:
             actions.append(f"由同一行 BRCA1/BRCA2 突变组合 BRCA 任一突变标记 {brca_n} 行。")

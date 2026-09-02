@@ -7,6 +7,7 @@ from backend.app.agent.accession_harvest import (
     asks_treatment,
     catalog_query,
     extract_gse_accessions,
+    geo_text_is_preclinical,
     harvest_from_raw_results,
     literature_query,
     needs_clinical_outcome,
@@ -69,7 +70,42 @@ def test_catalog_query_includes_response_and_gene() -> None:
     query = catalog_query(_spec())
     assert "PIK3CA" in query
     assert "response" in query.casefold() or "pCR" in query
+    assert " AND " in query
+    assert "OR sequencing" not in query
     assert "GSE" in literature_query(_spec())
+
+
+def test_harvest_rejects_small_cell_line_response_hit_for_clinical_question() -> None:
+    spec = ResearchSpec(
+        task_id="crc-response",
+        research_goal="研究结直肠癌 GBP2 与患者免疫治疗响应的关系",
+        disease="Colorectal Cancer",
+        genes=["GBP2"],
+        outcomes=["treatment_response"],
+        required_data_types=["clinical", "treatment_response"],
+    )
+    catalog = SimpleNamespace(
+        records=[
+            SimpleNamespace(
+                accession="GSE305943",
+                title="GBP2 enhances anti-PD-L1 response in colorectal cancer",
+                summary="HCT116 cell line stable GBP2 knockdown versus shControl, three biological replicates",
+                n_samples=6,
+            ),
+            SimpleNamespace(
+                accession="GSE999001",
+                title="Colorectal cancer patient cohort with clinical response",
+                summary="Eighty pretreatment tumor biopsies with GBP2 and treatment response annotations",
+                n_samples=80,
+            ),
+        ]
+    )
+
+    harvested = harvest_from_raw_results([("search_geo_catalog", catalog)], spec)
+
+    assert geo_text_is_preclinical(catalog.records[0].summary) is True
+    assert "GSE305943" not in harvested
+    assert harvested == ["GSE999001"]
 
 
 def test_pcr_only_outcome_still_searches_response_cohorts() -> None:
@@ -122,6 +158,11 @@ def test_os_rfs_abbreviations_count_as_survival_outcome() -> None:
     assert "intclust" in lowered or "rfs" in lowered
     assert "overall survival" in lowered or "relapse-free" in lowered
     assert "pcr" not in lowered
+
+
+def test_chinese_prognosis_counts_as_survival_outcome() -> None:
+    assert question_asks_survival("KRAS/BRAF 突变与结直肠癌患者预后的关系") is True
+    assert question_asks_survival("TP53 突变是否影响肝癌复发和死亡风险") is True
 
 
 def test_catalog_query_follows_new_question_keywords() -> None:

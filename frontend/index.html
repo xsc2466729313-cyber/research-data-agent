@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="千问驱动的乳腺癌科研数据智能体：从科研问题、真实数据库工具调用到可阅读、可追溯的科研数据集。" />
-    <title>千问乳腺癌科研数据智能体</title>
+    <meta name="description" content="千问驱动的多癌种科研数据智能体：以乳腺癌为专项，支持常见实体瘤的可追溯公开数据规划。" />
+    <title>千问肿瘤科研数据智能体</title>
     <link rel="stylesheet" href="/styles.css?v=20260830-research-workbench-5" />
   </head>
   <body>
@@ -46,11 +46,13 @@
             <span class="planner-orbit" aria-hidden="true">✦</span>
             <p class="planner-kicker">从研究想法，到可以开始的数据工作</p>
             <h1>告诉我你想研究的方向</h1>
-            <p>输入研究方向后，系统查找真实来源、生成研究方案，并整理可追溯的数据结果。</p>
+            <p>输入研究方向后，系统查找真实来源、生成研究方案，并整理可追溯的数据结果。乳腺癌保留专项验证，同时已配置 17 个其他常见癌种；未配置癌种也可进入通用发现流程。</p>
             <div class="planner-prompt-grid" aria-label="研究方向示例">
               <button type="button" data-planner-example="哪些因素会影响乳腺癌新辅助治疗的疗效？"><strong>新辅助治疗疗效</strong><span>哪些因素会影响乳腺癌新辅助治疗的疗效？</span><small>输入后会自动推荐问题并开始找数据</small></button>
-              <button type="button" data-planner-example="哪些生物标志物可以预测乳腺癌患者的治疗效果？"><strong>生物标志物</strong><span>哪些生物标志物可以预测乳腺癌患者的治疗效果？</span><small>输入后会自动推荐问题并开始找数据</small></button>
-              <button type="button" data-planner-example="不同乳腺癌分子亚型的治疗响应是否存在差异？"><strong>分子亚型差异</strong><span>不同乳腺癌分子亚型的治疗响应是否存在差异？</span><small>输入后会自动推荐问题并开始找数据</small></button>
+              <button type="button" data-planner-example="哪些生物标志物可以预测乳腺癌患者的治疗效果？"><strong>乳腺癌生物标志物</strong><span>哪些生物标志物可以预测乳腺癌患者的治疗效果？</span><small>保留乳腺癌专项规划入口</small></button>
+              <button type="button" data-planner-example="KRAS/TP53 状态与胰腺癌患者生存结局有何关联？"><strong>胰腺癌 KRAS/TP53</strong><span>KRAS/TP53 状态与胰腺癌患者生存结局有何关联？</span><small>对应 TCGA-PAAD 与 cBioPortal 队列</small></button>
+              <button type="button" data-planner-example="EGFR 突变与肺腺癌患者治疗响应和生存结局有何关联？"><strong>肺腺癌 EGFR</strong><span>EGFR 突变与肺腺癌患者治疗响应和生存结局有何关联？</span><small>对应 TCGA-LUAD 与 cBioPortal 队列</small></button>
+              <button type="button" data-planner-example="KRAS/BRAF 突变在结直肠癌中的分层与预后是否存在差异？"><strong>结直肠癌分层</strong><span>KRAS/BRAF 突变在结直肠癌中的分层与预后是否存在差异？</span><small>对应 COAD/READ 独立队列</small></button>
             </div>
           </section>
 
@@ -71,7 +73,7 @@
         </div>
 
         <form id="planner-form" class="planner-composer">
-          <textarea id="planner-topic" rows="2" required placeholder="输入一个稍宽泛的研究方向，例如：哪些因素会影响乳腺癌新辅助治疗的疗效？"></textarea>
+          <textarea id="planner-topic" rows="2" required placeholder="输入一个肿瘤研究方向，例如：EGFR 突变与肺腺癌治疗响应有何关联？"></textarea>
           <div>
             <span class="planner-scope-chip">◎ 公开数据</span>
             <span class="planner-scope-chip">◇ 论文依据</span>
@@ -104,8 +106,8 @@
     </section>
     <header class="topbar">
       <a id="advanced-back-planner" class="brand" href="#planning-workspace">
-        <span class="brand-mark">BRCA</span>
-        <span><strong>乳腺癌科研数据智能体</strong><small>千问驱动 · 可追溯分析矩阵</small></span>
+        <span class="brand-mark">ONCO</span>
+        <span><strong>肿瘤科研数据智能体</strong><small>乳腺癌专项 · 多癌种扩展</small></span>
       </a>
       <nav aria-label="页面导航">
         <a id="advanced-return-planner" href="#planning-workspace">← 返回研究向导</a>
@@ -147,8 +149,9 @@
           <textarea id="question" rows="4" required>研究 HER2 阳性乳腺癌中 PIK3CA 突变是否影响治疗响应，并整理患者级科研数据集</textarea>
           <div id="demo-question-chips" class="demo-question-chips" aria-label="换题演示">
             <button type="button" data-demo-question="哪些因素会影响乳腺癌新辅助治疗后的病理完全缓解（pCR）？需要患者级临床结局。">① 新辅助 pCR</button>
-            <button type="button" data-demo-question="研究 HER2 阳性或激素受体阳性乳腺癌中 PIK3CA 突变与治疗响应的关系，要求同一患者同时有突变和临床响应。">② 同患者突变+响应</button>
-            <button type="button" data-demo-question="整理乳腺癌细胞系对靶向药物的药敏（AUC/IC50），不得当作患者疗效。">③ 细胞系药敏</button>
+            <button type="button" data-demo-question="研究肺腺癌中 EGFR 突变与生存结局的关系，整理同一队列的患者级临床与突变数据。">② 肺腺癌 EGFR</button>
+            <button type="button" data-demo-question="研究结直肠癌中 KRAS/BRAF 突变与预后的关系，分别保留 COAD 与 READ 来源。">③ 结直肠癌 KRAS/BRAF</button>
+            <button type="button" data-demo-question="研究肝细胞癌中 TP53/CTNNB1 突变与生存结局的关系，整理同一队列的患者级临床与突变数据。">④ 肝细胞癌 TP53/CTNNB1</button>
           </div>
           <p class="section-note">可选示例。主路径是提交问题后系统自主解析、选工具、多轮按缺口补搜，达到目标或轮次门限才停。</p>
           <div class="form-grid">
