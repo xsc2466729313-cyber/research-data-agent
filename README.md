@@ -50,7 +50,7 @@ python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 | [最终交付索引](docs/FINAL_DELIVERY_INDEX_20260830.md) | 最新交付物与最终正文入口 |
 | [最终正文报告](docs/乳腺癌精准治疗科研数据智能体_专业叙事与规范图示终稿_20260831.md) | 项目设计、数据整合流程与最终展示 |
 | [公开数据集统一对照报告](evaluation/PUBLIC_DATASET_COMPARISON_20260902.md) | 问题解析、科学检索、字段匹配、实体匹配、清洗的真实逐任务指标、消融和 API 条件实验 |
-| [论文及图示阅读包](deliverables/乳腺癌精准治疗科研数据智能体_论文及图示阅读包_20260902/README_START_HERE.md) | 只含论文、图示、公开对照与必要证据的最终阅读包 |
+| [论文及图示阅读包 ZIP](deliverables/乳腺癌精准治疗科研数据智能体_论文及图示阅读包_20260903.zip) | 只含论文、图示、公开对照与必要证据的最终阅读包 |
 
 ## 复现评测与图表
 
