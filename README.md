@@ -18,21 +18,6 @@
 | 多癌种扩展 | 乳腺癌专项流程与 17 个其他常见癌种配置 | 按癌种加载研究上下文与安全边界 |
 | 导出审计 | CSV、Excel、Evidence 与运行报告 | 可追溯科研数据包 |
 
-## 公开评测亮点
-
-本项目已完成公开数据集实测，以下展示代表性结果。
-
-| 功能 | 公共评测集 | **本项目** | GitHub 对照 | 结论 |
-|---|---|---:|---:|---|
-| 字段匹配 | Valentine 10 个任务 | **0.7994** | COMA 0.7670 | 高 0.0324 |
-| 实体匹配 | DeepMatcher 5 个任务 | **0.7449** | RecordLinkage 0.7440 | 高 0.0009 |
-
-实体匹配采用验证集选择的 V2/V3/AND 自适应策略。详细复现信息见 [公开对照报告](docs/PUBLIC_BENCHMARK_COMPARISON.md)。
-
-### 真实 Qwen 字段匹配复测
-
-在相同 Valentine 10 个任务、相同官方 ground truth 和 Schema F1 下，真实 Qwen `qwen3.8-max` 只读取列名与有限值画像，得到 Macro F1 **0.9018**，相对项目 Schema Matcher v3 的 0.7994 提升 **0.1024**；10/10 API 调用成功、0 次回退。字段输入只对超长样例值做 160 字符截断，未修改公开表或测试集。逐任务结果、运行目录和哈希见 [公开对照报告](docs/PUBLIC_BENCHMARK_COMPARISON.md)。
-
 ## 核心运行结果
 
 | 评测 | 结果 |
@@ -41,22 +26,6 @@
 | 真实 Qwen 字段匹配（Valentine） | **Macro F1 0.9018** |
 
 当前最佳运行产物位于 `goldset/breast_cancer/official_candidate/evaluation_runs/official-candidate-current-deterministic-baseline-20260902/`。
-
-## 工作流程
-
-```mermaid
-flowchart LR
-  A[科研问题] --> B[候选问题与研究契约]
-  B --> C[来源规划]
-  C --> D[GDC / GEO / cBioPortal / AACT / CIViC / DepMap]
-  D --> E[标准化并保留原始值]
-  E --> F[患者与样本关联]
-  F --> G[四层质量门]
-  G --> H[分析矩阵与 Evidence]
-  G --> I[缺口诊断]
-  I -->|补搜或换同域队列| C
-  H --> J[CSV / Excel / 质量报告]
-```
 
 ## 快速启动
 
@@ -77,21 +46,9 @@ python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 
 | 报告 | 用途 |
 |---|---|
-| [最终交付索引](docs/FINAL_DELIVERY_INDEX_20260830.md) | 四份最终报告、图表、截图与验收结果的统一入口 |
-| [框架说明报告](docs/FINAL_FRAMEWORK_REPORT_20260830.md) | 五层框架、主链、模型/程序责任与数据治理边界 |
-| [系统设计报告](docs/FINAL_SYSTEM_DESIGN_REPORT_20260830.md) | 模块设计、质量门、闭环、API、安全与复现设计 |
-| [结果报告](docs/FINAL_RESULTS_REPORT_20260830.md) | 正式指标、真实任务、公开对比、已完成与短板 |
-| [指标检测报告](docs/FINAL_METRICS_VALIDATION_REPORT_20260830.md) | 指标重算、口径隔离、安全门、测试与敏感信息检查 |
-| [系统图与截图索引](docs/FINAL_VISUAL_ASSETS_20260830.md) | 架构图、流程图、当前页面和核心功能截图 |
-| [GitHub 同类项目实测报告](evaluation/github_competitor_benchmark_20260830/report.md) | 同数据、同切分、同指标的外部方法对比 |
-| [指标提升与两轮融合说明](docs/METRIC_IMPROVEMENT_REPORT_20260830.md) | 提升前后差值、融合策略与闭环取优规则 |
-| [分层评测与消融报告](evaluation/agent_stratified_ablation_20260829/report.md) | development 分层、候选卷迭代、检索与规划消融 |
-| [迭代交付说明](docs/ITERATION_REPORT_20260829.md) | 本轮自主闭环、持久化与质量能力变更 |
-| [当前生产主链](docs/CURRENT_MAINLINE.md) | 生产默认、评测方法与 legacy 能力边界 |
-| [数据与指标口径](docs/DATA_REPORT_20260829.md) | 正式/非正式指标及公开检索分层 |
-| [多癌种范围](docs/MULTI_CANCER_SCOPE.md) | 乳腺癌专项、17 个已配置癌种与通用发现入口 |
-| [公开对照题号与结果说明](docs/PUBLIC_COMPARISON_GUIDE_20260902.md) | 公开模块题、Qwen hybrid 和正式乳腺癌评价的边界 |
-| [完整设计与评测](docs/FINAL_INTEGRATED_REPORT_20260829.md) | 架构、功能、接口与阶段评测总览 |
+| [最终交付索引](docs/FINAL_DELIVERY_INDEX_20260830.md) | 最新交付物与最终正文入口 |
+| [最终正文报告](docs/乳腺癌精准治疗科研数据智能体_专业叙事与规范图示终稿_20260831.md) | 项目设计、数据整合流程与最终展示 |
+| [最新评委阅读包](deliverables/乳腺癌精准治疗科研数据智能体_最新评委阅读包_20260902/README_START_HERE.md) | 当前最完整的独立阅读包 |
 
 ## 复现评测与图表
 
@@ -102,7 +59,7 @@ python scripts\run_github_competitor_benchmark.py --external-package-dir <外部
 python scripts\build_github_report_charts.py
 ```
 
-图表直接读取 `results.json`，不在绘图代码中填写成绩。完整逐方法指标、数据哈希和运行环境均保留在评测产物中。DeepMatcher、Ditto、HoloClean 未在当前环境完成公平复现的模型不填论文数字，统一标记 `NOT_EVALUATED`。
+图表直接读取 `results.json`，不在绘图代码中填写成绩。完整逐方法指标、数据哈希和运行环境均保留在评测产物中。
 
 ## 医学安全边界
 
@@ -120,6 +77,6 @@ python -m pytest -q
 node --check frontend\app.js
 ```
 
-验收时运行后端测试和前端语法检查；正式评测、来源审计和安全门结果以 [指标检测报告](docs/FINAL_METRICS_VALIDATION_REPORT_20260830.md) 及对应运行产物为准。
+验收时运行后端测试和前端语法检查；最终交付内容以 [最终交付索引](docs/FINAL_DELIVERY_INDEX_20260830.md) 和 [最终正文报告](docs/乳腺癌精准治疗科研数据智能体_专业叙事与规范图示终稿_20260831.md) 为准。
 
 项目入口与硬约束见 [README_START_HERE.md](README_START_HERE.md) 和 [AGENTS.md](AGENTS.md)。

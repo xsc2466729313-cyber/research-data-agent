@@ -101,7 +101,24 @@ RQ-01 是一个患者/样本级医学研究问题，必须在同一研究或可�
 
 ### 公开基准与项目内 Qwen 的边界
 
-BEIR、EBM-NLP、Valentine、DeepMatcher、Raha/HoloClean 的分数仍按各自官方测试划分和公开指标单独报告，不能把 Qwen 的 official_candidate SDTI 与这些任务合成一个总分。当前真实公开结果的结论保持不变：问题解析序列 v4 的 Macro Span F1 为 `0.5522`，检索开发集选择方法的 Macro nDCG@10 为 `0.3920`，清洗 date profile v5 的六任务 Macro Cell F1 为 `0.7863`；这些优化没有调用 Qwen API。Qwen 真实链路的新增结果用于证明实际乳腺癌使用链路和清洗/解析消融，不替换公开基准分数。
+BEIR、EBM-NLP、Valentine、DeepMatcher、Raha/HoloClean 的分数仍按各自官方测试划分和公开指标单独报告，不能把 Qwen 的 official_candidate SDTI 与这些任务合成一个总分。问题解析、检索和清洗的第二轮本地优化没有调用 Qwen API；本轮新增的 Valentine 字段匹配复测实际调用了 Qwen。Qwen 真实链路的结果用于证明对应模块能力，不替换乳腺癌正式 SDTI。
+
+## 真实 Qwen 字段/实体匹配复测
+
+### 字段匹配：明确提升
+
+在 Valentine 固定 commit 的全部 10 个任务上，Qwen `qwen3.8-max` 只看到两张表的列名和有限值画像，测试 `ground_truth.json` 未进入模型请求。输入画像对每个样例值最多保留 160 个字符，以避免几何字段超过 API 输入上限；公开 CSV、测试标签和官方 Schema F1 计算均未改动。
+
+| 方法 | Macro Schema F1 | API 覆盖 | 回退 |
+|---|---:|---:|---:|
+| 项目 Schema Matcher v3 | 0.7994 | 不适用 | 不适用 |
+| **Qwen-assisted (`qwen3.8-max`)** | **0.9018** | **10/10** | **0** |
+
+Qwen 相对 v3 提升 `+0.1024`。优势集中在 `Volly→volleyball`、`field_lighted_new→field_lighted`、`LnMeters→stlength` 等缩写、后缀和语义重命名；Capital Projects、DCM Street Centerline 和 Energy Benchmarking 三项反而下降，所以不能写成“Qwen 在所有任务最优”。逐任务运行目录为 `evaluation/public_benchmarks/runs/20260902T1100*_qwen_valentine_*/`。
+
+### 实体匹配：本轮未形成 Qwen 成绩
+
+实体匹配已实现批量 Qwen 判定接口，设计上使用 DeepMatcher 官方 test 对，训练集仅作为少量正负示例，测试标签仅在本地评分。但完整 `Walmart-Amazon` 运行期间百炼返回 `Arrearage`，86 个批次全部回退到项目规则，Qwen 覆盖为 `0/2049`；该运行不计作 Qwen Entity F1。当前可发布的公开实体结果仍是项目 v2 宏平均 `0.7408`、RecordLinkage 对照 `0.7440`。稳定余额后应完整重跑五个任务，再决定是否能客观宣称提升；在此之前，论文不填 Qwen 实体分数。
 
 ## 公开测试上的真实 Qwen 结果（SciFact）
 
@@ -215,11 +232,13 @@ v5 只在日期列满足强列内画像时执行三段值旋转和整数格式�
 
 ### API 调用审计
 
-本轮公开基准的 API 调用次数为 **0**：
+问题解析、检索和清洗本轮优化的 API 调用次数为 **0**：
 
 - 问题解析：训练集词典、上下文和序列特征，本地确定性运行；
 - 检索：本地 `BAAI/bge-small-en-v1.5` 和公开 `cross-encoder/ms-marco-MiniLM-L6-v2`，不调用千问；
 - 清洗：本地确定性规则，不调用千问。
+
+字段匹配另有 10 次真实 Qwen 调用，10/10 成功、0 次回退，详见上面的字段复测表。实体匹配的 Qwen 调用失败审计保留在对应运行目录，未计入模型成绩。
 
 正式乳腺癌候选链路是另一种评测：`official-candidate-qwen-live-user-request-20260902` 记录 11/11 题真实调用 Qwen、确定性回退 0 次，但仍 `frozen=false`、`publish_allowed=false`，不能与公开模块基准混为一谈。该次检索 Recall 仍为 `0.8333`（15/18），说明 API 提升了本次候选卷的精确率和综合分，但没有解决全部目标来源的召回。接入 API 不会自动修复公开基准的低分；只有在不读取测试标签、能返回真实来源且可复核的前提下，API 才能作为额外模型条件进行公平对比。
 

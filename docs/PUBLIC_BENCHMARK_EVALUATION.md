@@ -31,6 +31,17 @@
 
 DeepMatcher 使用官方 train/valid/test；EBM-NLP 使用训练 crowd labels 和独立 professional test gold；BEIR 调参只读取 dev/train qrels；Valentine 使用固定 commit 的官方 ground truth；Raha/HoloClean 使用官方 dirty/clean 对照表。所有运行产物记录 source_id、真实 URL、SHA-256 和代码版本。未完成的 TREC-COVID 下载没有被计入成绩。
 
+## 真实 Qwen 字段匹配补充
+
+在同一 Valentine 10 个任务上，使用真实阿里云百炼 `qwen3.8-max` 做字段语义匹配复测。Qwen 只接收公开 source/target 表头和有限值画像，不接收 `ground_truth.json`；测试标签只在本地评分阶段读取。为处理 `DSNY` 的超长几何字段，模型输入对单个样例值设置 160 字符上限，源 CSV 和测试集未改变。
+
+| 方法 | Valentine 10-task Macro Schema F1 | API 覆盖 | 回退 |
+|---|---:|---:|---:|
+| 项目 Schema Matcher v3 | 0.7994 | 不适用 | 不适用 |
+| **Qwen-assisted (`qwen3.8-max`)** | **0.9018** | **10/10** | **0** |
+
+相对项目 v3 提升 `+0.1024`。Qwen 在缩写和语义改名上明显有帮助，但 Capital Projects、DCM Street Centerline 和 Energy Benchmarking 三项低于 v3，说明该收益不是所有任务稳定存在。运行证据见 `evaluation/public_benchmarks/runs/20260902T1100*_qwen_valentine_*/run.json`；实体匹配 Qwen 批量请求因账户 `Arrearage` 失败，未填入 Qwen 实体成绩。
+
 ## 失败解释与下一步
 
 检索层已接入本地 BGE 和公开 CrossEncoder，但全量重排延迟较高；问题解析的轻量序列特征仍低于成熟序列标注基线；字段对齐需要缩写词典、冲突检测和 review 队列；实体匹配需要字符级/字段级深度模型，并对低置信度样本保持 unresolved；清洗层仍应把检测和修复分开，对缺失值、字符损坏和语义错误交由真实来源复核。
