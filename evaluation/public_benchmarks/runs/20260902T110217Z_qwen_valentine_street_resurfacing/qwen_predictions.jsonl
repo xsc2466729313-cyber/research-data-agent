@@ -1,0 +1,5 @@
+{"source_column": "Thoroughfare", "target_column": "location_from_street", "confidence": 1.0, "reason": "样例值完全一致（仅大小写差异），均为街道名称", "latency_ms": 6282.589}
+{"source_column": "project_id", "target_column": "project_id", "confidence": 1.0, "reason": "列名相同且样例值完全一致", "latency_ms": 6282.599}
+{"source_column": "location_segment_id", "target_column": "location_segment_id", "confidence": 1.0, "reason": "列名相同且样例值完全一致", "latency_ms": 6282.6}
+{"source_column": "ProjClass", "target_column": "project_type", "confidence": 1.0, "reason": "样例值均为'Intersection'，语义上项目分类对应项目类型", "latency_ms": 6282.601}
+{"source_column": "StatFlag", "target_column": "location_status", "confidence": 1.0, "reason": "样例值均为'Ready for Milling'，状态标识对应位置状态", "latency_ms": 6282.602}

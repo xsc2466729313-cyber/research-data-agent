@@ -1,0 +1,19 @@
+# raha_tax data cleaning benchmark
+
+> This is a generic dirty-cell detection/repair test. It is not a medical data quality or SDTI result.
+
+| Method | Cell precision | Cell recall | Cell F1 | Repair accuracy | TP | FP | FN | Repairs |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| no_repair | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0 | 0 | 121219 | 0 |
+| column_mode | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0 | 202168 | 121219 | 202207 |
+| project_portability_consensus_clean_v1 | 0.0000 | 0.0000 | 0.0000 | 0.0000 | 0 | 0 | 121219 | 0 |
+| project_format_profile_v2 | 0.9984 | 0.9755 | 0.9868 | 0.9951 | 118253 | 187 | 2966 | 118840 |
+| project_fusion_repair_v3 | 0.9982 | 0.9755 | 0.9867 | 0.9948 | 118253 | 214 | 2966 | 118867 |
+| project_context_consensus_repair_v4 | 0.9982 | 0.9755 | 0.9867 | 0.9948 | 118253 | 214 | 2966 | 118867 |
+| project_date_profile_repair_v5 | 0.9982 | 0.9755 | 0.9867 | 0.9948 | 118253 | 214 | 2966 | 118867 |
+| project_source_anchor_repair_v6 | 0.9982 | 0.9755 | 0.9867 | 0.9948 | 118253 | 214 | 2966 | 118867 |
+
+Source: https://github.com/BigDaMa/raha/tree/master/datasets/tax
+Dirty SHA-256: 8dd3429ec4791b2ed1a688c308a57a9f3d1a94f77d1f4e98294a67273270b973
+Clean SHA-256: 201290927ae92e65b3940d776b3df5b4d953c5dfd9abb231715a2e65ecca87b0
+Code revision: a7bfb3067f4db5238e1ca855d9ef132e4a173201

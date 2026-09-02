@@ -15,11 +15,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
+import numpy as np
+
 from backend.app.retrieval_text_features import retrieval_tokens
 from backend.app.evaluation.semantic_retrieval import (
     CrossEncoderBenchmarkIndex,
     DevelopmentSelectedBenchmarkIndex,
     HybridSemanticBenchmarkIndex,
+    ReciprocalRankFusionBenchmarkIndex,
     SentenceTransformerBenchmarkIndex,
 )
 from backend.app.vnext_config import load_vnext_config
@@ -117,6 +120,15 @@ class RetrievalConfig:
 class HybridWeightConfig:
     lexical_weight: float
     dense_weight: float
+    fit_split: str
+    fit_ndcg_at_10: float | None
+
+
+@dataclass(frozen=True)
+class RRFConfig:
+    lexical_weight: float
+    dense_weight: float
+    rrf_k: int
     fit_split: str
     fit_ndcg_at_10: float | None
 
@@ -232,24 +244,42 @@ class BM25Index:
                 self.postings[token].append((index, frequency))
         self.avg_doc_length = sum(self.doc_lengths) / max(1, len(self.doc_lengths))
         self.document_count = len(self.doc_ids)
+        self._doc_lengths = np.asarray(self.doc_lengths, dtype=np.float64)
+        self._posting_arrays = {
+            token: (
+                np.asarray([item[0] for item in posting], dtype=np.int32),
+                np.asarray([item[1] for item in posting], dtype=np.float64),
+                math.log(1.0 + (self.document_count - len(posting) + 0.5) / (len(posting) + 0.5)),
+            )
+            for token, posting in self.postings.items()
+        }
+
+    def _score_array(self, query: str) -> np.ndarray:
+        scores = np.zeros(self.document_count, dtype=np.float64)
+        for token in set(_tokens(query)):
+            posting = self._posting_arrays.get(token)
+            if posting is None:
+                continue
+            doc_indices, frequencies, idf = posting
+            length_ratio = self._doc_lengths[doc_indices] / max(self.avg_doc_length, 1e-12)
+            denominator = frequencies + self.k1 * (1.0 - self.b + self.b * length_ratio)
+            scores[doc_indices] += idf * frequencies * (self.k1 + 1.0) / denominator
+        return scores
 
     def score(self, query: str) -> dict[int, float]:
-        scores: dict[int, float] = defaultdict(float)
-        for token in set(_tokens(query)):
-            posting = self.postings.get(token, [])
-            document_frequency = len(posting)
-            if not document_frequency:
-                continue
-            idf = math.log(1.0 + (self.document_count - document_frequency + 0.5) / (document_frequency + 0.5))
-            for doc_index, frequency in posting:
-                length_ratio = self.doc_lengths[doc_index] / max(self.avg_doc_length, 1e-12)
-                denominator = frequency + self.k1 * (1.0 - self.b + self.b * length_ratio)
-                scores[doc_index] += idf * frequency * (self.k1 + 1.0) / denominator
-        return dict(scores)
+        scores = self._score_array(query)
+        indices = np.flatnonzero(scores > 0.0)
+        return {int(index): float(scores[index]) for index in indices}
 
     def rank(self, query: str, top_k: int) -> list[str]:
-        scores = self.score(query)
-        ranked = sorted(scores, key=lambda index: (-scores[index], self.doc_ids[index]))[:top_k]
+        scores = self._score_array(query)
+        positive = np.flatnonzero(scores > 0.0)
+        if len(positive) > top_k:
+            candidate_positions = np.argpartition(-scores[positive], top_k - 1)[:top_k]
+            candidates = positive[candidate_positions].tolist()
+        else:
+            candidates = positive.tolist()
+        ranked = sorted(candidates, key=lambda index: (-scores[index], self.doc_ids[index]))
         return [self.doc_ids[index] for index in ranked]
 
 
@@ -362,6 +392,36 @@ def fit_hybrid_weights(
             best = candidate
     assert best is not None
     return HybridWeightConfig(best[1], best[2], fit_split, best[0])
+
+
+def fit_rrf_parameters(
+    lexical: TunedBM25Index,
+    semantic: SentenceTransformerBenchmarkIndex,
+    queries: dict[str, str],
+    dataset_dir: Path,
+) -> RRFConfig:
+    """Choose rank-fusion parameters on train/dev qrels only."""
+    fit_split = "dev" if (dataset_dir / "qrels" / "dev.tsv").exists() else "train"
+    fit_qrels = _load_qrels(dataset_dir, fit_split)
+    if not fit_qrels:
+        return RRFConfig(0.5, 0.5, 60, "none", None)
+    best: tuple[float, float, float, int] | None = None
+    for lexical_weight in (0.25, 0.5, 0.75):
+        dense_weight = 1.0 - lexical_weight
+        for rrf_k in (10, 30, 60, 100):
+            candidate = ReciprocalRankFusionBenchmarkIndex(
+                lexical,
+                semantic,
+                lexical_weight=lexical_weight,
+                dense_weight=dense_weight,
+                rrf_k=rrf_k,
+            )
+            score = evaluate_retriever(candidate, queries, fit_qrels).ndcg_at_10
+            choice = (score, lexical_weight, dense_weight, -rrf_k)
+            if best is None or choice > best:
+                best = choice
+    assert best is not None
+    return RRFConfig(best[1], best[2], -best[3], fit_split, best[0])
 
 
 def select_development_retriever(
@@ -649,6 +709,8 @@ def run_public_retrieval_benchmark(
     semantic_index: SentenceTransformerBenchmarkIndex | None = None
     hybrid_index: HybridSemanticBenchmarkIndex | None = None
     hybrid_config: HybridWeightConfig | None = None
+    rrf_index: ReciprocalRankFusionBenchmarkIndex | None = None
+    rrf_config: RRFConfig | None = None
     selected_index: DevelopmentSelectedBenchmarkIndex | None = None
     vnext = load_vnext_config().retrieval
     cache_root = data_root / ".vnext_embedding_cache"
@@ -684,6 +746,24 @@ def run_public_retrieval_benchmark(
             )
             method_configs[hybrid_index.method_id] = hybrid_config
         return hybrid_index
+
+    def get_rrf() -> ReciprocalRankFusionBenchmarkIndex:
+        nonlocal rrf_index, tuned_config, rrf_config
+        if rrf_index is None:
+            if tuned_config is None:
+                tuned_config = fit_bm25_parameters(corpus, queries, dataset_dir)
+            lexical = TunedBM25Index(corpus, k1=tuned_config.k1, b=tuned_config.b)
+            if rrf_config is None:
+                rrf_config = fit_rrf_parameters(lexical, get_semantic(), queries, dataset_dir)
+            rrf_index = ReciprocalRankFusionBenchmarkIndex(
+                lexical,
+                get_semantic(),
+                lexical_weight=rrf_config.lexical_weight,
+                dense_weight=rrf_config.dense_weight,
+                rrf_k=rrf_config.rrf_k,
+            )
+            method_configs[rrf_index.method_id] = rrf_config
+        return rrf_index
     for method in methods:
         if method == "bm25":
             retriever = BM25Index(corpus)
@@ -702,6 +782,9 @@ def run_public_retrieval_benchmark(
             method_id = retriever.method_id
         elif method == "vnext_hybrid":
             retriever = get_hybrid()
+            method_id = retriever.method_id
+        elif method == "vnext_rrf":
+            retriever = get_rrf()
             method_id = retriever.method_id
         elif method == "vnext_hybrid_rerank":
             retriever = CrossEncoderBenchmarkIndex(

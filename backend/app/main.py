@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
 from typing import Annotated
@@ -954,14 +953,6 @@ def get_evaluation_overview(
         latest_task=agent.latest(),
         goldset_row_counts=inspection.row_counts,
     )
-
-
-@app.get("/api/evaluation/stratified")
-def get_stratified_evaluation() -> dict:
-    report_path = Path(__file__).resolve().parents[2] / "evaluation" / "agent_stratified_ablation_20260829" / "report.json"
-    if not report_path.is_file():
-        return {"status": "NOT_EVALUATED", "notice": "分层与消融报告尚未生成。"}
-    return json.loads(report_path.read_text(encoding="utf-8"))
 
 
 @app.get(

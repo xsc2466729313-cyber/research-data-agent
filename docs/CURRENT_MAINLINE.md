@@ -1,6 +1,6 @@
-# Production Mainline
+# 当前生产主线
 
-更新时间：2026-08-29  
+更新时间：2026-09-03
 依据：赛道二方向 1A。本文只标明当前默认主链，不把未完成写成已完成，不把 development 分册分数写成正式 SDTI。
 
 ## 一句话
@@ -47,13 +47,13 @@ Critic → Reflexion / 任务内 goal_loop + 两轮闭环
 - 允许 `allow_reviewed_unfrozen=True` 是因为 manifest 仍 `frozen=false`；这是正式卷实测，不是 sealed `frozen_test`
 - **禁止**把 `goldset/breast_cancer/development/` 的 66.94 填进正式栏
 
-**分层指标与对照表（真实数字）见 [DATA_REPORT_20260829.md](DATA_REPORT_20260829.md)**：质量门 / 能力层 / 评测层分开；正式 vs 非正式一张总表；BM25 vs BGE 五数据集 nDCG；任务观察 848 行 REVIEW。不要只读本节口径。
+**分层指标与对照表（真实数字）见[公开数据集统一对照报告](../evaluation/PUBLIC_DATASET_COMPARISON_20260902.md)**：问题解析、检索、字段匹配、实体匹配和清洗分别报告，不把不同任务拼成一个总准确率。
 
 短版对照：
 
 | 层 | 大数字 | 口径 |
 |---|---|---|
-| 检索能力 | BGE nDCG@10 0.3880 vs BM25 0.3147（3,677 查询） | BEIR，不是正式 Retrieval F1 |
+| 检索能力 | 项目名次融合 nDCG@10 0.3915 vs 公开 BGE 0.3880（五任务、3,677 查询） | BEIR，不是正式 Retrieval F1 |
 | 历史基线 SDTI | **63.36**，publish_allowed=false | 未调用 Qwen |
 | Qwen hybrid 候选 | **98.11**，publish_allowed=false | 检索 11/11、字段 26、错误 18 次 Qwen；召回率 83.33%；9 个任务 REVIEW；不是 frozen_test |
 | 当前确定性消融 | **100.00**，publish_allowed=false | 候选卷对专门化规则饱和；只作诊断，不代表公开通用基准 |

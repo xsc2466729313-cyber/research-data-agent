@@ -1,0 +1,5 @@
+{"source_column": "session_x", "target_column": "session", "confidence": 1.0, "reason": "列名语义一致，样例值完全相同（如Session #1, Session #3）", "latency_ms": 6176.443}
+{"source_column": "CLS_ID", "target_column": "class_number", "confidence": 0.95, "reason": "CLS_ID为班级标识符缩写，样例值与class_number高度重合（如309,201,K01），表达同一字段", "latency_ms": 6176.451}
+{"source_column": "training_site", "target_column": "training_site", "confidence": 1.0, "reason": "列名完全一致，样例值逐行匹配（如River Bank, FMCP等）", "latency_ms": 6176.452}
+{"source_column": "tbl_school_year", "target_column": "school_year", "confidence": 0.98, "reason": "tbl_为表前缀，核心语义school_year一致，样例值格式与内容完全相同（如2019-2020）", "latency_ms": 6176.452}
+{"source_column": "training_entity_code", "target_column": "training_entity", "confidence": 0.95, "reason": "code后缀常表示编码字段，但样例值均为文本名称（NYC Parks），与training_entity语义和值完全一致", "latency_ms": 6176.453}

@@ -1,0 +1,56 @@
+{
+  "evaluation_id": "20260902T212603Z_beir_scidocs",
+  "evaluation_version": "public-retrieval-v2",
+  "layer": "external_benchmarks",
+  "stage": "retrieval",
+  "dataset": {
+    "dataset_id": "beir_scidocs",
+    "source_id": "beir:scidocs",
+    "source_url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scidocs.zip",
+    "archive_sha256": "96640201687767c9b1fcc5af7a80b90fb325b37fa25329c2586c25edcfa17ef1",
+    "corpus_sha256": "328bb38854179c83ee40d4f49fae2ef7209ede7163785193cbdcd5906b28eecc",
+    "queries_sha256": "3c85b68419bd579ff52edb58f9e7b32eb3d18bc83435edb71dbb68aaf79531d6",
+    "qrels_test_sha256": "dcd3d7f77417294bb6f338537f3c28d8a5ea72b30fe6633f407fa85528767e35"
+  },
+  "split": "test",
+  "code_revision": "4c505bdddfa67842df311f5870413d260cb2abbb",
+  "created_at": "2026-09-02T21:26:04.048204+00:00",
+  "results": {
+    "vnext_bm25_bge_rrf_v1": {
+      "method_label": "VNext BM25 + BGE rank fusion",
+      "ndcg_at_10": 0.18275073227044342,
+      "precision_at_1": 0.212,
+      "precision_at_3": 0.1653333333333333,
+      "precision_at_5": 0.133,
+      "precision_at_10": 0.0947,
+      "recall_at_1": 0.042800000000000005,
+      "recall_at_3": 0.10053333333333334,
+      "recall_at_5": 0.13458333333333333,
+      "recall_at_10": 0.19208333333333336,
+      "recall_at_100": 0.4326333333333333,
+      "hit_rate_at_1": 0.212,
+      "hit_rate_at_3": 0.372,
+      "hit_rate_at_5": 0.451,
+      "hit_rate_at_10": 0.56,
+      "mrr_at_10": 0.31369682539682536,
+      "mean_latency_ms": 5.525219399976777,
+      "std_latency_ms": 9.772107854716811e-05,
+      "p50_latency_ms": 5.525227801525034,
+      "p95_latency_ms": 5.525427803047933,
+      "query_count": 1000,
+      "index_build_seconds": 8.368161099991994,
+      "estimated_cost_usd": 0.0,
+      "qwen_invocation_rate": 0.0
+    }
+  },
+  "method_configs": {
+    "vnext_bm25_bge_rrf_v1": {
+      "lexical_weight": 0.5,
+      "dense_weight": 0.5,
+      "rrf_k": 60,
+      "fit_split": "none",
+      "fit_ndcg_at_10": null
+    }
+  },
+  "scope_notice": "These are retrieval-layer scores, not full-agent, clinical-validity, or SDTI scores."
+}

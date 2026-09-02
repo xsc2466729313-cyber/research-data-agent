@@ -1,0 +1,4 @@
+{"source_column": "src_block", "target_column": "block", "confidence": 1.0, "reason": "列名语义一致（src_block对应block），且样本值完全匹配", "latency_ms": 5654.328}
+{"source_column": "BRGH_CD", "target_column": "borough", "confidence": 1.0, "reason": "BRGH_CD是borough code缩写，样本数值分布与borough列完全一致", "latency_ms": 5654.339}
+{"source_column": "ghg_emissions_intensity", "target_column": "_2014_ghg_emissions_intensity_kgco2e_ft", "confidence": 1.0, "reason": "语义均为温室气体排放强度，样本值完全一致；虽无年份标识但数据形态与2014目标列吻合", "latency_ms": 5654.341}
+{"source_column": "bin", "target_column": "bin", "confidence": 1.0, "reason": "列名相同，样本值完全匹配", "latency_ms": 5654.342}

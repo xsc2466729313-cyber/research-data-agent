@@ -1,0 +1,8 @@
+{"source_column": "pap_ezp_sc", "target_column": "pap_ezp_sec", "confidence": 0.95, "reason": "列名缩写sc对应sec(secondary)，样例值完全一致(Sims - LIC等)", "latency_ms": 12536.078}
+{"source_column": "mgp_curb_pri_src", "target_column": "mgp_curb_pri", "confidence": 0.85, "reason": "列名含mgp_curb_pri，src可能表示source；样例值高度相似(Jersey/Bronx/LIC vs Sims - Jersey/Bronx/LIC)，语义对应", "latency_ms": 12536.087}
+{"source_column": "pap_curb_sec", "target_column": "mgp_curb_sec", "confidence": 0.75, "reason": "虽前缀不同(pap vs mgp)，但curb_sec语义及样例值(Sims - Bklyn/LIC/Bronx)完全匹配，推测为同一字段不同来源命名", "latency_ms": 12536.089}
+{"source_column": "district", "target_column": "district", "confidence": 1.0, "reason": "列名相同，样例值格式(MN05/QE07等)及内容完全一致", "latency_ms": 12536.09}
+{"source_column": "DistNum", "target_column": "districtcode", "confidence": 0.95, "reason": "DistNum即District Number，与districtcode语义相同；样例值(105/407等)完全对应", "latency_ms": 12536.09}
+{"source_column": "roro_pri", "target_column": "ref_roro_pri", "confidence": 0.9, "reason": "roro_pri与ref_roro_pri语义相近，样例值(Review/Southwest MTS/Reworld – Essex)完全一致", "latency_ms": 12536.091}
+{"source_column": "REF_EZPS", "target_column": "ref_ezp_sec", "confidence": 0.8, "reason": "REF_EZPS复数形式可能对应secondary列表或集合，样例值(Review/WM - Varick/Hamilton)与ref_ezp_sec完全重合", "latency_ms": 12536.092}
+{"source_column": "ref_curb_sec", "target_column": "ref_roro_sec", "confidence": 0.65, "reason": "仅基于样例值(WM - Varick)完全匹配且均为ref_*_sec结构，但列名curb与roro语义差异较大，置信度较低", "latency_ms": 12536.093}

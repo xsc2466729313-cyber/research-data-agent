@@ -1,0 +1,70 @@
+{
+  "evaluation_id": "20260902T110208Z_qwen_valentine_swim_for_life",
+  "evaluation_version": "public-schema_matching-qwen-v1",
+  "layer": "external_benchmarks",
+  "stage": "schema_matching",
+  "dataset": {
+    "dataset_id": "valentine_swim_for_life",
+    "source_id": "github:delftdata/valentine",
+    "source_url": "https://github.com/delftdata/valentine/tree/5d5163f04da304985bd51a476ccf7653de3979c3/experiments/data/Recreation__Swim_for_Life__2016_to_2020",
+    "source_commit": "5d5163f04da304985bd51a476ccf7653de3979c3",
+    "source_file_url": "https://raw.githubusercontent.com/delftdata/valentine/5d5163f04da304985bd51a476ccf7653de3979c3/experiments/data/Recreation__Swim_for_Life__2016_to_2020/source_table.csv",
+    "target_file_url": "https://raw.githubusercontent.com/delftdata/valentine/5d5163f04da304985bd51a476ccf7653de3979c3/experiments/data/Recreation__Swim_for_Life__2016_to_2020/target_table.csv",
+    "ground_truth_url": "https://raw.githubusercontent.com/delftdata/valentine/5d5163f04da304985bd51a476ccf7653de3979c3/experiments/data/Recreation__Swim_for_Life__2016_to_2020/ground_truth.json",
+    "source_table_sha256": "1aea7318e570a5ab97c10aa5977af751cc6c68920c28431e6deb93feccc0a3c3",
+    "target_table_sha256": "0662b2c2b86ab1103616a883bc8a7ad8476c7688296c725d30e7448f3b6cf7dc",
+    "ground_truth_sha256": "02489ddffe49f42d7c6b578c0cb41534bbce4994ac1dde354577ce3d3501fbb7",
+    "test_sha256": "02489ddffe49f42d7c6b578c0cb41534bbce4994ac1dde354577ce3d3501fbb7"
+  },
+  "split": "test",
+  "code_revision": "dcd3365520a361a57dc148444b1b3a7ff775d175",
+  "created_at": "2026-09-02T11:02:09.060824+00:00",
+  "model": {
+    "provider": "qwen",
+    "model": "qwen3.8-max"
+  },
+  "audit": {
+    "api_calls": 1,
+    "successful_calls": 1,
+    "failed_calls": 0,
+    "fallback_items": 0,
+    "qwen_items": 1,
+    "total_items": 1,
+    "batch_size": 1,
+    "model": "qwen3.8-max",
+    "errors": []
+  },
+  "baseline_method": {
+    "method": "project_schema_v3",
+    "f1": 0.888888888888889
+  },
+  "results": {
+    "qwen_schema": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "true_positive": 5,
+      "false_positive": 0,
+      "false_negative": 0,
+      "predicted_count": 5,
+      "gold_count": 5,
+      "source_column_count": 8,
+      "target_column_count": 10,
+      "runtime_ms": 0.0
+    },
+    "project_schema_v3": {
+      "precision": 1.0,
+      "recall": 0.8,
+      "f1": 0.888888888888889,
+      "true_positive": 4,
+      "false_positive": 0,
+      "false_negative": 1,
+      "predicted_count": 4,
+      "gold_count": 5,
+      "source_column_count": 8,
+      "target_column_count": 10,
+      "runtime_ms": 4.629500006558374
+    }
+  },
+  "scope_notice": "Generic public matching layer result; not a clinical patient identity or SDTI result."
+}

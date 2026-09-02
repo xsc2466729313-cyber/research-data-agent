@@ -1,0 +1,15 @@
+{"source_column": "ApproxDate", "target_column": "date_created_approximation", "confidence": 0.95, "reason": "Source为True/False布尔值，Target为Y/N标识，语义均为日期是否近似，样本分布高度一致", "latency_ms": 15934.411}
+{"source_column": "RecordIDs", "target_column": "pdc_records", "confidence": 0.98, "reason": "列名含义对应记录ID，样本值完全一致（如177, 5177等）", "latency_ms": 15934.421}
+{"source_column": "artists_keyword", "target_column": "subject_keyword", "confidence": 0.65, "reason": "虽然列名含artist，但样本值（American, Woman, LGBTQ+等）与target subject_keyword内容完全一致，属于数据迁移中的字段复用或命名偏差", "latency_ms": 15934.422}
+{"source_column": "primary_architect_last", "target_column": "primary_architect_middle", "confidence": 0.6, "reason": "仅基于样本值'Embury II'等在两列中重复出现进行的匹配，列名语义（Last vs Middle）冲突，置信度较低但满足阈值", "latency_ms": 15934.423}
+{"source_column": "primary_artist_middle", "target_column": "landscape_architect_middle", "confidence": 0.6, "reason": "样本值在两个middle字段间存在重叠，缺乏更优匹配对象，勉强达到阈值", "latency_ms": 15934.424}
+{"source_column": "EngravingText", "target_column": "inscription", "confidence": 0.99, "reason": "雕刻文本即铭文，样本内容完全一致", "latency_ms": 15934.425}
+{"source_column": "state", "target_column": "state", "confidence": 1.0, "reason": "列名相同，样本值均为NY", "latency_ms": 15934.425}
+{"source_column": "BlkNum", "target_column": "block", "confidence": 0.98, "reason": "BlkNum是Block Number的缩写，样本数值对应", "latency_ms": 15934.427}
+{"source_column": "borough_x", "target_column": "borough", "confidence": 0.99, "reason": "borough_x通常为merge后缀，样本值与borough完全一致", "latency_ms": 15934.428}
+{"source_column": "ArtForm", "target_column": "artwork_type1", "confidence": 0.95, "reason": "艺术形式对应作品类型，样本值（Statue, Mosaic等）一一对应", "latency_ms": 15934.429}
+{"source_column": "ArtistGiven", "target_column": "primary_artist_first", "confidence": 0.98, "reason": "Given Name即名，样本值（Frederick, Paul等）与primary_artist_first完全一致", "latency_ms": 15934.429}
+{"source_column": "Medium", "target_column": "material", "confidence": 0.95, "reason": "媒介即材质，样本值（Bronze, Stone等）对应", "latency_ms": 15934.43}
+{"source_column": "LotID", "target_column": "lot", "confidence": 0.99, "reason": "地块ID对应lot，样本数值完全一致", "latency_ms": 15934.431}
+{"source_column": "foundry", "target_column": "foundry", "confidence": 1.0, "reason": "列名相同，样本值完全一致", "latency_ms": 15934.431}
+{"source_column": "landscape_architect", "target_column": "landscape_architect_last", "confidence": 0.85, "reason": "Source样本仅含姓氏'Winslow'，Target对应字段亦为'Winslow'，推断为姓氏字段", "latency_ms": 15934.432}

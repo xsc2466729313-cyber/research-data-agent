@@ -14,6 +14,7 @@ from matplotlib.font_manager import FontProperties
 ROOT = Path(__file__).resolve().parents[1]
 RESULTS_PATH = ROOT / "evaluation" / "github_competitor_benchmark_20260830" / "results.json"
 PUBLIC_RESULTS_PATH = ROOT / "evaluation" / "PUBLIC_DATASET_COMPARISON_20260902.json"
+RETRIEVAL_MATRIX_PATH = ROOT / "evaluation" / "public_benchmarks" / "retrieval_matrix_20260903.json"
 RUN_ROOT = ROOT / "evaluation" / "public_benchmarks" / "runs"
 IMAGE_DIR = ROOT / "docs" / "images"
 FONT_PATH = Path("C:/Windows/Fonts/msyh.ttc")
@@ -78,27 +79,17 @@ def load_latest_chart_results(results: dict) -> dict:
 
 def load_enhanced_retrieval(results: dict) -> dict | None:
     dataset_ids = ["beir_scifact", "beir_nfcorpus", "beir_scidocs", "beir_arguana", "beir_fiqa"]
+    matrix = json.loads(RETRIEVAL_MATRIX_PATH.read_text(encoding="utf-8"))
+    matrix_rows = {
+        (row["dataset"], row["method_id"]): row
+        for row in matrix["rows"]
+    }
     rows = []
     for dataset_id in dataset_ids:
-        candidates = []
-        for path in RUN_ROOT.glob(f"*_{dataset_id}/run.json"):
-            payload = json.loads(path.read_text(encoding="utf-8"))
-            project_key = next(
-                (
-                    key
-                    for key in ("vnext_dev_selected_retrieval_v1", "vnext_bm25_bge_cross_encoder_v1")
-                    if key in payload.get("results", {})
-                ),
-                None,
-            )
-            if project_key:
-                candidates.append((payload.get("created_at", ""), path, payload, project_key))
-        if not candidates:
+        project = matrix_rows.get((dataset_id, "vnext_bm25_bge_rrf_v1"))
+        bge = matrix_rows.get((dataset_id, "vnext_bge_small_en_v1_5"))
+        if project is None or bge is None:
             return None
-        _, path, payload, project_key = max(candidates, key=lambda item: item[0])
-        current = payload["results"]
-        project = current[project_key]
-        bge = current["vnext_bge_small_en_v1_5"]
         rows.append({
             "dataset": dataset_id,
             "project_method": project["method_label"],
@@ -112,16 +103,10 @@ def load_enhanced_retrieval(results: dict) -> dict | None:
             "github_mrr_at_10": bge["mrr_at_10"],
             "github_mean_latency_ms": bge["mean_latency_ms"],
             "query_count": project["query_count"],
-            "evaluation_id": payload["evaluation_id"],
-            "created_at": payload["created_at"],
-            "code_revision": payload["code_revision"],
-            "source_id": payload["dataset"]["source_id"],
-            "source_url": payload["dataset"]["source_url"],
-            "archive_sha256": payload["dataset"].get("archive_sha256"),
-            "corpus_sha256": payload["dataset"].get("corpus_sha256"),
-            "queries_sha256": payload["dataset"].get("queries_sha256"),
-            "qrels_test_sha256": payload["dataset"]["qrels_test_sha256"],
-            "run_file": str(path.relative_to(ROOT)).replace("\\", "/"),
+            "evaluation_id": project["evaluation_id"],
+            "source_id": project["source_id"],
+            "source_url": project["source_url"],
+            "run_file": project["run_file"],
         })
     return {
         "rows": rows,
@@ -131,33 +116,6 @@ def load_enhanced_retrieval(results: dict) -> dict | None:
         "project_mrr_macro": sum(row["project_mrr_at_10"] for row in rows) / len(rows),
         "project_latency_mean_ms": sum(row["project_mean_latency_ms"] for row in rows) / len(rows),
     }
-
-
-def save_enhanced_retrieval_summary(results: dict, enhanced_retrieval: dict | None) -> Path | None:
-    if enhanced_retrieval is None:
-        return None
-    path = ROOT / "evaluation" / "public_benchmarks" / "enhanced_retrieval_20260902.json"
-    payload = {
-        "evaluation_id": "public-retrieval-enhanced-20260902",
-        "created_at": "2026-09-02",
-        "scope": "BEIR test split; retrieval-layer comparison only; not clinical validity or SDTI.",
-        "metric": "nDCG@10",
-        "project_method": "BM25 + BGE + 交叉编码器",
-        "public_comparison_method": "BGE-small-en-v1.5",
-        "historical_baseline": {
-            "method": "BM25 + BGE fusion",
-            "macro_ndcg_at_10": results["modules"]["retrieval"]["project_macro"],
-            "source_file": "evaluation/github_competitor_benchmark_20260830/results.json",
-        },
-        "project_macro_ndcg_at_10": enhanced_retrieval["project_macro"],
-        "public_macro_ndcg_at_10": enhanced_retrieval["github_macro"],
-        "project_recall_at_100_macro": enhanced_retrieval["project_recall_macro"],
-        "project_mrr_at_10_macro": enhanced_retrieval["project_mrr_macro"],
-        "project_mean_latency_ms": enhanced_retrieval["project_latency_mean_ms"],
-        "datasets": enhanced_retrieval["rows"],
-    }
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    return path
 
 
 def style_axis(ax) -> None:
@@ -188,7 +146,7 @@ def label_bars(ax, bars, *, digits: int = 3, values: list[float] | None = None) 
 def save_scorecard(results: dict, enhanced_retrieval: dict | None) -> Path:
     modules = results["modules"]
     labels = [
-        "科学检索\n本项目：BGE 初检索 + 重排\n对照：BGE 单路",
+        "科学检索\n本项目：BM25+BGE 名次融合\n对照：BGE 单路",
         "字段匹配\n本项目：千问辅助\n对照：COMA",
         "实体匹配\n本项目：自适应融合\n对照：RecordLinkage",
         "错误检测\n本项目：来源锚点清洗第6版\n对照：Raha PVD+RVD",
@@ -276,7 +234,7 @@ def save_retrieval_chart(enhanced_retrieval: dict | None) -> Path:
     fig, ax = plt.subplots(figsize=(13.0, 7.2), facecolor="white")
     y = np.arange(len(rows))
     height = 0.28
-    project_bars = ax.barh(y - height / 2, project, height, color=BLUE, label="本项目重排增强", zorder=3)
+    project_bars = ax.barh(y - height / 2, project, height, color=BLUE, label="本项目名次融合", zorder=3)
     external_bars = ax.barh(y + height / 2, external, height, color="#B8C3D1", label="BGE 单路公开对照", zorder=2)
     label_bars(ax, project_bars)
     label_bars(ax, external_bars)
@@ -295,8 +253,8 @@ def save_retrieval_chart(enhanced_retrieval: dict | None) -> Path:
     ax.set_xlabel("nDCG@10（越高越好）", fontproperties=FONT, fontsize=10.5)
     style_axis(ax)
     ax.legend(loc="lower center", bbox_to_anchor=(0.5, -0.16), ncol=2, frameon=False, prop=FONT)
-    fig.suptitle("PB-01 科学检索：加入重排后的五集逐题对照", x=0.08, y=0.98, ha="left", fontsize=16, fontweight="bold", color=TEXT, fontproperties=FONT)
-    fig.text(0.08, 0.935, "同一公开语料与测试 qrels；重排提高了融合基线，但五集宏平均仍低于 BGE 单路。", ha="left", fontsize=9.8, color=MUTED, fontproperties=FONT)
+    fig.suptitle("PB-01 科学检索：名次融合的五集逐题对照", x=0.08, y=0.98, ha="left", fontsize=16, fontweight="bold", color=TEXT, fontproperties=FONT)
+    fig.text(0.08, 0.935, "同一公开语料与测试标注；名次融合的五任务宏平均高于 BGE 单路，SciDocs 仍低于对照。", ha="left", fontsize=9.8, color=MUTED, fontproperties=FONT)
     fig.text(0.08, 0.035, "右侧标签只表示本题在该公开任务上的高低，不代表临床有效性或全系统排名。", ha="left", fontsize=9.3, color=MUTED, fontproperties=FONT)
     fig.subplots_adjust(left=0.20, right=0.90, top=0.86, bottom=0.20)
     path = IMAGE_DIR / "public-retrieval-datasets-20260902.png"
@@ -307,7 +265,7 @@ def save_retrieval_chart(enhanced_retrieval: dict | None) -> Path:
 
 def save_failure_map() -> Path:
     rows = [
-        ("科学检索", "本项目 BGE 初检索 + 重排 0.3920；\n公开对照 BGE 单路 0.3880", "SciDocs、ArguAna\n没有额外增益；候选\n召回仍限制上限", "前排排序略有改善；\n适合优先查看高相关材料"),
+        ("科学检索", "本项目 BM25+BGE 名次融合 0.3915；\n公开对照 BGE 单路 0.3880", "SciDocs 仍低于 BGE；\n复杂语义关系和候选\n召回限制上限", "整体排序与覆盖略有改善；\n适合扩大相关材料覆盖"),
         ("字段匹配", "本项目千问辅助 0.9018；\n公开对照 COMA 0.7670", "三个任务低于项目规则；\n缩写、布尔列和\n重复值仍会误配", "语义改名更易对齐；\n医学字段继续规则复核"),
         ("实体匹配", "本项目自适应融合 0.7449；\n公开对照字符相似度方法 0.7440", "Walmart-Amazon 等\n表达变化大，召回和\n精度互有损失", "可提供候选对应关系；\n患者关联仍保留人工复核"),
         ("错误检测", "本项目来源锚点清洗第6版 0.9169；\n公开对照 Raha 0.8159", "Rayyan 的字符损坏和\n缺失语义信息仍不能\n由单表证据安全恢复", "有来源锚点时清洗更可靠；\n无证据值不自动猜测"),
@@ -369,7 +327,6 @@ def main() -> None:
     results = load_results()
     chart_results = load_latest_chart_results(results)
     enhanced_retrieval = load_enhanced_retrieval(results)
-    summary_path = save_enhanced_retrieval_summary(results, enhanced_retrieval)
     paths = [
         save_scorecard(chart_results, enhanced_retrieval),
         save_retrieval_chart(enhanced_retrieval),
@@ -381,8 +338,6 @@ def main() -> None:
     ]
     for path in paths:
         print(path)
-    if summary_path:
-        print(summary_path)
 
 
 if __name__ == "__main__":

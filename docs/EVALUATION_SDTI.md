@@ -83,7 +83,7 @@ data/output/evaluation/<evaluation_id>/report.md
 当前 `templates/` 已由 xsc 写入 held-out 正式考卷（retrieval 50 / field 26 / error 18）。
 对本卷的系统观察评测 ID 为 `official-candidate-20260829T132222Z`，**SDTI = 63.36**，
 `publish_allowed=false`，**不是** sealed `frozen_test`（manifest `frozen=false`，
-本次评分使用 `allow_reviewed_unfrozen=True`）。数字见 `docs/DATA_REPORT_20260829.md`。
+本次评分使用 `allow_reviewed_unfrozen=True`）。当前结果口径见 `docs/CURRENT_MAINLINE.md`。
 development 分册观察分（66.94）不得填入正式栏。
 
 上列 1–6 条仍是 sealed 终考门槛。未完成来源/规则复验与 `frozen=true` 之前，

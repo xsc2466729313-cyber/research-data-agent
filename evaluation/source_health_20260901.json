@@ -1,0 +1,92 @@
+{
+  "checked_at": "2026-09-01T14:32:51.069521+00:00",
+  "mode": "在线实时检查；未读取本地缓存",
+  "summary": {
+    "source_count": 8,
+    "available_count": 7,
+    "core_source_count": 5,
+    "core_available_count": 5
+  },
+  "sources": [
+    {
+      "name": "GDC／TCGA 乳腺癌项目",
+      "role": "结构化数据主链",
+      "available": true,
+      "http_status": 200,
+      "content_type": "application/json",
+      "elapsed_ms": 1330.35,
+      "url": "https://api.gdc.cancer.gov/status",
+      "reason": null
+    },
+    {
+      "name": "NCBI GEO",
+      "role": "结构化数据主链",
+      "available": true,
+      "http_status": 200,
+      "content_type": "text/html",
+      "elapsed_ms": 1567.52,
+      "url": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE76360",
+      "reason": null
+    },
+    {
+      "name": "cBioPortal",
+      "role": "结构化数据主链",
+      "available": true,
+      "http_status": 200,
+      "content_type": "application/json",
+      "elapsed_ms": 1147.87,
+      "url": "https://www.cbioportal.org/api/studies/brca_metabric",
+      "reason": null
+    },
+    {
+      "name": "ClinicalTrials.gov",
+      "role": "结构化数据主链",
+      "available": true,
+      "http_status": 200,
+      "content_type": "application/json",
+      "elapsed_ms": 1788.3,
+      "url": "https://clinicaltrials.gov/api/v2/studies?query.cond=Breast%20Cancer&pageSize=1&format=json",
+      "reason": null
+    },
+    {
+      "name": "CIViC",
+      "role": "结构化数据主链",
+      "available": true,
+      "http_status": 200,
+      "content_type": "application/json",
+      "elapsed_ms": 911.21,
+      "url": "https://civicdb.org/api/graphql",
+      "reason": null
+    },
+    {
+      "name": "NCBI BioSample",
+      "role": "样本元数据辅助来源",
+      "available": true,
+      "http_status": 200,
+      "content_type": "application/json",
+      "elapsed_ms": 959.04,
+      "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=biosample&term=breast%20cancer&retmode=json&retmax=1",
+      "reason": null
+    },
+    {
+      "name": "Europe PMC",
+      "role": "文献发现辅助来源",
+      "available": false,
+      "http_status": 504,
+      "content_type": "text/html",
+      "elapsed_ms": 17296.38,
+      "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=breast%20cancer&format=json&pageSize=1",
+      "reason": "状态码或返回格式不符合预期"
+    },
+    {
+      "name": "DepMap 官方 Figshare 发布",
+      "role": "细胞系资料增强来源",
+      "available": true,
+      "http_status": 200,
+      "content_type": "application/json",
+      "elapsed_ms": 1874.19,
+      "url": "https://api.figshare.com/v2/articles/27993248",
+      "reason": null
+    }
+  ]
+}

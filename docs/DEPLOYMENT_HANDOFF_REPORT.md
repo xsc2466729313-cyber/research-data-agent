@@ -32,7 +32,7 @@
 
 ```powershell
 git clone <新仓库地址>
-cd breast-cancer-research-agent-v2
+cd cancer-precision-data-agent
 Copy-Item .env.example .env
 docker compose down --remove-orphans
 docker compose build --pull --no-cache

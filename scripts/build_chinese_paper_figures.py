@@ -183,7 +183,7 @@ def save_retrieval_comparison(summary: dict, public_summary: dict) -> Path:
         "公开基线：BM25",
         "公开基线：BGE-small\n-en-v1.5",
         "本项目历史方法：\nBM25+BGE",
-        "本项目当前方法：\nBGE+CrossEncoder",
+        "本项目当前方法：\nBM25+BGE 名次融合",
     ]
     metric_keys = ["ndcg_at_10", "recall_at_100", "mrr_at_10"]
     metric_labels = ["前十条结果排序质量", "前 100 条结果召回率", "首个相关结果排序得分"]
@@ -203,11 +203,11 @@ def save_retrieval_comparison(summary: dict, public_summary: dict) -> Path:
     ax.legend(loc="upper center", ncol=3, frameon=False, prop=FONT)
     fig.suptitle("公开检索基线与本项目方法对照", x=0.08, y=0.958, ha="left", fontsize=19,
                  fontweight="bold", color=TEXT, fontproperties=FONT)
-    fig.text(0.08, 0.902, f"公开基线：BM25、BGE；本项目方法：历史组合与当前重排，共 {summary['retrieval']['query_count']:,} 条查询",
+    fig.text(0.08, 0.902, f"公开基线：BM25、BGE；本项目方法：历史分数融合与当前名次融合，共 {summary['retrieval']['query_count']:,} 条查询",
              ha="left", fontsize=11, color="#475569", fontproperties=FONT)
-    fig.text(0.08, 0.055, "本项目当前方法在 BGE 初检索后增加 CrossEncoder 重排，nDCG@10 宏平均为 0.3920。",
+    fig.text(0.08, 0.055, "本项目当前方法按开发集确定 BM25+BGE 名次融合，nDCG@10 宏平均为 0.3915。",
              ha="left", fontsize=10.0, color="#0F766E", fontweight="bold", fontproperties=FONT)
-    fig.text(0.08, 0.025, "公开基线 BGE 的 nDCG@10 宏平均为 0.3880；本项目当前方法提升 0.0041。",
+    fig.text(0.08, 0.025, "公开基线 BGE 的 nDCG@10 宏平均为 0.3880；本项目当前方法提升 0.0035。",
              ha="left", fontsize=9.8, color="#475569", fontproperties=FONT)
     fig.subplots_adjust(left=0.09, right=0.96, top=0.80, bottom=0.18)
     path = IMAGE_DIR / "retrieval-method-comparison-cn-20260831.png"

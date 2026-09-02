@@ -13,6 +13,8 @@ evaluation/smoke_results*/
 evaluation/planner_replacement_ablation_local/
 evaluation/results_qwen_review/
 .codex_spreadsheet_tmp/
+.tmp/
+tmp/
 node_modules/
 *.log
 runtime-logs/
@@ -24,7 +26,12 @@ evidence_delivery/
 goldset/breast_cancer/official_candidate/evaluation_runs/official-candidate-autonomous-*/
 goldset/breast_cancer/official_candidate/evaluation_runs/official-candidate-qwen-live-audited-*/
 
-# Public benchmark corpora and repeated run directories are reproducible from
-# the scripts and manifests; keep only curated summaries under evaluation/.
+# Public benchmark corpora and newly generated repeated runs stay local.
+# The small, report-linked evidence set already tracked by Git is retained.
 evaluation/public_benchmarks/runs/
 evaluation/closed_loop/*.json
+
+# Keep one reviewer-facing submission archive; package staging and historical
+# archives are generated artifacts and must not return to version control.
+deliverables/*
+!deliverables/多癌种精准治疗科研数据智能整合系统_论文及图示阅读包_20260904_最终.zip

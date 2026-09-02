@@ -1957,7 +1957,6 @@ function renderCompetitionReport(report) {
 
 const SYSTEM_EVALUATION_HISTORY_KEY = "brca-agent-system-evaluation-history-v1";
 let lastEvaluationOverview = null;
-let lastStratifiedEvaluation = null;
 let lastEvaluationSnapshot = null;
 const SYSTEM_EVAL_DIAGNOSTICS = [
   { name: "来源审计完整度", fallbackTarget: 85 },
@@ -2106,80 +2105,12 @@ function renderRetrievalProbe() {
 
 async function loadEvaluationOverview() {
   try {
-    const [overview, stratified] = await Promise.all([
-      readJson(await fetchApi("/api/evaluation/overview")),
-      readJson(await fetchApi("/api/evaluation/stratified")).catch(() => null),
-    ]);
-    lastEvaluationOverview = overview;
-    lastStratifiedEvaluation = stratified;
-    renderStratifiedEvaluation(stratified);
+    lastEvaluationOverview = await readJson(await fetchApi("/api/evaluation/overview"));
     return lastEvaluationOverview;
   } catch {
     lastEvaluationOverview = null;
     return null;
   }
-}
-
-function renderStratifiedEvaluation(report) {
-  const container = document.querySelector("#evaluation-stratified");
-  if (!container) return;
-  const strata = report?.development_retrieval_strata || {};
-  const comparison = report?.official_candidate_comparison || {};
-  const baseline = comparison.baseline?.metrics;
-  const winnerKey = Object.keys(comparison).find((key) => key !== "baseline") || "";
-  const winnerEntry = winnerKey ? comparison[winnerKey] : null;
-  const winner = winnerEntry?.metrics;
-  if (!Object.keys(strata).length && !baseline && !winner) {
-    container.innerHTML = "";
-    return;
-  }
-  const metric = (row, key) => row?.[key]?.value == null ? "—" : Number(row[key].value).toFixed(3);
-  const delta = (key) => baseline?.[key]?.value != null && winner?.[key]?.value != null
-    ? (Number(winner[key].value) - Number(baseline[key].value)).toFixed(3)
-    : "—";
-  const comparisonRows = [
-    ["Retrieval F1", metric(baseline, "retrieval_f1"), metric(winner, "retrieval_f1"), delta("retrieval_f1")],
-    ["Faithfulness", metric(baseline, "faithfulness"), metric(winner, "faithfulness"), delta("faithfulness")],
-    ["Error F1", metric(baseline, "error_f1"), metric(winner, "error_f1"), delta("error_f1")],
-    ["Repair accuracy", metric(baseline, "repair_accuracy"), metric(winner, "repair_accuracy"), delta("repair_accuracy")],
-    ["SDTI", metric(baseline, "sdti"), metric(winner, "sdti"), delta("sdti")],
-  ];
-  const stratumLabels = {
-    clinical_outcome: "临床结局任务",
-    patient_stratification: "患者分层任务",
-    knowledge_and_preclinical: "知识与临床前任务",
-    expression_discovery: "表达队列发现",
-  };
-  const strataEntries = Object.entries(strata);
-  const strataRows = strataEntries.map(([name, row]) => `<tr><td><strong>${escapeHtml(stratumLabels[name] || name)}</strong><small>${row.question_count} 题</small></td><td>${row.tp}</td><td>${row.fp}</td><td>${row.fn}</td><td>${(Number(row.f1) * 100).toFixed(1)}%</td></tr>`).join("");
-  const comparisonTable = comparisonRows.map(([name, before, after, change]) => `<tr><td>${escapeHtml(name)}</td><td>${before}</td><td>${after}</td><td class="${Number(change) >= 0 ? "is-positive" : "is-negative"}">${change}</td></tr>`).join("");
-  const queryRows = Object.entries(report?.query_understanding_ablation || {})
-    .filter(([, row]) => row.status === "EVALUATED")
-    .map(([name, row]) => `<tr><td>${escapeHtml(name)}</td><td>${Number(row.ndcg_at_10).toFixed(3)}</td><td>${Number(row.recall_at_100).toFixed(3)}</td><td>${Number(row.mean_latency_ms).toFixed(1)} ms</td></tr>`).join("");
-  const retrievalRows = Object.entries(report?.retrieval_layer || {})
-    .map(([name, row]) => `<tr><td>${escapeHtml(name)}</td><td>${Number(row.ndcg_at_10_macro).toFixed(3)}</td><td>${Number(row.recall_at_100_macro).toFixed(3)}</td><td>${Number(row.mean_latency_ms_macro).toFixed(1)} ms</td></tr>`).join("");
-  const plannerRows = Object.entries(report?.planner_replacement_ablation || {})
-    .map(([name, row]) => `<tr><td>${escapeHtml(name)}</td><td>${row.cases}</td><td>${Number(row.metrics?.["recall@3"]).toFixed(3)}</td><td>${Number(row.metrics?.["ndcg@3"]).toFixed(3)}</td><td>${Number(row.metrics?.avg_latency_ms).toFixed(0)} ms</td></tr>`).join("");
-  const meanF1 = strataEntries.length
-    ? strataEntries.reduce((sum, [, row]) => sum + Number(row.f1 || 0), 0) / strataEntries.length
-    : null;
-  const currentSdti = winner?.sdti?.value;
-  const baselineSdti = baseline?.sdti?.value;
-  container.innerHTML = `<div class="evaluation-report-collection">
-    <details class="evaluation-report-card">
-      <summary><span><strong>分层评测报告</strong><small>${strataEntries.length} 个任务分层 · Macro F1 ${meanF1 == null ? "—" : (meanF1 * 100).toFixed(1) + "%"}</small></span><b>查看报告</b></summary>
-      <div class="report-card-body"><p>开发集按研究任务类型分层统计，便于定位召回短板；该报告不代表封存测试成绩。</p><div class="table-wrap"><table><thead><tr><th>任务分层</th><th>TP</th><th>FP</th><th>FN</th><th>F1</th></tr></thead><tbody>${strataRows}</tbody></table></div></div>
-    </details>
-    <details class="evaluation-report-card">
-      <summary><span><strong>消融实验报告</strong><small>候选卷 SDTI ${baselineSdti == null ? "—" : Number(baselineSdti).toFixed(2)} → ${currentSdti == null ? "—" : Number(currentSdti).toFixed(2)}</small></span><b>查看报告</b></summary>
-      <div class="report-card-body"><p>仅汇总已完成的真实运行产物；未执行的实验不推算结果。当前候选版本：${escapeHtml(winnerEntry?.evaluation_id || "未记录")}</p>
-      <h3>候选版本迭代</h3><div class="table-wrap"><table><thead><tr><th>指标</th><th>基线</th><th>当前</th><th>变化</th></tr></thead><tbody>${comparisonTable}</tbody></table></div>
-      ${retrievalRows ? `<h3>检索层对照</h3><div class="table-wrap"><table><thead><tr><th>检索方案</th><th>nDCG@10</th><th>Recall@100</th><th>平均延迟</th></tr></thead><tbody>${retrievalRows}</tbody></table></div>` : ""}
-      ${queryRows ? `<h3>查询理解消融</h3><div class="table-wrap"><table><thead><tr><th>方案</th><th>nDCG@10</th><th>Recall@100</th><th>平均延迟</th></tr></thead><tbody>${queryRows}</tbody></table></div>` : ""}
-      ${plannerRows ? `<h3>中间规划模型替换</h3><div class="table-wrap"><table><thead><tr><th>实验组</th><th>样例数</th><th>Recall@3</th><th>nDCG@3</th><th>平均延迟</th></tr></thead><tbody>${plannerRows}</tbody></table></div>` : ""}
-      </div>
-    </details>
-  </div>`;
 }
 
 function hasCurrentTask() {

@@ -152,6 +152,63 @@ class HybridSemanticBenchmarkIndex:
         return [self._rank_scores(query, scores, top_k) for query, scores in zip(queries, dense_scores)]
 
 
+class ReciprocalRankFusionBenchmarkIndex:
+    """Fuse lexical and dense rankings without comparing their score scales."""
+
+    method_id = "vnext_bm25_bge_rrf_v1"
+    method_label = "VNext BM25 + BGE rank fusion"
+    estimated_cost_usd = 0.0
+    qwen_invocation_rate = 0.0
+
+    def __init__(
+        self,
+        lexical: Any,
+        semantic: SentenceTransformerBenchmarkIndex,
+        *,
+        lexical_weight: float = 0.5,
+        dense_weight: float = 0.5,
+        rrf_k: int = 60,
+        candidate_pool: int = 100,
+    ) -> None:
+        self.lexical = lexical
+        self.semantic = semantic
+        self.doc_ids = semantic.doc_ids
+        self.documents = semantic.documents
+        self.lexical_weight = lexical_weight
+        self.dense_weight = dense_weight
+        self.rrf_k = rrf_k
+        self.candidate_pool = candidate_pool
+        self.index_build_seconds = semantic.index_build_seconds
+
+    def reset_query_cache(self) -> None:
+        self.semantic.reset_query_cache()
+
+    def rank(self, query: str, top_k: int) -> list[str]:
+        lexical_ids = self.lexical.rank(query, self.candidate_pool)
+        dense_ids = self.semantic.rank(query, self.candidate_pool)
+        scores: dict[str, float] = {}
+        for rank, doc_id in enumerate(lexical_ids, start=1):
+            scores[doc_id] = scores.get(doc_id, 0.0) + self.lexical_weight / (self.rrf_k + rank)
+        for rank, doc_id in enumerate(dense_ids, start=1):
+            scores[doc_id] = scores.get(doc_id, 0.0) + self.dense_weight / (self.rrf_k + rank)
+        ranked = sorted(scores, key=lambda doc_id: (-scores[doc_id], doc_id))
+        return ranked[:top_k]
+
+    def rank_many(self, queries: list[str], top_k: int) -> list[list[str]]:
+        dense_rankings = self.semantic.rank_many(queries, self.candidate_pool)
+        output: list[list[str]] = []
+        for query, dense_ids in zip(queries, dense_rankings):
+            lexical_ids = self.lexical.rank(query, self.candidate_pool)
+            scores: dict[str, float] = {}
+            for rank, doc_id in enumerate(lexical_ids, start=1):
+                scores[doc_id] = scores.get(doc_id, 0.0) + self.lexical_weight / (self.rrf_k + rank)
+            for rank, doc_id in enumerate(dense_ids, start=1):
+                scores[doc_id] = scores.get(doc_id, 0.0) + self.dense_weight / (self.rrf_k + rank)
+            ranked = sorted(scores, key=lambda doc_id: (-scores[doc_id], doc_id))
+            output.append(ranked[:top_k])
+        return output
+
+
 class CrossEncoderBenchmarkIndex:
     method_id = "vnext_bm25_bge_cross_encoder_v1"
     method_label = "VNext BM25 + BGE + CrossEncoder"

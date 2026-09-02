@@ -1,6 +1,6 @@
 version: "2.0"
 name: unified_research_data_agent_evaluation
-project: breast-cancer-research-agent
+project: cancer-precision-data-agent
 
 frozen_core:
   sdti_formula_source: docs/06_评测指标与SDTI.md

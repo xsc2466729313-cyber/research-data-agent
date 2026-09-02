@@ -27,6 +27,7 @@ METHOD_ORDER = [
     "project_hybrid_hashing_lexical_v1",
     "vnext_bge_small_en_v1_5",
     "vnext_bm25_bge_fusion_v1",
+    "vnext_bm25_bge_rrf_v1",
     "vnext_bm25_bge_cross_encoder_v1",
     "vnext_dev_selected_retrieval_v1",
 ]
@@ -36,6 +37,7 @@ METHOD_LABELS = {
     "project_hybrid_hashing_lexical_v1": "项目方法：哈希混合检索",
     "vnext_bge_small_en_v1_5": "公开基线：BGE-small-en-v1.5",
     "vnext_bm25_bge_fusion_v1": "项目方法：BM25+BGE 融合",
+    "vnext_bm25_bge_rrf_v1": "项目方法：BM25+BGE 名次融合",
     "vnext_bm25_bge_cross_encoder_v1": "项目方法：BGE 初检索+交叉重排",
     "vnext_dev_selected_retrieval_v1": "项目方法：开发集选择",
 }
@@ -49,6 +51,7 @@ CORE_METHODS = {
 BATCH_TIMED_METHODS = {
     "vnext_bge_small_en_v1_5",
     "vnext_bm25_bge_fusion_v1",
+    "vnext_bm25_bge_rrf_v1",
     "vnext_bm25_bge_cross_encoder_v1",
     "vnext_dev_selected_retrieval_v1",
 }
@@ -83,19 +86,21 @@ DISPLAY_COLUMNS = (
 )
 
 
-def load_runs() -> dict[str, dict[str, Any]]:
-    latest: dict[str, tuple[str, dict[str, Any]]] = {}
+def load_runs() -> dict[str, dict[str, tuple[str, dict[str, Any], dict[str, Any]]]]:
+    latest: dict[str, dict[str, tuple[str, dict[str, Any], dict[str, Any]]]] = {}
     for path in RUN_ROOT.glob("*/run.json"):
         payload = json.loads(path.read_text(encoding="utf-8"))
         dataset = payload.get("dataset", {}).get("dataset_id")
         results = payload.get("results", {})
         if not dataset or not dataset.startswith("beir_") or not results:
             continue
-        complete = any("hit_rate_at_1" in result for result in results.values())
-        marker = f"{int(complete)}:{payload.get('created_at', '')}"
-        if dataset not in latest or marker > latest[dataset][0]:
-            latest[dataset] = (marker, payload)
-    return {dataset: payload for dataset, (_marker, payload) in latest.items()}
+        for method_id, result in results.items():
+            complete = "hit_rate_at_1" in result
+            marker = f"{int(complete)}:{payload.get('created_at', '')}"
+            current = latest.setdefault(dataset, {}).get(method_id)
+            if current is None or marker > current[0]:
+                latest[dataset][method_id] = (marker, payload, result)
+    return latest
 
 
 def row(dataset: str, method_id: str, result: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
@@ -141,10 +146,12 @@ def main() -> None:
     runs = load_runs()
     rows: list[dict[str, Any]] = []
     for dataset in sorted(runs):
-        payload = runs[dataset]
         for method_id in METHOD_ORDER:
-            result = payload.get("results", {}).get(method_id)
-            if result and "hit_rate_at_1" in result:
+            item = runs[dataset].get(method_id)
+            if item is None:
+                continue
+            _marker, payload, result = item
+            if "hit_rate_at_1" in result:
                 rows.append(row(dataset, method_id, result, payload))
 
     common_dataset_ids = sorted(
@@ -179,7 +186,8 @@ def main() -> None:
 
     dataset_status = []
     for dataset in sorted(set(runs) | {"beir_quora"}):
-        payload = runs.get(dataset)
+        dataset_runs = runs.get(dataset, {})
+        payload = next((item[1] for item in dataset_runs.values()), None)
         dataset_rows = [item for item in rows if item["dataset"] == dataset]
         dataset_status.append({
             "dataset": dataset,
@@ -205,7 +213,7 @@ def main() -> None:
             "宏平均先在每个数据集内计算，再对已完成数据集等权平均；不把不同数据集的分数拼成一个准确率。",
             "命中率表示前 k 条中至少出现一个相关文献的问题比例；召回率表示前 k 条找回该问题全部相关文献的平均比例。",
             "TREC-COVID 已完成关键词三方法；其语义方法因十几万篇文献的 CPU 建索引成本过高，本轮未形成结果，不以估计值填充。",
-            "Quora 已登记官方来源但本轮未形成完整运行，不纳入宏平均。",
+            "Quora 已完成 BM25 与调参 BM25 的完整测试，但语义方法未形成完整运行，只列分层结果；未完成方法不会用估算值填充。",
             "BGE 和 BM25+BGE 的批量接口只记录批次均摊用时，未逐题测量标准差和 P95；表中明确标注，不把 0 当作波动为零。",
         ],
     }
@@ -225,7 +233,7 @@ def main() -> None:
         "",
         "## 共同任务宏平均总表",
         "",
-        "主表只比较所有五种基础方法都已完成的共同任务；当前共同任务为 SciFact、NFCorpus、SciDocs 和 ArguAna。TREC-COVID 的新增医学结果另列，避免把不同测试集混在同一个宏平均里。",
+        "主表共同任务为五个数据集：SciFact、NFCorpus、SciDocs、ArguAna 和 FiQA；Quora 已完成关键词方法对照但缺少语义方法，不纳入共同宏平均；TREC-COVID 的新增医学结果另列。",
         "| 方法 | 数据集数 | 查询数 | nDCG@10 | 命中@1 | 命中@3 | 命中@5 | 命中@10 | 召回@10 | 召回@100 | 首条排序 | 平均用时(ms) | 用时标准差(ms) | P95用时(ms) |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
@@ -276,11 +284,12 @@ def main() -> None:
         "## 复现入口",
         "",
         "```powershell",
+        "python scripts\\run_public_retrieval_benchmark.py --dataset beir_scifact --method bm25 --method project_bm25_tuned_v2 --method vnext_semantic --method vnext_hybrid --method vnext_rrf",
         "python scripts\\run_public_retrieval_benchmark.py --dataset beir_trec_covid --method bm25 --method project_bm25_tuned_v2 --method project_hybrid",
         "python scripts\\build_public_retrieval_matrix.py",
         "```",
         "",
-        "原始运行目录：`evaluation/public_benchmarks/runs/`；每次运行的 `run.json` 保存数据来源、测试划分、哈希、代码版本和逐项指标。",
+        "报告引用的运行证据保存在 `evaluation/public_benchmarks/runs/`；每个 `run.json` 保存数据来源、测试划分、哈希、代码版本和逐项指标。",
         "",
     ]
     MD_OUTPUT.write_text("\n".join(lines), encoding="utf-8")

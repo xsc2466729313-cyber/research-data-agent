@@ -1,0 +1,58 @@
+{
+  "evaluation_id": "20260902T212546Z_beir_nfcorpus",
+  "evaluation_version": "public-retrieval-v2",
+  "layer": "external_benchmarks",
+  "stage": "retrieval",
+  "dataset": {
+    "dataset_id": "beir_nfcorpus",
+    "source_id": "beir:nfcorpus",
+    "source_url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/nfcorpus.zip",
+    "archive_sha256": "efe5be03f8c5b86a5870102d0599d227c8c6e2484328e68c6522560385671b0b",
+    "corpus_sha256": "10cc83ef1826b1425e6a87090b5140b39b27755d5a27e48215a88611c899991f",
+    "queries_sha256": "d024e6621b84925d485ae473d316a0c3af31c62c8068a59fb29d22f7613aef2a",
+    "qrels_test_sha256": "f8fba6ef3d4dd9c3a242a8ba4ae38276fc3622fce7dcbae764766d564542fd2a",
+    "qrels_train_sha256": "6336b80f9bffc4f063f3aa450047ad35c0b7c534efe4a6ba35e16dbace047f6a",
+    "qrels_dev_sha256": "b1d38b5e8f78c4a5820bce2b7ec2db54911d7690dc601e76811846b211180bd8"
+  },
+  "split": "test",
+  "code_revision": "4c505bdddfa67842df311f5870413d260cb2abbb",
+  "created_at": "2026-09-02T21:25:46.254603+00:00",
+  "results": {
+    "vnext_bm25_bge_rrf_v1": {
+      "method_label": "VNext BM25 + BGE rank fusion",
+      "ndcg_at_10": 0.34272867216582503,
+      "precision_at_1": 0.47368421052631576,
+      "precision_at_3": 0.3642930856553147,
+      "precision_at_5": 0.32074303405572757,
+      "precision_at_10": 0.25077399380804954,
+      "recall_at_1": 0.05596170956167431,
+      "recall_at_3": 0.09980977035343626,
+      "recall_at_5": 0.1257133388956509,
+      "recall_at_10": 0.16541088594094877,
+      "recall_at_100": 0.3069497524613785,
+      "hit_rate_at_1": 0.47368421052631576,
+      "hit_rate_at_3": 0.6068111455108359,
+      "hit_rate_at_5": 0.6594427244582043,
+      "hit_rate_at_10": 0.7120743034055728,
+      "mrr_at_10": 0.5535751142562289,
+      "mean_latency_ms": 3.9058504645076892,
+      "std_latency_ms": 9.692616653723244e-05,
+      "p50_latency_ms": 3.9058647074537705,
+      "p95_latency_ms": 3.906064708976669,
+      "query_count": 323,
+      "index_build_seconds": 7.6780305999855045,
+      "estimated_cost_usd": 0.0,
+      "qwen_invocation_rate": 0.0
+    }
+  },
+  "method_configs": {
+    "vnext_bm25_bge_rrf_v1": {
+      "lexical_weight": 0.25,
+      "dense_weight": 0.75,
+      "rrf_k": 30,
+      "fit_split": "dev",
+      "fit_ndcg_at_10": 0.322130280948699
+    }
+  },
+  "scope_notice": "These are retrieval-layer scores, not full-agent, clinical-validity, or SDTI scores."
+}

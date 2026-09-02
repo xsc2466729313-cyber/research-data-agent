@@ -1,0 +1,70 @@
+{
+  "evaluation_id": "20260902T110247Z_qwen_valentine_public_art_inventory",
+  "evaluation_version": "public-schema_matching-qwen-v1",
+  "layer": "external_benchmarks",
+  "stage": "schema_matching",
+  "dataset": {
+    "dataset_id": "valentine_public_art_inventory",
+    "source_id": "github:delftdata/valentine",
+    "source_url": "https://github.com/delftdata/valentine/tree/5d5163f04da304985bd51a476ccf7653de3979c3/experiments/data/Housing_&_Development__Public_Design_Commission_Outdoor_Public_Art_Invent",
+    "source_commit": "5d5163f04da304985bd51a476ccf7653de3979c3",
+    "source_file_url": "https://raw.githubusercontent.com/delftdata/valentine/5d5163f04da304985bd51a476ccf7653de3979c3/experiments/data/Housing_%26_Development__Public_Design_Commission_Outdoor_Public_Art_Invent/source_table.csv",
+    "target_file_url": "https://raw.githubusercontent.com/delftdata/valentine/5d5163f04da304985bd51a476ccf7653de3979c3/experiments/data/Housing_%26_Development__Public_Design_Commission_Outdoor_Public_Art_Invent/target_table.csv",
+    "ground_truth_url": "https://raw.githubusercontent.com/delftdata/valentine/5d5163f04da304985bd51a476ccf7653de3979c3/experiments/data/Housing_%26_Development__Public_Design_Commission_Outdoor_Public_Art_Invent/ground_truth.json",
+    "source_table_sha256": "86bbb09d72cfbcc9fc1713acf1663be3a8d6364a69ae5f4146c99517df73e2a8",
+    "target_table_sha256": "de3418d5d4d950a8045c8044ca57e1934f20051a105a1c92c6951b4f51f3f596",
+    "ground_truth_sha256": "233e18480f71b7fb9268820823eb1e3fd9e7ccc9250f694f9582ce2a8580414d",
+    "test_sha256": "233e18480f71b7fb9268820823eb1e3fd9e7ccc9250f694f9582ce2a8580414d"
+  },
+  "split": "test",
+  "code_revision": "dcd3365520a361a57dc148444b1b3a7ff775d175",
+  "created_at": "2026-09-02T11:02:47.535069+00:00",
+  "model": {
+    "provider": "qwen",
+    "model": "qwen3.8-max"
+  },
+  "audit": {
+    "api_calls": 1,
+    "successful_calls": 1,
+    "failed_calls": 0,
+    "fallback_items": 0,
+    "qwen_items": 1,
+    "total_items": 1,
+    "batch_size": 1,
+    "model": "qwen3.8-max",
+    "errors": []
+  },
+  "baseline_method": {
+    "method": "project_schema_v3",
+    "f1": 0.7407407407407408
+  },
+  "results": {
+    "qwen_schema": {
+      "precision": 0.8,
+      "recall": 0.8,
+      "f1": 0.8000000000000002,
+      "true_positive": 12,
+      "false_positive": 3,
+      "false_negative": 3,
+      "predicted_count": 15,
+      "gold_count": 15,
+      "source_column_count": 24,
+      "target_column_count": 34,
+      "runtime_ms": 0.0
+    },
+    "project_schema_v3": {
+      "precision": 0.8333333333333334,
+      "recall": 0.6666666666666666,
+      "f1": 0.7407407407407408,
+      "true_positive": 10,
+      "false_positive": 2,
+      "false_negative": 5,
+      "predicted_count": 12,
+      "gold_count": 15,
+      "source_column_count": 24,
+      "target_column_count": 34,
+      "runtime_ms": 49.33540000638459
+    }
+  },
+  "scope_notice": "Generic public matching layer result; not a clinical patient identity or SDTI result."
+}

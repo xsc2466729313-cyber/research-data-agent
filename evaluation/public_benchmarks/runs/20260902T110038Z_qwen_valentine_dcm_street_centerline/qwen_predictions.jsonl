@@ -1,0 +1,5 @@
+{"source_column": "roadway_typ", "target_column": "roadway_typ", "confidence": 1.0, "reason": "列名完全一致，样例值均为道路类型描述（如Surface St/Surface_ST），语义和值形态匹配。", "latency_ms": 5993.652}
+{"source_column": "street_nm", "target_column": "street_nm", "confidence": 1.0, "reason": "列名完全一致，样例值均为具体街道名称，内容完全对应。", "latency_ms": 5993.661}
+{"source_column": "borough", "target_column": "borough", "confidence": 1.0, "reason": "列名完全一致，样例值均为纽约行政区名称，内容完全对应。", "latency_ms": 5993.662}
+{"source_column": "record_st", "target_column": "record_st", "confidence": 0.95, "reason": "列名完全一致，虽样例值格式不同（True vs Y），但均表示记录状态的布尔/标志字段，语义高度一致。", "latency_ms": 5993.663}
+{"source_column": "STAIR_ST", "target_column": "stair_st", "confidence": 0.98, "reason": "列名仅大小写差异，样例值均为'N'，表示楼梯状态标志，确认为同一字段。", "latency_ms": 5993.664}

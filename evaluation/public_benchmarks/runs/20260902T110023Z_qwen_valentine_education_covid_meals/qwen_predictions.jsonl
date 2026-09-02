@@ -1,0 +1,5 @@
+{"source_column": "UrbanZone", "target_column": "city", "confidence": 1.0, "reason": "样例值完全一致，均为纽约市行政区名称（Brooklyn, Queens等），语义相同", "latency_ms": 5404.95}
+{"source_column": "SanFacID", "target_column": "sfcode", "confidence": 1.0, "reason": "样例值逐行完全匹配，均为5位数字设施编码，SanFac即Sanitation Facility缩写对应sfcode", "latency_ms": 5404.961}
+{"source_column": "bldgcode", "target_column": "bldgcode", "confidence": 1.0, "reason": "列名与样例值完全一致，均为字母+数字组合的建筑代码", "latency_ms": 5404.963}
+{"source_column": "district", "target_column": "district", "confidence": 0.95, "reason": "语义相同，source含'District '前缀而target为纯数字，但数值一一对应", "latency_ms": 5404.965}
+{"source_column": "location", "target_column": "siteaddress", "confidence": 1.0, "reason": "样例值逐行完全一致，均为街道地址字符串", "latency_ms": 5404.966}

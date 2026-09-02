@@ -1,0 +1,49 @@
+{
+  "evaluation_id": "20260902T210341Z_beir_quora",
+  "evaluation_version": "public-retrieval-v2",
+  "layer": "external_benchmarks",
+  "stage": "retrieval",
+  "dataset": {
+    "dataset_id": "beir_quora",
+    "source_id": "beir:quora",
+    "source_url": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/quora.zip",
+    "archive_sha256": "56aacd9dcc4d9c093b63f175afdda0e21cbc8442ecf6c717d09de7b358d77531",
+    "corpus_sha256": "e2586c8e2f09c994a03d8e77842072b0f67f6f48403768be745157579d74aae4",
+    "queries_sha256": "760e53709ef5ae73e82a3a651111c49dfb837b3a2f803559b79246b57187a14b",
+    "qrels_test_sha256": "3c5b3e6bd9a26ecf67271bf0f856aa87cc4e71fa3665b32cc0ec906d7711fddb",
+    "qrels_dev_sha256": "9a53340e9703f5a529d3d1a0a573387e8255e10d656953d30df03736a859e409"
+  },
+  "split": "test",
+  "code_revision": "4c505bdddfa67842df311f5870413d260cb2abbb",
+  "created_at": "2026-09-02T21:03:41.573161+00:00",
+  "results": {
+    "bm25_local_reference": {
+      "method_label": "BM25 local reference",
+      "ndcg_at_10": 0.7392845285822222,
+      "precision_at_1": 0.6517,
+      "precision_at_3": 0.3031333333333333,
+      "precision_at_5": 0.20152,
+      "precision_at_10": 0.11202999999999999,
+      "recall_at_1": 0.567516772758094,
+      "recall_at_3": 0.7290620959493525,
+      "recall_at_5": 0.7826115925546749,
+      "recall_at_10": 0.8412066528511841,
+      "recall_at_100": 0.9485671983944399,
+      "hit_rate_at_1": 0.6517,
+      "hit_rate_at_3": 0.7991,
+      "hit_rate_at_5": 0.8439,
+      "hit_rate_at_10": 0.8929,
+      "mrr_at_10": 0.7346675396825397,
+      "mean_latency_ms": 12.11363240990031,
+      "std_latency_ms": 5.466088838998244,
+      "p50_latency_ms": 11.502500012284145,
+      "p95_latency_ms": 21.53199998429045,
+      "query_count": 10000,
+      "index_build_seconds": 0.0,
+      "estimated_cost_usd": 0.0,
+      "qwen_invocation_rate": 0.0
+    }
+  },
+  "method_configs": {},
+  "scope_notice": "These are retrieval-layer scores, not full-agent, clinical-validity, or SDTI scores."
+}

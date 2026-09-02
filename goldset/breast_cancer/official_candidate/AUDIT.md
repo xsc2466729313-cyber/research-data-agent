@@ -136,4 +136,4 @@
 
 - 正式入口 `goldset/templates/` 已有 held-out 行，并已对本卷跑出 SDTI 63.36。
 - 评测使用 `allow_reviewed_unfrozen=True`，因为来源复验、规则复验与 `frozen=true` 仍未做；这不是 sealed `frozen_test`。
-- 安全门 FAIL（Faithfulness < 90%；5 个高风险问题未解决）。数字见 `docs/DATA_REPORT_20260829.md`。
+- 初始基线安全门 FAIL（Faithfulness < 90%；5 个高风险问题未解决）。当前结果口径见 `docs/CURRENT_MAINLINE.md`。

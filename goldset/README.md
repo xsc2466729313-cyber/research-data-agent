@@ -24,7 +24,7 @@
 
 `goldset/breast_cancer/development/` 是已审核的 development 分册（千问 LIVE 观察 SDTI 66.94），**不是正式入口**，其观察分不得填入正式栏。
 
-详细接口与审核门槛见 `docs/EVALUATION_SDTI.md`。数据对照见 `docs/DATA_REPORT_20260829.md`。
+详细接口与审核门槛见 `docs/EVALUATION_SDTI.md`。当前结果口径见 `docs/CURRENT_MAINLINE.md`。
 
 ## 阶段 07 使用方式
 

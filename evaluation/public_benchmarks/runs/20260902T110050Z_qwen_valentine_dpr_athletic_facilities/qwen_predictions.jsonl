@@ -1,0 +1,9 @@
+{"source_column": "hockey", "target_column": "hockey", "confidence": 1.0, "reason": "列名完全一致，且均为布尔/0值表示运动设施存在性", "latency_ms": 10446.43}
+{"source_column": "maintenanceagreement", "target_column": "maintenanceagreement", "confidence": 1.0, "reason": "列名完全一致，样例值均为0/1或True/False表示协议状态", "latency_ms": 10446.439}
+{"source_column": "gispropnum", "target_column": "gispropnum", "confidence": 1.0, "reason": "列名完全一致，样例值格式(M111, Q007等)完全匹配", "latency_ms": 10446.441}
+{"source_column": "field_lighted_new", "target_column": "field_lighted", "confidence": 0.95, "reason": "语义相同，均表示场地照明状态，new后缀暗示版本更新但核心含义一致，样例值分布吻合", "latency_ms": 10446.442}
+{"source_column": "Volly", "target_column": "volleyball", "confidence": 0.9, "reason": "Volly是volleyball的常见缩写，样例值均为0/False表示设施标识", "latency_ms": 10446.442}
+{"source_column": "tbl_track_and_field", "target_column": "track_and_field", "confidence": 0.9, "reason": "tbl_为表名前缀，核心语义track_and_field一致，样例值均为0/False", "latency_ms": 10446.443}
+{"source_column": "adult_football_id", "target_column": "adult_football", "confidence": 0.85, "reason": "source中AFB/NONE对应target中True/False，均标识成人橄榄球设施，id后缀不影响核心语义", "latency_ms": 10446.444}
+{"source_column": "SysRef", "target_column": "system", "confidence": 0.95, "reason": "样例值完全一致(M111-BASKETBALL-4等)，SysRef即System Reference的缩写", "latency_ms": 10446.445}
+{"source_column": "accessible_code", "target_column": "accessible", "confidence": 0.8, "reason": "code为编码形式(0)，target为布尔形式，均表示无障碍设施状态，语义对应", "latency_ms": 10446.447}

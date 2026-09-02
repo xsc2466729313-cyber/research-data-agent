@@ -1,0 +1,10 @@
+{"source_column": "complaint_id", "target_column": "complaint_id", "confidence": 1.0, "reason": "列名完全一致，样例值完全匹配", "latency_ms": 9699.562}
+{"source_column": "unique_key", "target_column": "unique_key", "confidence": 1.0, "reason": "列名完全一致，样例值完全匹配", "latency_ms": 9699.572}
+{"source_column": "nta", "target_column": "nta", "confidence": 1.0, "reason": "列名完全一致，样例值（社区名称）完全匹配", "latency_ms": 9699.573}
+{"source_column": "bin", "target_column": "bin", "confidence": 1.0, "reason": "列名完全一致，样例值（建筑识别号）完全匹配", "latency_ms": 9699.573}
+{"source_column": "bbl", "target_column": "bbl", "confidence": 1.0, "reason": "列名完全一致，样例值（Borough-Block-Lot）完全匹配", "latency_ms": 9699.574}
+{"source_column": "BUILDING_ID", "target_column": "building_id", "confidence": 1.0, "reason": "列名仅大小写差异，样例值完全匹配", "latency_ms": 9699.575}
+{"source_column": "LNG_AXIS", "target_column": "longitude", "confidence": 0.95, "reason": "LNG为longitude缩写，样例值均为纽约市经度范围且数值对应", "latency_ms": 9699.576}
+{"source_column": "ISSUE_ID", "target_column": "problem_id", "confidence": 0.95, "reason": "Issue与Problem为同义词，样例ID值完全匹配", "latency_ms": 9699.577}
+{"source_column": "problem_duplicate_flag", "target_column": "problem_duplicate_flag", "confidence": 0.98, "reason": "列名一致，虽源为True/False目标为Y/N但语义相同且一一对应", "latency_ms": 9699.578}
+{"source_column": "STAT_TS", "target_column": "complaint_status_date", "confidence": 0.92, "reason": "STAT_TS(状态时间戳)与complaint_status_date日期部分高度吻合，均表示状态变更时间", "latency_ms": 9699.579}

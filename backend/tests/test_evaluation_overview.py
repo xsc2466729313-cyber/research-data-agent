@@ -165,8 +165,6 @@ def test_internal_evaluation_is_removed_from_product_frontend() -> None:
     assert "非正式 SDTI" not in script
     assert "读法：" not in script
     assert "v=20260830-research-workbench-5" in html
-    report = ROOT / "evaluation" / "agent_stratified_ablation_20260829" / "report.md"
-    assert report.is_file()
 
 
 def test_result_presentation_does_not_posterize_empty_or_pending_states() -> None:

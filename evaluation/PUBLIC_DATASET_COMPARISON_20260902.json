@@ -10,7 +10,7 @@
   },
   "headline": {
     "problem_understanding_macro_span_f1": 0.5521925947129488,
-    "retrieval_macro_ndcg_at_10": 0.3920223343760751,
+    "retrieval_macro_ndcg_at_10": 0.39146259967195324,
     "schema_qwen_macro_f1": 0.9018,
     "entity_project_macro_f1": 0.7449484358677432,
     "cleaning_v6_macro_cell_f1": 0.9169169359070045
@@ -31,15 +31,15 @@
     "source_ids": ["beir:scifact", "beir:nfcorpus", "beir:scidocs", "beir:arguana", "beir:fiqa"],
     "split": "test",
     "metric": "nDCG@10",
-    "project_method": "BGE-small-en-v1.5 initial retrieval + ms-marco-MiniLM-L6-v2 CrossEncoder reranking on tasks with development labels",
+    "project_method": "BM25+BGE reciprocal-rank fusion; weights and fusion constant selected on train/dev qrels",
     "baseline_method": "BGE-small-en-v1.5",
-    "macro": {"project_ndcg_at_10": 0.3920223343760751, "baseline_ndcg_at_10": 0.3879530473291564, "project_recall_at_100": 0.6553889049236642, "project_mrr_at_10": 0.45039992096450476},
+    "macro": {"project_ndcg_at_10": 0.39146259967195324, "baseline_ndcg_at_10": 0.3879530473291564, "project_recall_at_100": 0.667723515389135, "project_mrr_at_10": 0.44302594370387227},
     "datasets": [
-      {"dataset": "beir_scifact", "project_ndcg_at_10": 0.6872163518596063, "baseline_ndcg_at_10": 0.6803406629947804, "project_recall_at_100": 0.9383333333333334, "project_mrr_at_10": 0.6584775132275132, "run": "evaluation/public_benchmarks/runs/20260902T060718Z_beir_scifact/run.json"},
-      {"dataset": "beir_nfcorpus", "project_ndcg_at_10": 0.3450072040724718, "baseline_ndcg_at_10": 0.3315364577027044, "project_recall_at_100": 0.29745793338621335, "project_mrr_at_10": 0.558735072976559, "run": "evaluation/public_benchmarks/runs/20260902T061206Z_beir_nfcorpus/run.json"},
-      {"dataset": "beir_scidocs", "project_ndcg_at_10": 0.1909828805144547, "baseline_ndcg_at_10": 0.1909828805144547, "project_recall_at_100": 0.43118333333333336, "project_mrr_at_10": 0.335090873015873, "run": "evaluation/public_benchmarks/runs/20260902T061226Z_beir_scidocs/run.json"},
-      {"dataset": "beir_arguana", "project_ndcg_at_10": 0.3835643108025087, "baseline_ndcg_at_10": 0.3835643108025087, "project_recall_at_100": 0.968705547652916, "project_mrr_at_10": 0.26013118381539435, "run": "evaluation/public_benchmarks/runs/20260902T061321Z_beir_arguana/run.json"},
-      {"dataset": "beir_fiqa", "project_ndcg_at_10": 0.353340924631334, "baseline_ndcg_at_10": 0.353340924631334, "project_recall_at_100": 0.641264376912525, "project_mrr_at_10": 0.43956496178718407, "run": "evaluation/public_benchmarks/runs/20260902T062446Z_beir_fiqa/run.json"}
+      {"dataset": "beir_scifact", "project_ndcg_at_10": 0.68294153763745, "baseline_ndcg_at_10": 0.6803406629947804, "project_recall_at_100": 0.951, "project_mrr_at_10": 0.645468253968254, "run": "evaluation/public_benchmarks/runs/20260902T212521Z_beir_scifact/run.json"},
+      {"dataset": "beir_nfcorpus", "project_ndcg_at_10": 0.342728672165825, "baseline_ndcg_at_10": 0.3315364577027044, "project_recall_at_100": 0.306949752461379, "project_mrr_at_10": 0.553575114256229, "run": "evaluation/public_benchmarks/runs/20260902T212546Z_beir_nfcorpus/run.json"},
+      {"dataset": "beir_scidocs", "project_ndcg_at_10": 0.182750732270443, "baseline_ndcg_at_10": 0.1909828805144547, "project_recall_at_100": 0.432633333333333, "project_mrr_at_10": 0.313696825396825, "run": "evaluation/public_benchmarks/runs/20260902T212603Z_beir_scidocs/run.json"},
+      {"dataset": "beir_arguana", "project_ndcg_at_10": 0.385223996074572, "baseline_ndcg_at_10": 0.3835643108025087, "project_recall_at_100": 0.978662873399715, "project_mrr_at_10": 0.257110399873558, "run": "evaluation/public_benchmarks/runs/20260902T212641Z_beir_arguana/run.json"},
+      {"dataset": "beir_fiqa", "project_ndcg_at_10": 0.363668060211476, "baseline_ndcg_at_10": 0.353340924631334, "project_recall_at_100": 0.669371617751247, "project_mrr_at_10": 0.445279125024495, "run": "evaluation/public_benchmarks/runs/20260902T212752Z_beir_fiqa/run.json"}
     ]
   },
   "schema_matching": {

@@ -1,0 +1,4 @@
+{"source_column": "total_changes", "target_column": "total_schedule_changes", "confidence": 1.0, "reason": "源列total_changes的值与目标列total_schedule_changes的样例值完全一致，且语义上对应总进度变更", "latency_ms": 4637.935}
+{"source_column": "date_reported_as_of", "target_column": "date_reported_as_of", "confidence": 1.0, "reason": "列名完全相同，日期格式和值内容一致", "latency_ms": 4637.947}
+{"source_column": "forecast_completion", "target_column": "forecast_completion", "confidence": 1.0, "reason": "列名完全相同，日期值一一对应", "latency_ms": 4637.949}
+{"source_column": "changes", "target_column": "total_budget_changes", "confidence": 0.95, "reason": "源列changes的数值样例与目标列total_budget_changes完全一致，结合上下文budget相关字段判断为预算总变更", "latency_ms": 4637.95}
