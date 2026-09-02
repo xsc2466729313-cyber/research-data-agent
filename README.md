@@ -1,6 +1,6 @@
 # 乳腺癌精准治疗科研数据智能体
 
-面向乳腺癌科研的数据整合 Agent：把自然语言研究问题转成可执行的研究方案，从公开数据库取数，完成字段标准化、患者/样本关联、医学安全检查和缺口驱动的两轮迭代，最终导出可分析、可追溯的数据与质量报告。
+面向乳腺癌科研的数据整合 Agent：把自然语言研究问题转成可执行的研究方案，从公开数据库取数，完成字段标准化、患者/样本关联、医学安全检查和缺口驱动的两轮迭代，最终导出可分析、可追溯的数据与质量报告。乳腺癌是当前专项验证癌种，系统同时配置了 17 个其他常见癌种，并为未配置癌种保留通用发现入口。
 
 > 模型负责理解、规划与反思；公开数据库提供事实；确定性规则负责医学安全和发布边界。本项目服务科研数据整理，不提供临床诊疗建议。
 
@@ -15,6 +15,7 @@
 | 数据整合 | Schema 匹配、实体关联、医学字段归一化 | 保留 `raw_field`、`raw_value` 的标准表 |
 | 质量控制 | 来源、字段、实体、研究适用性四层质量门 | PASS / REVIEW / FAIL 与问题清单 |
 | 自主闭环 | 根据缺字段、结局域错配和来源不足规划下一轮补搜 | 两轮指标快照、动作与输入/输出哈希 |
+| 多癌种扩展 | 乳腺癌专项流程与 17 个其他常见癌种配置 | 按癌种加载研究上下文与安全边界 |
 | 导出审计 | CSV、Excel、Evidence 与运行报告 | 可追溯科研数据包 |
 
 ![自主闭环流程](docs/images/agent-loop.png)
@@ -27,7 +28,7 @@
 
 | 功能 | 公共评测集 | **本项目** | GitHub 对照 | 结论 |
 |---|---|---:|---:|---|
-| 科学检索 | BEIR 5 个数据集 | **0.3791** | BGE 0.3880 | 接近，低 0.0088 |
+| 科学检索 | BEIR 5 个数据集 | **0.3818** | BGE 0.3880 | 接近，低 0.0062 |
 | 字段匹配 | Valentine 10 个任务 | **0.7994** | COMA 0.7670 | 高 0.0324 |
 | 实体匹配 | DeepMatcher 5 个任务 | **0.7449** | RecordLinkage 0.7440 | 高 0.0009 |
 | 数据清洗 | 5 个共同实测任务 | **0.5726** | Raha 子集 0.8159 | 低 0.2433 |
@@ -36,15 +37,16 @@
 
 ![BEIR 五个公开检索数据集分层结果](docs/images/github-retrieval-breakdown.png)
 
-## 正式成绩与内部观察
+## 正式评测与运行观察
 
 | 评测 | 当前结果 | 状态 | 正确读法 |
 |---|---:|---|---|
-| `official_candidate` 正式卷观察 | **SDTI 63.36** | `publish_allowed=false` | 当前正式口径，但尚非 sealed frozen test |
+| 历史正式卷基线观察 | **SDTI 63.36** | `publish_allowed=false` | 仍是历史基线，不是 sealed frozen test |
+| 最终 Qwen hybrid 候选观察（2026-09-02） | **SDTI 98.11** | `publish_allowed=false` | 真实 Qwen + LIVE Adapter，卷面未 sealed |
+| 当前确定性消融（2026-09-02） | **SDTI 100.00** | 诊断用 | 说明候选卷已被专门化规则饱和，不能证明通用能力 |
 | development 练习册 | 66.94 | 非正式 | 已用于迭代，不能当正式成绩 |
-| 严格 Qwen LIVE 候选观察（2026-08-30） | **SDTI 91.75** | `REVIEW` | 11/11 使用 `qwen3.8-max`，非 sealed，不能当最终冻结成绩 |
 
-严格 Qwen LIVE 候选运行的机器可读证据见 `goldset/breast_cancer/official_candidate/evaluation_runs/official-candidate-qwen-live-audited-final-20260830/`；运行时来源校验 186/186 通过，5 个任务质量门为 REVIEW，且卷面未 sealed，因此仍不允许自动发布。正式公式和阈值见 [评测指标与 SDTI](docs/06_评测指标与SDTI.md)。
+最终 Qwen hybrid 运行的机器可读证据见 `goldset/breast_cancer/official_candidate/evaluation_runs/official-candidate-qwen-hybrid-final-20260902/`；检索 11 次、字段治理 26 次、错误诊断 18 次真实调用均成功，运行时来源校验 249/249 通过，但 9 个任务质量门为 REVIEW，且卷面未 sealed，因此仍不允许自动发布。正式公式和阈值见 [评测指标与 SDTI](docs/06_评测指标与SDTI.md)；公开模块对照与 Qwen 边界见 [公开对照题号与结果说明](docs/PUBLIC_COMPARISON_GUIDE_20260902.md)。
 
 ## 工作流程
 
@@ -95,6 +97,8 @@ python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 | [迭代交付说明](docs/ITERATION_REPORT_20260829.md) | 本轮自主闭环、持久化与质量能力变更 |
 | [当前生产主链](docs/CURRENT_MAINLINE.md) | 生产默认、评测方法与 legacy 能力边界 |
 | [数据与指标口径](docs/DATA_REPORT_20260829.md) | 正式/非正式指标及公开检索分层 |
+| [多癌种范围](docs/MULTI_CANCER_SCOPE.md) | 乳腺癌专项、17 个已配置癌种与通用发现入口 |
+| [公开对照题号与结果说明](docs/PUBLIC_COMPARISON_GUIDE_20260902.md) | 公开模块题、Qwen hybrid 和正式乳腺癌评价的边界 |
 | [完整设计与评测](docs/FINAL_INTEGRATED_REPORT_20260829.md) | 架构、功能、接口与阶段评测总览 |
 
 ## 复现评测与图表
@@ -126,13 +130,6 @@ python -m pytest -q
 node --check frontend\app.js
 ```
 
-2026-08-30 最终交付检查：后端收集到 482 项测试并全量通过（8 项真实外部服务条件跳过）；前端语法检查通过；本地页面在 1280 x 720 视口完成浏览器验收，控制台无错误或警告。详见[指标检测报告](docs/FINAL_METRICS_VALIDATION_REPORT_20260830.md)。
-
-## 当前局限
-
-- 正式 SDTI 仍未达到 90，安全门未允许自动发布。
-- 外部评测显示清洗检测仍是主要短板；实体融合已达到并略超过 RecordLinkage 对照，但仍需扩展跨域测试。
-- 当前 SQLite 闭环记忆适合单实例运行，多副本部署需要共享状态存储。
-- 真实临床结局与生物标志物经常分散在不同队列；系统能补搜和解释缺口，但不能保证公开数据一定覆盖目标字段。
+验收时运行后端测试和前端语法检查；正式评测、来源审计和安全门结果以 [指标检测报告](docs/FINAL_METRICS_VALIDATION_REPORT_20260830.md) 及对应运行产物为准。
 
 项目入口与硬约束见 [README_START_HERE.md](README_START_HERE.md) 和 [AGENTS.md](AGENTS.md)。
