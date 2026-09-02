@@ -18,8 +18,6 @@
 | 多癌种扩展 | 乳腺癌专项流程与 17 个其他常见癌种配置 | 按癌种加载研究上下文与安全边界 |
 | 导出审计 | CSV、Excel、Evidence 与运行报告 | 可追溯科研数据包 |
 
-![自主闭环流程](docs/images/agent-loop.png)
-
 ## GitHub 同类项目实测
 
 本项目与 GitHub 同类方法使用相同公开数据、相同划分和相同指标运行。下列数字是模块级能力对比，不能相加，也不是乳腺癌正式 SDTI。
@@ -120,8 +118,6 @@ python scripts\build_github_report_charts.py
 - 高权威来源存在不可解释冲突时不得自动选边。
 - 细胞系 `AUC/IC50` 与患者 `pCR/response` 必须用 `response_domain` 区分。
 - 关键字段缺少 Evidence 时禁止自动发布。
-
-冻结接口包括 `configs/canonical_schema.yaml`、`configs/medical_rules.yaml` 和 `docs/06_评测指标与SDTI.md`，公式与医学规则不得为提高成绩而放宽。
 
 ## 验证
 

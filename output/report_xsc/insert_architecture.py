@@ -69,12 +69,10 @@ def find_para(doc, prefix: str):
     raise KeyError(prefix)
 
 
-def copy_architecture_pngs() -> tuple[Path, Path]:
+def copy_architecture_png() -> Path:
     arch = SHOTS / "13_architecture.png"
-    loop = SHOTS / "14_agent_loop.png"
     shutil.copy2(DOCS_IMG / "agent-architecture.png", arch)
-    shutil.copy2(DOCS_IMG / "agent-loop.png", loop)
-    return arch, loop
+    return arch
 
 
 def already_has_architecture(doc) -> bool:
@@ -93,12 +91,11 @@ def fill_after_colon(paragraph, answer: str) -> None:
 def main() -> None:
     if not SRC.exists():
         raise FileNotFoundError(SRC)
-    arch, loop = copy_architecture_pngs()
+    arch = copy_architecture_png()
     doc = Document(str(SRC))
 
     p6_arch = find_para(doc, "[请插入本作品实际架构图")
     if not already_has_architecture(doc):
-        add_caption_and_image(p6_arch, loop, "附图（P6）：Agent 换方法闭环（观察—诊断—换方法—执行—判定）")
         add_caption_and_image(p6_arch, arch, "附图（P6）：系统三层架构框图（需求发现 → 多源融合 → 质量闭环）")
 
     p6_loop = None
@@ -131,12 +128,6 @@ def main() -> None:
     )
 
     p17_head = find_para(doc, "P17｜第二版输出与迭代变化")
-    if not any("Agent 换方法闭环" in (p.text or "") and "P17" in (p.text or "") for p in doc.paragraphs):
-        add_caption_and_image(
-            p17_head,
-            loop,
-            "附图（P17）：第二版换方法闭环。主表从 METABRIC 空分析集切换为 GSE76360 治疗响应队列（48 行有结局）；同患者 PIK3CA 仍未补齐。",
-        )
 
     p17_improve = find_para(doc, "第二版相较第一版实际改善了什么")
     fill_after_colon(

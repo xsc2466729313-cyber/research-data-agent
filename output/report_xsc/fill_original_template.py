@@ -179,7 +179,6 @@ def fill(doc):
         start_col=1,
     )
     p6_arch = find_para(doc, "[请插入本作品实际架构图")
-    add_caption_and_image(p6_arch, "14_agent_loop.png", "附图（P6）：Agent 换方法闭环（观察—诊断—换方法—执行—判定）")
     add_caption_and_image(p6_arch, "13_architecture.png", "附图（P6）：系统三层架构框图（需求发现 → 多源融合 → 质量闭环）")
     add_caption_and_image(p6_arch, "08_provenance.png", "附图（P6）：来源登记与官方溯源")
     add_caption_and_image(p6_arch, "03_protocol_run.png", "附图（P6）：研究问题陈述与运行研究协议")
@@ -407,11 +406,6 @@ def fill(doc):
         "已达到「第二版必须优于第一版、且补上第一版结局缺口」：分析队列从 0 变为 48 行治疗响应记录。尚未达到「同患者完成 PIK3CA × 治疗响应」；依据是 GSE76360 无 PIK3CA 检测，且禁止无证据跨库合并。",
     )
     p17_head = find_para(doc, "P17｜第二版输出与迭代变化")
-    add_caption_and_image(
-        p17_head,
-        "14_agent_loop.png",
-        "附图（P17）：第二版换方法闭环。主表从 METABRIC 空分析集切换为 GSE76360 治疗响应队列（48 行有结局）；同患者 PIK3CA 仍未补齐。",
-    )
     add_caption_and_image(p17_head, "10_gap_fields.png", "附图（P17）：响应队列上同患者 PIK3CA 仍为缺口，禁止跨库贴突变")
     add_caption_and_image(p17_head, "09_retrieval_audit.png", "附图（P17）：检索审计；Agent 按诊断换方法，达门限后停止")
 

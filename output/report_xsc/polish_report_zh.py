@@ -13,7 +13,6 @@ from fill_original_template import FONT, set_cell, set_run_font
 ROOT = Path(__file__).resolve().parent
 SRC = ROOT / "徐士诚_方向1A_P5-P18_报告.docx"
 ARCH = ROOT / "13_architecture.png"
-LOOP = ROOT / "14_agent_loop.png"
 OUT_A = Path(r"C:\Users\xsc\OneDrive\Desktop\徐士诚_方向1A_P5-P18_报告_架构图版.docx")
 OUT_B = Path(r"C:\Users\xsc\OneDrive\Desktop\徐士诚_方向1A_模板填写_成员D.docx")
 OUT_C = Path(r"C:\Users\xsc\OneDrive\Desktop\徐士诚_方向1A_P5-P18_报告.docx")
@@ -73,9 +72,6 @@ def main() -> None:
     doc = Document(str(SRC))
 
     replace_image_before_caption(doc, "附图（P6）：系统三层架构框图", ARCH)
-    replace_image_before_caption(doc, "附图（P6）：Agent 换方法闭环", LOOP)
-    replace_image_before_caption(doc, "附图（P17）：第二版换方法闭环", LOOP)
-    replace_image_before_caption(doc, "附图（P17）：最终模型换方法闭环", LOOP)
 
     fill_after_colon(
         find_para(doc, "团队重点评价哪些方面，为什么"),
@@ -174,9 +170,7 @@ def main() -> None:
 
     for p in doc.paragraphs:
         text = p.text.strip()
-        if text.startswith("附图（P17）：第二版换方法闭环") or text.startswith("附图（P17）：最终模型换方法闭环"):
-            replace_paragraph_text(p, "附图（P17）：智能体换方法闭环。同一输入下从不同域宽表切换到可分析队列，并保持同研究对齐。")
-        elif text.startswith("附图（P17）：响应队列上同患者"):
+        if text.startswith("附图（P17）：响应队列上同患者"):
             replace_paragraph_text(p, "附图（P17）：同研究内对齐。分子变量与治疗响应均来自可追溯公开来源，禁止跨库贴值。")
         elif text.startswith("附图（P17）：检索审计"):
             replace_paragraph_text(p, "附图（P17）：检索审计。系统按诊断持续换方法，证明发现错误后能够修正。")
@@ -184,8 +178,6 @@ def main() -> None:
             replace_paragraph_text(p, "附图（P18）：系统评测与消融。采用任务级诊断指标，Gold Set 空则 SDTI 未评测。")
         elif text.startswith("附图（P6）：系统三层架构框图"):
             replace_paragraph_text(p, "附图（P6）：系统三层架构框图（中文）：科研问题输入、多源融合、质量闭环。")
-        elif text.startswith("附图（P6）：Agent 换方法闭环") or text.startswith("附图（P6）：智能体换方法闭环"):
-            replace_paragraph_text(p, "附图（P6）：智能体换方法闭环（中文）：观察、诊断、换方法、执行、判定。")
 
     doc.save(str(SRC))
     shutil.copy2(SRC, OUT_A)

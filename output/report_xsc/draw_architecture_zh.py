@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Generate fully Chinese architecture and agent-loop figures for the report."""
+"""Generate the Chinese architecture figure for the report."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -89,52 +89,5 @@ def draw_architecture() -> None:
     plt.close(fig)
 
 
-def draw_loop() -> None:
-    fig, ax = plt.subplots(figsize=(13.6, 5.4), facecolor="white")
-    ax.set_xlim(0, 13.6)
-    ax.set_ylim(0, 5.4)
-    ax.axis("off")
-    ax.set_title("智能体换方法闭环", fontsize=18, color=TEAL_DARK, pad=10, fontweight="bold")
-
-    steps = [
-        ("1 观察", "查看主表、结局域\n与队列规模"),
-        ("2 诊断", "识别缺口类型\n并定位改进方向"),
-        ("3 换方法", "启用尚未尝试的\n检索与解析策略"),
-        ("4 执行", "调用公开数据库\n完成真实数据获取"),
-        ("5 判定", "达标则输出结果\n可继续则进入下一轮"),
-    ]
-    width = 2.18
-    y = 1.85
-    for i, (title, detail) in enumerate(steps):
-        x = 0.35 + i * 2.62
-        rounded(ax, x, y, width, 2.55, fc=CREAM, ec=TEAL, lw=1.8, radius=0.08)
-        circ = Circle((x + width / 2, 4.05), 0.22, facecolor=TEAL, edgecolor=TEAL)
-        ax.add_patch(circ)
-        ax.text(x + width / 2, 4.05, str(i + 1), ha="center", va="center", fontsize=11, color="white", fontweight="bold")
-        ax.text(x + width / 2, 3.52, title.split(" ", 1)[1], ha="center", va="center", fontsize=14, color=TEAL_DARK, fontweight="bold")
-        ax.text(x + width / 2, 2.55, detail, ha="center", va="center", fontsize=11, color=TEAL_DARK, linespacing=1.45)
-        if i < 4:
-            ax.annotate(
-                "",
-                xy=(x + width + 0.18, 3.05),
-                xytext=(x + width + 0.02, 3.05),
-                arrowprops=dict(arrowstyle="-|>", color=TEAL, lw=2.2, mutation_scale=12),
-            )
-
-    ax.annotate(
-        "",
-        xy=(1.45, 1.35),
-        xytext=(12.05, 1.35),
-        arrowprops=dict(arrowstyle="-|>", color=ACCENT, lw=1.8, mutation_scale=12),
-    )
-    ax.text(6.8, 1.08, "持续检索，直到形成可用科研数据包或达到轮次门限", ha="center", va="center", fontsize=12, color=TEAL_DARK)
-    rounded(ax, 3.3, 0.28, 7.0, 0.58, fc=CARD, ec=ACCENT, lw=1.3, radius=0.06)
-    ax.text(6.8, 0.57, "同研究内对齐　·　来源可追溯　·　结局与问题同域", ha="center", va="center", fontsize=11, color=TEAL_DARK)
-    save(fig, "agent-loop.png")
-    save(fig, "14_agent_loop.png")
-    plt.close(fig)
-
-
 if __name__ == "__main__":
     draw_architecture()
-    draw_loop()
