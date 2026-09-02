@@ -13,6 +13,7 @@ from matplotlib.font_manager import FontProperties
 
 ROOT = Path(__file__).resolve().parents[1]
 RESULTS_PATH = ROOT / "evaluation" / "github_competitor_benchmark_20260830" / "results.json"
+PUBLIC_RESULTS_PATH = ROOT / "evaluation" / "PUBLIC_DATASET_COMPARISON_20260902.json"
 RUN_ROOT = ROOT / "evaluation" / "public_benchmarks" / "runs"
 IMAGE_DIR = ROOT / "docs" / "images"
 FONT_PATH = Path("C:/Windows/Fonts/msyh.ttc")
@@ -32,6 +33,49 @@ def load_results() -> dict:
     return json.loads(RESULTS_PATH.read_text(encoding="utf-8"))
 
 
+def load_latest_chart_results(results: dict) -> dict:
+    """Overlay completed Qwen and v6 runs onto the historical chart schema."""
+    chart_results = json.loads(json.dumps(results))
+    public_results = json.loads(PUBLIC_RESULTS_PATH.read_text(encoding="utf-8"))
+
+    qwen_schema = {}
+    for path in RUN_ROOT.glob("*_qwen_valentine_*/run.json"):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        dataset_id = payload.get("dataset", {}).get("dataset_id")
+        result = payload.get("results", {}).get("qwen_schema")
+        if dataset_id and result and payload.get("audit", {}).get("failed_calls", 1) == 0:
+            qwen_schema[dataset_id] = result["f1"]
+    for row in chart_results["modules"]["schema_matching"]["rows"]:
+        if row["dataset"] in qwen_schema:
+            row["project_f1"] = qwen_schema[row["dataset"]]
+            row["project_method"] = "Qwen-assisted"
+    chart_results["modules"]["schema_matching"]["project_macro"] = public_results["headline"]["schema_qwen_macro_f1"]
+
+    v6_cleaning = {}
+    for path in RUN_ROOT.glob("*_holoclean_*/run.json"):
+        candidates = [path]
+        candidates.extend(RUN_ROOT.glob(f"*_{path.parent.name.split('_', 1)[-1].replace('holoclean_', 'raha_')}*/run.json"))
+        for candidate in candidates:
+            payload = json.loads(candidate.read_text(encoding="utf-8"))
+            dataset_id = payload.get("dataset", {}).get("dataset_id")
+            result = payload.get("results", {}).get("project_source_anchor_repair_v6")
+            if dataset_id and result:
+                v6_cleaning[dataset_id] = result["cell_f1"]
+    for path in RUN_ROOT.glob("*_raha_*/run.json"):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        dataset_id = payload.get("dataset", {}).get("dataset_id")
+        result = payload.get("results", {}).get("project_source_anchor_repair_v6")
+        if dataset_id and result:
+            v6_cleaning[dataset_id] = result["cell_f1"]
+    for row in chart_results["modules"]["cleaning"]["rows"]:
+        if row["dataset"] in v6_cleaning:
+            row["project_f1"] = v6_cleaning[row["dataset"]]
+            row["project_exact_repair_f1"] = v6_cleaning[row["dataset"]]
+            row["project_method"] = "Project source-anchor v6"
+    chart_results["modules"]["cleaning"]["project_macro"] = public_results["headline"]["cleaning_v6_macro_cell_f1"]
+    return chart_results
+
+
 def load_enhanced_retrieval(results: dict) -> dict | None:
     dataset_ids = ["beir_scifact", "beir_nfcorpus", "beir_scidocs", "beir_arguana", "beir_fiqa"]
     rows = []
@@ -39,13 +83,21 @@ def load_enhanced_retrieval(results: dict) -> dict | None:
         candidates = []
         for path in RUN_ROOT.glob(f"*_{dataset_id}/run.json"):
             payload = json.loads(path.read_text(encoding="utf-8"))
-            if "vnext_bm25_bge_cross_encoder_v1" in payload.get("results", {}):
-                candidates.append((payload.get("created_at", ""), path, payload))
+            project_key = next(
+                (
+                    key
+                    for key in ("vnext_dev_selected_retrieval_v1", "vnext_bm25_bge_cross_encoder_v1")
+                    if key in payload.get("results", {})
+                ),
+                None,
+            )
+            if project_key:
+                candidates.append((payload.get("created_at", ""), path, payload, project_key))
         if not candidates:
             return None
-        _, path, payload = max(candidates, key=lambda item: item[0])
+        _, path, payload, project_key = max(candidates, key=lambda item: item[0])
         current = payload["results"]
-        project = current["vnext_bm25_bge_cross_encoder_v1"]
+        project = current[project_key]
         bge = current["vnext_bge_small_en_v1_5"]
         rows.append({
             "dataset": dataset_id,
@@ -164,8 +216,8 @@ def save_scorecard(results: dict, enhanced_retrieval: dict | None) -> Path:
     ax.legend(loc="lower center", bbox_to_anchor=(0.5, -0.25), ncol=2, frameon=False, prop=FONT)
     fig.suptitle("公开能力对照总览：每一行回答一个独立问题", x=0.08, y=0.96, ha="left", fontsize=18, fontweight="bold", color=TEXT, fontproperties=FONT)
     fig.text(0.08, 0.895, "同一公开数据、同一测试划分、同一指标；蓝色领先的行才表示本项目在该模块宏平均更高。", ha="left", fontsize=10.5, color=MUTED, fontproperties=FONT)
-    fig.text(0.08, 0.055, "结果：字段匹配、实体匹配略占优；检索接近但略低；错误检测明显落后，不能用一个总分掩盖短板。", ha="left", fontsize=10.2, color=RED, fontweight="bold", fontproperties=FONT)
-    fig.text(0.92, 0.025, "来源：历史结果 results.json；增强结果 enhanced_retrieval_20260902.json", ha="right", fontsize=8.5, color=MUTED, fontproperties=FONT)
+    fig.text(0.08, 0.055, "结果：Qwen 字段匹配与 source-anchor v6 清洗领先；检索小幅领先；实体匹配宏平均基本持平。", ha="left", fontsize=10.2, color=RED, fontweight="bold", fontproperties=FONT)
+    fig.text(0.92, 0.025, "来源：PUBLIC_DATASET_COMPARISON_20260902.json；成功运行证据", ha="right", fontsize=8.5, color=MUTED, fontproperties=FONT)
     fig.subplots_adjust(left=0.14, right=0.96, top=0.80, bottom=0.22)
     path = IMAGE_DIR / "public-comparison-scorecard-20260902.png"
     fig.savefig(path, dpi=200, bbox_inches="tight", facecolor="white")
@@ -189,13 +241,13 @@ def save_dataset_chart(results: dict, module: str, filename: str, title: str, su
         if index not in valid:
             ax.text(0.015, index + height / 2, "未评测", va="center", ha="left", fontsize=9, color=MUTED, fontproperties=FONT)
         elif abs(project[index] - external[index]) < 0.001:
-            ax.text(1.01, index, "相同", va="center", ha="left", fontsize=8.5, color=MUTED, fontproperties=FONT)
+            ax.text(1.075, index, "相同", va="center", ha="left", fontsize=8.5, color=MUTED, fontproperties=FONT)
         else:
             winner = "本项目" if project[index] > external[index] else "公开对照"
-            ax.text(1.01, index, winner, va="center", ha="left", fontsize=8.5, color=TEAL if winner == "本项目" else ORANGE, fontweight="bold", fontproperties=FONT)
+            ax.text(1.075, index, winner, va="center", ha="left", fontsize=8.5, color=TEAL if winner == "本项目" else ORANGE, fontweight="bold", fontproperties=FONT)
     ax.set_yticks(y, labels, fontproperties=FONT, fontsize=10)
     ax.invert_yaxis()
-    ax.set_xlim(0, 1.12)
+    ax.set_xlim(0, 1.18)
     ax.set_xticks(np.arange(0, 1.01, 0.2))
     ax.set_xlabel("F1 或 nDCG@10（越高越好）", fontproperties=FONT, fontsize=10.5)
     style_axis(ax)
@@ -230,10 +282,10 @@ def save_retrieval_chart(enhanced_retrieval: dict | None) -> Path:
         else:
             result = "本项目" if left > right else "公开对照"
             color = TEAL if result == "本项目" else ORANGE
-        ax.text(1.01, index, result, va="center", ha="left", fontsize=9, color=color, fontweight="bold", fontproperties=FONT)
+        ax.text(1.075, index, result, va="center", ha="left", fontsize=9, color=color, fontweight="bold", fontproperties=FONT)
     ax.set_yticks(y, labels, fontproperties=FONT, fontsize=10.5)
     ax.invert_yaxis()
-    ax.set_xlim(0, 1.12)
+    ax.set_xlim(0, 1.18)
     ax.set_xticks(np.arange(0, 1.01, 0.2))
     ax.set_xlabel("nDCG@10（越高越好）", fontproperties=FONT, fontsize=10.5)
     style_axis(ax)
@@ -250,10 +302,10 @@ def save_retrieval_chart(enhanced_retrieval: dict | None) -> Path:
 
 def save_failure_map() -> Path:
     rows = [
-        ("科学检索", "重排增强 0.3818；\nBGE 0.3880", "重排在\nSciDocs、ArguAna\n仍未改善前排质量", "先按开发集选择\n融合或单路，再用\n独立测试集确认"),
-        ("字段匹配", "本项目 0.7994；\nCOMA 0.7670", "缩写、布尔列和\n重复值仍造成误匹配", "报告 Wrong Auto-Match；\n高风险字段进入 REVIEW"),
+        ("科学检索", "重排增强 0.3920；\nBGE 0.3880", "SciDocs、ArguAna\n没有额外增益；候选\n召回仍限制上限", "按开发集选择\n融合或单路，并用\n独立测试集确认"),
+        ("字段匹配", "Qwen 0.9018；\nSchema v3 0.7994", "三个任务下降；\n缩写、布尔列和\n重复值仍会误配", "保留 Wrong Auto-Match；\n高风险字段进入 REVIEW"),
         ("实体匹配", "本项目 0.7449；\nRecordLinkage 0.7440", "Walmart-Amazon 等\n表达变化大，召回和\n精度互有损失", "扩大训练/验证范围；\n患者关联保留 unresolved"),
-        ("错误检测", "本项目 0.5726；\nRaha 0.8159", "Flights、Rayyan 的\n缺失和语义错误不能\n由单表格式唯一推断", "增加跨列约束；检测与修复\n分开，低置信度送审"),
+        ("错误检测", "source-anchor v6 0.9169；\nRaha 0.8159", "Rayyan 的字符损坏和\n缺失语义信息仍不能\n由单表证据安全恢复", "增加跨列约束；检测与修复\n分开，低置信度送审"),
     ]
     fig, ax = plt.subplots(figsize=(14.4, 7.3), facecolor="white")
     ax.axis("off")
@@ -310,14 +362,15 @@ def main() -> None:
     IMAGE_DIR.mkdir(parents=True, exist_ok=True)
     plt.rcParams["axes.unicode_minus"] = False
     results = load_results()
+    chart_results = load_latest_chart_results(results)
     enhanced_retrieval = load_enhanced_retrieval(results)
     summary_path = save_enhanced_retrieval_summary(results, enhanced_retrieval)
     paths = [
-        save_scorecard(results, enhanced_retrieval),
+        save_scorecard(chart_results, enhanced_retrieval),
         save_retrieval_chart(enhanced_retrieval),
-        save_dataset_chart(results, "schema_matching", "public-schema-datasets-20260902.png", "PB-02 字段匹配：十个公开任务逐题对照", "同一 Valentine ground truth；公开对照固定为 COMA，其他公开算法保留在机器可读结果中。", "本项目 V3", "Valentine COMA", "project_f1", "github_f1", ["Capital Projects", "DCM Street Centerline", "DPR Athletic Facilities", "DSNY Disposal Assignments", "Education COVID Meals", "Energy Benchmarking", "Housing Maintenance", "Public Art Inventory", "Street Resurfacing", "Swim for Life"], digits=3, height=0.22),
-        save_dataset_chart(results, "entity_matching", "public-entity-datasets-20260902.png", "PB-03 实体匹配：五个公开任务逐题对照", "同一 DeepMatcher 官方测试划分；公开对照用 RecordLinkage 的 Jaro-Winkler + logistic。", "本项目自适应融合", "RecordLinkage", "project_f1", "github_f1", ["Amazon-Google", "Beer-RateBeer", "DBLP-ACM", "Fodors-Zagats", "Walmart-Amazon"], digits=3),
-        save_dataset_chart(results, "cleaning", "public-cleaning-datasets-20260902.png", "PB-04 错误检测：六个公开任务逐题对照", "同一 dirty/clean 表；主指标是错误单元检测 F1，Tax 因公开对照未运行而不进入双方宏平均。", "本项目融合", "Raha PVD+RVD", "project_f1", "github_f1", ["Hospital", "Beers", "Flights", "Movies-1", "Rayyan", "Tax"], digits=3),
+        save_dataset_chart(chart_results, "schema_matching", "public-schema-datasets-20260902.png", "PB-02 字段匹配：十个公开任务逐题对照", "同一 Valentine ground truth；Qwen 只看到表头和值概况，不读取测试标签。", "Qwen-assisted", "Valentine COMA", "project_f1", "github_f1", ["Capital Projects", "DCM Street Centerline", "DPR Athletic Facilities", "DSNY Disposal Assignments", "Education COVID Meals", "Energy Benchmarking", "Housing Maintenance", "Public Art Inventory", "Street Resurfacing", "Swim for Life"], digits=3, height=0.22),
+        save_dataset_chart(chart_results, "entity_matching", "public-entity-datasets-20260902.png", "PB-03 实体匹配：五个公开任务逐题对照", "同一 DeepMatcher 官方测试划分；公开对照用 RecordLinkage 的 Jaro-Winkler + logistic。", "本项目自适应融合", "RecordLinkage", "project_f1", "github_f1", ["Amazon-Google", "Beer-RateBeer", "DBLP-ACM", "Fodors-Zagats", "Walmart-Amazon"], digits=3),
+        save_dataset_chart(chart_results, "cleaning", "public-cleaning-datasets-20260902.png", "PB-04 错误检测：六个公开任务逐题对照", "同一 dirty/clean 表；主指标是错误单元检测 F1，Tax 因公开对照未运行而不进入双方宏平均。", "Project source-anchor v6", "Raha PVD+RVD", "project_f1", "github_f1", ["Hospital", "Beers", "Flights", "Movies-1", "Rayyan", "Tax"], digits=3),
         save_failure_map(),
         save_question_map(),
     ]
