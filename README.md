@@ -46,6 +46,16 @@ python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 
 千问凭据只在会话或本机环境变量中配置，不要提交 `.env` 或任何密钥。
 
+## 云端部署（推荐 Render）
+
+仓库已提供根目录 `Dockerfile` 和 `render.yaml`，可直接部署为一个公开 Web 服务。FastAPI 会同时托管前端页面和 `/api/*` 接口，云平台只需要一个服务。
+
+1. 将仓库推送到 GitHub，并在 Render 选择 **New + → Blueprint**，选择该仓库；Render 会读取 `render.yaml`。
+2. 在服务的 Environment 中填写 `DASHSCOPE_API_KEY`（必填，使用千问时）以及需要的 `GDC_AUTH_TOKEN`、`CIVIC_API_KEY`。
+3. 部署完成后访问 Render 分配的 `https://<service>.onrender.com/`；健康检查为 `/health`，API 文档为 `/docs`。
+
+也可以在 Railway、Fly.io 或任意支持 Docker 的平台使用同一个根目录 `Dockerfile`。平台必须把外部端口通过 `PORT` 环境变量传入；容器默认监听 `8000`。不要把 API Key 写入仓库或提交 `.env`。
+
 ## 报告导航
 
 | 报告 | 用途 |
