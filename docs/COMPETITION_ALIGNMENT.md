@@ -6,6 +6,12 @@
 
 本说明用于提交材料和演示串讲。它描述当前系统如何对齐比赛模板要求，但不替代 `docs/06_评测指标与SDTI.md` 中的冻结评测公式，也不生成没有 Gold Set 支撑的官方成绩。
 
+## Agent 架构评分说明
+
+本系统应明确表述为**有边界的混合式多 Agent 编排**：`ResearchAgentService` 作为任务级主 Agent，联合规划 Agent、Collection Agent、Critic Agent、Quality Agent 和 `ClosedLoopService`；官方数据 Adapter、Schema/Entity 对齐和医学规则是独立确定性模块。规划、取数、整合、批评、质量裁决和闭环控制具有输入/输出边界，按 `task_id`、研究编号和来源命名空间隔离上下文。
+
+独立只读来源查询可以并行，但共享数据集写入、实体合并、闭环反馈和医学裁决必须串行汇合；当前生产主链采用受控串行工具执行以优先保证来源登记和可复现审计。Adapter/Schema、Critic、Quality/Medical Gate 构成独立校验链，模型不得自证。单来源查询、格式转换、确定性去重、严格离线评测和低延迟小请求反而不使用多 Agent，以避免额外延迟、成本和一致性风险。单 Agent 多职能 Prompt 无法提供同等的上下文隔离、权限制衡、失败隔离和评测归因。
+
 ## 模板要求映射
 
 | 提交关注点 | 当前实现 | 可展示证据 |

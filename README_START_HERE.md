@@ -6,6 +6,8 @@
 
 在线演示：[https://cancer-precision-data-agent.onrender.com/](https://cancer-precision-data-agent.onrender.com/)
 
+Agent 架构说明见 [`docs/AGENT_ARCHITECTURE.md`](docs/AGENT_ARCHITECTURE.md)，系统属于有边界的混合式多 Agent 编排：有主 Agent 和职责隔离的规划、采集、批评、质量与闭环角色，同时保留确定性事实处理和医学规则门。
+
 ## 推荐阅读顺序
 
 1. `AGENTS.md`

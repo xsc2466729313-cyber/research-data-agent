@@ -320,6 +320,96 @@ def health() -> dict[str, str]:
     }
 
 
+@app.get("/api/agent/architecture")
+def agent_architecture() -> dict[str, object]:
+    """Expose the runtime Agent boundaries for UI, audit and evaluation."""
+
+    return {
+        "architecture_type": "bounded_hybrid_multi_agent_orchestration",
+        "architecture_label": "有边界的混合式多 Agent 编排",
+        "summary": "一个任务级主 Agent 统一推进，多职责专用 Agent/控制器协作，事实获取、标准化和医学安全由确定性模块负责。",
+        "roles": [
+            {
+                "id": "task_agent",
+                "name": "任务级主 Agent",
+                "component": "ResearchAgentService",
+                "responsibility": "接收任务、编排模型规划和工具、汇总结果、生成科研数据包",
+                "does_not": "不直接生成患者事实，不绕过质量门",
+            },
+            {
+                "id": "planning_agents",
+                "name": "问题与研究规划 Agent",
+                "component": "Qwen Function Calling / ResearchIntentAgent / ResearchFormulationAgent",
+                "responsibility": "拆解研究对象、暴露、结局、字段和候选来源",
+                "does_not": "不下载数据，不修改原始记录，不做发布裁决",
+            },
+            {
+                "id": "collection_agent",
+                "name": "采集与缺口 Agent",
+                "component": "CollectionAgent + GoalLoopController",
+                "responsibility": "观察缺口、诊断原因、选择尚未尝试的方法和停止条件",
+                "does_not": "不跨研究填补患者，不把知识证据当患者事实",
+            },
+            {
+                "id": "critic_agent",
+                "name": "独立批评 Agent",
+                "component": "CriticAgent",
+                "responsibility": "独立检查研究合同、字段覆盖、结局域和证据完整度",
+                "does_not": "不直接改写数据，高风险问题进入 review",
+            },
+            {
+                "id": "quality_gate",
+                "name": "质量 Agent 与医学规则门",
+                "component": "QualityAgent / QualityV2Service / medical_rules.yaml",
+                "responsibility": "执行确定性质量、医学安全和发布准入检查",
+                "does_not": "不接受模型自证，不自动修复高风险事实",
+            },
+            {
+                "id": "closed_loop",
+                "name": "闭环控制器",
+                "component": "ClosedLoopService",
+                "responsibility": "保存轮次状态，按缺口生成下一轮合法动作，防止重复和空转",
+                "does_not": "不修改事实字段，不代替独立审查",
+            },
+        ],
+        "deterministic_modules": [
+            "GDC/GEO/cBioPortal/AACT/CIViC/DepMap official adapters",
+            "ResearchDatasetBuilder and Schema/Entity Matchers",
+            "DataAlignmentAuditor",
+            "frozen medical_rules.yaml and RulePackEngine",
+        ],
+        "context_isolation": [
+            "task_id and per-round input/output hashes",
+            "study_id/patient_id/sample_id source namespaces",
+            "planner, adapter, critic and gate write boundaries",
+            "temporary in-memory Qwen sessions",
+        ],
+        "parallel_policy": {
+            "can_parallelize": [
+                "independent read-only source lookups sharing one ResearchSpec",
+                "candidate retrieval and source health checks without shared writes",
+            ],
+            "must_serialize": [
+                "closed-loop follow-up decisions",
+                "shared dataset/entity index writes and merge points",
+                "Critic, Quality Gate and medical safety decisions",
+            ],
+            "current_runtime": "controlled_serial_tool_execution_with_explicit_parallel_tool_intent",
+        },
+        "independent_validation": [
+            "Adapter and schema validation",
+            "Critic contract and evidence diagnosis",
+            "Quality Agent and frozen medical safety gate",
+        ],
+        "when_not_to_use_multi_agent": [
+            "single-source metadata lookup",
+            "deterministic format conversion, normalization or deduplication",
+            "strict reproducible offline benchmark baseline",
+            "small low-latency request without cross-step reasoning",
+        ],
+    }
+
+
 @app.post("/api/v2/governance/decide", response_model=SafetyDecisionResult)
 def evaluate_vnext_proposal(payload: SafetyDecisionRequest) -> SafetyDecisionResult:
     """Apply the non-bypassable VNext provenance and medical safety gate."""

@@ -30,6 +30,25 @@ def test_health_reports_qwen_agent_capabilities() -> None:
     }
 
 
+def test_agent_architecture_endpoint_exposes_boundaries_and_parallel_policy() -> None:
+    response = client.get("/api/agent/architecture")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["architecture_type"] == "bounded_hybrid_multi_agent_orchestration"
+    assert {role["id"] for role in payload["roles"]} >= {
+        "task_agent",
+        "planning_agents",
+        "collection_agent",
+        "critic_agent",
+        "quality_gate",
+        "closed_loop",
+    }
+    assert payload["parallel_policy"]["current_runtime"] == "controlled_serial_tool_execution_with_explicit_parallel_tool_intent"
+    assert payload["independent_validation"]
+    assert payload["when_not_to_use_multi_agent"]
+
+
 def test_mock_task_api_returns_business_values_not_only_http_200() -> None:
     response = client.post(
         "/api/tasks/mock",
@@ -104,6 +123,9 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "下载 Metadata" not in response.text
     assert "下载 Parquet" not in response.text
     assert "四层质量门" in response.text
+    assert "有边界的混合式多 Agent 编排" in response.text
+    assert "上下文隔离" in response.text
+    assert "独立校验链" in response.text
     assert "先明确研究需要什么数据" in response.text
     assert "每一步筛选都能解释清楚" in response.text
     assert "模型评价中心" not in response.text
