@@ -183,16 +183,6 @@ textarea:focus, select:focus { border-color: var(--green); box-shadow: 0 0 0 3px
 .progress-track { height: 6px; margin: .85rem 0; border-radius: 0; overflow: hidden; background: #e2e8f0; }
 .progress-track span { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--green); transition: width .4s ease; }
 .progress-note, .section-note, .agent-notice { color: var(--muted); font-size: .76rem; line-height: 1.55; }
-.agent-architecture-panel { border-top: 3px solid var(--planner-indigo); }
-.agent-architecture-flow { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; margin: 1rem 0; color: var(--planner-indigo); font-size: .68rem; font-weight: 650; }
-.agent-architecture-flow span { padding: .42rem .55rem; border: 1px solid #dfe4f6; border-radius: 7px; background: #f8f9ff; }
-.agent-architecture-flow i { color: #9ba5c7; font-style: normal; }
-.agent-architecture-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .65rem; }
-.agent-architecture-grid article { padding: .75rem; border: 1px solid #e7ebf4; border-radius: 8px; background: #fbfcff; }
-.agent-architecture-grid h3 { margin: 0; color: #313b65; font-size: .72rem; }
-.agent-architecture-grid p { margin: .4rem 0 0; color: var(--muted); font-size: .66rem; line-height: 1.65; }
-@media (max-width: 900px) { .agent-architecture-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .agent-architecture-grid { grid-template-columns: 1fr; } .agent-architecture-flow { gap: .25rem; } }
 .error-panel { border-color: #fecaca; color: var(--red); background: var(--red-soft); }
 
 .results { scroll-margin-top: 72px; --result-accent: #1e3a8a; --result-good: #2563eb; --result-pending: #64748b; }

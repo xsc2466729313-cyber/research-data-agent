@@ -139,25 +139,6 @@
         </div>
       </section>
 
-      <section id="agent-architecture" class="panel agent-architecture-panel">
-        <div class="section-heading">
-          <div><p class="section-kicker">Agent Architecture</p><h2>有边界的混合式多 Agent 编排</h2></div>
-          <span class="status-badge is-success">可审计</span>
-        </div>
-        <p class="section-note">一个任务级主 Agent 统一推进，多职责专用 Agent/控制器协作；官方数据、标准化和医学安全由确定性模块负责。不是单一 Prompt 包办，也不是无总控的 Agent 集群。</p>
-        <div class="agent-architecture-flow" aria-label="Agent 运行链路">
-          <span>研究问题</span><i>→</i><span>主 Agent</span><i>→</i><span>规划 Agent</span><i>→</i><span>官方 Adapter</span><i>→</i><span>整合与对齐</span><i>→</i><span>Critic</span><i>→</i><span>质量/医学门</span><i>→</i><span>闭环修正</span>
-        </div>
-        <div class="agent-architecture-grid">
-          <article><h3>职责隔离</h3><p><strong>规划</strong>提出 ResearchSpec 和工具计划；<strong>采集</strong>按缺口换方法；<strong>Critic</strong>只诊断；<strong>Quality Gate</strong>只裁决；闭环控制器只生成下一轮合法动作。</p></article>
-          <article><h3>上下文隔离</h3><p>按 <code>task_id</code>、闭环轮次、<code>study_id/patient_id/sample_id</code> 和来源命名空间隔离；模型建议不能直接写入患者事实，跨研究编号不自动 Join。</p></article>
-          <article><h3>可并行边界</h3><p>独立的只读数据库查询、候选检索和健康检查可以并行表达；共享数据集写入、闭环决策、实体合并和医学裁决必须串行汇合。当前运行采用受控串行执行以保证审计可复现。</p></article>
-          <article><h3>独立校验链</h3><p>Adapter/Schema 校验 → Critic 合同与证据诊断 → Quality Agent/冻结医学规则门。模型不能用自己的摘要或自评替代独立校验。</p></article>
-          <article><h3>不该上多 Agent</h3><p>单来源元数据查询、格式转换、确定性去重、严格离线基线和低延迟小请求，使用单模块更快、更便宜、更容易复现。</p></article>
-          <article><h3>为什么不做单 Agent 多职能</h3><p>单角色会造成上下文污染、权限混杂、无法独立质疑、失败难隔离、并行边界不清和评测无法归因。</p></article>
-        </div>
-      </section>
-
       <section id="task-entry" class="panel task-entry">
         <div class="section-heading">
           <div><p class="section-kicker">01 · Study Protocol</p><h2>研究问题陈述</h2></div>
