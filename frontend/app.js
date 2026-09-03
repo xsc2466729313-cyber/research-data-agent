@@ -15,6 +15,7 @@ const state = {
   datasetSourceKey: "primary",
   qwenSessionId: null,
   qwenSessionExpiresAt: null,
+  qwenConfigured: null,
   lineage: { sources: [], candidates: [], primary: "", selected: null, hover: null, view: "all", paused: false },
 };
 
@@ -510,6 +511,7 @@ async function checkConfiguration() {
     system.className = "system-status is-online";
     system.innerHTML = `<span class="status-dot"></span><span>在线 · ${escapeHtml(health.version)}</span>`;
     const badge = document.querySelector("#configuration-badge");
+    state.qwenConfigured = Boolean(configuration.configured);
     badge.textContent = configuration.configured ? "千问已连接" : "千问未配置";
     badge.className = `status-badge ${configuration.configured ? "is-success" : "is-review"}`;
     document.querySelector("#configuration-title").textContent = configuration.configured ? "模型规划可用" : "当前使用确定性规划";
@@ -522,11 +524,32 @@ async function checkConfiguration() {
       }
     }
   } catch (error) {
+    state.qwenConfigured = null;
     system.className = "system-status is-error";
     system.innerHTML = '<span class="status-dot"></span><span>后端未连接</span>';
     document.querySelector("#configuration-title").textContent = "无法读取模型配置";
     document.querySelector("#configuration-message").textContent = error.message;
   }
+}
+
+function showQwenFirstRunPrompt() {
+  const dialog = document.querySelector("#qwen-first-run-dialog");
+  if (dialog?.showModal) {
+    if (!dialog.open) dialog.showModal();
+    return;
+  }
+  showToast("首次运行前请先连接千问 API");
+}
+
+async function ensureQwenConfigured() {
+  if (state.qwenSessionId && isQwenSessionExpired()) clearStaleQwenSession();
+  if (state.qwenSessionId || state.qwenConfigured === true) return true;
+  if (state.qwenConfigured === null) await checkConfiguration();
+  if (state.qwenConfigured !== true && !state.qwenSessionId) {
+    showQwenFirstRunPrompt();
+    return false;
+  }
+  return true;
 }
 
 function setProgress(percent, label) {
@@ -647,6 +670,7 @@ function importQwenCredentialCsv(text) {
 function renderTemporaryQwenConnection(session) {
   state.qwenSessionId = session.session_id;
   state.qwenSessionExpiresAt = session.expires_at;
+  state.qwenConfigured = true;
   const badge = document.querySelector("#configuration-badge");
   badge.textContent = "会话已启用";
   badge.className = "status-badge is-success";
@@ -710,6 +734,16 @@ document.querySelector("#qwen-dialog-close").addEventListener("click", () => doc
 document.querySelector("#qwen-cancel-config").addEventListener("click", () => document.querySelector("#qwen-connection-dialog").close());
 document.querySelector("#qwen-connection-form").addEventListener("submit", connectQwenSession);
 document.querySelector("#qwen-disconnect").addEventListener("click", disconnectQwenSession);
+document.querySelector("#qwen-first-run-configure")?.addEventListener("click", () => {
+  document.querySelector("#qwen-first-run-dialog")?.close();
+  document.querySelector("#qwen-connection-dialog")?.showModal();
+});
+document.querySelector("#qwen-first-run-cancel")?.addEventListener("click", () => {
+  document.querySelector("#qwen-first-run-dialog")?.close();
+});
+document.querySelector("#qwen-first-run-cancel-secondary")?.addEventListener("click", () => {
+  document.querySelector("#qwen-first-run-dialog")?.close();
+});
 document.querySelector("#qwen-credential-file").addEventListener("change", async (event) => {
   const file = event.target.files?.[0];
   if (!file) return;
@@ -722,6 +756,7 @@ document.querySelector("#qwen-credential-file").addEventListener("change", async
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (!(await ensureQwenConfigured())) return;
   submitButton.disabled = true;
   errorPanel.hidden = true;
   resultsPanel.hidden = true;
@@ -3304,6 +3339,7 @@ async function runPlannerDatasetBuild(button) {
 async function startPlannerResearch(topicText) {
   const topic = String(topicText || "").trim();
   if (topic.length < 2 || plannerState.busy) return;
+  if (!(await ensureQwenConfigured())) return;
   upsertPlannerHistory(topic, { status: "执行中", updatedAt: new Date().toISOString() });
   plannerState.busy = true;
   plannerState.topic = null;

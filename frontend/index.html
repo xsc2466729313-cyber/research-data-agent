@@ -475,12 +475,24 @@
 
     </main>
 
+    <dialog id="qwen-first-run-dialog" class="qwen-dialog qwen-first-run-dialog" aria-labelledby="qwen-first-run-title">
+      <div class="raw-dialog-heading">
+        <div><p class="section-kicker">首次运行提示</p><h2 id="qwen-first-run-title">请先连接千问 API</h2></div>
+        <button id="qwen-first-run-cancel" type="button" aria-label="关闭首次运行提示">×</button>
+      </div>
+      <p class="section-note">开始研究前需要先配置并验证千问 API。系统默认使用千问 3.8 系列的 Max 高性能模型（Qwen3.8-Max）；凭据只会保存在当前后端进程的临时内存会话中，不会写入项目文件。</p>
+      <div class="api-actions">
+        <button id="qwen-first-run-configure" class="button button-primary" type="button">去配置 API</button>
+        <button id="qwen-first-run-cancel-secondary" class="button button-secondary" type="button">稍后配置</button>
+      </div>
+    </dialog>
+
     <dialog id="qwen-connection-dialog" class="qwen-dialog" aria-labelledby="qwen-dialog-title">
       <div class="raw-dialog-heading">
         <div><p class="section-kicker">千问 API 连接</p><h2 id="qwen-dialog-title">配置千问模型凭据</h2></div>
         <button id="qwen-dialog-close" type="button" aria-label="关闭千问 API 配置">×</button>
       </div>
-      <p class="section-note">可手工录入，或从本机百炼凭据 CSV 导入。CSV 不上传；仅连接所需字段经 HTTPS 提交至当前后端。</p>
+      <p class="section-note">默认使用千问 3.8 系列的 Max 高性能模型（Qwen3.8-Max）。可手工录入，或从本机百炼凭据 CSV 导入；CSV 不上传，仅连接所需字段经 HTTPS 提交至当前后端。</p>
       <form id="qwen-connection-form">
         <label class="qwen-file-import" for="qwen-credential-file"><strong>从百炼凭据 CSV 导入</strong><span>支持包含 apiKey、openAiCompatible、workspaceId 的 id/value 表</span><input id="qwen-credential-file" type="file" accept=".csv,text/csv" /></label>
         <div class="qwen-form-grid">
@@ -490,7 +502,7 @@
           <label class="qwen-field qwen-field-wide">OpenAI 兼容接口地址
             <input id="qwen-base-url" type="url" required value="https://dashscope.aliyuncs.com/compatible-mode/v1" spellcheck="false" />
           </label>
-          <label class="qwen-field">模型
+          <label class="qwen-field">模型（默认：Qwen3.8-Max）
             <input id="qwen-model" type="text" required value="qwen3.8-max" spellcheck="false" />
           </label>
           <label class="qwen-field">业务空间 ID（可选）
