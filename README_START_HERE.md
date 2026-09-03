@@ -4,6 +4,8 @@
 
 赛道能力主链：**千问问题解析与检索规划 + 真实 Adapter 取数 + 字段治理与错误诊断 + 冻结规则安全裁决 + 两轮闭环**。
 
+在线演示：[https://cancer-precision-data-agent.onrender.com/](https://cancer-precision-data-agent.onrender.com/)
+
 ## 推荐阅读顺序
 
 1. `AGENTS.md`
