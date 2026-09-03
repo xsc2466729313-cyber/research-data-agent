@@ -1,30 +1,110 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1320 700" role="img" aria-labelledby="title desc">
-  <title id="title">中文智能体协作工作流</title>
-  <desc id="desc">研究问题经过任务统筹、研究规划、多源查找、数据整理、独立检查和质量把关，形成可追溯科研结果；发现缺口后回到补充查找。</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1080" role="img" aria-labelledby="title desc">
+  <title id="title">多智能体科研数据协作架构</title>
+  <desc id="desc">用户提出研究问题后，由任务总负责人智能体分配给研究规划、资料查找、独立质疑和质量把关智能体；固定规则模块负责真实数据获取、字段统一和身份核对；发现缺口后回到资料查找。</desc>
   <defs>
-    <marker id="a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#8b96b3"/></marker>
-    <marker id="b" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#b89052"/></marker>
+    <marker id="arrow-blue" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#7183aa"/></marker>
+    <marker id="arrow-gold" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#b8863c"/></marker>
+    <marker id="arrow-green" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#378b74"/></marker>
   </defs>
-  <rect width="1320" height="700" rx="18" fill="#fbfcff"/>
+  <rect width="1500" height="1080" fill="#fbfcff"/>
   <g font-family="Microsoft YaHei, Noto Sans CJK SC, sans-serif">
-    <text x="42" y="42" fill="#27345f" font-size="22" font-weight="700">智能体协作工作流</text>
-    <text x="42" y="70" fill="#7c8499" font-size="14">复杂研究任务由多个有边界的角色接力完成，简单任务仍使用单一确定性处理</text>
-    <g stroke="#8b96b3" stroke-width="2" fill="none" marker-end="url(#a)"><path d="M178 170 H205"/><path d="M355 170 H382"/><path d="M532 170 H568"/><path d="M718 170 H754"/><path d="M904 170 H940"/><path d="M1090 170 H1126"/><path d="M645 232 V292"/><path d="M645 390 V438"/><path d="M1201 214 V288"/><path d="M1126 332 H1080 V214"/></g>
-    <g text-anchor="middle">
-      <g><rect x="38" y="126" width="140" height="88" rx="12" fill="#eef2ff" stroke="#bac6ee"/><text x="108" y="163" fill="#3d4f9a" font-size="18" font-weight="700">研究问题</text><text x="108" y="190" fill="#697493" font-size="13">用户想研究什么</text></g>
-      <g><rect x="205" y="126" width="150" height="88" rx="12" fill="#eef8f5" stroke="#b4ded1"/><text x="280" y="163" fill="#247d67" font-size="18" font-weight="700">任务统筹</text><text x="280" y="190" fill="#697493" font-size="13">安排整个任务</text></g>
-      <g><rect x="382" y="126" width="150" height="88" rx="12" fill="#fff7e9" stroke="#ecd39e"/><text x="457" y="163" fill="#9b7026" font-size="18" font-weight="700">研究规划</text><text x="457" y="190" fill="#697493" font-size="13">明确对象、变量和目标</text></g>
-      <g><rect x="568" y="126" width="150" height="88" rx="12" fill="#f2efff" stroke="#cfc1f2"/><text x="643" y="163" fill="#7051a5" font-size="18" font-weight="700">多源查找</text><text x="643" y="190" fill="#697493" font-size="13">寻找真实公开资料</text></g>
-      <g><rect x="754" y="126" width="150" height="88" rx="12" fill="#edf6fb" stroke="#b9d8e9"/><text x="829" y="163" fill="#36748e" font-size="18" font-weight="700">数据整理</text><text x="829" y="190" fill="#697493" font-size="13">统一字段和研究边界</text></g>
-      <g><rect x="940" y="126" width="150" height="88" rx="12" fill="#fff1f0" stroke="#edc0bc"/><text x="1015" y="163" fill="#a14f4a" font-size="18" font-weight="700">独立检查</text><text x="1015" y="190" fill="#697493" font-size="13">找出缺口和冲突</text></g>
-      <g><rect x="1126" y="126" width="150" height="88" rx="12" fill="#eef8f5" stroke="#b4ded1"/><text x="1201" y="163" fill="#247d67" font-size="18" font-weight="700">质量把关</text><text x="1201" y="190" fill="#697493" font-size="13">决定能否交付</text></g>
-      <g><rect x="565" y="292" width="160" height="98" rx="12" fill="#fffaf0" stroke="#e8c982"/><text x="645" y="328" fill="#9b7026" font-size="18" font-weight="700">并行查找</text><text x="645" y="355" fill="#697493" font-size="13">患者资料</text><text x="645" y="376" fill="#697493" font-size="13">论文证据 · 试验信息</text></g>
-      <g><rect x="565" y="438" width="160" height="82" rx="12" fill="#fff7e9" stroke="#e8c982"/><text x="645" y="472" fill="#9b7026" font-size="18" font-weight="700">缺口补查</text><text x="645" y="498" fill="#697493" font-size="13">缺什么，再找什么</text></g>
-      <g><rect x="1126" y="288" width="150" height="88" rx="12" fill="#eef2ff" stroke="#bac6ee"/><text x="1201" y="325" fill="#3d4f9a" font-size="18" font-weight="700">结果交付</text><text x="1201" y="352" fill="#697493" font-size="13">数据、来源和说明</text></g>
+    <text x="70" y="54" fill="#1e2a4d" font-size="30" font-weight="700">多智能体科研数据协作架构</text>
+    <text x="70" y="84" fill="#687590" font-size="16">先看清“谁负责什么”，再看任务如何流转；每个角色只在自己的边界内工作</text>
+
+    <rect x="70" y="112" width="1360" height="98" rx="16" fill="#eef4ff" stroke="#c3d3f2" stroke-width="2"/>
+    <circle cx="130" cy="161" r="30" fill="#3d5fa4"/>
+    <text x="130" y="154" text-anchor="middle" fill="#ffffff" font-size="18" font-weight="700">智能体</text>
+    <text x="130" y="179" text-anchor="middle" fill="#ffffff" font-size="13">会理解、会选择</text>
+    <text x="200" y="151" fill="#2f477e" font-size="18" font-weight="700">什么是智能体？</text>
+    <text x="200" y="179" fill="#53627f" font-size="15">它能理解当前目标，选择下一步行动，调用资料或工具，再根据结果继续推进。</text>
+    <text x="200" y="199" fill="#53627f" font-size="15">但它不能越权修改真实患者事实，也不能自己宣布医学结果通过。</text>
+
+    <rect x="70" y="250" width="245" height="112" rx="16" fill="#f1f3ff" stroke="#b9c7ef" stroke-width="2"/>
+    <text x="192" y="292" text-anchor="middle" fill="#3c579b" font-size="21" font-weight="700">研究问题</text>
+    <text x="192" y="321" text-anchor="middle" fill="#64718c" font-size="15">用户说清想研究什么</text>
+    <text x="192" y="345" text-anchor="middle" fill="#64718c" font-size="14">人群 · 因素 · 结果</text>
+
+    <path d="M315 306 H390" fill="none" stroke="#7183aa" stroke-width="2.2" marker-end="url(#arrow-blue)"/>
+    <rect x="390" y="230" width="390" height="152" rx="18" fill="#e8f6f1" stroke="#9ed6c5" stroke-width="2.5"/>
+    <text x="585" y="278" text-anchor="middle" fill="#1d765e" font-size="24" font-weight="700">任务总负责人智能体</text>
+    <text x="585" y="310" text-anchor="middle" fill="#4d6f67" font-size="16">理解目标 · 分配角色 · 记录进度</text>
+    <text x="585" y="340" text-anchor="middle" fill="#4d6f67" font-size="14">它负责协调，不直接编造患者数据</text>
+    <rect x="815" y="252" width="570" height="108" rx="14" fill="#fffaf0" stroke="#ecd39e" stroke-width="2"/>
+    <text x="845" y="286" fill="#9b7026" font-size="17" font-weight="700">评委可以这样理解</text>
+    <text x="845" y="316" fill="#74694f" font-size="15">像一个研究项目负责人：把大问题拆开，</text>
+    <text x="845" y="340" fill="#74694f" font-size="15">让不同专长的成员各做一部分，再汇总检查。</text>
+
+    <rect x="70" y="418" width="1360" height="376" rx="22" fill="#ffffff" stroke="#dbe3ee" stroke-width="2"/>
+    <text x="105" y="458" fill="#26365f" font-size="19" font-weight="700">专业角色分工</text>
+    <text x="105" y="484" fill="#74809a" font-size="14">这些角色都能根据反馈行动，但输入、输出和权限各不相同</text>
+
+    <g>
+      <rect x="105" y="520" width="270" height="166" rx="16" fill="#fff7e9" stroke="#e7c77f" stroke-width="2"/>
+      <circle cx="145" cy="560" r="20" fill="#b8863c"/><text x="145" y="567" text-anchor="middle" fill="#fff" font-size="17" font-weight="700">1</text>
+      <text x="175" y="562" fill="#936b24" font-size="19" font-weight="700">研究规划智能体</text>
+      <text x="135" y="602" fill="#6f6b5e" font-size="14">把问题变成研究方案</text>
+      <text x="135" y="628" fill="#6f6b5e" font-size="14">明确人群、变量、结局</text>
+      <text x="135" y="654" fill="#6f6b5e" font-size="14">提出要查哪些资料</text>
     </g>
-    <g fill="none" stroke="#b89052" stroke-width="2" marker-end="url(#b)"><path d="M1201 376 V580 H645 V520"/></g>
-    <text x="770" y="572" fill="#7d6a45" font-size="13">发现字段、证据或身份缺口时，回到这里补充查找</text>
-    <text x="735" y="275" fill="#7d6a45" font-size="13">彼此独立的资料可以同时查找</text>
-    <text x="1080" y="270" fill="#6f7890" font-size="13">通过</text>
+    <g>
+      <rect x="405" y="520" width="270" height="166" rx="16" fill="#f3efff" stroke="#cfc1f2" stroke-width="2"/>
+      <circle cx="445" cy="560" r="20" fill="#7354a7"/><text x="445" y="567" text-anchor="middle" fill="#fff" font-size="17" font-weight="700">2</text>
+      <text x="475" y="562" fill="#694a9c" font-size="19" font-weight="700">资料查找智能体</text>
+      <text x="435" y="602" fill="#68677c" font-size="14">选择合适的公开来源</text>
+      <text x="435" y="628" fill="#68677c" font-size="14">分别查患者、论文、试验</text>
+      <text x="435" y="654" fill="#68677c" font-size="14">发现缺口后更换方法</text>
+    </g>
+    <g>
+      <rect x="705" y="520" width="270" height="166" rx="16" fill="#fff1f0" stroke="#edc0bc" stroke-width="2"/>
+      <circle cx="745" cy="560" r="20" fill="#ad5b56"/><text x="745" y="567" text-anchor="middle" fill="#fff" font-size="17" font-weight="700">3</text>
+      <text x="775" y="562" fill="#9c4e49" font-size="19" font-weight="700">独立质疑智能体</text>
+      <text x="735" y="602" fill="#75666d" font-size="14">不负责改数据，只找问题</text>
+      <text x="735" y="628" fill="#75666d" font-size="14">检查缺失、冲突和证据</text>
+      <text x="735" y="654" fill="#75666d" font-size="14">主动挑战前面得到的结论</text>
+    </g>
+    <g>
+      <rect x="1005" y="520" width="270" height="166" rx="16" fill="#eaf6f2" stroke="#a7d9cb" stroke-width="2"/>
+      <circle cx="1045" cy="560" r="20" fill="#378b74"/><text x="1045" y="567" text-anchor="middle" fill="#fff" font-size="17" font-weight="700">4</text>
+      <text x="1075" y="562" fill="#247762" font-size="19" font-weight="700">质量把关智能体</text>
+      <text x="1035" y="602" fill="#5e766f" font-size="14">综合检查结果是否可交付</text>
+      <text x="1035" y="628" fill="#5e766f" font-size="14">可以交付 · 人工确认 · 阻断</text>
+      <text x="1035" y="654" fill="#5e766f" font-size="14">遵守固定医学安全边界</text>
+    </g>
+
+    <path d="M585 382 V440 H240 V510" fill="none" stroke="#7183aa" stroke-width="2" marker-end="url(#arrow-blue)"/>
+    <path d="M585 382 V440 H540 V510" fill="none" stroke="#7183aa" stroke-width="2" marker-end="url(#arrow-blue)"/>
+    <path d="M585 382 V440 H840 V510" fill="none" stroke="#7183aa" stroke-width="2" marker-end="url(#arrow-blue)"/>
+    <path d="M585 382 V440 H1140 V510" fill="none" stroke="#7183aa" stroke-width="2" marker-end="url(#arrow-blue)"/>
+    <text x="600" y="433" fill="#7183aa" font-size="14">按需分派，互不共享无关历史</text>
+
+    <rect x="105" y="720" width="1170" height="52" rx="12" fill="#f7f9fc" stroke="#dbe3ee"/>
+    <text x="690" y="752" text-anchor="middle" fill="#62718a" font-size="15">专业角色提出建议；真实事实必须经过固定规则模块和独立检查</text>
+
+    <rect x="70" y="834" width="440" height="112" rx="16" fill="#edf6fb" stroke="#b9d8e9" stroke-width="2"/>
+    <text x="290" y="874" text-anchor="middle" fill="#36748e" font-size="20" font-weight="700">真实数据与字段整理</text>
+    <text x="290" y="904" text-anchor="middle" fill="#5f7785" font-size="14">固定规则模块：取真实来源、统一字段、核对身份</text>
+    <text x="290" y="928" text-anchor="middle" fill="#5f7785" font-size="14">按规则执行，不自行猜测</text>
+
+    <rect x="550" y="834" width="380" height="112" rx="16" fill="#f8f4e9" stroke="#dec891" stroke-width="2"/>
+    <text x="740" y="874" text-anchor="middle" fill="#916d2d" font-size="20" font-weight="700">汇总与独立校验</text>
+    <text x="740" y="904" text-anchor="middle" fill="#776d58" font-size="14">来源、字段、身份和医学边界逐项核对</text>
+    <text x="740" y="928" text-anchor="middle" fill="#776d58" font-size="14">任何角色都不能自己证明自己正确</text>
+
+    <rect x="970" y="834" width="460" height="112" rx="16" fill="#eaf6f2" stroke="#a7d9cb" stroke-width="2"/>
+    <text x="1200" y="874" text-anchor="middle" fill="#247762" font-size="20" font-weight="700">可追溯科研结果</text>
+    <text x="1200" y="904" text-anchor="middle" fill="#5e766f" font-size="14">数据表 · 来源清单 · 字段说明 · 质量报告</text>
+    <text x="1200" y="928" text-anchor="middle" fill="#5e766f" font-size="14">缺证据就不输出患者事实</text>
+
+    <path d="M240 686 V780 H290 V824" fill="none" stroke="#b8863c" stroke-width="2" marker-end="url(#arrow-gold)"/>
+    <path d="M540 686 V780 H290 V824" fill="none" stroke="#b8863c" stroke-width="2" marker-end="url(#arrow-gold)"/>
+    <path d="M840 686 V780 H740 V824" fill="none" stroke="#b8863c" stroke-width="2" marker-end="url(#arrow-gold)"/>
+    <path d="M1140 686 V780 H1200 V824" fill="none" stroke="#378b74" stroke-width="2" marker-end="url(#arrow-green)"/>
+    <path d="M510 890 H540" fill="none" stroke="#7183aa" stroke-width="2" marker-end="url(#arrow-blue)"/>
+    <path d="M930 890 H960" fill="none" stroke="#378b74" stroke-width="2" marker-end="url(#arrow-green)"/>
+
+    <path d="M1200 946 V1010 H540 V946" fill="none" stroke="#b8863c" stroke-width="2.2" marker-end="url(#arrow-gold)"/>
+    <text x="855" y="1002" text-anchor="middle" fill="#856b3d" font-size="14">发现关键缺口时，只回到资料查找智能体补查，不用生成内容填空</text>
+
+    <text x="70" y="1048" fill="#6d7890" font-size="14">核心原则：复杂研究任务用多智能体协作；简单查询、格式转换和确定性去重仍用单一步骤。</text>
   </g>
 </svg>

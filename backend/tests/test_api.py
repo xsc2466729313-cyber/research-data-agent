@@ -127,6 +127,12 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "上下文隔离" in response.text
     assert "独立校验" in response.text
     assert 'src="/agent-workflow-cn.svg"' in response.text
+    assert "什么是智能体" in response.text
+    assert "任务总负责人智能体" in response.text
+    assert "研究规划智能体" in response.text
+    assert "资料查找智能体" in response.text
+    assert "独立质疑智能体" in response.text
+    assert "固定规则模块" in response.text
     assert "先明确研究需要什么数据" in response.text
     assert "每一步筛选都能解释清楚" in response.text
     assert "模型评价中心" not in response.text

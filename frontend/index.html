@@ -145,10 +145,19 @@
           <span class="status-badge is-success">可审计</span>
         </div>
         <p class="section-note">一个总负责人统筹任务，多个专业角色分别规划、查找、整理和检查；真实数据获取、字段统一和医学安全判断由固定规则完成。每个角色都有清楚的工作边界，结果可以追溯和复核。</p>
+        <div class="agent-definition"><strong>什么是智能体？</strong><span>它能理解目标、选择下一步、调用资料并根据反馈继续推进，但不能越权修改真实患者事实。</span></div>
         <figure class="agent-workflow-figure">
           <img src="/agent-workflow-cn.svg" alt="从研究问题到结果交付的中文智能体协作工作流" loading="lazy" />
           <figcaption>复杂研究任务使用多角色协作，简单查询和格式处理仍由单一确定性步骤完成。</figcaption>
         </figure>
+        <div class="agent-role-summary" aria-label="智能体角色说明">
+          <span><b>任务总负责人智能体</b>：拆分问题、分派角色、记录进度</span>
+          <span><b>研究规划智能体</b>：明确人群、变量、结局和资料需求</span>
+          <span><b>资料查找智能体</b>：选择来源、查找证据、针对缺口补查</span>
+          <span><b>独立质疑智能体</b>：不改数据，只检查缺失、冲突和证据</span>
+          <span><b>质量把关智能体</b>：综合判断可交付、人工确认或阻断</span>
+          <span><b>固定规则模块</b>：取得真实数据、统一字段、核对身份和医学边界</span>
+        </div>
         <div class="agent-architecture-grid">
           <article><h3>上下文隔离</h3><p>每项任务、每轮补查、每项研究和每个样本分别记录，互不混淆；不同研究的患者编号不会直接拼接。</p></article>
           <article><h3>关注点分离</h3><p>规划角色只负责提出方案，查找角色只负责找资料，检查角色只负责发现问题，质量把关只负责决定是否交付。</p></article>
