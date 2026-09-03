@@ -1,110 +1,128 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1080" role="img" aria-labelledby="title desc">
-  <title id="title">多智能体科研数据协作架构</title>
-  <desc id="desc">用户提出研究问题后，由任务总负责人智能体分配给研究规划、资料查找、独立质疑和质量把关智能体；固定规则模块负责真实数据获取、字段统一和身份核对；发现缺口后回到资料查找。</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1120" role="img" aria-labelledby="title desc">
+  <title id="title">混合式多 Agent 科研数据工作流</title>
+  <desc id="desc">研究问题进入主 Agent，主 Agent 调度规划 Agent、检索 Agent、Critic Agent 和 Quality Agent；数据接口和规则引擎负责真实取数、字段标准化、身份对齐及医学安全；菱形节点判断是否存在缺口以及是否通过质量门。</desc>
   <defs>
-    <marker id="arrow-blue" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#7183aa"/></marker>
-    <marker id="arrow-gold" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#b8863c"/></marker>
-    <marker id="arrow-green" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#378b74"/></marker>
+    <marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#71809f"/></marker>
+    <marker id="arrow-loop" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5.5" markerHeight="5.5" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#b57929"/></marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#1e365f" flood-opacity="0.10"/></filter>
   </defs>
-  <rect width="1500" height="1080" fill="#fbfcff"/>
+  <rect width="1500" height="1120" fill="#f7f9fc"/>
   <g font-family="Microsoft YaHei, Noto Sans CJK SC, sans-serif">
-    <text x="70" y="54" fill="#1e2a4d" font-size="30" font-weight="700">多智能体科研数据协作架构</text>
-    <text x="70" y="84" fill="#687590" font-size="16">先看清“谁负责什么”，再看任务如何流转；每个角色只在自己的边界内工作</text>
+    <text x="64" y="52" fill="#18284b" font-size="30" font-weight="700">混合式多 Agent 科研数据工作流</text>
+    <text x="64" y="82" fill="#66748d" font-size="16">Agent 负责理解、规划和反馈；确定性规则负责真实数据、身份核对与医学安全</text>
 
-    <rect x="70" y="112" width="1360" height="98" rx="16" fill="#eef4ff" stroke="#c3d3f2" stroke-width="2"/>
-    <circle cx="130" cy="161" r="30" fill="#3d5fa4"/>
-    <text x="130" y="154" text-anchor="middle" fill="#ffffff" font-size="18" font-weight="700">智能体</text>
-    <text x="130" y="179" text-anchor="middle" fill="#ffffff" font-size="13">会理解、会选择</text>
-    <text x="200" y="151" fill="#2f477e" font-size="18" font-weight="700">什么是智能体？</text>
-    <text x="200" y="179" fill="#53627f" font-size="15">它能理解当前目标，选择下一步行动，调用资料或工具，再根据结果继续推进。</text>
-    <text x="200" y="199" fill="#53627f" font-size="15">但它不能越权修改真实患者事实，也不能自己宣布医学结果通过。</text>
-
-    <rect x="70" y="250" width="245" height="112" rx="16" fill="#f1f3ff" stroke="#b9c7ef" stroke-width="2"/>
-    <text x="192" y="292" text-anchor="middle" fill="#3c579b" font-size="21" font-weight="700">研究问题</text>
-    <text x="192" y="321" text-anchor="middle" fill="#64718c" font-size="15">用户说清想研究什么</text>
-    <text x="192" y="345" text-anchor="middle" fill="#64718c" font-size="14">人群 · 因素 · 结果</text>
-
-    <path d="M315 306 H390" fill="none" stroke="#7183aa" stroke-width="2.2" marker-end="url(#arrow-blue)"/>
-    <rect x="390" y="230" width="390" height="152" rx="18" fill="#e8f6f1" stroke="#9ed6c5" stroke-width="2.5"/>
-    <text x="585" y="278" text-anchor="middle" fill="#1d765e" font-size="24" font-weight="700">任务总负责人智能体</text>
-    <text x="585" y="310" text-anchor="middle" fill="#4d6f67" font-size="16">理解目标 · 分配角色 · 记录进度</text>
-    <text x="585" y="340" text-anchor="middle" fill="#4d6f67" font-size="14">它负责协调，不直接编造患者数据</text>
-    <rect x="815" y="252" width="570" height="108" rx="14" fill="#fffaf0" stroke="#ecd39e" stroke-width="2"/>
-    <text x="845" y="286" fill="#9b7026" font-size="17" font-weight="700">评委可以这样理解</text>
-    <text x="845" y="316" fill="#74694f" font-size="15">像一个研究项目负责人：把大问题拆开，</text>
-    <text x="845" y="340" fill="#74694f" font-size="15">让不同专长的成员各做一部分，再汇总检查。</text>
-
-    <rect x="70" y="418" width="1360" height="376" rx="22" fill="#ffffff" stroke="#dbe3ee" stroke-width="2"/>
-    <text x="105" y="458" fill="#26365f" font-size="19" font-weight="700">专业角色分工</text>
-    <text x="105" y="484" fill="#74809a" font-size="14">这些角色都能根据反馈行动，但输入、输出和权限各不相同</text>
-
-    <g>
-      <rect x="105" y="520" width="270" height="166" rx="16" fill="#fff7e9" stroke="#e7c77f" stroke-width="2"/>
-      <circle cx="145" cy="560" r="20" fill="#b8863c"/><text x="145" y="567" text-anchor="middle" fill="#fff" font-size="17" font-weight="700">1</text>
-      <text x="175" y="562" fill="#936b24" font-size="19" font-weight="700">研究规划智能体</text>
-      <text x="135" y="602" fill="#6f6b5e" font-size="14">把问题变成研究方案</text>
-      <text x="135" y="628" fill="#6f6b5e" font-size="14">明确人群、变量、结局</text>
-      <text x="135" y="654" fill="#6f6b5e" font-size="14">提出要查哪些资料</text>
-    </g>
-    <g>
-      <rect x="405" y="520" width="270" height="166" rx="16" fill="#f3efff" stroke="#cfc1f2" stroke-width="2"/>
-      <circle cx="445" cy="560" r="20" fill="#7354a7"/><text x="445" y="567" text-anchor="middle" fill="#fff" font-size="17" font-weight="700">2</text>
-      <text x="475" y="562" fill="#694a9c" font-size="19" font-weight="700">资料查找智能体</text>
-      <text x="435" y="602" fill="#68677c" font-size="14">选择合适的公开来源</text>
-      <text x="435" y="628" fill="#68677c" font-size="14">分别查患者、论文、试验</text>
-      <text x="435" y="654" fill="#68677c" font-size="14">发现缺口后更换方法</text>
-    </g>
-    <g>
-      <rect x="705" y="520" width="270" height="166" rx="16" fill="#fff1f0" stroke="#edc0bc" stroke-width="2"/>
-      <circle cx="745" cy="560" r="20" fill="#ad5b56"/><text x="745" y="567" text-anchor="middle" fill="#fff" font-size="17" font-weight="700">3</text>
-      <text x="775" y="562" fill="#9c4e49" font-size="19" font-weight="700">独立质疑智能体</text>
-      <text x="735" y="602" fill="#75666d" font-size="14">不负责改数据，只找问题</text>
-      <text x="735" y="628" fill="#75666d" font-size="14">检查缺失、冲突和证据</text>
-      <text x="735" y="654" fill="#75666d" font-size="14">主动挑战前面得到的结论</text>
-    </g>
-    <g>
-      <rect x="1005" y="520" width="270" height="166" rx="16" fill="#eaf6f2" stroke="#a7d9cb" stroke-width="2"/>
-      <circle cx="1045" cy="560" r="20" fill="#378b74"/><text x="1045" y="567" text-anchor="middle" fill="#fff" font-size="17" font-weight="700">4</text>
-      <text x="1075" y="562" fill="#247762" font-size="19" font-weight="700">质量把关智能体</text>
-      <text x="1035" y="602" fill="#5e766f" font-size="14">综合检查结果是否可交付</text>
-      <text x="1035" y="628" fill="#5e766f" font-size="14">可以交付 · 人工确认 · 阻断</text>
-      <text x="1035" y="654" fill="#5e766f" font-size="14">遵守固定医学安全边界</text>
+    <g transform="translate(1065 30)" font-size="13" fill="#55647d">
+      <rect x="0" y="0" width="24" height="16" rx="5" fill="#eaf4ff" stroke="#6d9ed1"/><text x="32" y="13">Agent</text>
+      <rect x="94" y="0" width="24" height="16" fill="#edf5f7" stroke="#6e9ca7"/><text x="126" y="13">规则模块</text>
+      <polygon points="224,8 236,0 248,8 236,16" fill="#fff5e7" stroke="#c78a31"/><text x="258" y="13">判断</text>
+      <path d="M326 0 H350 L356 5 V16 H326 Z" fill="#f1f3ff" stroke="#7a88bd"/><text x="365" y="13">输入/输出</text>
     </g>
 
-    <path d="M585 382 V440 H240 V510" fill="none" stroke="#7183aa" stroke-width="2" marker-end="url(#arrow-blue)"/>
-    <path d="M585 382 V440 H540 V510" fill="none" stroke="#7183aa" stroke-width="2" marker-end="url(#arrow-blue)"/>
-    <path d="M585 382 V440 H840 V510" fill="none" stroke="#7183aa" stroke-width="2" marker-end="url(#arrow-blue)"/>
-    <path d="M585 382 V440 H1140 V510" fill="none" stroke="#7183aa" stroke-width="2" marker-end="url(#arrow-blue)"/>
-    <text x="600" y="433" fill="#7183aa" font-size="14">按需分派，互不共享无关历史</text>
+    <path d="M65 132 H330 L346 148 V250 H65 Z" fill="#f1f3ff" stroke="#8290c3" stroke-width="2" filter="url(#shadow)"/>
+    <path d="M330 132 V148 H346" fill="none" stroke="#8290c3" stroke-width="2"/>
+    <text x="205" y="174" text-anchor="middle" fill="#3b4d8d" font-size="21" font-weight="700">输入：研究问题</text>
+    <text x="205" y="206" text-anchor="middle" fill="#616e88" font-size="14">疾病、人群、研究因素、结局</text>
+    <text x="205" y="229" text-anchor="middle" fill="#616e88" font-size="14">以及需要交付的数据内容</text>
 
-    <rect x="105" y="720" width="1170" height="52" rx="12" fill="#f7f9fc" stroke="#dbe3ee"/>
-    <text x="690" y="752" text-anchor="middle" fill="#62718a" font-size="15">专业角色提出建议；真实事实必须经过固定规则模块和独立检查</text>
+    <path d="M346 191 H410" fill="none" stroke="#71809f" stroke-width="2" marker-end="url(#arrow)"/>
+    <rect x="410" y="116" width="420" height="150" rx="22" fill="#e8f6f1" stroke="#4ea990" stroke-width="2.5" filter="url(#shadow)"/>
+    <text x="620" y="157" text-anchor="middle" fill="#176c59" font-size="24" font-weight="700">主 Agent｜任务总控</text>
+    <text x="620" y="190" text-anchor="middle" fill="#4c6d66" font-size="15">解析目标 · 拆分任务 · 调度专业 Agent</text>
+    <text x="620" y="218" text-anchor="middle" fill="#4c6d66" font-size="15">管理上下文 · 汇总状态 · 决定下一步</text>
+    <text x="620" y="244" text-anchor="middle" fill="#68817b" font-size="13">只负责编排，不直接生成患者级事实</text>
 
-    <rect x="70" y="834" width="440" height="112" rx="16" fill="#edf6fb" stroke="#b9d8e9" stroke-width="2"/>
-    <text x="290" y="874" text-anchor="middle" fill="#36748e" font-size="20" font-weight="700">真实数据与字段整理</text>
-    <text x="290" y="904" text-anchor="middle" fill="#5f7785" font-size="14">固定规则模块：取真实来源、统一字段、核对身份</text>
-    <text x="290" y="928" text-anchor="middle" fill="#5f7785" font-size="14">按规则执行，不自行猜测</text>
+    <rect x="875" y="122" width="560" height="138" rx="14" fill="#ffffff" stroke="#d9e1ec" stroke-width="2"/>
+    <text x="905" y="158" fill="#263b68" font-size="18" font-weight="700">Agent 的工作边界</text>
+    <text x="905" y="190" fill="#5e6d84" font-size="14">输入：任务目标、当前上下文、上一步结果和缺口</text>
+    <text x="905" y="216" fill="#5e6d84" font-size="14">输出：结构化计划、工具选择、审查意见或下一轮动作</text>
+    <text x="905" y="242" fill="#8b6330" font-size="14">限制：建议不能直接覆盖原始事实，医学判断必须过规则门</text>
 
-    <rect x="550" y="834" width="380" height="112" rx="16" fill="#f8f4e9" stroke="#dec891" stroke-width="2"/>
-    <text x="740" y="874" text-anchor="middle" fill="#916d2d" font-size="20" font-weight="700">汇总与独立校验</text>
-    <text x="740" y="904" text-anchor="middle" fill="#776d58" font-size="14">来源、字段、身份和医学边界逐项核对</text>
-    <text x="740" y="928" text-anchor="middle" fill="#776d58" font-size="14">任何角色都不能自己证明自己正确</text>
+    <rect x="64" y="310" width="1372" height="330" rx="20" fill="#ffffff" stroke="#d5deeb" stroke-width="2"/>
+    <text x="94" y="348" fill="#263b68" font-size="19" font-weight="700">专业 Agent 层｜按职责隔离，可独立校验</text>
+    <text x="94" y="373" fill="#6b7890" font-size="14">主 Agent 按任务需要调度；无依赖的检索分支可并行，共享写入和裁决必须串行汇合</text>
 
-    <rect x="970" y="834" width="460" height="112" rx="16" fill="#eaf6f2" stroke="#a7d9cb" stroke-width="2"/>
-    <text x="1200" y="874" text-anchor="middle" fill="#247762" font-size="20" font-weight="700">可追溯科研结果</text>
-    <text x="1200" y="904" text-anchor="middle" fill="#5e766f" font-size="14">数据表 · 来源清单 · 字段说明 · 质量报告</text>
-    <text x="1200" y="928" text-anchor="middle" fill="#5e766f" font-size="14">缺证据就不输出患者事实</text>
+    <rect x="96" y="408" width="280" height="156" rx="18" fill="#fff7e9" stroke="#dcae55" stroke-width="2" filter="url(#shadow)"/>
+    <text x="236" y="450" text-anchor="middle" fill="#90651e" font-size="20" font-weight="700">规划 Agent</text>
+    <text x="236" y="481" text-anchor="middle" fill="#706758" font-size="14">输入：研究问题</text>
+    <text x="236" y="507" text-anchor="middle" fill="#706758" font-size="14">输出：研究对象、变量、结局</text>
+    <text x="236" y="533" text-anchor="middle" fill="#706758" font-size="14">以及候选来源计划</text>
 
-    <path d="M240 686 V780 H290 V824" fill="none" stroke="#b8863c" stroke-width="2" marker-end="url(#arrow-gold)"/>
-    <path d="M540 686 V780 H290 V824" fill="none" stroke="#b8863c" stroke-width="2" marker-end="url(#arrow-gold)"/>
-    <path d="M840 686 V780 H740 V824" fill="none" stroke="#b8863c" stroke-width="2" marker-end="url(#arrow-gold)"/>
-    <path d="M1140 686 V780 H1200 V824" fill="none" stroke="#378b74" stroke-width="2" marker-end="url(#arrow-green)"/>
-    <path d="M510 890 H540" fill="none" stroke="#7183aa" stroke-width="2" marker-end="url(#arrow-blue)"/>
-    <path d="M930 890 H960" fill="none" stroke="#378b74" stroke-width="2" marker-end="url(#arrow-green)"/>
+    <rect x="416" y="408" width="280" height="156" rx="18" fill="#f2efff" stroke="#a889dc" stroke-width="2" filter="url(#shadow)"/>
+    <text x="556" y="450" text-anchor="middle" fill="#654497" font-size="20" font-weight="700">检索 Agent</text>
+    <text x="556" y="481" text-anchor="middle" fill="#6a647a" font-size="14">输入：来源计划与字段缺口</text>
+    <text x="556" y="507" text-anchor="middle" fill="#6a647a" font-size="14">输出：工具选择、候选资料</text>
+    <text x="556" y="533" text-anchor="middle" fill="#6a647a" font-size="14">患者、论文、试验可并行查找</text>
 
-    <path d="M1200 946 V1010 H540 V946" fill="none" stroke="#b8863c" stroke-width="2.2" marker-end="url(#arrow-gold)"/>
-    <text x="855" y="1002" text-anchor="middle" fill="#856b3d" font-size="14">发现关键缺口时，只回到资料查找智能体补查，不用生成内容填空</text>
+    <rect x="736" y="408" width="280" height="156" rx="18" fill="#fff0ef" stroke="#db8c86" stroke-width="2" filter="url(#shadow)"/>
+    <text x="876" y="450" text-anchor="middle" fill="#94453f" font-size="20" font-weight="700">Critic Agent</text>
+    <text x="876" y="481" text-anchor="middle" fill="#756367" font-size="14">输入：计划、数据和来源记录</text>
+    <text x="876" y="507" text-anchor="middle" fill="#756367" font-size="14">输出：缺失、冲突、越界问题</text>
+    <text x="876" y="533" text-anchor="middle" fill="#756367" font-size="14">只提出质疑，不直接改数据</text>
 
-    <text x="70" y="1048" fill="#6d7890" font-size="14">核心原则：复杂研究任务用多智能体协作；简单查询、格式转换和确定性去重仍用单一步骤。</text>
+    <rect x="1056" y="408" width="280" height="156" rx="18" fill="#eaf6f2" stroke="#62b39b" stroke-width="2" filter="url(#shadow)"/>
+    <text x="1196" y="450" text-anchor="middle" fill="#1f755f" font-size="20" font-weight="700">Quality Agent</text>
+    <text x="1196" y="481" text-anchor="middle" fill="#5d756e" font-size="14">输入：审查结果和质量指标</text>
+    <text x="1196" y="507" text-anchor="middle" fill="#5d756e" font-size="14">输出：通过、人工复核或阻断</text>
+    <text x="1196" y="533" text-anchor="middle" fill="#5d756e" font-size="14">不能绕过固定医学规则</text>
+
+    <path d="M620 266 V292 H236 V398" fill="none" stroke="#71809f" stroke-width="2" marker-end="url(#arrow)"/>
+    <path d="M620 266 V292 H556 V398" fill="none" stroke="#71809f" stroke-width="2" marker-end="url(#arrow)"/>
+    <path d="M620 266 V292 H876 V398" fill="none" stroke="#71809f" stroke-width="2" marker-end="url(#arrow)"/>
+    <path d="M620 266 V292 H1196 V398" fill="none" stroke="#71809f" stroke-width="2" marker-end="url(#arrow)"/>
+
+    <rect x="96" y="590" width="1240" height="30" rx="7" fill="#f3f6fa" stroke="#dde4ed"/>
+    <text x="716" y="611" text-anchor="middle" fill="#68768e" font-size="13">上下文隔离：按任务、轮次、研究、患者、样本和来源分别记录；不同研究的数据不自动拼接</text>
+
+    <rect x="64" y="686" width="390" height="132" fill="#edf5f7" stroke="#6e9ca7" stroke-width="2" filter="url(#shadow)"/>
+    <text x="259" y="725" text-anchor="middle" fill="#326d79" font-size="20" font-weight="700">数据接口与标准化规则</text>
+    <text x="259" y="756" text-anchor="middle" fill="#5c747c" font-size="14">从真实公开来源取数</text>
+    <text x="259" y="781" text-anchor="middle" fill="#5c747c" font-size="14">保留原始值与来源，统一字段</text>
+    <text x="259" y="805" text-anchor="middle" fill="#5c747c" font-size="14">执行患者—样本身份核对</text>
+
+    <polygon points="620,678 742,752 620,826 498,752" fill="#fff5e7" stroke="#c78a31" stroke-width="2.3" filter="url(#shadow)"/>
+    <text x="620" y="744" text-anchor="middle" fill="#945f18" font-size="18" font-weight="700">关键字段、证据</text>
+    <text x="620" y="770" text-anchor="middle" fill="#945f18" font-size="18" font-weight="700">和身份是否齐全？</text>
+
+    <rect x="806" y="686" width="320" height="132" fill="#f3f1e9" stroke="#a99361" stroke-width="2" filter="url(#shadow)"/>
+    <text x="966" y="725" text-anchor="middle" fill="#76602c" font-size="20" font-weight="700">医学安全规则引擎</text>
+    <text x="966" y="756" text-anchor="middle" fill="#746e5f" font-size="14">检查 HER2 等医学语义边界</text>
+    <text x="966" y="781" text-anchor="middle" fill="#746e5f" font-size="14">检查来源冲突和结局类型</text>
+    <text x="966" y="805" text-anchor="middle" fill="#746e5f" font-size="14">低置信度记录进入人工复核</text>
+
+    <polygon points="1270,678 1392,752 1270,826 1148,752" fill="#eef8f4" stroke="#47987f" stroke-width="2.3" filter="url(#shadow)"/>
+    <text x="1270" y="744" text-anchor="middle" fill="#216e5b" font-size="18" font-weight="700">是否通过</text>
+    <text x="1270" y="770" text-anchor="middle" fill="#216e5b" font-size="18" font-weight="700">质量与医学门？</text>
+
+    <path d="M236 564 V654 H259 V676" fill="none" stroke="#71809f" stroke-width="2" marker-end="url(#arrow)"/>
+    <path d="M556 564 V654 H259 V676" fill="none" stroke="#71809f" stroke-width="2" marker-end="url(#arrow)"/>
+    <path d="M454 752 H488" fill="none" stroke="#71809f" stroke-width="2" marker-end="url(#arrow)"/>
+    <path d="M742 752 H796" fill="none" stroke="#71809f" stroke-width="2" marker-end="url(#arrow)"/>
+    <text x="761" y="739" text-anchor="middle" fill="#587062" font-size="13">是</text>
+    <path d="M1126 752 H1138" fill="none" stroke="#71809f" stroke-width="2" marker-end="url(#arrow)"/>
+
+    <path d="M620 826 V864 H556 V574" fill="none" stroke="#b57929" stroke-width="2.2" marker-end="url(#arrow-loop)"/>
+    <text x="636" y="850" fill="#9a681f" font-size="13">否：把缺口交回检索 Agent 补查</text>
+
+    <path d="M876 564 V654 H966 V676" fill="none" stroke="#71809f" stroke-width="2" marker-end="url(#arrow)"/>
+    <path d="M1196 564 V654 H1270 V668" fill="none" stroke="#71809f" stroke-width="2" marker-end="url(#arrow)"/>
+    <path d="M966 818 V850 H1270 V836" fill="none" stroke="#71809f" stroke-width="2" marker-end="url(#arrow)"/>
+
+    <path d="M1270 826 V882" fill="none" stroke="#3d9179" stroke-width="2.2" marker-end="url(#arrow)"/>
+    <text x="1284" y="858" fill="#367b68" font-size="13">通过</text>
+    <path d="M1392 752 H1442 V486 H1346" fill="none" stroke="#b57929" stroke-width="2.2" marker-end="url(#arrow-loop)"/>
+    <text x="1410" y="720" fill="#9a681f" font-size="13">不通过</text>
+    <text x="1370" y="466" text-anchor="middle" fill="#9a681f" font-size="13">返回主 Agent 决定补查或人工复核</text>
+
+    <path d="M1070 890 H1370 L1392 912 V1030 H1070 Z" fill="#eef8f4" stroke="#4e9f88" stroke-width="2.3" filter="url(#shadow)"/>
+    <path d="M1370 890 V912 H1392" fill="none" stroke="#4e9f88" stroke-width="2"/>
+    <text x="1231" y="931" text-anchor="middle" fill="#1d725d" font-size="21" font-weight="700">输出：科研数据交付包</text>
+    <text x="1231" y="962" text-anchor="middle" fill="#58756d" font-size="14">标准化数据表 · 来源清单 · 字段字典</text>
+    <text x="1231" y="987" text-anchor="middle" fill="#58756d" font-size="14">质量报告 · 审核队列 · 缺口说明</text>
+    <text x="1231" y="1012" text-anchor="middle" fill="#58756d" font-size="14">不输出没有来源支持的患者事实</text>
+
+    <rect x="64" y="902" width="860" height="126" rx="14" fill="#ffffff" stroke="#d9e1ec" stroke-width="2"/>
+    <text x="94" y="939" fill="#263b68" font-size="17" font-weight="700">为什么这是混合式多 Agent，而不是单 Agent 多职能？</text>
+    <text x="94" y="969" fill="#5e6d84" font-size="14">规划、检索、质疑和质量裁决拥有独立上下文与权限，能够并行、独立失败、独立测试。</text>
+    <text x="94" y="995" fill="#5e6d84" font-size="14">真实数据和医学判断由确定性规则约束，避免一个 Agent 同时生成事实、修改事实并自我验收。</text>
   </g>
 </svg>

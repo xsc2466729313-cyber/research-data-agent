@@ -133,6 +133,14 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "资料查找智能体" in response.text
     assert "独立质疑智能体" in response.text
     assert "固定规则模块" in response.text
+    workflow = (ROOT / "frontend" / "agent-workflow-cn.svg").read_text(encoding="utf-8")
+    assert "主 Agent｜任务总控" in workflow
+    assert "规划 Agent" in workflow
+    assert "检索 Agent" in workflow
+    assert "Critic Agent" in workflow
+    assert "Quality Agent" in workflow
+    assert "关键字段、证据" in workflow
+    assert "输出：科研数据交付包" in workflow
     assert "先明确研究需要什么数据" in response.text
     assert "每一步筛选都能解释清楚" in response.text
     assert "模型评价中心" not in response.text
