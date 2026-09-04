@@ -56,7 +56,7 @@ def test_frontend_summary_keeps_public_and_agent_comparisons_distinct() -> None:
 def test_benchmark_results_live_in_reports_not_the_user_frontend() -> None:
     frontend = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     script = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
-    report = (ROOT / "docs" / "多癌种精准治疗科研数据智能整合系统_专业叙事与规范图示终稿_20260904.md").read_text(encoding="utf-8")
+    report = (ROOT / "docs" / "PROJECT_REPORT.md").read_text(encoding="utf-8")
 
     assert "public-benchmark" not in frontend
     assert "public-benchmark-summary.json" not in script

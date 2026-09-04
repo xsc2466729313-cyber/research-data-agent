@@ -1,5 +1,5 @@
 param(
-    [string]$OutputName = "多癌种精准治疗科研数据智能整合系统_论文及图示阅读包_20260904_最终.zip"
+    [string]$OutputName = "cancer-precision-data-agent-v2.0.0-reading-pack.zip"
 )
 
 $ErrorActionPreference = "Stop"
@@ -15,7 +15,8 @@ New-Item -ItemType Directory -Path $stage | Out-Null
 $files = @(
     "docs\论文阅读包说明.md",
     "docs\FINAL_DELIVERY_INDEX.md",
-    "docs\多癌种精准治疗科研数据智能整合系统_专业叙事与规范图示终稿_20260904.md",
+    "docs\PROJECT_REPORT.md",
+    "docs\REVIEWER_STORY.md",
     "docs\CURRENT_MAINLINE.md",
     "docs\FRONTEND_COMPLETE.md",
     "docs\05_医学安全规则.md",
@@ -88,7 +89,7 @@ foreach ($relativePath in $evidenceDirectories) {
 
 $pandoc = Get-Command pandoc -ErrorAction SilentlyContinue
 if ($pandoc) {
-    $paper = Join-Path $stage "docs\多癌种精准治疗科研数据智能整合系统_专业叙事与规范图示终稿_20260904.md"
+    $paper = Join-Path $stage "docs\PROJECT_REPORT.md"
     $html = Join-Path $stage "docs\论文_浏览器版.html"
     & $pandoc.Source $paper --standalone --from gfm --to html5 --mathml --css "阅读样式.css" --metadata "lang=zh-CN" --output $html
 }

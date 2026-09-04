@@ -34,4 +34,4 @@ evaluation/closed_loop/*.json
 # Keep one reviewer-facing submission archive; package staging and historical
 # archives are generated artifacts and must not return to version control.
 deliverables/*
-!deliverables/多癌种精准治疗科研数据智能整合系统_论文及图示阅读包_20260904_最终.zip
+!deliverables/cancer-precision-data-agent-v2.0.0-reading-pack.zip
