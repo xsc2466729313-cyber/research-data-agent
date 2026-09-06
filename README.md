@@ -6,11 +6,9 @@
 
 **面向肿瘤学、生物医学、天文学及通用科研的统一自主科研数据智能体。**
 
-当前文档与截图发布版：`v2.2.1`（视觉/交付修订）；后端运行时版本保持 `2.2.0-qwen-agent`。
-
 本项目把自然语言科研问题转成可执行、可核验的数据工作流：先形成研究条件清单，再检索真实论文与公开数据库，完成字段标准化、患者/样本关联、来源登记、医学安全检查和缺口驱动的闭环补查，最后输出可分析、可追溯的数据资产与质量报告。乳腺癌是当前专项验证场景，系统同时支持 17 个其他常见癌种，并为未配置癌种保留通用发现入口。
 
-> 模型负责理解、规划与反思；公开数据库提供事实；确定性规则负责字段治理、医学安全和发布边界。本项目用于科研数据整理与证据审查，不提供临床诊断或个体治疗建议。
+> 模型负责理解、规划与反思；公开数据库提供事实；确定性规则负责字段治理、医学安全和发布边界。本项目用于科研数据整理与证据审查。
 
 **在线演示：** [打开科研数据智能体](https://cancer-precision-data-agent.onrender.com/)
 
@@ -25,16 +23,6 @@
 | 查看当前截图 | [前端与内核截图索引](docs/FRONTEND_SCREENSHOT_INDEX.md) |
 | 阅读完整交付 | [最终交付索引](docs/FINAL_DELIVERY_INDEX.md) · [v2.2.1 阅读包](deliverables/research-data-agent-v2.2.1-reading-pack.zip) |
 | 本地启动 | [快速启动](#快速启动) · [首次使用千问](#首次使用千问) |
-
-### 30 秒看懂这套系统
-
-```text
-科研问题 → 研究条件与字段 → 真实来源检索 → 标准化/身份对齐
-        → 来源与医学安全校验 → 质量门（PASS / REVIEW / FAIL）
-        → 可分析、可追溯的数据资产
-```
-
-仓库首页的截图用于解释页面关系；真实任务结果单独标注 task ID、行列数、来源数和质量门状态。截图中的 `PASS` 是对应任务的运行状态，不是统一 benchmark 分数，也不构成临床结论。
 
 ## 当前前端入口
 
@@ -53,7 +41,7 @@
 
 在移动端，输入区、示例卡片和右侧审查标签会按屏幕宽度依次排列。这里同时保留原图和红色框/箭头/文字说明版：
 
-<img src="docs/images/frontend-home-mobile-clean-20260906.png" alt="移动端科研规划工作台（原图）" width="390">
+
 
 <img src="docs/images/frontend-home-mobile-annotated-20260906.png" alt="移动端科研规划工作台（标注图）" width="560">
 
@@ -81,7 +69,7 @@ Agent 架构说明见 [`docs/AGENT_ARCHITECTURE.md`](docs/AGENT_ARCHITECTURE.md)
 
 <img src="docs/images/kernel-lab-live-loop91-her2-20260906-quality-gate.png" alt="后端真实运行四层质量门（loop-91ef39cffd32:r3）" width="820">
 
-按参考图重新绘制的当前版本讲解图如下：第一张把四层质量门、患者/样本结构化计数和主表入口放在同一视口；第二张打开当前任务首个样本的原始特征弹窗，分别标出标准化值、原始值和可回查说明。两张图均使用红色框、箭头和中文文字，不覆盖关键界面内容。
+第一张把四层质量门、患者/样本结构化计数和主表入口放在同一视口；第二张打开当前任务首个样本的原始特征弹窗，分别标出标准化值、原始值和可回查说明。
 
 <img src="docs/images/kernel-lab-current-quality-data-callout-20260906.png" alt="当前版本质量门与结构化数据红框讲解图" width="820">
 
@@ -135,30 +123,19 @@ python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 
 通过网页填写的连接字段保存在当前浏览器本机，用于后端重启后的自动重建；后端实际会话最长保留两小时，只存在当前进程内存中。点击“清除本机连接”或清除站点数据即可删除浏览器保存内容，不会写入项目文件。需要跨浏览器长期可用时，在部署平台或本机环境变量中配置 `DASHSCOPE_API_KEY`。
 
-## 云端部署（推荐 Render）
-
-仓库已提供根目录 `Dockerfile` 和 `render.yaml`，可直接部署为一个公开 Web 服务。FastAPI 会同时托管前端页面和 `/api/*` 接口，云平台只需要一个服务。
-
-1. 将仓库推送到 GitHub，并在 Render 选择 **New + → Blueprint**，选择该仓库；Render 会读取 `render.yaml`。
-2. 本公开部署不预置 `DASHSCOPE_API_KEY`，避免所有访客共用你的模型额度。用户首次运行时在网页的“连接千问 API”窗口填写自己的百炼 API Key；该 Key 只保存在当前浏览器，并由后端以最长两小时的进程内存会话临时使用。需要服务器统一使用一个 Key 时，再在 Render 的 Environment 中单独配置 `DASHSCOPE_API_KEY`，不要写进仓库。
-3. 部署完成后访问 Render 分配的 `https://<service>.onrender.com/`；健康检查为 `/health`，API 文档为 `/docs`。
-
-也可以在 Railway、Fly.io 或任意支持 Docker 的平台使用同一个根目录 `Dockerfile`。平台必须把外部端口通过 `PORT` 环境变量传入；容器默认监听 `8000`。不要把 API Key 写入仓库或提交 `.env`。
-
 ## 报告导航
 
 | 报告 | 用途 |
 |---|---|
 | [最终交付索引](docs/FINAL_DELIVERY_INDEX.md) | 最新交付物与最终正文入口 |
-| [前端与内核截图索引](docs/FRONTEND_SCREENSHOT_INDEX.md) | 干净原图、红色讲解版、真实运行证据和流程图总表 |
+| [前端与内核截图索引](docs/FRONTEND_SCREENSHOT_INDEX.md) | 具体前端页面图、真实运行证据和流程图总表 |
 | [项目正文报告](docs/PROJECT_REPORT.md) | 项目设计、数据整合流程与最终展示 |
 | [评委讲解稿](docs/REVIEWER_STORY.md) | 从研究问题到可信数据交付的口头汇报主线 |
 | [数据来源、数据集与参数依据总表](docs/03_数据源与测试数据集.md) | 问题驱动的指标闭环讲解，以及业务数据集、公开评测集、Gold Set、清洗流程和参数/规则依据 |
 | [公开数据集统一对照报告](evaluation/PUBLIC_DATASET_COMPARISON_20260902.md) | 问题解析、科学检索、字段匹配、实体匹配、清洗的真实逐任务指标、消融和 API 条件实验 |
 | [公开检索统一多方法矩阵](evaluation/PUBLIC_RETRIEVAL_MATRIX_20260903.md) | 同一公开测试集上的多种方法、命中率、召回率、排序质量和耗时 |
 | [发布阅读包 ZIP](deliverables/research-data-agent-v2.2.1-reading-pack.zip) | 当前 v2.2.1 正文、截图、图示、公开对照与必要证据发布包 |
-| 历史版本说明 | [RELEASE_NOTES.md](RELEASE_NOTES.md)（保留历史口径，不再附带重复压缩包） |
-| [v2.2.1 发布说明](RELEASE_NOTES.md) | 截图、流程图和阅读包修订；运行时 API 仍为 `2.2.0-qwen-agent` |
+| 历史版本说明 | [RELEASE_NOTES.md](RELEASE_NOTES.md) |
 
 ## 复现评测与图表
 
