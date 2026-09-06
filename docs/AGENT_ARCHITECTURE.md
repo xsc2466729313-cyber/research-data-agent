@@ -1,6 +1,6 @@
 # Agent 系统架构说明
 
-## 一句话定义
+## 定义
 
 本系统是**有边界的混合式多 Agent 编排系统（bounded hybrid multi-agent orchestration）**：由一个任务级主 Agent 统一推进任务，由多个职责隔离的专用 Agent/控制器处理问题解析、研究规划、缺口补搜、独立审查和闭环修正；公开数据 Adapter、字段标准化、医学规则和最终质量门仍是独立的确定性模块。
 
