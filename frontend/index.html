@@ -253,7 +253,7 @@
           </div>
           <div class="switch-row">
             <label class="switch-control"><input id="use-qwen" type="checkbox" checked /><span><strong>启用模型规划</strong><small>问题解析、工具调用与结果摘要</small></span></label>
-            <label class="switch-control"><input id="allow-fallback" type="checkbox" checked /><span><strong>允许确定性兜底</strong><small>模型不可用时生成可审查的确定性计划</small></span></label>
+            <label class="switch-control"><input id="allow-fallback" type="checkbox" checked /><span><strong>允许确定性兜底</strong><small>连接千问后，模型暂时不可用时才启用可审查兜底</small></span></label>
             <label class="switch-control"><input id="closed-loop" type="checkbox" checked /><span><strong>启用闭环自我修正</strong><small>任务内按缺口多轮换方法；完成后再跑两轮对照</small></span></label>
           </div>
           </details>
@@ -546,13 +546,11 @@
 
     <dialog id="qwen-first-run-dialog" class="qwen-dialog qwen-first-run-dialog" aria-labelledby="qwen-first-run-title">
       <div class="raw-dialog-heading">
-        <div><p class="section-kicker">首次运行提示</p><h2 id="qwen-first-run-title">请先配置研究服务</h2></div>
-        <button id="qwen-first-run-cancel" type="button" aria-label="关闭首次运行提示">×</button>
+        <div><p class="section-kicker">首次运行提示</p><h2 id="qwen-first-run-title">请先配置千问 API</h2></div>
       </div>
-      <p class="section-note">首次连接并验证千问 API 后，连接信息会保存在当前浏览器本机，用来在页面或后端重启后自动重建会话。API Key 不写入项目文件、数据库、日志、任务结果或下载文件；清除本机连接即可删除。</p>
+      <p class="section-note">为了保证研究结果来自真实的模型规划和可核验数据，首次使用必须连接并验证你的千问 API。配置完成前，示例和研究问题都不会运行；API Key 只保存在当前浏览器本机，不写入项目文件、数据库、日志、任务结果或下载文件。</p>
       <div class="api-actions">
-        <button id="qwen-first-run-configure" class="button button-primary" type="button">去配置服务</button>
-        <button id="qwen-first-run-cancel-secondary" class="button button-secondary" type="button">稍后配置</button>
+        <button id="qwen-first-run-configure" class="button button-primary" type="button">去配置千问 API</button>
       </div>
     </dialog>
 
@@ -654,7 +652,7 @@
     <div id="toast" class="toast" hidden role="status" aria-live="polite"></div>
     <footer><span>科研数据智能体</span><span>模型负责规划；规则负责安全边界；数据须真实可追溯</span></footer>
     <!-- 输入你真正想研究的问题 规划与真实检索入口 先明确研究需要什么数据 每一步筛选都能解释清楚 患者编号能不能安全对上 -->
-  <script src="/astronomy.js?v=20260906-companion-chat-4" defer></script>
-  <script src="/app.js?v=20260906-companion-chat-4" defer></script>
+  <script src="/astronomy.js?v=20260906-qwen-gate-1" defer></script>
+  <script src="/app.js?v=20260906-qwen-gate-1" defer></script>
   </body>
 </html>

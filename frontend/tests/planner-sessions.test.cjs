@@ -65,17 +65,19 @@ test('sending a simple message clears the composer and preserves the sent bubble
   assert.match(c.plannerElement('#planner-chat').innerHTML, /你好呀/);
 });
 
-test('contest example and shorthand route to astronomy before medical API credentials', () => {
-  const started = [];
+test('contest example and shorthand wait for a Qwen connection before astronomy runs', async () => {
+  const started = [], gates = [];
   const { context: c } = harness(['classifyPlannerInput', 'startPlannerResearch'], {
     startAstronomyResearch: (topic) => started.push(topic),
-    ensureResearchProvidersConfigured: () => { throw new Error('must not require medical credentials'); },
+    ensureResearchProvidersConfigured: async () => { gates.push(true); return false; },
+    plannerElement: () => ({ value: '' }),
   });
   for (const text of ['我希望研究 Ia 型超新星光变曲线', '我想研究Ia型曲线', 'Type Ia supernova light curves']) {
     assert.equal(c.classifyPlannerInput(text).domain, 'astronomy');
-    c.startPlannerResearch(text);
+    await c.startPlannerResearch(text);
   }
-  assert.equal(started.length, 3);
+  assert.equal(started.length, 0);
+  assert.equal(gates.length, 3);
   assert.equal(c.classifyPlannerInput('EGFR 突变与肺腺癌患者生存有何关联？').kind, 'research');
   assert.notEqual(c.classifyPlannerInput('什么是 Ia 型超新星').kind, 'research');
 });

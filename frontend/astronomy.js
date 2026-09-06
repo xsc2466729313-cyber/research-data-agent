@@ -58,12 +58,13 @@ async function watchAstronomyRun(run, taskId) {
 
 async function executeAstronomyRun(run, sources) {
   if (run.running) return;
+  if (typeof ensureResearchProvidersConfigured === "function" && !(await ensureResearchProvidersConfigured())) return;
   run.running = true;
   run.loadError = "";
   run.status = "天文数据获取中";
   plannerMessage(run, "assistant", sources.length > 1
     ? "按选定的 CfA4 和 KSP 两个已接入目录重新获取，并按统一观测字段纵向拼接。旧结果保留，不跨目录猜测对象关联。"
-    : "先获取 CfA4 光变观测表与对象元数据，以目录内的 SN 编号精确关联。此路径直接访问公开目录，无需千问或 Giiisp 凭据。", "真实数据获取");
+    : "先获取 CfA4 光变观测表与对象元数据，以目录内的 SN 编号精确关联。运行前需先连接千问 API；数据仍直接来自公开目录。", "真实数据获取");
   persistPlannerRun(run);
   if (isActivePlannerSession(run.sessionId)) renderAstronomyRun(run);
   try {
@@ -84,6 +85,7 @@ async function executeAstronomyRun(run, sources) {
 
 async function cleanAstronomyExisting(run, taskId) {
   if (!run || run.running) return;
+  if (typeof ensureResearchProvidersConfigured === "function" && !(await ensureResearchProvidersConfigured())) return;
   run.running = true;
   if (isActivePlannerSession(run.sessionId)) renderAstronomyRun(run);
   try {

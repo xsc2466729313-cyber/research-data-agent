@@ -24,11 +24,15 @@ test('the research guide is the default shell and does not expose the legacy blu
   assert.doesNotMatch(index, /千问科研数据智能体/);
 });
 
-test('one sentence starts an autonomous run without requiring a configuration confirmation when fallback is allowed', () => {
+test('every autonomous run requires a verified Qwen connection before fallback can apply', () => {
   assert.match(index, /id="allow-fallback"/);
   assert.match(index, /开始自主研究/);
   assert.match(app, /async function ensureExecutionReady\(\)/);
-  assert.match(app, /if \(allowFallback\)\s*\{[\s\S]*?return true;/);
+  assert.match(app, /async function ensureQwenConfigured\(\)/);
+  assert.match(app, /return ensureQwenConfigured\(\);/);
+  assert.doesNotMatch(app, /if \(allowFallback\)\s*\{[\s\S]*?return true;/);
+  assert.match(index, /id="qwen-first-run-dialog"/);
+  assert.match(index, /配置完成前，示例和研究问题都不会运行/);
   assert.match(app, /form\.addEventListener\("submit"/);
   assert.match(app, /runClosedLoopTask\(payload\)/);
 });

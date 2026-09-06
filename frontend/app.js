@@ -659,9 +659,11 @@ function showQwenFirstRunPrompt() {
 async function ensureQwenConfigured() {
   if (state.qwenSessionId && isQwenSessionExpired()) clearStaleQwenSession();
   if (!state.qwenSessionId) await restoreSavedQwenSession();
-  if (state.qwenSessionId || state.qwenConfigured === true) return true;
+  // A backend environment variable is not the user's connection. New browsers
+  // must explicitly connect their own Qwen API before any research can run.
+  if (state.qwenSessionId && !isQwenSessionExpired()) return true;
   if (state.qwenConfigured === null) await checkConfiguration();
-  if (state.qwenConfigured !== true && !state.qwenSessionId) {
+  if (!state.qwenSessionId) {
     showQwenFirstRunPrompt();
     return false;
   }
@@ -763,13 +765,6 @@ function stopProgress(success = true) {
 }
 
 async function ensureExecutionReady() {
-  const useQwen = document.querySelector("#use-qwen")?.checked;
-  const allowFallback = document.querySelector("#allow-fallback")?.checked;
-  if (!useQwen || state.qwenSessionId || state.qwenConfigured === true) return true;
-  if (allowFallback) {
-    if (state.qwenConfigured === null) await checkConfiguration();
-    return true;
-  }
   return ensureQwenConfigured();
 }
 
@@ -1011,11 +1006,10 @@ document.querySelector("#qwen-first-run-configure")?.addEventListener("click", (
   document.querySelector("#qwen-first-run-dialog")?.close();
   document.querySelector("#qwen-connection-dialog")?.showModal();
 });
-document.querySelector("#qwen-first-run-cancel")?.addEventListener("click", () => {
-  document.querySelector("#qwen-first-run-dialog")?.close();
-});
-document.querySelector("#qwen-first-run-cancel-secondary")?.addEventListener("click", () => {
-  document.querySelector("#qwen-first-run-dialog")?.close();
+document.querySelector("#qwen-first-run-dialog")?.addEventListener("cancel", (event) => {
+  // The first-run gate is intentionally modal: pressing Escape cannot expose a
+  // runnable research surface before a Qwen connection has been verified.
+  if (!state.qwenSessionId || isQwenSessionExpired()) event.preventDefault();
 });
 document.querySelector("#qwen-credential-file").addEventListener("change", async (event) => {
   const file = event.target.files?.[0];
@@ -3593,6 +3587,7 @@ function quickLookupQuery(input) {
 async function startQuickLookup(topicText) {
   const topic = String(topicText || "").trim();
   if (!topic) return;
+  if (typeof ensureResearchProvidersConfigured === "function" && !(await ensureResearchProvidersConfigured())) return;
   const sessionId = `planner_quick_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const run = {
     sessionId,
@@ -3866,6 +3861,7 @@ function renderPlannerCoverage(planning) {
 
 async function freezePlannerContract() {
   if (!plannerState.contract || plannerState.busy) return;
+  if (typeof ensureResearchProvidersConfigured === "function" && !(await ensureResearchProvidersConfigured())) return;
   const sessionId = plannerState.sessionId;
   const run = plannerRuns.get(sessionId);
   const contract = plannerState.contract;
@@ -4061,6 +4057,7 @@ function buildPlannerRequest(run, { expand = false, extra = "" } = {}) {
 async function runPlannerDatasetBuild(button, { expand = false, question = null } = {}) {
   const run = plannerRuns.get(plannerState.sessionId);
   if (!run?.contract || run.running) return;
+  if (typeof ensureResearchProvidersConfigured === "function" && !(await ensureResearchProvidersConfigured())) return;
   const sessionId = run.sessionId;
   const extra = plannerElement("#planner-expand-query")?.value.trim() || "";
   const payload = buildPlannerRequest(run, { expand, extra });
@@ -4111,7 +4108,6 @@ async function runPlannerDatasetBuild(button, { expand = false, question = null 
 async function startPlannerResearch(topicText) {
   const topic = String(topicText || "").trim();
   const intent = classifyPlannerInput(topic);
-  if (intent.domain === "astronomy") return startAstronomyResearch(topic);
   if (intent.kind !== "research") {
     renderPlannerInputReply(intent, topic);
     plannerElement("#planner-topic").value = "";
@@ -4121,6 +4117,7 @@ async function startPlannerResearch(topicText) {
   const submittedDraft = composer.value;
   if (!(await ensureResearchProvidersConfigured())) return;
   if (composer.value === submittedDraft) composer.value = "";
+  if (intent.domain === "astronomy") return startAstronomyResearch(topic);
   const sessionId = `planner_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const run = {
     sessionId,
@@ -4234,6 +4231,7 @@ async function startPlannerResearch(topicText) {
 
 async function selectPlannerQuestion(candidateId, button, { automatic = false } = {}) {
   if (plannerState.busy && !automatic) return;
+  if (typeof ensureResearchProvidersConfigured === "function" && !(await ensureResearchProvidersConfigured())) return;
   const sessionId = plannerState.sessionId;
   const run = plannerRuns.get(sessionId);
   plannerState.busy = true;
@@ -4836,6 +4834,8 @@ renderAgentRuntime(null);
 initWishRabbit();
 initPlanningWorkspace();
 void (async () => {
+  if (!loadStoredQwenConnection()) showQwenFirstRunPrompt();
   await checkConfiguration();
-  await restoreSavedQwenSession();
+  const restored = await restoreSavedQwenSession();
+  if (!restored && !state.qwenSessionId) showQwenFirstRunPrompt();
 })();
