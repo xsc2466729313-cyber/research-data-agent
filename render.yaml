@@ -12,8 +12,6 @@ services:
         value: production
       - key: LOG_LEVEL
         value: INFO
-      - key: DASHSCOPE_API_KEY
-        sync: false
       - key: QWEN_BASE_URL
         value: https://dashscope.aliyuncs.com/compatible-mode/v1
       - key: QWEN_MODEL

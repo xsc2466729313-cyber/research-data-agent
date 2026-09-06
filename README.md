@@ -65,7 +65,7 @@ python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 仓库已提供根目录 `Dockerfile` 和 `render.yaml`，可直接部署为一个公开 Web 服务。FastAPI 会同时托管前端页面和 `/api/*` 接口，云平台只需要一个服务。
 
 1. 将仓库推送到 GitHub，并在 Render 选择 **New + → Blueprint**，选择该仓库；Render 会读取 `render.yaml`。
-2. 在服务的 Environment 中填写 `DASHSCOPE_API_KEY`（建议配置，使所有用户打开网页后即可使用默认的 `Qwen3.8-Max`）以及需要的 `GDC_AUTH_TOKEN`、`CIVIC_API_KEY`。未设置千问密钥时，用户首次运行会在网页中看到 API 配置提示。
+2. 本公开部署不预置 `DASHSCOPE_API_KEY`，避免所有访客共用你的模型额度。用户首次运行时在网页的“连接千问 API”窗口填写自己的百炼 API Key；该 Key 只保存在当前浏览器，并由后端以最长两小时的进程内存会话临时使用。需要服务器统一使用一个 Key 时，再在 Render 的 Environment 中单独配置 `DASHSCOPE_API_KEY`，不要写进仓库。
 3. 部署完成后访问 Render 分配的 `https://<service>.onrender.com/`；健康检查为 `/health`，API 文档为 `/docs`。
 
 也可以在 Railway、Fly.io 或任意支持 Docker 的平台使用同一个根目录 `Dockerfile`。平台必须把外部端口通过 `PORT` 环境变量传入；容器默认监听 `8000`。不要把 API Key 写入仓库或提交 `.env`。
