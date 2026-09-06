@@ -173,7 +173,7 @@ query BreastEvidence(
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
-            "User-Agent": "breast-cancer-research-data-agent/0.6",
+            "User-Agent": "research-data-agent/0.6",
         }
         token = api_key if api_key is not None else os.getenv("CIVIC_API_KEY")
         if token:

@@ -2,7 +2,7 @@
 
 - 产品版本：3.0
 - 目标形态：通用科研数据发现与可信整合智能体
-- 依据：`PROJECT_AUDIT_REPORT.md`
+- 依据：`archive/2026-09-05/PROJECT_AUDIT_REPORT.md`
 - 设计日期：2026-09-05
 - 设计原则：增量叠加，不重构 Adapter / Schema / Quality，不把新逻辑继续堆进 `ResearchAgentService`
 - 本文性质：架构设计，不是实施授权，不含代码

@@ -1,6 +1,6 @@
 # VNext Phase A 完成 / Phase B 协议底座：治理与统一检索
 
-本阶段按《乳腺癌科研数据智能体 VNext 完整改造方案》的首轮执行顺序落地，不修改冻结的 `canonical_schema.yaml`、`medical_rules.yaml` 或 SDTI 公式。
+本阶段按《科研数据智能体 VNext 完整改造方案》的首轮执行顺序落地，不修改冻结的 `canonical_schema.yaml`、`medical_rules.yaml` 或 SDTI 公式。
 
 ## Phase A：统一决策与 Safety Layer
 

@@ -170,7 +170,7 @@ def json_response(request: httpx.Request, payload: object) -> httpx.Response:
 def standard_handler(request: httpx.Request) -> httpx.Response:
     assert request.method == "GET"
     assert request.url.path == "/api/v2/studies"
-    assert "breast-research-data-agent" not in request.headers["user-agent"]
+    assert "breast" not in request.headers["user-agent"].lower()
     assert request.url.params["query.cond"] == "Breast Cancer"
     assert request.url.params["pageSize"] == "2"
     assert request.url.params["format"] == "json"

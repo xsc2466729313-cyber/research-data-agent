@@ -68,7 +68,7 @@ class GEOAdapter:
             follow_redirects=True,
             headers={
                 "Accept": "text/html,application/octet-stream;q=0.9,*/*;q=0.8",
-                "User-Agent": "breast-research-data-agent/0.2",
+                "User-Agent": "research-data-agent/0.2",
             },
         )
 

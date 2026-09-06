@@ -165,12 +165,12 @@ logger = logging.getLogger(__name__)
 
 
 app = FastAPI(
-    title="Breast Cancer Research Data Agent",
+    title="科研数据智能体 (Research Data Agent)",
     version="2.2.0-qwen-agent",
     description=(
-        "Qwen-powered breast cancer research data agent with function calling, "
-        "live public-database tools, research-ready cohort construction, Chinese "
-        "data annotations, traceable quality controls, and CSV/Parquet/Excel export."
+        "Qwen-powered research data agent with function calling, live public-database "
+        "tools, research-ready cohort construction, traceable quality controls, "
+        "and CSV/Parquet/Excel export. Breast cancer is a verified specialty scenario."
     ),
 )
 app.add_middleware(

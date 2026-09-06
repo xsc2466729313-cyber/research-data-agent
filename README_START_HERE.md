@@ -1,14 +1,16 @@
 # 从这里开始
 
-你正在查看「肿瘤精准治疗科研数据智能整合系统」：系统面向多癌种精准治疗科研数据的查找、解析、整合与核验，乳腺癌是当前专项验证场景，同时配置了 17 个其他常见癌种，并为未配置癌种保留通用发现入口。系统把自然语言科研问题转成可分析、可追溯的公开科研数据，不生成诊疗建议。
+你正在查看「科研数据智能体」：系统面向多癌种精准治疗科研数据的查找、解析、整合与核验，乳腺癌是当前专项验证场景，同时配置了 17 个其他常见癌种，并为未配置癌种保留通用发现入口。系统把自然语言科研问题转成可分析、可追溯的公开科研数据，不生成诊疗建议。
 
 赛道能力主链：**千问问题解析与检索规划 + 真实 Adapter 取数 + 字段治理与错误诊断 + 冻结规则安全裁决 + 两轮闭环**。
 
 在线演示：[https://cancer-precision-data-agent.onrender.com/](https://cancer-precision-data-agent.onrender.com/)
 
+公网地址当前沿用历史域名；仓库内部展示名和英文标识已统一为“科研数据智能体 / research-data-agent”。
+
 Agent 架构说明见 [`docs/AGENT_ARCHITECTURE.md`](docs/AGENT_ARCHITECTURE.md)，系统属于有边界的混合式多 Agent 编排：有主 Agent 和职责隔离的规划、采集、批评、质量与闭环角色，同时保留确定性事实处理和医学规则门。
 
-当前自主工作区的竞赛对标、证据矩阵和 30 页内提交建议见 [`CONTEST_TRACK2_A_COMPLIANCE_AUDIT.md`](CONTEST_TRACK2_A_COMPLIANCE_AUDIT.md)。
+当前首页已恢复为科研问题规划工作台；前端恢复与验收说明见 [`docs/FRONTEND_RECOVERY_REPORT_20260906.md`](docs/FRONTEND_RECOVERY_REPORT_20260906.md)。
 
 ## 推荐阅读顺序
 
@@ -16,7 +18,7 @@ Agent 架构说明见 [`docs/AGENT_ARCHITECTURE.md`](docs/AGENT_ARCHITECTURE.md)
 2. `docs/FINAL_DELIVERY_INDEX.md`
 3. `docs/PROJECT_REPORT.md`
 4. `docs/REVIEWER_STORY.md`（汇报讲稿：问题—设计—指标—能力—价值）
-5. `deliverables/cancer-precision-data-agent-v2.2.0-reading-pack.zip`
+5. `deliverables/research-data-agent-v2.2.0-reading-pack.zip`
 6. 需要修改 Schema 或医学规则时，再阅读 `docs/04_Canonical_Schema.md`、`docs/05_医学安全规则.md`
 
 ## 怎么启动前后端

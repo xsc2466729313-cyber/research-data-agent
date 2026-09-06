@@ -129,7 +129,7 @@ async def _check(client: httpx.AsyncClient, source: dict[str, Any]) -> dict[str,
 
 
 async def _run(timeout_seconds: float) -> dict[str, Any]:
-    headers = {"User-Agent": "breast-research-data-agent/online-health-check"}
+    headers = {"User-Agent": "research-data-agent/online-health-check"}
     async with httpx.AsyncClient(
         timeout=timeout_seconds,
         follow_redirects=True,

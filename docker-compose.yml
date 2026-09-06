@@ -1,4 +1,4 @@
-name: breast-research-agent
+name: research-data-agent
 
 services:
   backend:

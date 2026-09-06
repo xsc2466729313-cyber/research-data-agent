@@ -186,7 +186,7 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "qwen_session_id" in script
     assert "Giiisp 可选；未配置时自动使用 Europe PMC。" in script
     assert "请先配置 Giiisp，再开始研究。" not in script
-    assert 'src="/app.js?v=20260906-companion-chat-4"' in response.text
+    assert 'src="/app.js?v=20260906-qwen-gate-1"' in response.text
     assert 'fetchApi("/api/agent/companion/chat"' in script
     assert 'id="astronomy-results" class="results" hidden' in response.text
     assert "data-source-db" in script

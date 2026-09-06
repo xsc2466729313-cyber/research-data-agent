@@ -51,7 +51,7 @@ class GDCAdapter:
         token = auth_token if auth_token is not None else os.getenv("GDC_AUTH_TOKEN")
         headers = {
             "Accept": "application/json",
-            "User-Agent": "breast-research-data-agent/0.1",
+            "User-Agent": "research-data-agent/0.1",
         }
         if token:
             headers["X-Auth-Token"] = token

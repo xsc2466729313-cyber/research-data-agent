@@ -1,6 +1,6 @@
 # v2.2.0
 
-发布日期：2026-09-05
+发布日期：2026-09-06
 
 这是当前整合主线的 v2.2.0 仓库版本，面向后续 v3 通用科研数据智能体升级保留清晰边界。
 
@@ -11,12 +11,12 @@
 - 保留 GDC、GEO、cBioPortal、AACT、CIViC、DepMap、Europe PMC 等真实来源与 `source_id`、`raw_field`、`raw_value` 追溯要求。
 - 纳入项目架构审计报告、V3 升级架构设计和证据驱动 Agent 架构图，作为后续升级依据。
 - 健康接口和发布入口版本升级为 `2.2.0-qwen-agent`。
-- 发布阅读包：`deliverables/cancer-precision-data-agent-v2.2.0-reading-pack.zip`。
+- 发布阅读包：`deliverables/research-data-agent-v2.2.0-reading-pack.zip`。
 
 ## 版本边界
 
 - `configs/canonical_schema.yaml`、`configs/medical_rules.yaml` 与 `docs/06_评测指标与SDTI.md` 未修改。
-- 历史 v2.0.0 报告、观测值和阅读包保留原版本标识，不将历史结果改写成 v2.2.0 成绩。
+- 历史 v2.0.0 报告与观测值保留原版本标识，不将历史结果改写成 v2.2.0 成绩；旧压缩包已删除，避免与当前阅读包重复。
 - 不提交 `.env`、API Key 或其他运行时凭据。
 
 ## 验证
@@ -41,7 +41,6 @@ git diff --check
 
 - Web 演示：https://cancer-precision-data-agent.onrender.com/
 - GitHub：https://github.com/xsc2466729313-cyber/cancer-precision-data-agent
-- 发布阅读包：`deliverables/cancer-precision-data-agent-v2.0.0-reading-pack.zip`
 
 ## 统一口径
 

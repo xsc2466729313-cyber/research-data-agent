@@ -61,7 +61,7 @@ class CBioPortalAdapter:
             follow_redirects=True,
             headers={
                 "Accept": "application/json",
-                "User-Agent": "breast-research-data-agent/0.3",
+                "User-Agent": "research-data-agent/0.3",
             },
         )
 

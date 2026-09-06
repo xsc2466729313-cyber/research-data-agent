@@ -8,6 +8,8 @@
 
 **在线演示：** [立即打开科研数据智能体](https://cancer-precision-data-agent.onrender.com/)
 
+公网地址当前沿用历史域名；仓库内部展示名和英文标识已统一为“科研数据智能体 / research-data-agent”。
+
 Render 免费实例可直接分享给他人使用；长时间无访问后会休眠，首次打开可能需要等待几十秒。
 
 **Agent 架构：** 本系统是[有边界的混合式多 Agent 编排](docs/AGENT_ARCHITECTURE.md)，由任务级主 Agent 统筹规划、采集、批评、质量门和闭环控制；官方数据与医学安全由独立确定性模块负责。系统明确隔离上下文和写权限，独立只读检索可并行，闭环/合并/医学裁决串行，并在简单确定性任务中刻意不使用多 Agent。
@@ -80,8 +82,8 @@ python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 | [数据来源、数据集与参数依据总表](docs/03_数据源与测试数据集.md) | 问题驱动的指标闭环讲解，以及业务数据集、公开评测集、Gold Set、清洗流程和参数/规则依据 |
 | [公开数据集统一对照报告](evaluation/PUBLIC_DATASET_COMPARISON_20260902.md) | 问题解析、科学检索、字段匹配、实体匹配、清洗的真实逐任务指标、消融和 API 条件实验 |
 | [公开检索统一多方法矩阵](evaluation/PUBLIC_RETRIEVAL_MATRIX_20260903.md) | 同一公开测试集上的多种方法、命中率、召回率、排序质量和耗时 |
-| [发布阅读包 ZIP](deliverables/cancer-precision-data-agent-v2.2.0-reading-pack.zip) | 当前 v2.2.0 正文、图示、公开对照与必要证据发布包 |
-| [历史 v2.0.0 阅读包](deliverables/cancer-precision-data-agent-v2.0.0-reading-pack.zip) | v2.0.0 历史归档，不改写历史口径 |
+| [发布阅读包 ZIP](deliverables/research-data-agent-v2.2.0-reading-pack.zip) | 当前 v2.2.0 正文、图示、公开对照与必要证据发布包 |
+| 历史版本说明 | [RELEASE_NOTES.md](RELEASE_NOTES.md)（保留历史口径，不再附带重复压缩包） |
 | [v2.2.0 发布说明](RELEASE_NOTES.md) | 当前整合内容、版本边界与验证命令 |
 
 ## 复现评测与图表
