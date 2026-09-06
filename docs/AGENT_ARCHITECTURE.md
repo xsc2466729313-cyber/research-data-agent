@@ -6,6 +6,8 @@
 
 因此，系统既不是“一个大模型 Prompt 包办所有工作”的单 Agent，也不是没有总控、没有共享契约的完全去中心化 Agent 集群。
 
+可视化入口： [Agent 流程图](../frontend/agent-workflow-cn.svg) · [前端与内核截图索引](FRONTEND_SCREENSHOT_INDEX.md)（含红色框、箭头和文字讲解版）。
+
 ## 运行时角色与边界
 
 | 角色 | 运行时组件 | 负责什么 | 明确不负责什么 |

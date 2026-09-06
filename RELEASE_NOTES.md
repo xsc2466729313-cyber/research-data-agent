@@ -1,3 +1,40 @@
+# v2.2.1
+
+发布日期：2026-09-06
+
+这是 v2.2.0 运行主线的视觉与交付资料修订版。后端 API、冻结 Schema、医学规则和质量规则未改动；健康接口运行时仍报告 `2.2.0-qwen-agent`。
+
+## 本次交付
+
+- 重新采集科研助手首页、移动端首页、科研助手（科研兔）面板和内核实验室桌面/移动端前端。
+- 将原先相互覆盖的标注改为画布外的红色框、红色箭头和中文文字说明；干净原图与讲解版同时保留。
+- 单独标注科研助手（科研兔）、内核实验室、Agent 架构流程图和任务入口。
+- 新增 `docs/FRONTEND_SCREENSHOT_INDEX.md`，集中列出 UI、空闲内核、真实运行、历史结果和 Agent 流程图，并明确截图证据边界。
+- 纳入同一后端任务 `loop-91ef39cffd32:r3` 的真实运行截图：156 行 × 19 列、69 名患者、156 个样本、24 个来源、Agent Runtime 7/7、四层质量门 PASS。该运行是可复核快照，不是新的统一 benchmark 成绩。
+- 按参考样式新增两张当前版本红框讲解图：质量门与结构化数据合并视口，以及原始样本特征弹窗（标准化值、原始值、可回查说明）；弹窗保持完整记录可滚动复核。
+- 发布新的阅读包：`deliverables/research-data-agent-v2.2.1-reading-pack.zip`，同时保留 v2.2.0 包供历史复核。
+
+可用 `Get-FileHash -Algorithm SHA256 deliverables\research-data-agent-v2.2.1-reading-pack.zip` 校验阅读包完整性。
+
+## 版本边界
+
+- `configs/canonical_schema.yaml`、`configs/medical_rules.yaml`、`configs/quality_rules.yaml` 与 `docs/06_评测指标与SDTI.md` 未修改。
+- 不提交 `.env`、API Key 或其他运行时凭据。
+- 截图中的 PASS/REVIEW 只描述对应任务返回的状态，不替代封存评测，也不构成临床诊断或治疗建议。
+
+## 验证
+
+```powershell
+node --check scripts\capture_frontend_screenshots.js
+python -m py_compile scripts\annotate_frontend_screenshots.py
+python -m py_compile scripts\annotate_reference_style_screenshots.py
+node --check frontend\app.js
+python -m pytest backend/tests -q
+git diff --check
+```
+
+---
+
 # v2.2.0
 
 发布日期：2026-09-06

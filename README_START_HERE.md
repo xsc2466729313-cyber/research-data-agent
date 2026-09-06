@@ -8,9 +8,15 @@
 
 公网地址当前沿用历史域名；仓库内部展示名和英文标识已统一为“科研数据智能体 / research-data-agent”。
 
+当前文档与截图发布版为 `v2.2.1`；后端运行时版本保持 `2.2.0-qwen-agent`。
+
 Agent 架构说明见 [`docs/AGENT_ARCHITECTURE.md`](docs/AGENT_ARCHITECTURE.md)，系统属于有边界的混合式多 Agent 编排：有主 Agent 和职责隔离的规划、采集、批评、质量与闭环角色，同时保留确定性事实处理和医学规则门。
 
 当前首页已恢复为科研问题规划工作台；前端恢复与验收说明见 [`docs/FRONTEND_RECOVERY_REPORT_20260906.md`](docs/FRONTEND_RECOVERY_REPORT_20260906.md)。
+
+所有干净截图、红色框/箭头/文字讲解版、内核实验室截图、真实运行证据和流程图见 [`docs/FRONTEND_SCREENSHOT_INDEX.md`](docs/FRONTEND_SCREENSHOT_INDEX.md)。
+
+本次按参考图新增的两张当前版本讲解图是：[质量门与结构化数据](docs/images/kernel-lab-current-quality-data-callout-20260906.png) 和 [原始样本特征弹窗](docs/images/kernel-lab-current-raw-characteristics-callout-20260906.png)。
 
 ## 推荐阅读顺序
 
@@ -18,7 +24,7 @@ Agent 架构说明见 [`docs/AGENT_ARCHITECTURE.md`](docs/AGENT_ARCHITECTURE.md)
 2. `docs/FINAL_DELIVERY_INDEX.md`
 3. `docs/PROJECT_REPORT.md`
 4. `docs/REVIEWER_STORY.md`（汇报讲稿：问题—设计—指标—能力—价值）
-5. `deliverables/research-data-agent-v2.2.0-reading-pack.zip`
+5. `deliverables/research-data-agent-v2.2.1-reading-pack.zip`
 6. 需要修改 Schema 或医学规则时，再阅读 `docs/04_Canonical_Schema.md`、`docs/05_医学安全规则.md`
 
 ## 怎么启动前后端

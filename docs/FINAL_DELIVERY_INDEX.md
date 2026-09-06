@@ -1,6 +1,6 @@
-# 发布交付索引（v2.2.0，2026-09-06）
+# 发布交付索引（v2.2.1，2026-09-06）
 
-本页是 v2.2.0 仓库的统一入口，整合当前主线功能、审计结论与升级架构；历史评测口径在发布说明中保留。
+本页是 v2.2.1 仓库的统一入口，整合当前主线功能、前端截图、内核实验室运行证据、审计结论与升级架构；历史评测口径在发布说明中保留。此次为视觉与交付资料修订，后端运行时仍为 `2.2.0-qwen-agent`。
 
 ## 推荐入口
 
@@ -10,11 +10,17 @@
 
 Agent 架构评分说明：[Agent 系统架构说明](AGENT_ARCHITECTURE.md)
 
+前端、内核和运行证据总表：[前端与内核截图索引](FRONTEND_SCREENSHOT_INDEX.md)
+
+当前版本参考样式的两张红框讲解图：[质量门与结构化数据](images/kernel-lab-current-quality-data-callout-20260906.png) · [原始样本特征弹窗](images/kernel-lab-current-raw-characteristics-callout-20260906.png)
+
+中文 Agent 流程图：[AGENT_WORKFLOW_CN.md](AGENT_WORKFLOW_CN.md) · [SVG 原图](../frontend/agent-workflow-cn.svg)
+
 | 内容 | 文件 |
 |---|---|
 | 项目正文报告 | [PROJECT_REPORT.md](PROJECT_REPORT.md) |
 | 评委讲解稿 | [REVIEWER_STORY.md](REVIEWER_STORY.md) |
-| 发布阅读包 ZIP | [当前 v2.2.0 阅读包](../deliverables/research-data-agent-v2.2.0-reading-pack.zip) |
+| 发布阅读包 ZIP | [当前 v2.2.1 阅读包](../deliverables/research-data-agent-v2.2.1-reading-pack.zip) |
 | 历史版本说明 | [RELEASE_NOTES.md](../RELEASE_NOTES.md) |
 | 项目使用说明 | [README.md](../README.md) |
 

@@ -2,7 +2,11 @@
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/xsc2466729313-cyber/research-data-agent)
 
+![文档版本](https://img.shields.io/badge/docs-v2.2.1-2563eb) ![运行时版本](https://img.shields.io/badge/runtime-2.2.0--qwen--agent-0f766e) ![用途](https://img.shields.io/badge/use-research--data%20evidence-0f766e)
+
 **面向肿瘤学、生物医学、天文学及通用科研的统一自主科研数据智能体。**
+
+当前文档与截图发布版：`v2.2.1`（视觉/交付修订）；后端运行时版本保持 `2.2.0-qwen-agent`。
 
 本项目把自然语言科研问题转成可执行、可核验的数据工作流：先形成研究条件清单，再检索真实论文与公开数据库，完成字段标准化、患者/样本关联、来源登记、医学安全检查和缺口驱动的闭环补查，最后输出可分析、可追溯的数据资产与质量报告。乳腺癌是当前专项验证场景，系统同时支持 17 个其他常见癌种，并为未配置癌种保留通用发现入口。
 
@@ -12,22 +16,78 @@
 
 公网地址当前沿用历史域名；仓库内部展示名和英文标识统一为“科研数据智能体 / research-data-agent”。Render 免费实例长时间无访问后会休眠，首次打开可能需要等待几十秒。
 
+### GitHub 快速导航
+
+| 你想先看什么 | 入口 |
+|---|---|
+| 直接体验 | [在线演示](https://cancer-precision-data-agent.onrender.com/) |
+| 了解系统如何协作 | [Agent 架构说明](docs/AGENT_ARCHITECTURE.md) · [中文流程图](docs/AGENT_WORKFLOW_CN.md) |
+| 查看当前截图 | [前端与内核截图索引](docs/FRONTEND_SCREENSHOT_INDEX.md) |
+| 阅读完整交付 | [最终交付索引](docs/FINAL_DELIVERY_INDEX.md) · [v2.2.1 阅读包](deliverables/research-data-agent-v2.2.1-reading-pack.zip) |
+| 本地启动 | [快速启动](#快速启动) · [首次使用千问](#首次使用千问) |
+
+### 30 秒看懂这套系统
+
+```text
+科研问题 → 研究条件与字段 → 真实来源检索 → 标准化/身份对齐
+        → 来源与医学安全校验 → 质量门（PASS / REVIEW / FAIL）
+        → 可分析、可追溯的数据资产
+```
+
+仓库首页的截图用于解释页面关系；真实任务结果单独标注 task ID、行列数、来源数和质量门状态。截图中的 `PASS` 是对应任务的运行状态，不是统一 benchmark 分数，也不构成临床结论。
+
 ## 当前前端入口
 
-根地址现在打开的是“新研究 / 提出方向”规划工作台。左侧五阶段导航负责推进研究，中央区域承载示例问题与输入框，右侧标签页用于查看研究依据、研究方案、数据准备和覆盖矩阵。截图按 2026-09-06 当前页面重新采集，并用红框、箭头和中文说明标出关键区域：
+根地址现在打开的是“新研究 / 提出方向”规划工作台。左侧五阶段导航负责推进研究，中央区域承载示例问题与输入框，右侧标签页用于查看研究依据、研究方案、数据准备和覆盖矩阵。先看干净原图：
 
-![当前科研规划工作台（带红框、箭头和中文说明）](docs/images/frontend-home-annotated-20260906.png)
+<img src="docs/images/frontend-home-clean-20260906.png" alt="科研规划工作台（桌面原图）" width="820">
+
+下面附有一张红色框、箭头和中文文字说明版，方便快速了解页面分区；说明放在画布外，不遮挡原界面：
+
+<img src="docs/images/frontend-home-annotated-20260906.png" alt="科研规划工作台（桌面标注图）" width="820">
 
 - **左侧五阶段导航**：提出方向 → 查找依据 → 明确问题 → 制定方案 → 准备数据。
 - **中央示例卡片**：覆盖 Ia 型超新星、乳腺癌疗效、乳腺癌生物标志物和胰腺癌 KRAS/TP53 等入口，帮助快速形成研究问题。
 - **底部输入区**：输入一句研究问题后点击“发送并开始研究”，系统才进入真实规划流程；未配置千问时会先提示连接 API。
 - **右侧审查区**：研究开始后展示论文依据、研究方案、数据准备状态和覆盖矩阵，不把空结果伪装成已完成数据。
 
-移动端布局也已重新采集，输入区、示例卡片和右侧审查标签会按屏幕宽度顺序排列：
+在移动端，输入区、示例卡片和右侧审查标签会按屏幕宽度依次排列。这里同时保留原图和红色框/箭头/文字说明版：
 
-![移动端科研规划工作台（带红框、箭头和中文说明）](docs/images/frontend-home-mobile-annotated-20260906.png)
+<img src="docs/images/frontend-home-mobile-clean-20260906.png" alt="移动端科研规划工作台（原图）" width="390">
 
-Agent 架构说明见 [`docs/AGENT_ARCHITECTURE.md`](docs/AGENT_ARCHITECTURE.md)。系统属于有边界的混合式多 Agent 编排：任务级主 Agent 统筹规划、采集、批评、质量门和闭环控制；官方数据、字段治理与医学安全由独立确定性模块负责。当前入口恢复与验收说明见 [`docs/FRONTEND_RECOVERY_REPORT_20260906.md`](docs/FRONTEND_RECOVERY_REPORT_20260906.md)。
+<img src="docs/images/frontend-home-mobile-annotated-20260906.png" alt="移动端科研规划工作台（标注图）" width="560">
+
+科研助手（科研兔）不是输入区的一部分，单独面板特写如下：
+
+<img src="docs/images/research-companion-panel-annotated-20260906.png" alt="科研助手（科研兔）面板红色讲解标注" width="640">
+
+Agent 架构说明见 [`docs/AGENT_ARCHITECTURE.md`](docs/AGENT_ARCHITECTURE.md)，中文流程图见 [`docs/AGENT_WORKFLOW_CN.md`](docs/AGENT_WORKFLOW_CN.md)：
+
+<img src="frontend/agent-workflow-cn.svg" alt="Agent 中文协作工作流" width="820">
+
+系统属于有边界的混合式多 Agent 编排：任务级主 Agent 统筹规划、采集、批评、质量门和闭环控制；官方数据、字段治理与医学安全由独立确定性模块负责。当前入口恢复与验收说明见 [`docs/FRONTEND_RECOVERY_REPORT_20260906.md`](docs/FRONTEND_RECOVERY_REPORT_20260906.md)。
+
+### 内核实验室前端与真实运行
+
+访问 `/?surface=kernel` 可以查看内核实验室前端。干净壳层用于说明入口和角色分工，红色讲解版把内核总览、Agent 架构、Runtime 和任务入口分别指给读者；空闲 Runtime 的“待运行”不代表已经完成任务。
+
+<img src="docs/images/kernel-lab-desktop-annotated-20260906.png" alt="内核实验室桌面前端（红色讲解标注）" width="820">
+
+<img src="docs/images/kernel-lab-agent-architecture-annotated-20260906.png" alt="内核实验室 Agent 架构流程图（红色讲解标注）" width="820">
+
+后端真实运行证据单独收录在 [前端与内核截图索引](docs/FRONTEND_SCREENSHOT_INDEX.md)；其中 `loop-91ef39cffd32:r3` 运行显示 156 行 × 19 列、Agent Runtime 7/7、四层质量门 PASS。它是可复核运行快照，不是统一 benchmark 成绩。
+
+<img src="docs/images/kernel-lab-live-loop91-her2-20260906-runtime.png" alt="后端真实运行 Agent Runtime（loop-91ef39cffd32:r3）" width="820">
+
+<img src="docs/images/kernel-lab-live-loop91-her2-20260906-quality-gate.png" alt="后端真实运行四层质量门（loop-91ef39cffd32:r3）" width="820">
+
+按参考图重新绘制的当前版本讲解图如下：第一张把四层质量门、患者/样本结构化计数和主表入口放在同一视口；第二张打开当前任务首个样本的原始特征弹窗，分别标出标准化值、原始值和可回查说明。两张图均使用红色框、箭头和中文文字，不覆盖关键界面内容。
+
+<img src="docs/images/kernel-lab-current-quality-data-callout-20260906.png" alt="当前版本质量门与结构化数据红框讲解图" width="820">
+
+<img src="docs/images/kernel-lab-current-raw-characteristics-callout-20260906.png" alt="当前版本原始样本特征弹窗红框讲解图" width="820">
+
+这两张图来自真实任务 `loop-91ef39cffd32:r3`：69 名患者、156 个样本、四层质量门 `PASS`。弹窗首屏只展示可读的前 8 行，滚动条和底部说明明确表示其余原始记录仍可继续复核；它们是界面讲解图，不是新的 benchmark 成绩。
 
 ## 当前能力
 
@@ -90,14 +150,15 @@ python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 | 报告 | 用途 |
 |---|---|
 | [最终交付索引](docs/FINAL_DELIVERY_INDEX.md) | 最新交付物与最终正文入口 |
+| [前端与内核截图索引](docs/FRONTEND_SCREENSHOT_INDEX.md) | 干净原图、红色讲解版、真实运行证据和流程图总表 |
 | [项目正文报告](docs/PROJECT_REPORT.md) | 项目设计、数据整合流程与最终展示 |
 | [评委讲解稿](docs/REVIEWER_STORY.md) | 从研究问题到可信数据交付的口头汇报主线 |
 | [数据来源、数据集与参数依据总表](docs/03_数据源与测试数据集.md) | 问题驱动的指标闭环讲解，以及业务数据集、公开评测集、Gold Set、清洗流程和参数/规则依据 |
 | [公开数据集统一对照报告](evaluation/PUBLIC_DATASET_COMPARISON_20260902.md) | 问题解析、科学检索、字段匹配、实体匹配、清洗的真实逐任务指标、消融和 API 条件实验 |
 | [公开检索统一多方法矩阵](evaluation/PUBLIC_RETRIEVAL_MATRIX_20260903.md) | 同一公开测试集上的多种方法、命中率、召回率、排序质量和耗时 |
-| [发布阅读包 ZIP](deliverables/research-data-agent-v2.2.0-reading-pack.zip) | 当前 v2.2.0 正文、图示、公开对照与必要证据发布包 |
+| [发布阅读包 ZIP](deliverables/research-data-agent-v2.2.1-reading-pack.zip) | 当前 v2.2.1 正文、截图、图示、公开对照与必要证据发布包 |
 | 历史版本说明 | [RELEASE_NOTES.md](RELEASE_NOTES.md)（保留历史口径，不再附带重复压缩包） |
-| [v2.2.0 发布说明](RELEASE_NOTES.md) | 当前整合内容、版本边界与验证命令 |
+| [v2.2.1 发布说明](RELEASE_NOTES.md) | 截图、流程图和阅读包修订；运行时 API 仍为 `2.2.0-qwen-agent` |
 
 ## 复现评测与图表
 

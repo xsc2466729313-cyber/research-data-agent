@@ -1,5 +1,5 @@
 ﻿param(
-    [string]$OutputName = "research-data-agent-v2.2.0-reading-pack.zip"
+    [string]$OutputName = "research-data-agent-v2.2.1-reading-pack.zip"
 )
 
 $ErrorActionPreference = "Stop"
@@ -13,8 +13,17 @@ if (Test-Path -LiteralPath $stage) {
 New-Item -ItemType Directory -Path $stage | Out-Null
 
 $files = @(
+    "README.md",
+    "README_START_HERE.md",
+    "RELEASE_NOTES.md",
+    "AGENTS.md",
     "docs\论文阅读包说明.md",
     "docs\FINAL_DELIVERY_INDEX.md",
+    "docs\FRONTEND_SCREENSHOT_INDEX.md",
+    "docs\FRONTEND_RECOVERY_REPORT_20260906.md",
+    "docs\AGENT_ARCHITECTURE.md",
+    "docs\AGENT_WORKFLOW_CN.md",
+    "docs\03_数据源与测试数据集.md",
     "docs\PROJECT_REPORT.md",
     "docs\REVIEWER_STORY.md",
     "docs\CURRENT_MAINLINE.md",
@@ -40,8 +49,22 @@ foreach ($relativePath in $files) {
     Copy-Item -LiteralPath $source -Destination $destination
 }
 
-Copy-Item -LiteralPath (Join-Path $root "docs\论文阅读包说明.md") -Destination (Join-Path $stage "README.md")
 Copy-Item -LiteralPath (Join-Path $root "docs\images") -Destination (Join-Path $stage "docs\images") -Recurse
+
+# Keep the diagrams referenced by the reports inside the archive so the
+# screenshot index and Markdown remain usable after extraction.
+$frontendStage = Join-Path $stage "frontend"
+New-Item -ItemType Directory -Path $frontendStage -Force | Out-Null
+Copy-Item -LiteralPath (Join-Path $root "frontend\agent-workflow-cn.svg") -Destination (Join-Path $frontendStage "agent-workflow-cn.svg")
+Copy-Item -LiteralPath (Join-Path $root "frontend\agent-architecture-evidence-driven.svg") -Destination (Join-Path $frontendStage "agent-architecture-evidence-driven.svg")
+
+# Include the local screenshot recipes without adding Playwright as a runtime
+# dependency to the project.
+$captureStage = Join-Path $stage "scripts"
+New-Item -ItemType Directory -Path $captureStage -Force | Out-Null
+Copy-Item -LiteralPath (Join-Path $root "scripts\capture_frontend_screenshots.js") -Destination (Join-Path $captureStage "capture_frontend_screenshots.js")
+Copy-Item -LiteralPath (Join-Path $root "scripts\annotate_frontend_screenshots.py") -Destination (Join-Path $captureStage "annotate_frontend_screenshots.py")
+Copy-Item -LiteralPath (Join-Path $root "scripts\annotate_reference_style_screenshots.py") -Destination (Join-Path $captureStage "annotate_reference_style_screenshots.py")
 
 $evidenceDirectories = @(
     "evaluation\public_benchmarks\runs\20260902T063818Z_ebm_nlp_2_00",

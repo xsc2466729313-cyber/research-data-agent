@@ -14,11 +14,41 @@
 
 ## 1.1 当前入口截图
 
-以下截图按恢复后的根地址重新采集（2026-09-06），红框、箭头和中文说明用于标出页面分区；它们只说明当前前端入口，不代表已经完成一次真实数据运行。
+以下截图按恢复后的根地址重新采集（2026-09-06）。干净原图用于确认布局，红色框、箭头和中文说明版把关键区域移到画布外，避免遮挡原界面；它们只说明当前前端入口，不代表已经完成一次真实数据运行。
 
-![当前科研规划工作台（桌面，带标注）](images/frontend-home-annotated-20260906.png)
+![当前科研规划工作台（桌面，干净原图）](images/frontend-home-clean-20260906.png)
 
-![当前科研规划工作台（移动端，带标注）](images/frontend-home-mobile-annotated-20260906.png)
+![当前科研规划工作台（桌面，红色框/箭头/文字标注）](images/frontend-home-annotated-20260906.png)
+
+![当前科研规划工作台（移动端，干净原图）](images/frontend-home-mobile-clean-20260906.png)
+
+![当前科研规划工作台（移动端，红色框/箭头/文字标注）](images/frontend-home-mobile-annotated-20260906.png)
+
+科研助手（科研兔）单独截图：
+
+![科研助手面板红色讲解标注](images/research-companion-panel-annotated-20260906.png)
+
+内核实验室前端与 Agent 流程图单独截图：
+
+![内核实验室桌面红色讲解标注](images/kernel-lab-desktop-annotated-20260906.png)
+
+![Agent 架构流程图红色讲解标注](images/kernel-lab-agent-architecture-annotated-20260906.png)
+
+完整清单和真实运行证据见 [FRONTEND_SCREENSHOT_INDEX.md](FRONTEND_SCREENSHOT_INDEX.md)。空闲内核壳层的 Runtime 仅显示“待运行”；真实运行截图必须单独看索引中的 R 组。
+
+其中一条可复核的 HER2 闭环任务 `loop-91ef39cffd32:r3` 已重新截取后端内核工作状态：156 行 × 19 列、69 名患者、156 个样本、24 个来源、Agent Runtime 7/7、四层质量门 PASS。该快照用于展示运行过程和审查界面，不替代统一 benchmark 或临床结论。
+
+![真实运行 Agent Runtime](images/kernel-lab-live-loop91-her2-20260906-runtime.png)
+
+![真实运行四层质量门](images/kernel-lab-live-loop91-her2-20260906-quality-gate.png)
+
+按用户参考图重画的当前版本两张讲解图：
+
+![当前版本质量门与结构化数据红框讲解图](images/kernel-lab-current-quality-data-callout-20260906.png)
+
+![当前版本原始样本特征弹窗红框讲解图](images/kernel-lab-current-raw-characteristics-callout-20260906.png)
+
+前者把四层质量门与 69 名患者/156 个样本的结构化入口放在同一视口；后者在原生弹窗内区分标准化中文值、原始值和未改写说明。弹窗只截取首屏可读行，完整原始记录仍可滚动查看。
 
 ## 2. 本次变更范围
 
