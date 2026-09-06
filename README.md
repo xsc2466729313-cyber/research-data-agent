@@ -6,7 +6,7 @@
 
 > 模型负责理解、规划与反思；公开数据库提供事实；确定性规则负责医学安全和发布边界。本项目服务科研数据整理，不提供临床诊疗建议。
 
-**在线演示：** [立即打开科研数据智能体](https://research-data-agent.onrender.com/)
+**在线演示：** [立即打开科研数据智能体](https://cancer-precision-data-agent.onrender.com/)
 
 Render 免费实例可直接分享给他人使用；长时间无访问后会休眠，首次打开可能需要等待几十秒。
 
