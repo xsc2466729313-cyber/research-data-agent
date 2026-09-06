@@ -1,12 +1,14 @@
-# 肿瘤精准治疗科研数据智能整合系统
+# 科研数据智能体（Research Data Agent）
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/xsc2466729313-cyber/research-data-agent)
 
 面向多癌种精准治疗科研的数据整合系统：把自然语言研究问题转成可执行的研究方案，从公开数据库取数，完成字段标准化、患者/样本关联、医学安全检查和缺口驱动的两轮迭代，最终导出可分析、可追溯的数据与质量报告。乳腺癌是当前专项验证场景，系统同时配置了 17 个其他常见癌种，并为未配置癌种保留通用发现入口。
 
 > 模型负责理解、规划与反思；公开数据库提供事实；确定性规则负责医学安全和发布边界。本项目服务科研数据整理，不提供临床诊疗建议。
 
-**在线演示：** [立即打开科研规划工作台](https://cancer-precision-data-agent.onrender.com/)
+**在线演示：** [立即打开科研数据智能体](https://research-data-agent.onrender.com/)
 
-当前 Render 公网实例可直接分享给他人使用；免费实例休眠后首次打开可能需要等待几十秒。
+Render 免费实例可直接分享给他人使用；长时间无访问后会休眠，首次打开可能需要等待几十秒。
 
 **Agent 架构：** 本系统是[有边界的混合式多 Agent 编排](docs/AGENT_ARCHITECTURE.md)，由任务级主 Agent 统筹规划、采集、批评、质量门和闭环控制；官方数据与医学安全由独立确定性模块负责。系统明确隔离上下文和写权限，独立只读检索可并行，闭环/合并/医学裁决串行，并在简单确定性任务中刻意不使用多 Agent。
 

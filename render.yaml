@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: cancer-precision-data-agent
+    name: research-data-agent
     runtime: docker
     plan: free
     healthCheckPath: /health
