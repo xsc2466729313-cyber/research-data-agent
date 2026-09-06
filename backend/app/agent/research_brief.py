@@ -156,6 +156,26 @@ class ResearchBriefBuilder:
         if contract is not None:
             return self.build_from_contract(contract)
         text = question or spec.research_goal or ""
+        if getattr(spec, "domain", "oncology") == "general_science":
+            fields = [
+                PrioritizedField(field_id="dataset_id", label="数据集编号", priority="primary", reason="用于记录候选数据集和后续下载审计。", aliases=["record_id", "doi"]),
+                PrioritizedField(field_id="title", label="数据集标题", priority="primary", reason="用于确认检索结果是否真正匹配研究主题。", aliases=["title"]),
+                PrioritizedField(field_id="description", label="数据集说明", priority="important", reason="用于判断数据内容、范围和可解析性。", aliases=["description", "abstract"]),
+                PrioritizedField(field_id="file_count", label="资源文件数量", priority="important", reason="用于判断是否存在可继续解析的原始文件。", aliases=["files"]),
+                PrioritizedField(field_id="source_id", label="来源编号", priority="important", reason="每条记录必须保留真实来源和官方链接。", aliases=["source_id"]),
+            ]
+            keywords = list(dict.fromkeys([*question_search_terms(text, spec), text]))[:16]
+            brief = ResearchBrief(
+                research_type_id="dataset_discovery",
+                research_type="通用数据集发现",
+                primary_question=text.strip() or spec.research_goal,
+                fields=fields,
+                analysis_plan="先按主题检索公开数据集目录与文献，解析官方元数据和文件清单，再由研究者确认资源后继续下载并解析字段。",
+                needs_clinical_outcome=False,
+                keywords=keywords,
+            )
+            brief.search_strategy = FieldDrivenSearchPlanner().strategy_text(spec, brief)
+            return brief
         needs_outcome = question_asks_clinical_outcome(text)
         type_id, type_label = self._research_type(text, spec, needs_outcome)
         named_cohorts = self._named_cohorts(text)

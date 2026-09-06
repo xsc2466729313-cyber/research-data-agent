@@ -1,5 +1,5 @@
 param(
-    [string]$OutputName = "cancer-precision-data-agent-v2.0.0-reading-pack.zip"
+    [string]$OutputName = "cancer-precision-data-agent-v2.2.0-reading-pack.zip"
 )
 
 $ErrorActionPreference = "Stop"

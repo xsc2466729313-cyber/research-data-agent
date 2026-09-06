@@ -4,6 +4,7 @@ from backend.app.sources.discovery.models import (
     DiscoveryAdapterResult,
     EuropePMCRecord,
     GeoCatalogRecord,
+    ZenodoDatasetRecord,
 )
 
 __all__ = [
@@ -13,4 +14,5 @@ __all__ = [
     "DiscoveryAdapterResult",
     "EuropePMCRecord",
     "GeoCatalogRecord",
+    "ZenodoDatasetRecord",
 ]

@@ -1,6 +1,12 @@
 from backend.app.agent.exporter import AgentDatasetExportService, AgentExportFormat
 from backend.app.agent.models import (
     AgentConfigurationStatus,
+    CompanionChatRequest,
+    CompanionChatResponse,
+    CompanionResearchQuestionResponse,
+    CompanionMessage,
+    GiiispConfigurationRequest,
+    GiiispConfigurationStatus,
     AgentTaskRequest,
     AgentTaskResult,
     CohortConstructionReport,
@@ -60,6 +66,12 @@ from backend.app.agent.closed_loop_models import (
 __all__ = [
     "AgentConfigurationError",
     "AgentConfigurationStatus",
+    "CompanionChatRequest",
+    "CompanionChatResponse",
+    "CompanionResearchQuestionResponse",
+    "CompanionMessage",
+    "GiiispConfigurationRequest",
+    "GiiispConfigurationStatus",
     "AgentDatasetExportService",
     "AgentExecutionError",
     "AgentExportFormat",

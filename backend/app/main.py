@@ -15,6 +15,11 @@ from pydantic import ValidationError
 from backend.app.agent import (
     AgentConfigurationError,
     AgentConfigurationStatus,
+    CompanionChatRequest,
+    CompanionChatResponse,
+    CompanionResearchQuestionResponse,
+    GiiispConfigurationRequest,
+    GiiispConfigurationStatus,
     AgentDatasetExportService,
     AgentExecutionError,
     AgentExportFormat,
@@ -38,6 +43,11 @@ from backend.app.agent import (
     ClosedLoopService,
 )
 from backend.app.agent.loop_store import LoopStateStore
+from backend.app.agent.companion import (
+    answer_companion,
+    deterministic_research_question,
+    format_companion_research_question,
+)
 from backend.app.export_service import DatasetExportFormat, MockDatasetExportService
 from backend.app.evaluation import EvaluationError, EvaluationService, GoldSetCsvLoader
 from backend.app.evaluation.overview import EvaluationOverview, build_evaluation_overview
@@ -69,6 +79,7 @@ from backend.app.goldset.models import (
 from backend.app.models import MockPipelineResult, ResearchQuestion
 from backend.app.governance import SafetyDecisionRequest, SafetyDecisionResult, SafetyLayer
 from backend.app.literature import LiteratureScanRequest
+from backend.app.literature.providers.base import LiteratureProviderConfigurationError
 from backend.app.retrieval import RetrievalRequest, RetrievalResponse, RetrievalServiceV2
 from backend.app.rag import (
     EvidenceQueryRequest,
@@ -86,6 +97,7 @@ from backend.app.research_planning import (
     QuestionSelectionRequest,
     ResearchContract,
     ResearchPlanningNotFoundError,
+    ResearchProviderConfigurationError,
     ResearchPlanningService,
     ResearchTopic,
     TopicCreateRequest,
@@ -108,6 +120,8 @@ from backend.app.rules import RulePackEngine
 from backend.app.source_registry_v2 import WeightedSetCoverOptimizer
 from backend.app.source_broker import SourcePlanningResult, SourcePlanRequest
 from backend.app.v3_api import mount_v3_routes
+from backend.app.v30.api import mount_v30_routes
+from backend.app.astronomy import mount_astronomy_routes
 from backend.app.integration import (
     IntegrationError,
     EntityMatcherV3,
@@ -152,7 +166,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Breast Cancer Research Data Agent",
-    version="2.0.0-qwen-agent",
+    version="2.2.0-qwen-agent",
     description=(
         "Qwen-powered breast cancer research data agent with function calling, "
         "live public-database tools, research-ready cohort construction, Chinese "
@@ -223,6 +237,10 @@ mount_v3_routes(
     rules=rule_pack_engine,
     optimizer=source_optimizer,
 )
+mount_v30_routes(app)
+app.state.research_agent = research_agent_service
+mount_astronomy_routes(app)
+app.state.qwen_session_registry = qwen_session_registry
 
 
 def get_gdc_adapter() -> GDCAdapter:
@@ -613,6 +631,113 @@ def create_qwen_session(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
+@app.post("/api/agent/companion/chat", response_model=CompanionChatResponse)
+def companion_chat(
+    payload: CompanionChatRequest,
+    service: Annotated[ResearchAgentService, Depends(get_research_agent_service)],
+    registry: Annotated[QwenSessionRegistry, Depends(get_qwen_session_registry)],
+) -> CompanionChatResponse:
+    if payload.qwen_session_id:
+        client = registry.get(payload.qwen_session_id)
+        if client is None:
+            raise HTTPException(status_code=401, detail="千问临时会话不存在或已过期，请重新连接 API。")
+    else:
+        configuration = service.configuration()
+        client = service.qwen if configuration.configured else None
+    if client is None:
+        raise HTTPException(status_code=503, detail="当前未连接科研模型；请先连接千问 API。")
+    try:
+        return CompanionChatResponse(
+            reply=answer_companion(
+                client=client,
+                message=payload.message,
+                history=payload.history,
+                context=payload.context,
+            )
+        )
+    except QwenClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.post(
+    "/api/agent/companion/research-question",
+    response_model=CompanionResearchQuestionResponse,
+)
+def companion_research_question(
+    payload: CompanionChatRequest,
+    service: Annotated[ResearchAgentService, Depends(get_research_agent_service)],
+    registry: Annotated[QwenSessionRegistry, Depends(get_qwen_session_registry)],
+) -> CompanionResearchQuestionResponse:
+    """Prepare a planner-ready handoff from the open companion conversation."""
+    if payload.qwen_session_id:
+        client = registry.get(payload.qwen_session_id)
+        if client is None:
+            raise HTTPException(status_code=401, detail="千问临时会话不存在或已过期，请重新连接 API。")
+    else:
+        configuration = service.configuration()
+        client = service.qwen if configuration.configured else None
+    if client is None:
+        question = deterministic_research_question(
+            message=payload.message,
+            history=payload.history,
+            context=payload.context,
+        )
+        return CompanionResearchQuestionResponse(
+            research_question=question,
+            question=question,
+            used_model=False,
+            model_mode="deterministic",
+            notice="当前未连接科研模型，已使用透明规则整理；接通千问后可获得更细的开放式改写。",
+        )
+    try:
+        question = format_companion_research_question(
+            client=client,
+            message=payload.message,
+            history=payload.history,
+            context=payload.context,
+        )
+        return CompanionResearchQuestionResponse(
+            research_question=question,
+            question=question,
+        )
+    except QwenClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.get("/api/agent/giiisp-configuration", response_model=GiiispConfigurationStatus)
+def get_giiisp_configuration(
+    service: Annotated[ResearchPlanningService, Depends(get_research_planning_service)],
+) -> GiiispConfigurationStatus:
+    status = service.giiisp_status()
+    return GiiispConfigurationStatus(
+        configured=bool(status["configured"]),
+        base_url_configured=bool(status["base_url_configured"]),
+        protocol_available=bool(status["protocol_available"]),
+        message=(
+            "Giiisp 凭据已配置；官方检索协议尚未接入，当前文献扫描会明确保留 Europe PMC fallback。"
+            if status["configured"]
+            else "Giiisp 尚未配置；文献扫描会自动使用 Europe PMC。"
+        ),
+    )
+
+
+@app.post("/api/agent/giiisp-configuration", response_model=GiiispConfigurationStatus)
+def configure_giiisp(
+    payload: GiiispConfigurationRequest,
+    service: Annotated[ResearchPlanningService, Depends(get_research_planning_service)],
+) -> GiiispConfigurationStatus:
+    try:
+        status = service.configure_giiisp(api_key=payload.api_key, base_url=payload.base_url)
+    except (ValueError, LiteratureProviderConfigurationError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return GiiispConfigurationStatus(
+        configured=bool(status["configured"]),
+        base_url_configured=bool(status["base_url_configured"]),
+        protocol_available=bool(status["protocol_available"]),
+        message="Giiisp 凭据已保存到当前后端进程内存；官方检索协议尚未接入，未执行未知端点调用。",
+    )
+
+
 @app.delete("/api/agent/qwen-sessions/{session_id}", status_code=204)
 def delete_qwen_session(
     session_id: str,
@@ -693,6 +818,8 @@ def scan_research_topic_literature(
         return service.scan_literature(topic_id, payload)
     except ResearchPlanningNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ResearchProviderConfigurationError as exc:
+        raise HTTPException(status_code=428, detail=str(exc)) from exc
 
 
 @app.get(
@@ -900,8 +1027,13 @@ def get_latest_agent_task(
 def get_agent_task(
     task_id: str,
     service: Annotated[ResearchAgentService, Depends(get_research_agent_service)],
+    loops: Annotated[ClosedLoopService, Depends(get_closed_loop_service)],
 ) -> AgentTaskResult:
     result = service.get(task_id)
+    if result is None and task_id.startswith("loop-") and ":r" in task_id:
+        loop = loops.get(task_id.rsplit(":r", 1)[0])
+        if loop is not None:
+            result = next((item.result for item in loop.iterations if item.result.task_id == task_id), None)
     if result is None:
         raise HTTPException(status_code=404, detail="科研任务不存在或服务已重启。")
     return result
@@ -911,11 +1043,8 @@ def get_agent_task(
 def export_agent_task(
     task_id: str,
     file_format: AgentExportFormat,
-    service: Annotated[ResearchAgentService, Depends(get_research_agent_service)],
+    result: Annotated[AgentTaskResult, Depends(get_agent_task)],
 ) -> Response:
-    result = service.get(task_id)
-    if result is None:
-        raise HTTPException(status_code=404, detail="科研任务不存在或服务已重启。")
     try:
         exported = agent_export_service.export(result, file_format)
     except ValueError as exc:

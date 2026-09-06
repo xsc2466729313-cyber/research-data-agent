@@ -1,0 +1,74 @@
+# V3.0 Router 规则：只决定对话入口，不取数、不写 CanonicalRecord。
+# 本文件可替换；医学冻结 configs 根文件不受影响。
+
+chat_exact:
+  - "你好"
+  - "您好"
+  - "嗨"
+  - "在吗"
+  - "hello"
+  - "hi"
+  - "hey"
+  - "thanks"
+  - "谢谢"
+  - "谢谢你"
+
+concept_prefixes:
+  - "什么是"
+  - "什么叫"
+  - "何为"
+  - "what is"
+  - "what's"
+  - "whats"
+  - "解释一下"
+  - "解释下"
+
+research_tokens:
+  - "研究"
+  - "想研究"
+  - "打算研究"
+  - "耐药"
+  - "机制"
+  - "疗效预测"
+  - "关联"
+  - "是否与"
+  - "队列"
+  - "队列研究"
+  - "相关性"
+
+plan_tokens:
+  - "生成方案"
+  - "开始规划"
+  - "形成方案"
+  - "请规划"
+  - "进入规划"
+
+domains:
+  oncology:
+    - "癌"
+    - "肿瘤"
+    - "cancer"
+    - "carcinoma"
+    - "her2"
+    - "erbb2"
+    - "乳腺"
+    - "breast"
+    - "oncology"
+  astronomy:
+    - "红移"
+    - "redshift"
+    - "超新星"
+    - "supernova"
+    - "星系"
+    - "galaxy"
+    - "黑洞"
+    - "black hole"
+  biomedicine:
+    - "治疗"
+    - "预后"
+    - "基因"
+    - "蛋白"
+    - "免疫"
+    - "therapy"
+    - "gene"
+    - "protein"

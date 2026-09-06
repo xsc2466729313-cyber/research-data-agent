@@ -34,6 +34,10 @@ class ResearchPlanningNotFoundError(LookupError):
     pass
 
 
+class ResearchProviderConfigurationError(RuntimeError):
+    pass
+
+
 class ResearchPlanningService:
     """Phase 1/2 orchestration from broad topic to an evidence-backed contract and RAG index."""
 
@@ -66,6 +70,12 @@ class ResearchPlanningService:
         with self._lock:
             self._topics[topic.topic_id] = topic
         return topic
+
+    def giiisp_status(self) -> dict[str, bool | str]:
+        return self.literature_agent.giiisp_status()
+
+    def configure_giiisp(self, *, api_key, base_url: str) -> dict[str, bool | str]:
+        return self.literature_agent.configure_giiisp(api_key=api_key, base_url=base_url)
 
     def scan_literature(
         self,

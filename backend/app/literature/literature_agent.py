@@ -77,6 +77,23 @@ class LiteratureAgent:
             scanned_at=datetime.now(timezone.utc),
         )
 
+    def giiisp_status(self) -> dict[str, bool | str]:
+        provider = next((item for item in self.providers if getattr(item, "name", "") == "giiisp"), None)
+        if provider is None:
+            return {"configured": False, "base_url_configured": False, "protocol_available": False}
+        return {
+            "configured": bool(getattr(provider, "configured", False)),
+            "base_url_configured": bool(getattr(provider, "base_url_configured", False)),
+            "protocol_available": False,
+        }
+
+    def configure_giiisp(self, *, api_key, base_url: str) -> dict[str, bool | str]:
+        provider = next((item for item in self.providers if getattr(item, "name", "") == "giiisp"), None)
+        if provider is None or not hasattr(provider, "configure"):
+            raise ValueError("Giiisp Provider 未启用。")
+        provider.configure(api_key=api_key, base_url=base_url)
+        return self.giiisp_status()
+
     @staticmethod
     def _deduplicate(papers: list[PaperRecord]) -> list[PaperRecord]:
         seen: set[str] = set()

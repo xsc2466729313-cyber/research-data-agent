@@ -20,6 +20,7 @@ from backend.app.research_planning.models import (
 from backend.app.research_planning.research_contract import ResearchContractBuilder
 from backend.app.research_planning.service import (
     ResearchPlanningNotFoundError,
+    ResearchProviderConfigurationError,
     ResearchPlanningService,
 )
 
@@ -42,6 +43,7 @@ __all__ = [
     "ResearchAgent",
     "ResearchPlanDraft",
     "ResearchPlanningNotFoundError",
+    "ResearchProviderConfigurationError",
     "ResearchPlanningService",
     "ResearchTopic",
     "TopicCreateRequest",

@@ -36,6 +36,7 @@ SOURCE_CATALOG: dict[str, tuple[str, list[str]]] = {
     "DepMap": ("细胞系依赖性与药物敏感性", ["preclinical_cell_line"]),
     "CIViC": ("变异、药物、疾病与证据关系", ["knowledge_evidence"]),
     "OncoKB": ("肿瘤变异临床意义知识", ["knowledge_evidence"]),
+    "Zenodo": ("跨学科公开数据集元数据与文件清单", ["publication", "dataset_discovery"]),
 }
 
 SUPPORTED_DATABASES = {
@@ -44,6 +45,7 @@ SUPPORTED_DATABASES = {
     "cBioPortal",
     "ClinicalTrials.gov",
     "CIViC",
+    "Zenodo",
 }
 
 # Aliases used both to mark a study variable available and to compute gap coverage.
@@ -158,12 +160,142 @@ class StudyDesignBuilder:
             column.name if hasattr(column, "name") else str(column.get("name"))
             for column in dataset.columns
         }
+        if getattr(spec, "domain", "oncology") == "general_science":
+            design = self._build_general_design(spec, dataset, columns, candidates, source_items, source_datasets, brief)
+            cohort = self._build_general_cohort(spec, dataset, readiness, design, execution_mode)
+            return design.model_copy(update={"variable_coverage_rate": cohort.variable_coverage_rate}), cohort
         design = self._build_design(spec, dataset, columns, candidates, source_items, source_datasets, brief)
         cohort = self._build_cohort(spec, dataset, readiness, design, columns, execution_mode)
         design = design.model_copy(
             update={"variable_coverage_rate": cohort.variable_coverage_rate}
         )
         return design, cohort
+
+    def _build_general_design(
+        self,
+        spec: ResearchSpec,
+        dataset: Any,
+        columns: set[str],
+        candidates: list[CandidateSource],
+        source_items: list[SourceItem],
+        source_datasets: list[Any] | None,
+        brief: ResearchBrief | None,
+    ) -> StudyDesignReport:
+        field_specs = [
+            ("dataset_id", "数据集编号", "id", True),
+            ("title", "数据集标题", "feature", True),
+            ("description", "数据集说明", "feature", False),
+            ("file_count", "资源文件数量", "feature", False),
+            ("source_id", "来源编号", "audit", True),
+            ("dataset_url", "官方链接", "audit", True),
+        ]
+        rows = list(getattr(dataset, "rows", []) or [])
+        variables = []
+        for field_id, label, role, required in field_specs:
+            available = dataset_has_variable(dataset, field_id)
+            coverage = (
+                sum(self._has_value(row.get(field_id)) for row in rows) / len(rows)
+                if rows
+                else 0.0
+            )
+            variables.append(
+                StudyVariable(
+                    variable_id=field_id,
+                    label=label,
+                    role=role,
+                    required=required,
+                    available=available,
+                    priority="primary" if required else "important",
+                    coverage_rate=round(coverage, 3),
+                    matched_fields=[field_id] if available else [],
+                    note="来自公开目录元数据；文件内容需后续下载解析。" if available else "当前结果尚未提供该字段。",
+                )
+            )
+        selected = {item.source_name for item in source_items} | {item.source_database for item in candidates}
+        recommendations = [
+            DataSourceRecommendation(
+                database="Zenodo",
+                purpose="检索并解析跨学科公开数据集元数据和文件清单",
+                data_domains=["dataset_discovery", "publication"],
+                availability="本次已登记" if "Zenodo" in selected else "已接入，可按任务调用",
+                selected="Zenodo" in selected,
+                source_ids=[item.source_id for item in source_items if item.source_name == "Zenodo"],
+                note="只展示官方目录记录；下载文件前仍需核验许可和字段结构。",
+            ),
+            DataSourceRecommendation(
+                database="Europe PMC",
+                purpose="补充论文证据并发现论文关联数据资源",
+                data_domains=["publication", "evidence"],
+                availability="本次已登记" if "Europe PMC" in selected else "已接入，可按任务调用",
+                selected="Europe PMC" in selected,
+                source_ids=[item.source_id for item in source_items if item.source_name == "Europe PMC"],
+                note="文献记录不直接替代原始数据表。",
+            ),
+        ]
+        question = brief.primary_question if brief else spec.research_goal
+        coverage = sum(variable.coverage_rate or 0 for variable in variables if variable.required) / max(
+            1, sum(variable.required for variable in variables)
+        )
+        return StudyDesignReport(
+            status="已生成" if spec.research_goal else "信息不足",
+            generation_note=(
+                "已基于真实公开目录记录生成通用数据发现方案；尚未把目录元数据解释为研究结论。"
+                if rows
+                else "已生成通用数据发现方案，等待公开目录返回可核验记录。"
+            ),
+            research_type="通用数据集发现",
+            research_type_id="dataset_discovery",
+            population="公开科研数据集记录",
+            exposure="主题关键词与数据集元数据",
+            outcome="文件可解析性与来源完整性",
+            covariates=["发布日期", "关键词", "文件格式", "数据集说明"],
+            analysis_unit=getattr(dataset, "unit_of_analysis", "公开数据集记录"),
+            model_expression="主题检索 → 官方元数据解析 → 文件清单核验 → 选择资源下载解析",
+            cohort_rules=[
+                f"围绕主题“{question}”检索官方公开目录。",
+                "每条记录保留 source_id、官方 URL 和 raw_value，下载前不生成患者或样本结论。",
+            ],
+            required_variables=variables,
+            variable_coverage_rate=round(coverage, 3),
+            data_source_recommendations=recommendations,
+            limitations=[
+                "当前为元数据级发现结果，必须由研究者选择具体文件后再解析字段和许可。",
+                "公开数据集记录不等同于患者级数据，也不自动形成统计分析队列。",
+            ],
+        )
+
+    def _build_general_cohort(
+        self,
+        spec: ResearchSpec,
+        dataset: Any,
+        readiness: Any,
+        design: StudyDesignReport,
+        execution_mode: str,
+    ) -> CohortConstructionReport:
+        del spec
+        row_count = int(getattr(dataset, "row_count", 0) or 0)
+        return CohortConstructionReport(
+            status="已解析元数据" if row_count else "待检索",
+            execution_mode=execution_mode,
+            rule_status="需人工确认后下载",
+            has_observed_rows=bool(row_count),
+            not_run_reason=None if row_count else "公开目录暂未返回可核验记录。",
+            source_row_count=row_count,
+            final_row_count=row_count,
+            patient_count=0,
+            sample_count=0,
+            inclusion_criteria=["纳入有官方记录编号和链接的公开数据集或文献记录。"],
+            exclusion_criteria=["不把目录元数据当作患者/样本事实；不自动下载或跨来源拼接。"],
+            filter_steps=[],
+            variable_coverage_rate=getattr(design, "variable_coverage_rate", None),
+            response_domains=[],
+            quality_gate="REVIEW",
+            publish_allowed=False,
+            notes=[
+                "当前结果可用于发现和筛选数据资源；完成文件下载、字段解析和许可核验后才能进入统计分析。",
+                f"数据完整性提示：{(getattr(readiness, 'warnings', None) or ['需继续核验'])[0]}",
+            ],
+        )
 
     def _build_design(
         self,

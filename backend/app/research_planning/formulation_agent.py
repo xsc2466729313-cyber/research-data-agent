@@ -146,6 +146,11 @@ class ResearchFormulationAgent:
         return [candidate.model_copy(update={"rank": index}) for index, candidate in enumerate(candidates, start=1)]
 
     def _evidence_drafts(self, topic: ResearchTopic, papers: list[PaperRecord]) -> list[_QuestionDraft]:
+        # A general-science topic may retrieve papers that happen to mention
+        # oncology terms. Do not let those incidental words turn the topic
+        # into a breast-cancer template; keep the original subject intact.
+        if topic.domain == "general_science":
+            return []
         if not papers:
             return []
         corpus = self._corpus(papers)
@@ -258,6 +263,40 @@ class ResearchFormulationAgent:
         return supported[:5]
 
     def _fallback_drafts(self, topic: ResearchTopic) -> list[_QuestionDraft]:
+        if topic.domain == "general_science":
+            population = topic.known_population or "公开科研数据集记录"
+            return [
+                _QuestionDraft(
+                    question=f"关于“{topic.topic}”有哪些可核验的公开数据集，且能提供可下载文件？",
+                    research_type="association",
+                    population=population,
+                    exposure="主题匹配度与数据集元数据",
+                    outcome="文件可下载性与字段可解析性",
+                    field_hints=("dataset_id", "title", "file_count", "source_id"),
+                    evidence_terms=(topic.topic, "dataset", "data"),
+                    perspectives=("data",),
+                ),
+                _QuestionDraft(
+                    question=f"“{topic.topic}”公开数据集的描述、关键词和资源文件清单能否支持后续解析？",
+                    research_type="association",
+                    population=population,
+                    exposure="数据集描述与关键词",
+                    outcome="资源文件结构",
+                    field_hints=("dataset_id", "description", "keywords", "file_formats", "source_id"),
+                    evidence_terms=(topic.topic, "metadata", "file"),
+                    perspectives=("data", "methodology"),
+                ),
+                _QuestionDraft(
+                    question=f"哪些官方来源最适合继续下载并解析“{topic.topic}”的原始数据？",
+                    research_type="association",
+                    population=population,
+                    exposure="官方来源与许可信息",
+                    outcome="可复现的数据资源",
+                    field_hints=("dataset_id", "dataset_url", "source_id"),
+                    evidence_terms=(topic.topic, "repository", "data"),
+                    perspectives=("data",),
+                ),
+            ]
         if self._legacy_applicable(topic):
             return self._legacy_template_drafts()
         disease = topic.disease or topic.topic

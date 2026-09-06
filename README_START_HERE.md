@@ -8,13 +8,15 @@
 
 Agent 架构说明见 [`docs/AGENT_ARCHITECTURE.md`](docs/AGENT_ARCHITECTURE.md)，系统属于有边界的混合式多 Agent 编排：有主 Agent 和职责隔离的规划、采集、批评、质量与闭环角色，同时保留确定性事实处理和医学规则门。
 
+当前自主工作区的竞赛对标、证据矩阵和 30 页内提交建议见 [`CONTEST_TRACK2_A_COMPLIANCE_AUDIT.md`](CONTEST_TRACK2_A_COMPLIANCE_AUDIT.md)。
+
 ## 推荐阅读顺序
 
 1. `AGENTS.md`
 2. `docs/FINAL_DELIVERY_INDEX.md`
 3. `docs/PROJECT_REPORT.md`
 4. `docs/REVIEWER_STORY.md`（汇报讲稿：问题—设计—指标—能力—价值）
-5. `deliverables/cancer-precision-data-agent-v2.0.0-reading-pack.zip`
+5. `deliverables/cancer-precision-data-agent-v2.2.0-reading-pack.zip`
 6. 需要修改 Schema 或医学规则时，再阅读 `docs/04_Canonical_Schema.md`、`docs/05_医学安全规则.md`
 
 ## 怎么启动前后端
@@ -34,7 +36,7 @@ python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 
 ## 首次使用千问
 
-首次点击“开始完整规划”前，网页会要求先连接千问 API。点击提示框中的“去配置 API”，填写百炼 API Key 并测试连接后即可运行；默认使用 `Qwen3.8-Max`（`qwen3.8-max`）。网页填写的凭据仅在当前后端进程的临时内存中保存，最长两小时，不会写入项目文件。
+首次点击“发送并开始研究”前，网页会要求先连接千问 API。点击提示框中的“去配置 API”，填写百炼 API Key 并测试连接后即可运行；默认使用 `Qwen3.8-Max`（`qwen3.8-max`）。连接字段保存在当前浏览器本机，用于后端重启后的自动重建；后端实际会话仍只保存在临时内存中，最长两小时，不会写入项目文件，点击“清除本机连接”可删除浏览器保存内容。
 
 ## 核心对照结果
 

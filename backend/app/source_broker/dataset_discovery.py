@@ -17,6 +17,36 @@ class DatasetDiscovery:
         papers: list[PaperRecord],
     ) -> list[DatasetCandidate]:
         candidates: dict[str, DatasetCandidate] = {}
+        if contract.data_granularity == "publication":
+            source = self.catalog.source("zenodo")
+            if source is not None:
+                candidates["zenodo:runtime"] = DatasetCandidate(
+                    dataset_id="zenodo:runtime",
+                    source_id=source.source_id,
+                    accession=None,
+                    title="Zenodo 实时公开数据集目录（待按主题检索）",
+                    source_url="https://zenodo.org/",
+                    diseases=[],
+                    declared_granularity=["publication"],
+                    field_hints=["dataset_id", "title", "description", "file_count", "source_id"],
+                    access_mode="OPEN_API",
+                    resources=[
+                        ResourceDescriptor(
+                            resource_id="zenodo:runtime:api",
+                            dataset_id="zenodo:runtime",
+                            source_id=source.source_id,
+                            resource_type="REST_API",
+                            source_url="https://zenodo.org/api/records/",
+                            access_mode="OPEN_API",
+                            expected_format="JSON",
+                        )
+                    ],
+                    capability_status="seed_requires_runtime_verification",
+                    authority=source.authority,
+                    traceability=source.traceability,
+                    structuredness=source.structuredness,
+                    cost=source.cost,
+                )
         cancer_profile = SourceDiscovery._cancer_profile(contract)
         if cancer_profile is not None:
             candidates.update(

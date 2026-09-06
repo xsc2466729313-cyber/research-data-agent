@@ -148,6 +148,59 @@ def test_geo_catalog_search_returns_gse_candidates() -> None:
     assert candidates[0].source_database == "NCBI GEO"
 
 
+def test_zenodo_search_parses_dataset_metadata_and_files() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.host == "zenodo.org"
+        assert request.url.params.get("type") == "dataset"
+        return httpx.Response(
+            200,
+            json={
+                "hits": {
+                    "total": 1,
+                    "hits": [
+                        {
+                            "id": "1234567",
+                            "metadata": {
+                                "title": "Dinosaur fossil observations",
+                                "description": "A public observation table.",
+                                "doi": "10.5281/zenodo.1234567",
+                                "publication_date": "2024-01-01",
+                                "keywords": ["dinosaur", "fossil"],
+                            },
+                            "files": [
+                                {
+                                    "key": "observations.csv",
+                                    "size": 512,
+                                    "checksum": "md5:abc",
+                                    "links": {"self": "https://zenodo.org/api/records/1234567/files/observations.csv"},
+                                }
+                            ],
+                            "links": {"self_html": "https://zenodo.org/records/1234567"},
+                        }
+                    ],
+                }
+            },
+            request=request,
+        )
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    result = DiscoveryAdapter(client=client).search_zenodo(
+        task_id="task-zenodo", query="dinosaur fossil", max_records=5
+    )
+    client.close()
+
+    record = result.records[0]
+    assert record.record_id == "1234567"
+    assert record.doi == "10.5281/zenodo.1234567"
+    assert record.file_formats == ["csv"]
+    assert record.files[0]["download_url"].endswith("observations.csv")
+    assert result.source_items[0].source_id == "zenodo:1234567"
+    candidates = ResearchAgentService._candidates("search_zenodo", result)
+    assert candidates[0].source_database == "Zenodo"
+    assert candidates[0].dataset_id == "zenodo:1234567"
+    assert candidates[0].data_type == "通用科研数据集"
+
+
 def test_unknown_tool_does_not_reuse_civic_candidate_builder() -> None:
     class FakeDiscoveryResult:
         records = []

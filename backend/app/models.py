@@ -56,6 +56,9 @@ class ResearchSpec(ApiModel):
     task_id: str = Field(min_length=1)
     research_goal: str = Field(min_length=1)
     disease: str = Field(min_length=1)
+    # Selects the retrieval and dataset interpretation path.  The default
+    # keeps existing persisted requests on the oncology path.
+    domain: str = "oncology"
     subtype: str | None = None
     genes: list[str] = Field(default_factory=list)
     variants: list[str] = Field(default_factory=list)
@@ -178,4 +181,3 @@ class MockPipelineResult(ApiModel):
     canonical_dataset: list[CanonicalRecord]
     evidence: list[EvidenceCell]
     quality_report: QualityReport
-

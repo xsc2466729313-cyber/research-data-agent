@@ -1,3 +1,7 @@
+const rootEntry = window.location.pathname === "/" || window.location.pathname.endsWith("/index.html");
+const showRootWorkbench = new URLSearchParams(window.location.search).get("surface") === "kernel";
+if (rootEntry && showRootWorkbench) document.body.classList.add("is-advanced-workbench");
+
 const form = document.querySelector("#research-form");
 const submitButton = document.querySelector("#submit-button");
 const progressPanel = document.querySelector("#progress");
@@ -16,8 +20,23 @@ const state = {
   qwenSessionId: null,
   qwenSessionExpiresAt: null,
   qwenConfigured: null,
+  giiispConfigured: null,
   lineage: { sources: [], candidates: [], primary: "", selected: null, hover: null, view: "all", paused: false },
+  agentRuntime: { running: false, label: "", percent: 0 },
 };
+
+const QWEN_CONNECTION_STORAGE_KEY = "oncology_qwen_connection_v1";
+let qwenRestorePromise = null;
+
+const AGENT_RUNTIME_ROLES = [
+  ["研究规划", "解析对象、目标与检索边界", 0],
+  ["资料查找", "选择公开入口并按缺口补查", 1],
+  ["字段构建", "对齐 Schema，保留原始字段和值", 2],
+  ["证据链", "登记来源、证据和处理血缘", 3],
+  ["独立质疑", "检查缺失、冲突与身份边界", 4],
+  ["质量把关", "决定交付、复核或阻断", 5],
+  ["资产交付", "整理矩阵、字典和可下载报告", 6],
+];
 
 const escapeHtml = (value) => String(value ?? "—")
   .replaceAll("&", "&amp;")
@@ -25,6 +44,94 @@ const escapeHtml = (value) => String(value ?? "—")
   .replaceAll(">", "&gt;")
   .replaceAll('"', "&quot;")
   .replaceAll("'", "&#039;");
+
+function renderMarkdown(value) {
+  const source = String(value ?? "").replace(/\r\n?/g, "\n").trim();
+  if (!source) return "<p></p>";
+  const renderInline = (text) => {
+    let html = escapeHtml(text);
+    html = html.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+    html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    html = html.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+    html = html.replace(/__([^_\n]+)__/g, "<strong>$1</strong>");
+    html = html.replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
+    html = html.replace(/_([^_\n]+)_/g, "<em>$1</em>");
+    return html;
+  };
+  const output = [];
+  let paragraph = [];
+  let listType = "";
+  let codeBlock = null;
+  const closeList = () => {
+    if (listType) output.push(`</${listType}>`);
+    listType = "";
+  };
+  const flushParagraph = () => {
+    if (paragraph.length) output.push(`<p>${renderInline(paragraph.join(" "))}</p>`);
+    paragraph = [];
+  };
+  for (const line of source.split("\n")) {
+    if (/^\s*```/.test(line)) {
+      flushParagraph();
+      closeList();
+      if (codeBlock) {
+        output.push(`<pre><code>${escapeHtml(codeBlock.join("\n"))}</code></pre>`);
+        codeBlock = null;
+      } else {
+        codeBlock = [];
+      }
+      continue;
+    }
+    if (codeBlock) {
+      codeBlock.push(line);
+      continue;
+    }
+    if (!line.trim()) {
+      flushParagraph();
+      closeList();
+      continue;
+    }
+    const heading = line.match(/^\s*(#{1,6})\s+(.+)$/);
+    if (heading) {
+      flushParagraph();
+      closeList();
+      const level = Math.min(heading[1].length, 4);
+      output.push(`<h${level}>${renderInline(heading[2])}</h${level}>`);
+      continue;
+    }
+    const unordered = line.match(/^\s*[-*+]\s+(.+)$/);
+    const ordered = line.match(/^\s*\d+[.)]\s+(.+)$/);
+    if (unordered || ordered) {
+      flushParagraph();
+      const nextList = ordered ? "ol" : "ul";
+      if (listType !== nextList) {
+        closeList();
+        listType = nextList;
+        output.push(`<${listType}>`);
+      }
+      output.push(`<li>${renderInline((unordered || ordered)[1])}</li>`);
+      continue;
+    }
+    const quote = line.match(/^\s*>\s?(.+)$/);
+    if (quote) {
+      flushParagraph();
+      closeList();
+      output.push(`<blockquote>${renderInline(quote[1])}</blockquote>`);
+      continue;
+    }
+    if (/^\s*(---+|\*\*\*+)\s*$/.test(line)) {
+      flushParagraph();
+      closeList();
+      output.push("<hr>");
+      continue;
+    }
+    paragraph.push(line.trim());
+  }
+  if (codeBlock) output.push(`<pre><code>${escapeHtml(codeBlock.join("\n"))}</code></pre>`);
+  flushParagraph();
+  closeList();
+  return output.join("");
+}
 
 const TERM_TRANSLATIONS = {
   "Breast Cancer": "乳腺癌",
@@ -461,15 +568,16 @@ async function runResearchTask(payload) {
     if (payload.qwen_session_id && (message.includes("临时会话不存在") || message.includes("已过期"))) {
       clearStaleQwenSession();
       const retry = { ...payload };
-      delete retry.qwen_session_id;
-      setProgress(16, "千问临时会话已失效，改用当前后端配置继续…");
+      if (await restoreSavedQwenSession()) retry.qwen_session_id = state.qwenSessionId;
+      else delete retry.qwen_session_id;
+      setProgress(16, retry.qwen_session_id ? "千问连接已自动恢复，继续执行…" : "千问临时会话已失效，改用当前后端配置继续…");
       return runResearchTaskOnce(retry);
     }
     throw error;
   }
 }
 
-async function runClosedLoopTask(payload) {
+async function runClosedLoopTask(payload, run = null) {
   await pinPreferredApiOrigin();
   const body = {
     initial_request: payload,
@@ -484,7 +592,8 @@ async function runClosedLoopTask(payload) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }));
-    renderClosedLoop(loop);
+    if (run) run.loop = loop;
+    else renderClosedLoop(loop);
     if (!loop.final_result) throw new Error(loop.stop_reason || "闭环没有返回最终结果。");
     return loop.final_result;
   } catch (error) {
@@ -492,9 +601,10 @@ async function runClosedLoopTask(payload) {
     if (payload.qwen_session_id && (message.includes("临时会话不存在") || message.includes("已过期"))) {
       clearStaleQwenSession();
       const retry = { ...payload };
-      delete retry.qwen_session_id;
-      setProgress(16, "千问临时会话已失效，改用当前后端配置继续闭环…");
-      return runClosedLoopTask(retry);
+      if (await restoreSavedQwenSession()) retry.qwen_session_id = state.qwenSessionId;
+      else delete retry.qwen_session_id;
+      setProgress(16, retry.qwen_session_id ? "千问连接已自动恢复，继续闭环…" : "千问临时会话已失效，改用当前后端配置继续闭环…");
+      return runClosedLoopTask(retry, run);
     }
     throw error;
   }
@@ -504,19 +614,23 @@ async function checkConfiguration() {
   const system = document.querySelector("#system-status");
   try {
     await pinPreferredApiOrigin();
-    const [health, configuration] = await Promise.all([
+    const [health, configuration, giiisp] = await Promise.all([
       fetchApi("/health").then(readJson),
       fetchApi("/api/agent/configuration").then(readJson),
+      fetchApi("/api/agent/giiisp-configuration").then(readJson),
     ]);
     system.className = "system-status is-online";
     system.innerHTML = `<span class="status-dot"></span><span>在线 · ${escapeHtml(health.version)}</span>`;
     const badge = document.querySelector("#configuration-badge");
     state.qwenConfigured = Boolean(configuration.configured);
+    state.giiispConfigured = Boolean(giiisp.configured);
     badge.textContent = configuration.configured ? "千问已连接" : "千问未配置";
     badge.className = `status-badge ${configuration.configured ? "is-success" : "is-review"}`;
     document.querySelector("#configuration-title").textContent = configuration.configured ? "模型规划可用" : "当前使用确定性规划";
-    document.querySelector("#configuration-message").textContent = configuration.message;
+    document.querySelector("#configuration-message").textContent = `${configuration.message} ${giiisp.message}`;
     document.querySelector("#configuration-model").textContent = configuration.model;
+    const giiispStatus = document.querySelector("#giiisp-config-status");
+    if (giiispStatus) giiispStatus.textContent = giiisp.configured ? giiisp.message : "Giiisp 可选；未配置时自动使用 Europe PMC。";
     if (!state.qwenSessionId) {
       const openConfig = document.querySelector("#qwen-open-config");
       if (openConfig) {
@@ -525,6 +639,7 @@ async function checkConfiguration() {
     }
   } catch (error) {
     state.qwenConfigured = null;
+    state.giiispConfigured = null;
     system.className = "system-status is-error";
     system.innerHTML = '<span class="status-dot"></span><span>后端未连接</span>';
     document.querySelector("#configuration-title").textContent = "无法读取模型配置";
@@ -543,6 +658,7 @@ function showQwenFirstRunPrompt() {
 
 async function ensureQwenConfigured() {
   if (state.qwenSessionId && isQwenSessionExpired()) clearStaleQwenSession();
+  if (!state.qwenSessionId) await restoreSavedQwenSession();
   if (state.qwenSessionId || state.qwenConfigured === true) return true;
   if (state.qwenConfigured === null) await checkConfiguration();
   if (state.qwenConfigured !== true && !state.qwenSessionId) {
@@ -552,21 +668,78 @@ async function ensureQwenConfigured() {
   return true;
 }
 
+async function ensureResearchProvidersConfigured() {
+  return ensureQwenConfigured();
+}
+
+function progressStageIndex(percent) {
+  const value = Number(percent) || 0;
+  return [20, 34, 48, 63, 76, 88, 100].reduce((index, boundary, phaseIndex) => value >= boundary ? phaseIndex + 1 : index, 0);
+}
+
+function renderProgressPhaseList(percent) {
+  const phaseList = document.querySelector("#progress-phase-list");
+  if (!phaseList) return;
+  const value = Number(percent) || 0;
+  const completedCount = progressStageIndex(value);
+  const activeIndex = completedCount >= 7 ? -1 : Math.min(completedCount, 6);
+  phaseList.querySelectorAll("[data-progress-phase]").forEach((item, index) => {
+    item.classList.toggle("is-complete", index < completedCount);
+    item.classList.toggle("is-active", index === activeIndex);
+  });
+}
+
+function renderAgentRuntime(result = null, { running = false, label = "", percent = state.agentRuntime.percent || 0 } = {}) {
+  const grid = document.querySelector("#agent-runtime-grid");
+  const overall = document.querySelector("#agent-runtime-overall");
+  const note = document.querySelector("#agent-runtime-note");
+  if (!grid || !overall || !note) return;
+  state.agentRuntime = { running, label, percent };
+  const dataset = result?.modeling_dataset;
+  const actualStatuses = result ? [
+    result.research_spec || result.plan ? ["已完成", "已形成研究理解与执行计划", "is-success"] : ["需复核", "未返回可审查的研究计划", "is-review"],
+    result.source_items?.length || result.candidate_sources?.length ? ["已完成", `${result.source_items?.length || 0} 个来源项已登记`, "is-success"] : ["需复核", "未返回可核验来源", "is-review"],
+    dataset?.columns?.length ? ["已完成", `${dataset.columns.length} 个字段已对齐`, "is-success"] : ["需复核", "未形成字段字典", "is-review"],
+    result.source_items?.length ? ["已完成", "来源与处理路径已登记", "is-success"] : ["需复核", "尚无可展示的证据路径", "is-review"],
+    result.critic_report ? ["已完成", result.critic_report.answers_contract ? "主需求已回答" : "发现缺口并保留审计", result.critic_report.answers_contract ? "is-success" : "is-review"] : ["需复核", "未返回独立检查报告", "is-review"],
+    result.quality_gate_report ? ["已完成", `质量门：${result.quality_gate_report.overall_status || result.quality_gate_report.quality_gate || "已判定"}`, "is-success"] : ["需复核", "未返回质量门判定", "is-review"],
+    dataset?.row_count != null ? ["已完成", `${dataset.row_count} 行科研数据已整理`, "is-success"] : ["需复核", "尚未形成可交付矩阵", "is-review"],
+  ] : null;
+  const runningStage = progressStageIndex(percent);
+  grid.innerHTML = AGENT_RUNTIME_ROLES.map(([name, description, phase], index) => {
+    let status = ["待运行", "等待上游结果", "is-pending"];
+    if (actualStatuses) status = actualStatuses[index];
+    else if (running) status = phase < runningStage ? ["已完成", "阶段结果已返回", "is-success"] : phase === runningStage ? ["执行中", label || "正在处理", "is-primary"] : status;
+    return `<article class="agent-runtime-card ${status[2]}"><span class="agent-runtime-index">0${index + 1}</span><div><strong>${escapeHtml(name)}</strong><small>${escapeHtml(status[1] || description)}</small></div><em class="status-badge ${status[2]}">${escapeHtml(status[0])}</em></article>`;
+  }).join("");
+  const completed = actualStatuses ? actualStatuses.filter((item) => item[0] === "已完成").length : (running ? Math.min(runningStage, 7) : 0);
+  overall.textContent = actualStatuses ? `${completed}/7 已审查` : running ? `运行中 · ${completed}/7` : "待命";
+  overall.className = `status-badge ${actualStatuses ? (completed === 7 ? "is-success" : "is-review") : running ? "is-primary" : "is-pending"}`;
+  note.textContent = actualStatuses
+    ? "状态由本次任务返回的计划、来源、字段、Critic、质量门和数据集结果生成；需要复核的环节会保留在结果中。"
+    : running
+      ? `内核实验室正在自主推进：${label || "处理中"}`
+      : "提交一句研究问题后，各角色会按职责自动推进；这里展示真实运行状态，不虚构完成度。";
+}
+
 function setProgress(percent, label) {
   progressPanel.hidden = false;
   progressBar.style.width = `${percent}%`;
   progressPercent.textContent = `${percent}%`;
   progressLabel.textContent = label;
+  renderProgressPhaseList(percent);
+  renderAgentRuntime(null, { running: true, label, percent });
 }
 
 function startProgress() {
   const phases = [
-    [18, "正在解析研究问题并选择工具…"],
-    [32, "正在检索公开数据库与文献中的 GSE/NCT…"],
-    [48, "正在按缺口换方法补搜（未达标则继续）…"],
-    [63, "正在执行 Schema 匹配与实体对齐…"],
-    [76, "正在执行质量门与 Critic 诊断…"],
-    [86, "正在生成分析矩阵、字段字典与质量报告…"],
+    [18, "正在理解研究对象与目标…"],
+    [32, "正在规划检索路径与证据需求…"],
+    [46, "正在发现公开来源与可机器读取数据…"],
+    [61, "正在按缺口自主补查并构建字段体系…"],
+    [75, "正在建立证据链与来源血缘…"],
+    [86, "正在执行质量门与独立 Critic 检查…"],
+    [94, "正在整理矩阵、字段字典与可复用资产…"],
   ];
   let index = 0;
   setProgress(8, "正在创建研究任务…");
@@ -581,7 +754,23 @@ function startProgress() {
 function stopProgress(success = true) {
   if (state.progressTimer) window.clearInterval(state.progressTimer);
   state.progressTimer = null;
-  if (success) setProgress(100, "任务已完成，可审查结果并导出。");
+  if (success) {
+    setProgress(100, "任务已完成，可审查结果并导出。");
+    renderAgentRuntime(state.result, { running: false, label: "已完成", percent: 100 });
+  } else {
+    renderAgentRuntime(null, { running: false, label: "执行中断", percent: state.agentRuntime.percent });
+  }
+}
+
+async function ensureExecutionReady() {
+  const useQwen = document.querySelector("#use-qwen")?.checked;
+  const allowFallback = document.querySelector("#allow-fallback")?.checked;
+  if (!useQwen || state.qwenSessionId || state.qwenConfigured === true) return true;
+  if (allowFallback) {
+    if (state.qwenConfigured === null) await checkConfiguration();
+    return true;
+  }
+  return ensureQwenConfigured();
 }
 
 function buildAgentTaskPayload() {
@@ -613,6 +802,66 @@ function clearStaleQwenSession() {
   if (disconnect) disconnect.hidden = true;
   const openConfig = document.querySelector("#qwen-open-config");
   if (openConfig) openConfig.textContent = "连接千问 API";
+}
+
+function loadStoredQwenConnection() {
+  try {
+    const raw = window.localStorage.getItem(QWEN_CONNECTION_STORAGE_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw);
+    if (!saved || typeof saved.api_key !== "string" || !saved.api_key.trim()) return null;
+    if (typeof saved.base_url !== "string" || !saved.base_url.trim()) return null;
+    if (typeof saved.model !== "string" || !saved.model.trim()) return null;
+    return {
+      api_key: saved.api_key.trim(),
+      base_url: saved.base_url.trim(),
+      model: saved.model.trim(),
+      workspace_id: saved.workspace_id || null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredQwenConnection(connection) {
+  try {
+    window.localStorage.setItem(QWEN_CONNECTION_STORAGE_KEY, JSON.stringify({
+      ...connection,
+      saved_at: new Date().toISOString(),
+    }));
+  } catch {
+    // 浏览器禁用本地存储时，当前内存会话仍可继续使用。
+  }
+}
+
+function clearStoredQwenConnection() {
+  try { window.localStorage.removeItem(QWEN_CONNECTION_STORAGE_KEY); } catch { /* ignore */ }
+}
+
+async function restoreSavedQwenSession() {
+  if (state.qwenSessionId && !isQwenSessionExpired()) return true;
+  if (qwenRestorePromise) return qwenRestorePromise;
+  const saved = loadStoredQwenConnection();
+  if (!saved) return false;
+  qwenRestorePromise = (async () => {
+    try {
+      await pinPreferredApiOrigin();
+      const session = await readJson(await fetchApi("/api/agent/qwen-sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...saved, timeout_seconds: 120 }),
+      }));
+      renderTemporaryQwenConnection(session, true);
+      return true;
+    } catch (error) {
+      const status = document.querySelector("#qwen-connect-status");
+      if (status) status.textContent = `本机保存的千问连接恢复失败：${error.message}，请重新测试连接。`;
+      return false;
+    } finally {
+      qwenRestorePromise = null;
+    }
+  })();
+  return qwenRestorePromise;
 }
 
 function parseCsvRows(text) {
@@ -667,15 +916,17 @@ function importQwenCredentialCsv(text) {
   document.querySelector("#qwen-connect-status").textContent = "已从本机 CSV 读取连接字段，尚未提交。";
 }
 
-function renderTemporaryQwenConnection(session) {
+function renderTemporaryQwenConnection(session, restored = false) {
   state.qwenSessionId = session.session_id;
   state.qwenSessionExpiresAt = session.expires_at;
   state.qwenConfigured = true;
   const badge = document.querySelector("#configuration-badge");
   badge.textContent = "会话已启用";
   badge.className = "status-badge is-success";
-  document.querySelector("#configuration-title").textContent = "千问 API 内存会话已启用";
-  document.querySelector("#configuration-message").textContent = `连接已验证，将于 ${new Date(session.expires_at).toLocaleString("zh-CN")} 前有效；服务重启会立即清除。`;
+  document.querySelector("#configuration-title").textContent = restored ? "千问 API 已自动恢复" : "千问 API 已连接";
+  document.querySelector("#configuration-message").textContent = restored
+    ? `已用本机保存的连接重新建立会话，将于 ${new Date(session.expires_at).toLocaleString("zh-CN")} 前有效。`
+    : `连接已验证，将于 ${new Date(session.expires_at).toLocaleString("zh-CN")} 前有效；服务重启后会自动用本机保存的连接恢复。`;
   document.querySelector("#configuration-model").textContent = session.model;
   document.querySelector("#qwen-open-config").textContent = "更换千问 API";
   document.querySelector("#qwen-disconnect").hidden = false;
@@ -690,27 +941,28 @@ async function connectQwenSession(event) {
   status.textContent = "正在验证千问 API…";
   try {
     const previousSessionId = state.qwenSessionId;
+    const connection = {
+      api_key: document.querySelector("#qwen-api-key").value.trim(),
+      base_url: document.querySelector("#qwen-base-url").value.trim(),
+      model: document.querySelector("#qwen-model").value.trim(),
+      workspace_id: document.querySelector("#qwen-workspace-id").value.trim() || null,
+    };
     const response = await fetchApi("/api/agent/qwen-sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        api_key: document.querySelector("#qwen-api-key").value,
-        base_url: document.querySelector("#qwen-base-url").value,
-        model: document.querySelector("#qwen-model").value,
-        workspace_id: document.querySelector("#qwen-workspace-id").value || null,
-        timeout_seconds: 120,
-      }),
+      body: JSON.stringify({ ...connection, timeout_seconds: 120 }),
     });
     const session = await readJson(response);
+    saveStoredQwenConnection(connection);
     document.querySelector("#qwen-api-key").value = "";
     document.querySelector("#qwen-credential-file").value = "";
     renderTemporaryQwenConnection(session);
     if (previousSessionId && previousSessionId !== session.session_id) {
       fetchApi(`/api/agent/qwen-sessions/${encodeURIComponent(previousSessionId)}`, { method: "DELETE" }).catch(() => null);
     }
-    status.textContent = session.message;
+    status.textContent = `${session.message} 本机浏览器已保存连接，用于后续自动恢复。`;
     document.querySelector("#qwen-connection-dialog").close();
-    showToast("千问 API 已连接，本次任务将使用临时会话");
+    showToast("千问 API 已连接，已保存到本机，后续会自动恢复");
   } catch (error) {
     status.textContent = error.message;
   } finally {
@@ -722,17 +974,38 @@ async function disconnectQwenSession() {
   const sessionId = state.qwenSessionId;
   state.qwenSessionId = null;
   state.qwenSessionExpiresAt = null;
+  clearStoredQwenConnection();
   if (sessionId) await fetchApi(`/api/agent/qwen-sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE" }).catch(() => null);
   document.querySelector("#qwen-disconnect").hidden = true;
   document.querySelector("#qwen-open-config").textContent = "连接千问 API";
   await checkConfiguration();
-  showToast("临时千问连接已清除");
+  showToast("千问连接已清除，本机保存的凭据也已删除");
 }
 
 document.querySelector("#qwen-open-config").addEventListener("click", () => document.querySelector("#qwen-connection-dialog").showModal());
 document.querySelector("#qwen-dialog-close").addEventListener("click", () => document.querySelector("#qwen-connection-dialog").close());
 document.querySelector("#qwen-cancel-config").addEventListener("click", () => document.querySelector("#qwen-connection-dialog").close());
 document.querySelector("#qwen-connection-form").addEventListener("submit", connectQwenSession);
+document.querySelector("#giiisp-save")?.addEventListener("click", async () => {
+  const apiKey = document.querySelector("#giiisp-api-key").value.trim();
+  const baseUrl = document.querySelector("#giiisp-base-url").value.trim();
+  const status = document.querySelector("#giiisp-config-status");
+  if (!apiKey || !baseUrl) { status.textContent = "请填写 Giiisp API Key 和 Base URL。"; return; }
+  const button = document.querySelector("#giiisp-save");
+  button.disabled = true; status.textContent = "正在保存 Giiisp 配置…";
+  try {
+    const result = await readJson(await fetchApi("/api/agent/giiisp-configuration", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ api_key: apiKey, base_url: baseUrl }),
+    }));
+    state.giiispConfigured = Boolean(result.configured);
+    document.querySelector("#giiisp-api-key").value = "";
+    status.textContent = result.message;
+    await checkConfiguration();
+    showToast("Giiisp 配置已保存");
+  } catch (error) { status.textContent = error.message; }
+  finally { button.disabled = false; }
+});
 document.querySelector("#qwen-disconnect").addEventListener("click", disconnectQwenSession);
 document.querySelector("#qwen-first-run-configure")?.addEventListener("click", () => {
   document.querySelector("#qwen-first-run-dialog")?.close();
@@ -756,7 +1029,11 @@ document.querySelector("#qwen-credential-file").addEventListener("change", async
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (!(await ensureQwenConfigured())) return;
+  if (plannerRuns.get(plannerState.sessionId)?.contract && document.body.classList.contains("is-advanced-workbench")) {
+    await runPlannerDatasetBuild(submitButton, { question: document.querySelector("#question").value });
+    return;
+  }
+  if (!(await ensureExecutionReady())) return;
   submitButton.disabled = true;
   errorPanel.hidden = true;
   resultsPanel.hidden = true;
@@ -786,6 +1063,7 @@ form.addEventListener("submit", async (event) => {
 
 function renderResult(result) {
   const usedModel = result.used_model ?? result.used_qwen;
+  renderAgentRuntime(result, { running: false, label: "任务结果已返回", percent: 100 });
   document.querySelector("#result-status").textContent = result.status;
   document.querySelector("#agent-mode").textContent = result.agent_mode;
   const qwenFlag = document.querySelector("#qwen-used-flag");
@@ -817,84 +1095,8 @@ function renderResult(result) {
 
 function renderClosedLoop(loop) {
   const panel = document.querySelector("#closed-loop-panel");
-  const status = document.querySelector("#closed-loop-status");
-  const reason = document.querySelector("#closed-loop-stop-reason");
-  const summary = document.querySelector("#closed-loop-summary");
-  const rounds = document.querySelector("#closed-loop-rounds");
-  if (!panel || !status || !reason || !summary || !rounds) return;
-  if (!loop?.improved) {
-    panel.hidden = true;
-    summary.innerHTML = "";
-    rounds.innerHTML = "";
-    return;
-  }
-  panel.hidden = false;
-  const improved = Boolean(loop.improved);
-  const bestIteration = Number(loop.best_iteration || 1);
-  const iterations = Array.isArray(loop.iterations) ? loop.iterations : [];
-  const visible = iterations.slice(0, 2);
-  const hasComparison = visible.length >= 2;
-  status.textContent = hasComparison ? (improved ? "第 2 轮已提升" : "两轮已对照") : "完成基线诊断";
-  status.className = `status-badge ${improved ? "is-success" : "is-pending"}`;
-  reason.textContent = hasComparison
-    ? (improved ? "第 2 轮针对首轮缺口完成修正，并取得可验证提升。" : "第 2 轮已执行修正；当前指标与第 1 轮相比无可验证变化。")
-    : "当前仅形成第 1 轮基线，尚无第二轮可比较结果。";
-  if (hasComparison) {
-    const first = visible[0].metrics || {};
-    const second = visible[1].metrics || {};
-    const percentMetric = (label, key) => {
-      const before = Number(first[key] || 0) * 100;
-      const after = Number(second[key] || 0) * 100;
-      const delta = after - before;
-      return { label, before: `${before.toFixed(1)}%`, after: `${after.toFixed(1)}%`, delta, deltaText: Math.abs(delta) < 0.05 ? "无变化" : `${delta > 0 ? "+" : ""}${delta.toFixed(1)} 个百分点` };
-    };
-    const metricRows = [
-      percentMetric("闭环进度", "progress_score"),
-      percentMetric("主要必需字段覆盖", "required_field_coverage"),
-      percentMetric("研究结局匹配", "target_match_rate"),
-      percentMetric("来源可回查", "traceability"),
-    ];
-    const gapBefore = Number(first.unresolved_gap_count || 0);
-    const gapAfter = Number(second.unresolved_gap_count || 0);
-    const gapDelta = gapBefore - gapAfter;
-    metricRows.push({ label: "未解决缺口", before: String(gapBefore), after: String(gapAfter), delta: gapDelta, deltaText: gapDelta === 0 ? "无变化" : `${gapDelta > 0 ? "减少" : "增加"} ${Math.abs(gapDelta)} 个` });
-    summary.innerHTML = metricRows.map((metric) => `<article class="closed-loop-compare-card ${metric.delta > 0 ? "is-improved" : ""}">
-      <span>${escapeHtml(metric.label)}</span><strong>${escapeHtml(metric.before)} <i>→</i> ${escapeHtml(metric.after)}</strong><small>${escapeHtml(metric.deltaText)}</small>
-    </article>`).join("");
-  } else {
-    const metrics = visible[0]?.metrics || {};
-    summary.innerHTML = `<article class="closed-loop-best-note"><span>第 1 轮基线</span><strong>${escapeHtml(closedLoopMetricLine(metrics) || "等待指标")}</strong></article>`;
-  }
-  rounds.innerHTML = visible.map((item) => {
-    const metrics = item.metrics || {};
-    const diagnoses = (item.diagnoses || []).map((diagnosis) => diagnosis.label).filter(Boolean);
-    const iterationNumber = Number(item.iteration);
-    const isBest = iterationNumber === bestIteration;
-    const gate = metrics.quality_gate || "REVIEW";
-    const gateLabel = gate === "REVIEW" ? "待补" : gate;
-    const metricLine = closedLoopMetricLine(metrics);
-    const diagnosisLine = diagnoses.length ? `待处理问题：${diagnoses.join("、")}` : "本轮未发现新的可执行缺口。";
-    return `<article class="collection-iteration ${isBest ? "is-best-round" : ""}">
-      <div class="collection-iteration-head"><strong>${iterationNumber === 1 ? "第 1 轮 · 基线" : "第 2 轮 · 修正后"}</strong><span class="status-badge ${statusClass(gate === "REVIEW" ? "待补" : gate)}">${escapeHtml(gateLabel)}</span></div>
-      <p>${escapeHtml(localizeNarrative(diagnosisLine))}</p>
-      ${metricLine ? `<small>${escapeHtml(metricLine)}</small>` : ""}
-    </article>`;
-  }).join("");
-}
-
-function closedLoopMetricLine(metrics) {
-  const bits = [];
-  const progress = Number(metrics.progress_score);
-  if (Number.isFinite(progress)) bits.push(`任务内进度 ${progress.toFixed(2)}`);
-  const coverage = Number(metrics.required_field_coverage || 0);
-  if (coverage > 0) bits.push(`协议必选字段对齐 ${(coverage * 100).toFixed(1)}%`);
-  const target = Number(metrics.target_match_rate || 0);
-  if (target > 0) bits.push(`结局字段对齐 ${(target * 100).toFixed(1)}%`);
-  const trace = Number(metrics.traceability || 0);
-  if (trace > 0) bits.push(`来源可回查 ${(trace * 100).toFixed(1)}%（能点回官网，不是字段已齐）`);
-  const gaps = Number(metrics.unresolved_gap_count || 0);
-  if (gaps > 0) bits.push(`还剩 ${gaps} 个缺口`);
-  return bits.join(" · ");
+  // 闭环仍在后台运行并用于质量判断，但不把内部对照分数直接暴露在用户结果页。
+  if (panel) panel.hidden = true;
 }
 
 function renderResearchBrief(brief, assessment) {
@@ -1045,6 +1247,12 @@ function datasetResponseDomain(dataset) {
   return domains.size > 1 ? "mixed" : null;
 }
 
+function isDiscoveryDataset(dataset) {
+  const unit = String(dataset?.unit_of_analysis || "");
+  return dataset?.dataset_role === "discovery"
+    || /公开数据集|文献记录|出版物|数据集记录/.test(unit);
+}
+
 function datasetTabLabel(dataset, fallback) {
   const domain = datasetResponseDomain(dataset);
   if (domain === "preclinical_cell_line") return `${dataset.name || fallback} · 前临床`;
@@ -1084,22 +1292,26 @@ function renderDataset(dataset, sourceDatasets) {
   document.querySelectorAll(".export-button").forEach((button) => {
     const format = button.dataset.format;
     const needsRows = ["csv", "parquet", "xlsx", "json"].includes(format);
-    button.disabled = needsRows && dataset.rows.length === 0;
+    button.disabled = needsRows && !(state.result?.modeling_dataset || dataset).rows.length;
+    if (needsRows) button.title = "导出本次任务的主数据表；独立来源表请使用“下载来源数据包”。";
+    if (format === "sources") button.disabled = !companions.some((item) => item.rows?.length);
   });
   const head = document.querySelector("#dataset-table thead");
   const body = document.querySelector("#dataset-table tbody");
-  const auditColumns = dataset.columns.filter((column) => column.role === "审计信息");
+  const auditColumns = dataset.columns.filter((column) => ["审计信息", "audit"].includes(column.role));
   const secondaryColumns = dataset.columns.filter((column) => column.role === "次要临床字段");
   const visibleColumns = state.datasetView === "audit"
     ? dataset.columns
-    : dataset.columns.filter((column) => column.role !== "审计信息" && column.role !== "次要临床字段");
+    : dataset.columns.filter((column) => !["审计信息", "audit", "次要临床字段"].includes(column.role));
   document.querySelector("#dataset-research-view").setAttribute("aria-pressed", String(state.datasetView === "research"));
   document.querySelector("#dataset-audit-view").setAttribute("aria-pressed", String(state.datasetView === "audit"));
   document.querySelector("#dataset-view-note").textContent = state.datasetView === "audit"
     ? `当前显示全部 ${dataset.columns.length} 个字段；原始样本特征已拆分为中文键值。`
     : `当前按本题显示 ${visibleColumns.length} 个关键字段，已隐藏 ${secondaryColumns.length} 个次要临床字段和 ${auditColumns.length} 个审计字段；导出文件保留全部字段。`;
   const responseDomain = datasetResponseDomain(dataset);
-  const populationNote = responseDomain === "preclinical_cell_line"
+  const populationNote = isDiscoveryDataset(dataset)
+    ? `已解析 ${dataset.row_count} 条公开资源记录；这是元数据级结果，不代表患者或样本事实`
+    : responseDomain === "preclinical_cell_line"
     ? `前临床实验样本 ${dataset.sample_count} 个；不含患者临床响应，不参与患者主分析`
     : `患者 ${dataset.patient_count} 名，样本 ${dataset.sample_count} 个`;
   document.querySelector("#dataset-note").textContent = `分析单位：${dataset.unit_of_analysis}；${populationNote}；研究结局字段：${fieldLabel(dataset, dataset.target_column)}。${pack.length > 1 ? `多源数据包共 ${pack.length} 张表，当前查看「${selected.label}」；独立来源表不与主分析患者合并。` : ""}`;
@@ -1112,8 +1324,13 @@ function renderDataset(dataset, sourceDatasets) {
   body.innerHTML = dataset.rows.slice(0, 100).map((row, rowIndex) => `<tr data-row-index="${rowIndex}">${visibleColumns.map((column) => {
     if (column.name === "raw_characteristics") return `<td>${renderRawCharacteristics(row[column.name], row)}</td>`;
     const text = String(translateValue(row[column.name]));
-    const shortened = column.role === "审计信息" && text.length > 88 ? `${text.slice(0, 88)}…` : text;
-    const css = column.role === "审计信息" ? "audit-value" : "";
+    if (["dataset_url", "publication_url", "first_file_url"].includes(column.name)) {
+      const url = safePlannerUrl(text);
+      return `<td class="evidence-cell" data-evidence-field="${escapeHtml(column.name)}" data-evidence-value="${escapeHtml(text)}">${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${column.name === "first_file_url" ? "打开文件 ↗" : "打开官方页面 ↗"}</a>` : "—"}</td>`;
+    }
+    const isAudit = ["审计信息", "audit"].includes(column.role);
+    const shortened = isAudit && text.length > 88 ? `${text.slice(0, 88)}…` : text;
+    const css = isAudit ? "audit-value" : "";
     return `<td class="evidence-cell ${css}" data-evidence-field="${escapeHtml(column.name)}" data-evidence-value="${escapeHtml(text)}" title="${escapeHtml(text)}">${escapeHtml(shortened)}</td>`;
   }).join("")}</tr>`).join("");
   body.querySelectorAll(".raw-characteristics-button").forEach((button) => {
@@ -1571,8 +1788,12 @@ function renderCollectionAgent(report) {
   const gateLabel = report.quality_gate === "PASS" ? "已通过质量门" : report.quality_gate === "PARTIAL" ? "主目标已达成" : "需继续换方法";
   gate.textContent = gateLabel;
   gate.className = `status-badge ${statusClass(report.quality_gate)}`;
-  rounds.textContent = `${report.completed_rounds}/${report.max_rounds} 轮`;
-  note.textContent = localizeNarrative(report.stop_reason || report.note || "观察缺口后更换尚未尝试的方法。");
+  const completedRounds = Number(report.completed_rounds || 0);
+  const hasFollowupRound = completedRounds >= 2;
+  rounds.textContent = hasFollowupRound ? `${completedRounds}/${report.max_rounds} 轮` : "无";
+  note.textContent = hasFollowupRound
+    ? localizeNarrative(report.stop_reason || report.note || "观察缺口后更换尚未尝试的方法。")
+    : "本次任务没有第二轮迭代。";
   if (goalsBox) {
     goalsBox.innerHTML = (report.goals || []).map((goal) => `<article class="${goal.met ? "is-met" : ""}">
       <span>${goal.required ? "必需目标" : "可选目标"} · ${goal.met ? "已达成" : "未达成"}</span>
@@ -2750,39 +2971,11 @@ function wireLineageControls() {
 
 document.querySelectorAll(".export-button").forEach((button) => {
   button.addEventListener("click", async () => {
-    if (!state.result) return;
-    const format = button.dataset.format;
-    button.disabled = true;
-    downloadStatus.textContent = `正在生成 ${format.toUpperCase()} 文件…`;
-    try {
-      const response = await fetchApi(`/api/agent/tasks/${encodeURIComponent(state.result.task_id)}/export/${format}`);
-      if (!response.ok) await readJson(response);
-      const filenames = {
-        csv: `${state.result.task_id}-科研数据集.csv`,
-        parquet: `${state.result.task_id}-科研数据集.parquet`,
-        xlsx: `${state.result.task_id}-科研数据集.xlsx`,
-        json: `${state.result.task_id}-科研数据集.json`,
-        metadata: `${state.result.task_id}-元数据.json`,
-        quality_report: `${state.result.task_id}-质量报告.json`,
-      };
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = filenames[format] || `${state.result.task_id}-科研数据集.${format}`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      URL.revokeObjectURL(url);
-      downloadStatus.textContent = `${format.toUpperCase()} 已生成并下载。`;
-      showToast("科研数据集下载成功");
-    } catch (error) {
-      downloadStatus.textContent = error.message;
-    } finally {
-      const hasRows = Boolean(state.result?.modeling_dataset?.rows?.length);
-      const needsRows = ["csv", "parquet", "xlsx", "json"].includes(format);
-      button.disabled = needsRows && !hasRows;
-    }
+    const result = state.result;
+    if (!result) return;
+    await downloadPlannerArtifact(result.task_id, button.dataset.format, button);
+    const needsRows = ["csv", "parquet", "xlsx", "json"].includes(button.dataset.format);
+    button.disabled = needsRows && !state.result?.modeling_dataset?.rows?.length;
   });
 });
 
@@ -2797,11 +2990,10 @@ function showToast(message) {
   window.setTimeout(() => { toast.hidden = true; }, 2600);
 }
 
-checkConfiguration();
-
 // Guided research-planning workspace. This keeps the planning flow separate from
 // the legacy advanced workbench while using the same audited backend APIs.
 const plannerState = {
+  sessionId: null,
   topic: null,
   scan: null,
   candidates: [],
@@ -2811,6 +3003,7 @@ const plannerState = {
   recent: [],
   busy: false,
 };
+const plannerRuns = new Map();
 
 const PLANNER_HISTORY_KEY = "brca-agent-planner-history-v1";
 
@@ -2833,21 +3026,24 @@ function savePlannerHistory() {
 
 function upsertPlannerHistory(topic, patch = {}) {
   if (!String(topic || "").trim()) return;
-  const existing = plannerState.recent.find((item) => item.topic === topic) || {};
+  const identity = patch.sessionId || plannerState.sessionId || topic;
+  const existing = plannerState.recent.find((item) => (item.sessionId || item.topic) === identity) || {};
   const next = {
     ...existing,
+    sessionId: identity,
     topic,
     updatedAt: patch.updatedAt || existing.updatedAt || new Date().toISOString(),
     status: patch.status || existing.status || "进行中",
     ...patch,
   };
-  plannerState.recent = [next, ...plannerState.recent.filter((item) => item.topic !== topic)].slice(0, 8);
+  plannerState.recent = [next, ...plannerState.recent.filter((item) => (item.sessionId || item.topic) !== identity)].slice(0, 8);
   savePlannerHistory();
   renderPlannerRecent();
 }
 
 function plannerSnapshot() {
   return {
+    sessionId: plannerState.sessionId,
     topic: plannerState.topic,
     scan: plannerState.scan,
     candidates: plannerState.candidates,
@@ -2857,49 +3053,366 @@ function plannerSnapshot() {
   };
 }
 
+function plannerRunSnapshot(run) {
+  return {
+    domain: run.domain,
+    sessionId: run.sessionId,
+    topic: run.topic,
+    scan: run.scan,
+    quickScan: run.quickScan || null,
+    candidates: run.candidates || [],
+    selectedCandidateId: run.selectedCandidateId,
+    contract: run.contract,
+    sourcePlanning: run.sourcePlanning,
+    build: run.build || null,
+    artifacts: run.artifacts || [],
+    messages: run.messages || [],
+  };
+}
+
+function isActivePlannerSession(sessionId) {
+  return plannerState.sessionId === sessionId;
+}
+
+function persistPlannerRun(run, status = run.status) {
+  run.status = status;
+  upsertPlannerHistory(run.inputTopic || run.topic?.topic, {
+    sessionId: run.sessionId,
+    topicId: run.topic?.topic_id,
+    status,
+    taskId: run.build?.taskId,
+    snapshot: plannerRunSnapshot(run),
+  });
+}
+
+function syncPlannerStateFromRun(run) {
+  if (state.result?.task_id !== run.result?.task_id) {
+    state.datasetSourceKey = "primary";
+    state.lineage.selected = null;
+    state.lineage.hover = null;
+    state.lineage.view = "all";
+  }
+  plannerState.sessionId = run.sessionId;
+  plannerState.topic = run.topic;
+  plannerState.scan = run.scan;
+  plannerState.candidates = run.candidates || [];
+  plannerState.selectedCandidateId = run.selectedCandidateId;
+  plannerState.contract = run.contract;
+  plannerState.sourcePlanning = run.sourcePlanning;
+  plannerState.busy = Boolean(run.running);
+  state.result = run.result || null;
+  resultsPanel.hidden = !run.result;
+  if (run.result) renderResult(run.result);
+  renderClosedLoop(run.loop);
+}
+
+function plannerStatusCopy(status) {
+  const copy = {
+    "执行中": "正在理解研究方向",
+    "查找依据中": "正在查找真实论文和公开数据线索",
+    "整理研究问题中": "正在整理可执行的研究问题",
+    "正在确认方案": "正在确认研究对象、指标和必要字段",
+    "正在准备数据": "正在检查公开数据的字段覆盖和访问条件",
+    "数据已就绪": "研究方案和公开数据准备路径已保存",
+    "数据集生成中": "正在生成科研数据集",
+    "数据集已生成": "科研数据集已生成",
+    "执行失败": "本次规划未完成，已有结果仍然保留",
+    "生成失败": "数据集生成未完成，研究方案仍然保留",
+  };
+  return copy[status] || status || "研究会话";
+}
+
+function plannerMessage(run, role, text, meta = "", tone = "") {
+  if (!run) return;
+  run.messages ||= [];
+  const normalized = String(text || "").trim();
+  if (!normalized) return;
+  const last = run.messages[run.messages.length - 1];
+  if (last && last.role === role && last.text === normalized && last.meta === meta && last.tone === tone) return;
+  run.messages.push({ role, text: normalized, meta, tone, at: new Date().toISOString() });
+}
+
+function renderPlannerChat(run) {
+  const chat = plannerElement("#planner-chat");
+  if (!chat) return;
+  const messages = run?.messages || [];
+  chat.hidden = !messages.length;
+  if (!messages.length) {
+    chat.innerHTML = "";
+    return;
+  }
+  chat.innerHTML = messages.map((message) => {
+    if (message.role !== "user" && /科研数据集已经生成，共 0 行/.test(message.text)) {
+      message = { ...message, text: "本次检索已完成，但主数据表为 0 行。可查看缺口、下载独立来源数据，或扩大检索继续查找。", meta: "数据不足", tone: "error" };
+    }
+    const isUser = message.role === "user";
+    const label = isUser ? "你" : "研究助手";
+    const avatar = isUser ? "你" : "研";
+    const toneClass = message.tone ? ` is-${escapeHtml(message.tone)}` : "";
+    return `<article class="planner-chat-message is-${isUser ? "user" : "assistant"}${toneClass}">
+      <span class="planner-chat-avatar" aria-hidden="true">${avatar}</span>
+      <div class="planner-chat-body"><header><strong>${label}</strong>${message.meta ? `<small>${escapeHtml(message.meta)}</small>` : ""}</header><p>${escapeHtml(message.text).replace(/\n/g, "<br>")}</p></div>
+    </article>`;
+  }).join("");
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function renderPlannerRun(run) {
+  if (run.domain === "astronomy") return renderAstronomyRun(run);
+  if (run.domain === "quick_lookup") return renderQuickLookupRun(run);
+  syncPlannerStateFromRun(run);
+  plannerElement("#planner-submit").disabled = false;
+  const hasProgress = Boolean(run.running || run.topic || run.scan || run.candidates?.length || run.contract || run.sourcePlanning || run.error || (run.status && run.status !== "未完成"));
+  plannerElement("#planner-welcome").hidden = hasProgress;
+  renderPlannerChat(run);
+  plannerElement("#planner-progress").hidden = !run.running;
+  plannerElement("#planner-results").hidden = !hasProgress;
+  plannerElement("#planner-flow-summary").innerHTML = "";
+  clearPlannerContractSurfaces();
+  plannerElement("#planner-header-title").textContent = run.contract?.research_question || run.inputTopic || "新研究";
+  plannerElement("#planner-header-subtitle").textContent = plannerStatusCopy(run.status);
+  plannerElement("#planner-result-title").textContent = run.status === "执行失败" ? "研究规划暂未完成" : "正在整理研究方案";
+  plannerElement("#planner-result-summary").textContent = "";
+  plannerElement("#planner-panel-evidence").innerHTML = plannerEmpty("…", "正在查找研究依据", "这里只展示带真实来源链接的论文记录。 ");
+  plannerElement("#planner-panel-contract").innerHTML = plannerEmpty("◈", "正在等待研究问题明确", "系统会自动确定研究对象、影响因素、结果指标和所需字段。 ");
+  plannerElement("#planner-panel-sources").innerHTML = plannerEmpty("◇", "正在等待研究方案", "方案明确后，系统会检查哪些公开数据可以支持这项研究。 ");
+
+  if (run.topic) setPlannerStage("literature", { completedThrough: "topic" });
+  else setPlannerStage("topic");
+  if (run.scan) {
+    renderPlannerEvidence(run.scan);
+    setPlannerStage("questions", { completedThrough: "literature" });
+  }
+  if (run.candidates?.length) {
+    plannerElement("#planner-progress").hidden = true;
+    plannerElement("#planner-results").hidden = false;
+    plannerElement("#planner-result-title").textContent = run.contract ? "研究方案正在确认" : "已找到可继续的研究问题";
+    plannerElement("#planner-result-summary").textContent = plannerStatusCopy(run.status);
+    renderPlannerQuestions({ candidates: run.candidates });
+  }
+  if (run.contract) {
+    renderPlannerContract(run.contract);
+    renderPlannerContractCard(run.contract);
+    setPlannerStage("contract", { completedThrough: "questions" });
+  }
+  if (run.sourcePlanning) {
+    renderPlannerSources(run.sourcePlanning);
+    renderPlannerFlowSummary();
+    plannerElement("#planner-progress").hidden = true;
+    plannerElement("#planner-results").hidden = false;
+    plannerElement("#planner-result-title").textContent = "研究方案已经准备好了";
+    plannerElement("#planner-result-summary").textContent = run.build?.status || "题目已确认，可以生成数据集";
+    setPlannerStage("sources", { completedThrough: "sources" });
+    switchPlannerTab("coverage");
+  } else if (run.contract) {
+    switchPlannerTab("contract");
+  } else {
+    switchPlannerTab("evidence");
+  }
+  if (run.error) {
+    plannerElement("#planner-progress").hidden = true;
+    plannerElement("#planner-results").hidden = false;
+    plannerElement("#planner-result-title").textContent = "研究规划暂未完成";
+    plannerElement("#planner-result-summary").textContent = "请检查后端与 Provider 配置";
+    plannerElement("#planner-question-list").innerHTML = `<div class="planner-error"><strong>本次规划未完成</strong><br>${escapeHtml(run.error)}<br>没有生成或伪造替代结果。</div>`;
+  }
+  if (run.running && !run.scan) {
+    plannerElement("#planner-panel-evidence").innerHTML = plannerEmpty("…", "正在查找研究依据", "这条会话会在后台继续运行，你可以随时切换到其他研究。 ");
+  }
+  if (hasProgress && !run.topic && !run.scan && !run.candidates?.length && !run.contract && !run.sourcePlanning && !run.error) {
+    plannerElement("#planner-results").hidden = false;
+    plannerElement("#planner-result-title").textContent = plannerStatusCopy(run.status);
+    plannerElement("#planner-result-summary").textContent = "已恢复会话记录；重新开始后会继续写入新的真实结果。";
+    plannerElement("#planner-panel-evidence").innerHTML = plannerEmpty("i", "这条会话只有基础记录", "历史记录已保留，但当时没有保存阶段性结果。你可以从当前研究方向重新开始。 ");
+  }
+  renderPlannerRecent();
+}
+
+function renderQuickLookupRun(run) {
+  syncPlannerStateFromRun(run);
+  plannerElement("#planner-submit").disabled = false;
+  const scan = run.quickScan;
+  const papers = scan?.papers || [];
+  const hasProgress = Boolean(run.running || run.topic || scan || run.error || run.status);
+  plannerElement("#planner-welcome").hidden = hasProgress;
+  plannerElement("#planner-progress").hidden = !run.running;
+  plannerElement("#planner-results").hidden = !hasProgress;
+  plannerElement("#planner-flow-summary").innerHTML = "";
+  clearPlannerContractSurfaces();
+  plannerElement("#planner-header-title").textContent = run.inputTopic || "初步检索";
+  plannerElement("#planner-header-subtitle").textContent = run.running ? "正在查找真实论文线索" : "仅展示可核验的初步证据，不自动形成研究方案";
+  plannerElement("#planner-result-title").textContent = run.error ? "初步检索未完成" : papers.length ? "初步检索结果" : "未找到可核验论文";
+  plannerElement("#planner-result-summary").textContent = run.error || (papers.length
+    ? `已找到 ${papers.length} 篇真实论文。你可以先阅读来源，也可以明确进入完整研究规划。`
+    : "这次没有拿到可核验论文，系统没有用模板内容替代检索结果。");
+  renderPlannerChat(run);
+  if (scan) renderPlannerEvidence(scan);
+  else plannerElement("#planner-panel-evidence").innerHTML = plannerEmpty("…", "正在查找真实论文", "初步检索只访问公开文献入口，不会创建数据任务。 ");
+  plannerElement("#planner-panel-contract").innerHTML = plannerEmpty("◈", "尚未制定研究方案", "初步检索只展示论文线索；需要完整研究时再进入研究规划。 ");
+  plannerElement("#planner-panel-sources").innerHTML = plannerEmpty("◇", "尚未生成数据来源方案", "当前仅完成论文初步检索，尚未检查字段覆盖或下载条件。 ");
+  plannerElement("#planner-panel-coverage").innerHTML = plannerEmpty("□", "尚未生成覆盖矩阵", "完整研究规划确认后才检查字段覆盖。 ");
+  const list = plannerElement("#planner-question-list");
+  if (list) {
+    if (run.error) {
+      list.innerHTML = `<div class="planner-error"><strong>本次初步检索未完成</strong><br>${escapeHtml(run.error)}<br>请检查服务状态后重试。</div>`;
+    } else if (!run.running && papers.length) {
+      list.innerHTML = `<div class="planner-input-reply"><strong>这是一份轻量检索结果</strong><p>结果来自真实文献入口，保留来源链接和检索缺口。确认研究对象、结局和数据需求后，再进入完整研究规划。</p><button type="button" class="primary-button" data-quick-promote="true" data-quick-topic="${escapeHtml(run.inputTopic)}">进入完整研究规划</button></div>`;
+    } else if (!run.running) {
+      list.innerHTML = `<div class="planner-error">没有可展示的论文。系统不会伪造论文或数据集，请换一个更具体的对象或稍后重试。</div>`;
+    } else {
+      list.innerHTML = plannerEmpty("…", "正在检索", "结果返回后会显示论文标题、来源和访问链接。 ");
+    }
+  }
+  setPlannerStage(run.running ? "literature" : "literature", { completedThrough: run.topic ? "topic" : null });
+  switchPlannerTab("evidence");
+  renderPlannerRecent();
+}
+
 function updateCurrentPlannerHistory(status) {
   const topic = plannerState.topic?.topic || plannerElement("#planner-topic")?.value;
+  const run = plannerRuns.get(plannerState.sessionId);
+  if (run) {
+    run.topic = plannerState.topic;
+    run.scan = plannerState.scan;
+    run.candidates = plannerState.candidates;
+    run.selectedCandidateId = plannerState.selectedCandidateId;
+    run.contract = plannerState.contract;
+    run.sourcePlanning = plannerState.sourcePlanning;
+    run.running = plannerState.busy;
+    persistPlannerRun(run, status);
+    return;
+  }
   upsertPlannerHistory(topic, { status, snapshot: plannerSnapshot() });
 }
 
 function restorePlannerHistory(item) {
-  const snapshot = item?.snapshot;
-  plannerElement("#planner-topic").value = item?.topic || "";
-  if (!snapshot?.topic) {
-    resetPlannerWorkspace();
-    plannerElement("#planner-topic").value = item?.topic || "";
-    plannerElement("#planner-header-title").textContent = item?.topic || "新研究";
+  const sessionId = item?.sessionId || item?.snapshot?.sessionId || item?.topic;
+  if (!sessionId || !item?.topic) return;
+  const existing = plannerRuns.get(sessionId);
+  const snapshot = item.snapshot || {};
+  const restoredBuild = snapshot.build || (
+    item.status === "数据集已生成" || item.taskId
+      ? { status: "数据集已生成", taskId: item.taskId }
+      : null
+  );
+  const run = existing || {
+    sessionId,
+    domain: snapshot.domain,
+    inputTopic: item.topic,
+    topic: snapshot.topic || null,
+    scan: snapshot.scan || null,
+    quickScan: snapshot.quickScan || null,
+    candidates: snapshot.candidates || [],
+    selectedCandidateId: snapshot.selectedCandidateId || null,
+    contract: snapshot.contract || null,
+    sourcePlanning: snapshot.sourcePlanning || null,
+    build: restoredBuild,
+    artifacts: snapshot.artifacts || [],
+    messages: snapshot.messages || [],
+    status: item.status || "未完成",
+    running: false,
+  };
+  if (existing && !existing.build && restoredBuild) existing.build = restoredBuild;
+  plannerRuns.set(sessionId, run);
+  renderPlannerRun(run);
+  loadPlannerResult(run).then(() => {
+    if (isActivePlannerSession(sessionId)) renderPlannerRun(run);
+  });
+}
+
+function plannerArtifact(result) {
+  const rowCount = result.modeling_dataset?.rows?.length || 0;
+  return {
+    taskId: result.task_id,
+    rowCount,
+    sourceRows: (result.source_datasets || []).reduce((sum, item) => sum + (item.rows?.length || 0), 0),
+    status: rowCount ? "数据集已生成" : "数据不足",
+    message: (result.readiness?.warnings || []).join("；") || result.summary_zh || "",
+  };
+}
+
+async function loadPlannerResult(run, taskId = run?.build?.taskId) {
+  if (!run || !taskId) return null;
+  if (run.domain === "astronomy") return loadAstronomyResult(run, taskId);
+  if (run.result?.task_id === taskId) return run.result;
+  try {
+    const result = await readJson(await fetchApi(`/api/agent/tasks/${encodeURIComponent(taskId)}`));
+    if (result.task_id !== taskId) throw new Error("返回的任务编号与当前对话不一致。");
+    run.results ||= new Map();
+    run.results.set(taskId, result);
+    run.artifacts = [...(run.artifacts || []).filter((item) => item.taskId !== taskId), plannerArtifact(result)];
+    if (run.build?.taskId === taskId) {
+      run.result = result;
+      run.loadError = "";
+      if (!run.running) run.build = plannerArtifact(result);
+    }
+    persistPlannerRun(run, run.running ? run.status : run.build.status);
+    return result;
+  } catch (error) {
+    run.loadError = `该任务结果暂不可用：${error.message}。可保留当前方案重新检索。`;
+    return null;
+  }
+}
+
+async function openPlannerTechnical(taskId = null) {
+  const run = plannerRuns.get(plannerState.sessionId);
+  document.querySelector("#astronomy-results").hidden = true;
+  document.body.classList.toggle("is-astronomy-detail", run?.domain === "astronomy");
+  if (run?.domain === "astronomy") return openAstronomyTechnical(run, taskId);
+  const sessionId = run?.sessionId;
+  const requestedTaskId = taskId || run?.build?.taskId;
+  const token = {};
+  state.technicalRequest = token;
+  document.body.classList.add("is-advanced-workbench");
+  resultsPanel.hidden = true;
+  state.result = null;
+  renderClosedLoop(null);
+  const context = document.querySelector("#technical-context");
+  context.hidden = false;
+  const title = run?.inputTopic || "尚未选择研究对话";
+  context.innerHTML = `<h2>${escapeHtml(title)}</h2><p>${escapeHtml(run ? plannerStatusCopy(run.status) : "请返回研究向导选择一个对话。")}</p>`;
+  document.querySelector("#question").value = run?.contract?.research_question || run?.inputTopic || "";
+  context.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (!run) return;
+  const steps = [
+    ["研究方向", run.topic?.topic || run.inputTopic],
+    ["论文检索", run.scan ? `${run.scan.papers?.length || 0} 篇论文` : "尚未完成"],
+    ["研究问题", run.contract?.research_question || "尚未确认"],
+    ["数据来源规划", run.sourcePlanning ? `${run.sourcePlanning.dataset_candidates?.length || 0} 个候选数据集` : "尚未完成"],
+  ];
+  context.innerHTML += `<ol>${steps.map(([label, value]) => `<li>${label}：${escapeHtml(value)}</li>`).join("")}</ol>`;
+  const result = run.results?.get(requestedTaskId) || await loadPlannerResult(run, requestedTaskId);
+  if (!isActivePlannerSession(sessionId) || state.technicalRequest !== token) return;
+  if (!result) {
+    context.innerHTML += `<p>${escapeHtml(run.loadError || (run.running ? "当前对话正在执行，已完成阶段如上。结果完成后可重新打开详情。" : "尚未生成数据结果，可以返回当前对话继续检索。"))}</p>`;
     return;
   }
-  plannerState.topic = snapshot.topic;
-  plannerState.scan = snapshot.scan;
-  plannerState.candidates = snapshot.candidates || [];
-  plannerState.selectedCandidateId = snapshot.selectedCandidateId;
-  plannerState.contract = snapshot.contract;
-  plannerState.sourcePlanning = snapshot.sourcePlanning;
-  plannerElement("#planner-welcome").hidden = true;
-  plannerElement("#planner-progress").hidden = true;
-  plannerElement("#planner-results").hidden = false;
-  plannerElement("#planner-header-title").textContent = snapshot.contract?.research_question || item.topic;
-  plannerElement("#planner-header-subtitle").textContent = item.status || "历史会话";
-  plannerElement("#planner-result-title").textContent = snapshot.sourcePlanning ? "研究方案已经准备好了" : "历史研究规划";
-  plannerElement("#planner-result-summary").textContent = snapshot.sourcePlanning ? "题目已确认，可以生成数据集" : "已恢复研究会话";
-  renderPlannerEvidence(snapshot.scan);
-  renderPlannerQuestions({ candidates: snapshot.candidates || [] });
-  if (snapshot.contract) {
-    renderPlannerContract(snapshot.contract);
-    renderPlannerContractCard(snapshot.contract);
-  } else {
-    clearPlannerContractSurfaces();
+  state.result = result;
+  state.datasetSourceKey = "primary";
+  renderResult(result);
+  resultsPanel.hidden = false;
+  context.innerHTML += `<p>任务：${escapeHtml(result.task_id)} · 主表 ${result.modeling_dataset.rows.length} 行 · ${escapeHtml(result.readiness.status)}。下方展示本任务的工具调用、数据来源与质量检查。</p>`;
+  const loopId = result.task_id.match(/^(loop-.+):r\d+$/)?.[1];
+  let loop = run.loop?.loop_id === loopId ? run.loop : null;
+  if (loopId && !loop) {
+    try { loop = await readJson(await fetchApi(`/api/v2/agent/closed-loop/${encodeURIComponent(loopId)}`)); }
+    catch { /* Per-task tool calls remain available when loop history is unavailable. */ }
   }
-  if (snapshot.sourcePlanning) {
-    renderPlannerSources(snapshot.sourcePlanning);
-    renderPlannerFlowSummary();
-    setPlannerStage("sources", { completedThrough: "sources" });
-  } else {
-    setPlannerStage(snapshot.contract ? "contract" : "questions", { completedThrough: snapshot.contract ? "questions" : "literature" });
-  }
-  switchPlannerTab(snapshot.sourcePlanning ? "coverage" : snapshot.contract ? "contract" : "evidence");
+  if (isActivePlannerSession(sessionId) && state.technicalRequest === token) renderClosedLoop(loop);
+}
+
+function plannerOutputs(run) {
+  if (!run) return "";
+  const artifacts = run.artifacts?.length ? run.artifacts : (run.build?.taskId ? [run.build] : []);
+  return `${run.running ? "<p>当前对话正在检索，既有结果仍可下载。</p>" : ""}${run.loadError ? `<p>${escapeHtml(run.loadError)}</p>` : ""}${artifacts.map((item, index) => {
+    const attributes = `data-task-id="${escapeHtml(item.taskId)}"`;
+    const downloadable = item.rowCount > 0;
+    return `<div class="planner-build-status ${downloadable ? "is-success" : ""}"><strong>第 ${index + 1} 次结果 · ${item.pending ? "正在获取，结果尚未定稿" : downloadable ? "主数据表已生成" : item.rowCount === 0 ? "数据不足，尚未形成主数据表" : "历史结果待核验"}</strong>
+      <p>任务 ${escapeHtml(item.taskId)} · 主表 ${item.rowCount ?? "待核验"} 行 · 来源表 ${item.sourceRows ?? "待核验"} 行</p><p>${escapeHtml(item.message || "")}</p>
+      <div class="planner-output-actions">${downloadable ? `<button type="button" data-planner-download="xlsx" ${attributes}>下载 Excel</button><button type="button" data-planner-download="csv" ${attributes}>下载 CSV</button>` : ""}
+      ${item.sourceRows > 0 ? `<button type="button" data-planner-download="sources" ${attributes}>下载来源数据包</button>` : ""}
+      <button type="button" data-planner-download="quality_report" ${attributes}>下载质量报告</button><button type="button" data-planner-technical-result ${attributes}>查看本次工作流程</button></div></div>`;
+  }).join("")}`;
 }
 
 const plannerStageOrder = ["topic", "literature", "questions", "contract", "sources"];
@@ -2963,6 +3476,190 @@ function plannerPlainCopy(value) {
     .replace(/Required/g, "必要字段")
     .replace(/已冻结/g, "已确认")
     .replace(/冻结/g, "确认");
+}
+
+function classifyPlannerInput(input) {
+  const text = String(input || "").trim();
+  if (!text) return { kind: "empty", reason: "空输入", reply: "请输入一个明确的研究方向。" };
+
+  if (/^(你好|您好|嗨|hello|hi|谢谢|感谢|好的|ok|收到)[!！。,.，\s]*$/i.test(text)) {
+    return { kind: "simple", reason: "普通对话", reply: "你好。需要做科研规划时，直接告诉我研究对象、影响因素和结局即可。" };
+  }
+
+  if (/^[\d\s.,，。！？!?+-]+$/.test(text)) {
+    return {
+      kind: "simple",
+      reason: "数字或符号输入",
+      reply: `你输入的是“${text}”。如果要开展科研规划，请输入研究对象、影响因素和希望观察的结局。`,
+    };
+  }
+
+  const normalized = text.toLowerCase();
+  // Route observation tasks before the medical planner. This also accepts the user's shorthand.
+  if (/(?:[il]a\s*型\s*(?:超新星|光变|曲线)|(?:type\s*ia|sn\s*ia).*?(?:light\s*curve|photometr))/i.test(text)
+      && !/(什么是|是什么|定义|解释一下)/.test(text)) {
+    return { kind: "research", domain: "astronomy", reason: "超新星观测数据任务" };
+  }
+  const researchSignals = [
+    "研究", "分析", "比较", "关联", "影响", "预测", "疗效", "治疗", "生存", "预后",
+    "突变", "基因", "标志物", "患者", "样本", "队列", "数据集", "论文", "文献", "证据",
+    "结局", "响应", "pcr", "her2", "erbb2", "egfr", "pik3ca", "kras", "braf", "tcga",
+    "gdc", "geo", "cbioportal", "临床试验", "新辅助",
+  ];
+  const hasSignal = researchSignals.some((signal) => normalized.includes(signal));
+  const oncologySignals = ["癌", "肿瘤", "患者", "样本", "基因", "突变", "治疗", "疗效", "生存", "预后", "her2", "erbb2", "egfr", "pik3ca", "kras", "braf", "tcga", "gdc", "geo", "cbioportal", "临床试验"];
+  const hasOncologySignal = oncologySignals.some((signal) => normalized.includes(signal));
+  const hasResearchVerb = /研究|分析|比较|评估|探索|验证|预测|判断|关联|影响|是否|能否|如何/.test(text);
+  const hasResearchObject = /癌|肿瘤|疾病|患者|样本|基因|突变|治疗|疗效|生存|预后|队列|数据|论文|文献|证据|标志物|结局|响应|her2|erbb2|egfr|pik3ca|kras|braf|tcga|gdc|geo|cbioportal/i.test(text);
+  const genericResearchVerb = /研究|分析|探索|评估|预测|比较|调查|验证|查找.*数据|寻找.*数据|找一份|下载|整理/.test(text);
+  const directResearchRequest = /^(我想|我希望|我打算|计划|请帮我|帮我|想研究|研究一下|分析一下|探索一下|找一份|查找|寻找)/.test(text);
+  const looksLikeConceptQuestion = /(什么是|是什么|请解释|解释一下|介绍一下|定义一下|这是什么|是什么意思)/.test(text);
+
+  if (looksLikeConceptQuestion && !(hasResearchVerb && hasResearchObject)) {
+    return {
+      kind: "simple",
+      reason: "概念问答",
+      reply: "这是一个概念问答，不需要进入研究规划。请直接描述你想验证的研究关系、数据或结局。",
+    };
+  }
+  if ((hasResearchVerb || genericResearchVerb || directResearchRequest) && text.length >= 5) {
+    return {
+      kind: "research",
+      domain: hasOncologySignal ? "oncology" : "general_science",
+      reason: hasOncologySignal ? "科研任务" : "通用科研任务",
+    };
+  }
+  if (!hasSignal || !hasResearchObject || (!hasResearchVerb && text.length < 12)) {
+    return {
+      kind: "simple",
+      reason: "缺少科研意图",
+      reply: hasResearchVerb ? "这是研究需求。请告诉我研究对象、想观察的现象，或希望找到的数据；我会先自动查找真实来源，再判断能否解析成数据表。" : "请告诉我想研究的对象，以及需要的数据；我会先自动查找真实来源，再判断能否解析成数据表。",
+    };
+  }
+  return { kind: "research", reason: "科研任务" };
+}
+
+function renderPlannerInputReply(result, input) {
+  plannerState.sessionId = null;
+  plannerState.topic = null;
+  plannerState.scan = null;
+  plannerState.candidates = [];
+  plannerState.selectedCandidateId = null;
+  plannerState.contract = null;
+  plannerState.sourcePlanning = null;
+  plannerState.busy = false;
+  const chat = plannerElement("#planner-chat");
+  if (chat) {
+    chat.hidden = false;
+    chat.innerHTML = `<article class="planner-chat-message is-user"><span class="planner-chat-avatar" aria-hidden="true">你</span><div class="planner-chat-body"><header><strong>你</strong></header><p>${escapeHtml(input)}</p></div></article><article class="planner-chat-message is-assistant"><span class="planner-chat-avatar" aria-hidden="true">研</span><div class="planner-chat-body"><header><strong>研究助手</strong><small>等待明确方向</small></header><p>${escapeHtml(result.reply)}</p></div></article>`;
+  }
+  plannerElement("#planner-progress").hidden = true;
+  plannerElement("#planner-welcome").hidden = true;
+  plannerElement("#planner-results").hidden = false;
+  plannerElement("#planner-header-title").textContent = "直接回复";
+  plannerElement("#planner-header-subtitle").textContent = "这条消息不需要进入科研规划";
+  plannerElement("#planner-result-title").textContent = result.kind === "empty" ? "请输入一个研究方向" : "先把研究目标说清楚";
+  plannerElement("#planner-result-summary").textContent = result.reply;
+  plannerElement("#planner-question-list").innerHTML = `<div class="planner-input-reply"><strong>${escapeHtml(result.reply)}</strong><p>例如：研究 EGFR 突变与肺腺癌患者生存结局的关系，并整理患者级公开数据。</p></div>`;
+  plannerElement("#planner-flow-summary").innerHTML = "";
+  plannerElement("#planner-panel-evidence").innerHTML = plannerEmpty("i", "等待明确研究方向", "描述研究对象、影响因素和结局后，系统才会检索真实依据。");
+  plannerElement("#planner-panel-contract").innerHTML = plannerEmpty("◈", "暂不制定研究方案", "普通问答不会创建研究会话或生成研究方案。");
+  plannerElement("#planner-panel-sources").innerHTML = plannerEmpty("◇", "暂不准备数据", "确认属于科研任务后，系统才会检查公开数据来源。");
+  clearPlannerContractSurfaces();
+  setPlannerStage("topic");
+  switchPlannerTab("evidence");
+  renderPlannerRecent();
+}
+
+function shouldQuickLookup(input, intent = null) {
+  const text = String(input || "").trim();
+  if (!text || intent?.reason === "普通对话" || intent?.reason === "数字或符号输入") return false;
+  if (/^(你好|您好|嗨|hello|hi|谢谢|感谢|好的|ok|收到|你是谁|你是什么模型|在吗)[!！。,.，\s？?]*$/i.test(text)) return false;
+  return text.length >= 6 && /(什么是|是什么|为什么|如何|怎样|哪些|区别|机制|原理|作用|影响|定义|解释|介绍|能否|是否|数据|论文|文献|证据|检索)/.test(text);
+}
+
+function quickLookupQuery(input) {
+  const text = String(input || "").trim();
+  if (/乳腺癌|乳腺肿瘤/.test(text)) return "breast cancer";
+  if (/肺癌|肺腺癌/.test(text)) return "lung cancer adenocarcinoma";
+  if (/结直肠癌|大肠癌/.test(text)) return "colorectal cancer";
+  if (/胰腺癌/.test(text)) return "pancreatic cancer";
+  if (/[il]a\s*型|type\s*ia|超新星|光变曲线/i.test(text)) return "type Ia supernova light curve";
+  if (/天空.*蓝|蓝天|瑞利散射/.test(text)) return "sky blue Rayleigh scattering";
+  const stripped = text.replace(/什么是|是什么|为什么|如何|怎样|哪些|区别|机制|原理|作用|影响|定义|解释一下|介绍一下|能否|是否/g, " ").replace(/[？?！!。，“”‘’]/g, " ").replace(/\s+/g, " ").trim();
+  return stripped || text;
+}
+
+async function startQuickLookup(topicText) {
+  const topic = String(topicText || "").trim();
+  if (!topic) return;
+  const sessionId = `planner_quick_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const run = {
+    sessionId,
+    inputTopic: topic,
+    domain: "quick_lookup",
+    topic: null,
+    scan: null,
+    quickScan: null,
+    candidates: [],
+    selectedCandidateId: null,
+    contract: null,
+    sourcePlanning: null,
+    build: null,
+    status: "初步检索中",
+    running: true,
+    error: null,
+    messages: [],
+  };
+  plannerMessage(run, "user", topic, "刚刚");
+  plannerMessage(run, "assistant", "这条问题先做初步检索：我会查找真实论文并展示来源，不自动创建研究方案或数据任务。", "初步检索", "progress");
+  plannerRuns.set(sessionId, run);
+  plannerState.sessionId = sessionId;
+  persistPlannerRun(run, "初步检索中");
+  renderPlannerRun(run);
+  try {
+    const created = await readJson(await fetchApi("/api/research/topics", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topic, domain_hint: null }),
+    }));
+    run.topic = created;
+    persistPlannerRun(run, "初步检索中");
+    if (isActivePlannerSession(sessionId)) renderPlannerRun(run);
+    const scanned = await readJson(await fetchApi(`/api/research/topics/${encodeURIComponent(created.topic_id)}/literature-scan`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ max_records: 6, query: quickLookupQuery(topic) }),
+    }));
+    run.quickScan = scanned.scan;
+    const paperCount = run.quickScan?.papers?.length || 0;
+    run.running = false;
+    run.status = paperCount ? "初步检索已完成" : "未找到可核验论文";
+    plannerMessage(run, "assistant", paperCount
+      ? `初步检索找到 ${paperCount} 篇真实论文。你可以查看来源，或进入完整研究规划。`
+      : "本次没有拿到可核验论文。我会保留这个结果，不用模板内容替代真实来源。", "检索完成", paperCount ? "success" : "error");
+    persistPlannerRun(run, run.status);
+  } catch (error) {
+    run.running = false;
+    run.error = error.message;
+    run.status = "初步检索失败";
+    plannerMessage(run, "assistant", `初步检索未完成：${error.message}。这次没有生成替代性结果。`, "检索未完成", "error");
+    persistPlannerRun(run, run.status);
+  }
+  if (isActivePlannerSession(sessionId)) renderPlannerRun(run);
+}
+
+function submitPlannerTopic(value) {
+  const input = String(value || "").trim();
+  if (!input) return;
+  const intent = classifyPlannerInput(input);
+  if (intent.kind !== "research") {
+    if (typeof shouldQuickLookup === "function" && shouldQuickLookup(input, intent)) void startQuickLookup(input);
+    else renderPlannerInputReply(intent, input);
+    plannerElement("#planner-topic").value = "";
+    return;
+  }
+  startPlannerResearch(input);
 }
 
 function plannerGranularity(value) {
@@ -3039,7 +3736,7 @@ function renderPlannerRecent() {
     const time = updated && !Number.isNaN(updated.getTime())
       ? updated.toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" })
       : "—";
-    return `<button type="button" data-planner-recent="${index}" title="${escapeHtml(item.topic)}">
+    return `<button type="button" class="${item.sessionId === plannerState.sessionId ? "is-active" : ""}" data-planner-recent="${index}" title="${escapeHtml(item.topic)}">
       <strong>${escapeHtml(item.topic)}</strong>
       <span><em>${escapeHtml(item.status || "进行中")}</em><time>${time}</time></span>
     </button>`;
@@ -3169,8 +3866,16 @@ function renderPlannerCoverage(planning) {
 
 async function freezePlannerContract() {
   if (!plannerState.contract || plannerState.busy) return;
+  const sessionId = plannerState.sessionId;
+  const run = plannerRuns.get(sessionId);
+  const contract = plannerState.contract;
   if (plannerState.contract.lifecycle_status === "FROZEN" && plannerState.sourcePlanning) return;
   plannerState.busy = true;
+  if (run) {
+    run.running = true;
+    run.contract = contract;
+    persistPlannerRun(run, "正在准备数据");
+  }
   const button = plannerElement("#planner-freeze-contract");
   if (button) {
     button.disabled = true;
@@ -3179,41 +3884,57 @@ async function freezePlannerContract() {
   try {
     let frozen = plannerState.contract;
     if (frozen.lifecycle_status !== "FROZEN") {
-      frozen = await readJson(await fetchApi(`/api/research/contracts/${encodeURIComponent(plannerState.contract.contract_id)}/freeze`, {
+      frozen = await readJson(await fetchApi(`/api/research/contracts/${encodeURIComponent(contract.contract_id)}/freeze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ confirmed: true }),
       }));
     }
-    plannerState.contract = frozen;
-    renderPlannerContract(frozen);
-    renderPlannerContractCard(frozen);
-    setPlannerStage("sources", { completedThrough: "contract" });
-    plannerElement("#planner-panel-sources").innerHTML = plannerEmpty("…", "正在准备数据", "评估字段覆盖、访问方式和不同队列之间的数据合并风险。");
+    if (run) run.contract = frozen;
+    if (isActivePlannerSession(sessionId)) {
+      plannerState.contract = frozen;
+      renderPlannerContract(frozen);
+      renderPlannerContractCard(frozen);
+      setPlannerStage("sources", { completedThrough: "contract" });
+      plannerElement("#planner-panel-sources").innerHTML = plannerEmpty("…", "正在准备数据", "评估字段覆盖、访问方式和不同队列之间的数据合并风险。");
+    }
     const planning = await readJson(await fetchApi(`/api/research/contracts/${encodeURIComponent(frozen.contract_id)}/source-plan`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ max_selected_datasets: 3, public_data_only: true }),
     }));
-    plannerState.sourcePlanning = planning;
-    renderPlannerSources(planning);
-    renderPlannerFlowSummary();
-    renderPlannerQuestions({ candidates: plannerState.candidates });
-    plannerElement("#planner-result-title").textContent = "研究方案已经准备好了";
-    plannerElement("#planner-result-summary").textContent = "题目已确认，可以生成数据集";
-    plannerElement("#planner-header-subtitle").textContent = "下一步可以直接生成可分析的科研数据集";
-    setPlannerStage("sources", { completedThrough: "sources" });
-    switchPlannerTab("coverage");
-    updateCurrentPlannerHistory("数据已就绪");
-    showToast("研究方案已确认，开始准备数据");
+    if (run) run.sourcePlanning = planning;
+    if (isActivePlannerSession(sessionId)) {
+      plannerState.sourcePlanning = planning;
+      renderPlannerSources(planning);
+      renderPlannerFlowSummary();
+      renderPlannerQuestions({ candidates: plannerState.candidates });
+      plannerElement("#planner-result-title").textContent = "研究方案已经准备好了";
+      plannerElement("#planner-result-summary").textContent = "题目已确认，可以生成数据集";
+      plannerElement("#planner-header-subtitle").textContent = "下一步可以直接生成可分析的科研数据集";
+      setPlannerStage("sources", { completedThrough: "sources" });
+      switchPlannerTab("coverage");
+    }
+    if (run) {
+      run.running = false;
+      persistPlannerRun(run, "数据已就绪");
+    } else updateCurrentPlannerHistory("数据已就绪");
+    if (isActivePlannerSession(sessionId)) showToast("研究方案已确认，开始准备数据");
   } catch (error) {
+    if (run) {
+      run.running = false;
+      run.error = error.message;
+      persistPlannerRun(run, "执行失败");
+    }
+    if (!isActivePlannerSession(sessionId)) return;
     showToast(error.message);
     if (button) {
       button.disabled = false;
       button.textContent = "确认这项研究并开始找数据";
     }
   } finally {
-    plannerState.busy = false;
+    if (isActivePlannerSession(sessionId)) plannerState.busy = false;
+    if (run) run.running = false;
   }
 }
 
@@ -3254,6 +3975,8 @@ function renderPlannerFlowSummary() {
   const container = plannerElement("#planner-flow-summary");
   const contract = plannerState.contract;
   const planning = plannerState.sourcePlanning;
+  const run = plannerRuns.get(plannerState.sessionId);
+  const build = run?.build;
   if (!container || !contract || !planning) return;
   const plan = planning.source_plan || {};
   const candidates = planning.dataset_candidates || [];
@@ -3263,7 +3986,7 @@ function renderPlannerFlowSummary() {
   container.innerHTML = `
     <article class="planner-flow-hero">
       <span class="planner-flow-check">✓</span>
-      <div><small>研究规划已自动完成</small><h3>${escapeHtml(plannerText(contract.research_question))}</h3><p>系统根据 ${paperCount} 篇真实论文和公开数据可用性，自动明确了研究问题、研究方案和数据准备路径。你不需要在多个候选项之间做技术选择。</p></div>
+      <div><small>研究规划已自动完成</small><h3>${escapeHtml(plannerText(contract.research_question))}</h3><p>${run?.domain === "general_science" ? `系统根据 ${paperCount} 篇真实论文和公开数据目录，自动整理了主题、检索方案和后续解析路径。结果会保留官方来源，具体文件需继续核验。` : `系统根据 ${paperCount} 篇真实论文和公开数据可用性，自动明确了研究问题、研究方案和数据准备路径。你不需要在多个候选项之间做技术选择。`}</p></div>
     </article>
     <div class="planner-plan-grid">
       <article class="planner-plan-item"><span>研究对象</span><strong>${escapeHtml(localizeNarrative(plannerText(contract.population, "肿瘤研究人群")))}</strong></article>
@@ -3273,10 +3996,12 @@ function renderPlannerFlowSummary() {
       <article class="planner-plan-item"><span>论文依据</span><strong>${paperCount} 篇真实来源</strong></article>
       <article class="planner-plan-item"><span>数据准备情况</span><strong>${primaryDataset ? `${escapeHtml(plannerText(primaryDataset.accession, primaryDataset.title))} · ` : ""}${escapeHtml(plannerPlanStatus(plan.status))}</strong></article>
     </div>
-    <div id="planner-build-status"></div>
+    <div id="planner-build-status">${plannerOutputs(plannerRuns.get(plannerState.sessionId))}</div>
     <div class="planner-next-action">
-      <div><strong>下一步：生成可分析的科研数据集</strong><small>系统将按上面的研究方案采集、标准化、对齐并执行质量检查。这个步骤可能需要几十秒。</small></div>
-      <button id="planner-build-dataset" type="button">开始生成数据集 →</button>
+      <div><strong>${build?.taskId ? "继续寻找更多数据集" : run?.domain === "general_science" ? "下一步：自动搜索并解析公开数据集" : "下一步：生成科研数据集"}</strong><small>${run?.domain === "general_science" ? "系统会检索真实公开目录，解析元数据、文件清单和来源链接；选择具体文件后再继续下载。" : "每次检索结果独立保留。扩大检索会增加入口和补查轮次，来源表保留各自来源及适用范围。"}</small>
+      <label>补充范围或数据集编号（可选）<input id="planner-expand-query" type="text" placeholder="例如：GSE 编号、cBioPortal study ID、治疗方式或队列关键词" /></label></div>
+      <button id="planner-build-dataset" type="button" ${build?.status === "数据集生成中" ? "disabled" : ""}>${build?.status === "数据集生成中" ? "正在检索…" : build?.taskId ? "按当前方案重试" : run?.domain === "general_science" ? "开始搜索并解析" : "开始生成数据集"}</button>
+      <button type="button" data-planner-expand ${build?.status === "数据集生成中" ? "disabled" : ""}>扩大检索并继续</button>
     </div>`;
 }
 
@@ -3288,17 +4013,19 @@ async function downloadPlannerArtifact(taskId, format, button) {
     button.textContent = "正在准备…";
   }
   try {
-    const response = await fetchApi(`/api/agent/tasks/${encodeURIComponent(taskId)}/export/${format}`);
-    if (!response.ok) throw new Error(`下载失败（HTTP ${response.status}）`);
+    const taskApi = taskId.startsWith("astro-") ? "/api/astronomy/tasks" : "/api/agent/tasks";
+    const response = await fetchApi(`${taskApi}/${encodeURIComponent(taskId)}/export/${format}`);
+    if (!response.ok) await readJson(response);
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `${taskId}-科研数据集.${format === "quality_report" ? "json" : format}`;
+    anchor.download = `${taskId.replace(/[^a-zA-Z0-9_-]/g, "_")}-${format === "sources" ? "独立来源数据" : format === "quality_report" ? "质量报告" : "科研数据集"}.${format === "quality_report" ? "json" : format === "sources" ? "zip" : format}`;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    showToast(`${taskId} 的文件已准备好`);
   } catch (error) {
     showToast(error.message);
   } finally {
@@ -3309,106 +4036,206 @@ async function downloadPlannerArtifact(taskId, format, button) {
   }
 }
 
-async function runPlannerDatasetBuild(button) {
-  if (!plannerState.contract || plannerState.busy) return;
-  const status = plannerElement("#planner-build-status");
-  plannerState.busy = true;
-  button.disabled = true;
-  button.textContent = "正在生成…";
-  plannerElement("#question").value = plannerState.contract.research_question;
-  if (status) status.innerHTML = `<div class="planner-build-status"><strong>正在生成科研数据集</strong><p>系统正在检索公开数据库、统一字段、检查患者/样本关联并运行质量门。你可以留在当前页面等待。</p></div>`;
-  try {
-    const result = await runClosedLoopTask(buildAgentTaskPayload());
-    state.result = result;
-    renderResult(result);
-    const dataset = result.modeling_dataset || {};
-    if (status) status.innerHTML = `<div class="planner-build-status is-success"><strong>科研数据集已经生成</strong><p>${escapeHtml(localizeNarrative(result.summary_zh || "数据采集、标准化与质量检查已完成。"))}<br>${Number(dataset.row_count || 0).toLocaleString()} 行 × ${(dataset.columns || []).length} 列 · 任务编号 ${escapeHtml(result.task_id)}</p><div class="planner-output-actions"><button type="button" data-planner-download="xlsx" data-task-id="${escapeHtml(result.task_id)}">下载 Excel</button><button type="button" data-planner-download="csv" data-task-id="${escapeHtml(result.task_id)}">下载 CSV</button><button type="button" data-planner-technical-result>查看完整质量与溯源结果</button></div></div>`;
-    button.textContent = "已生成";
-    upsertPlannerHistory(plannerState.topic?.topic || plannerElement("#planner-topic")?.value || "", { status: "数据集已生成", taskId: result.task_id });
-    showToast("科研数据集已生成");
-  } catch (error) {
-    upsertPlannerHistory(plannerState.topic?.topic || plannerElement("#planner-topic")?.value || "", { status: "生成失败" });
-    if (status) status.innerHTML = `<div class="planner-error"><strong>数据集生成没有完成</strong><br>${escapeHtml(error.message)}<br>已有研究规划仍然保留，可以稍后重试。</div>`;
-    button.disabled = false;
-    button.textContent = "重新生成数据集 →";
-  } finally {
-    plannerState.busy = false;
+function buildPlannerRequest(run, { expand = false, extra = "" } = {}) {
+  const payload = buildAgentTaskPayload();
+  payload.question = (run.domain === "general_science"
+    ? [run.inputTopic, extra ? `补充检索范围：${extra}` : ""]
+    : [run.contract.research_question, run.inputTopic, extra ? `补充检索范围：${extra}` : ""])
+    .filter(Boolean).join("\n").slice(0, 2000);
+  payload.data_mode = "live";
+  if (expand) {
+    payload.max_sources = 20;
+    payload.max_collection_rounds = 12;
+    payload.focus_tools = run.domain === "general_science"
+      ? ["search_zenodo", "search_europe_pmc"]
+      : ["search_geo_catalog", "search_cbioportal", "search_europe_pmc", "search_dataset_catalog"];
+    const candidates = run.sourcePlanning?.dataset_candidates || [];
+    const accessions = candidates.map((item) => item.accession).filter(Boolean);
+    const supplied = extra.split(/[\s,，;；]+/).filter((item) => /^(GSE\d+|[a-z][a-z0-9]*_[a-z0-9_]+)$/i.test(item));
+    payload.focus_accessions = [...new Set([...supplied, ...accessions])].slice(0, 20);
+    payload.remap_outcome_aliases = true;
   }
+  return payload;
 }
 
+async function runPlannerDatasetBuild(button, { expand = false, question = null } = {}) {
+  const run = plannerRuns.get(plannerState.sessionId);
+  if (!run?.contract || run.running) return;
+  const sessionId = run.sessionId;
+  const extra = plannerElement("#planner-expand-query")?.value.trim() || "";
+  const payload = buildPlannerRequest(run, { expand, extra });
+  if (question) payload.question = question.slice(0, 2000);
+  if (run.build?.taskId && !run.result) {
+    await loadPlannerResult(run);
+    if (!isActivePlannerSession(sessionId) || run.running) return;
+  }
+  const previousBuild = run.build;
+  run.running = true;
+  run.build = { ...previousBuild, status: "数据集生成中" };
+  plannerMessage(run, "assistant", expand
+    ? `开始扩大检索：最多检查 20 个入口、补查 12 轮，结合当前方案的候选数据集${extra ? `和补充范围“${extra}”` : ""}继续查找。已有结果保留，可分别下载。`
+    : run.domain === "general_science"
+      ? "开始自动检索公开数据集目录和文献，解析元数据、文件清单与官方来源。"
+      : "开始按当前对话的研究方案采集数据、统一字段并核验来源。", "数据检索", "progress");
+  persistPlannerRun(run, "数据集生成中");
+  renderPlannerRun(run);
+  try {
+    const result = await runClosedLoopTask(payload, run);
+    run.results ||= new Map();
+    run.results.set(result.task_id, result);
+    run.result = result;
+    run.running = false;
+    run.loadError = "";
+    run.build = plannerArtifact(result);
+    run.artifacts = [...(run.artifacts || []).filter((item) => item.taskId !== result.task_id), run.build];
+    plannerMessage(run, "assistant", run.build.rowCount
+      ? run.domain === "general_science"
+        ? `本次已解析 ${run.build.rowCount} 条公开资源记录；可从官方链接选择具体文件继续下载和字段解析。`
+        : `本次主数据表已生成，共 ${run.build.rowCount} 行；请结合质量报告检查研究字段是否齐全。`
+      : `本次检索完成，但主数据表仍为 0 行。${run.build.message} 已取得的来源表可独立下载，也可补充数据集编号后扩大检索。`,
+      run.build.status, run.build.rowCount ? "success" : "error");
+    persistPlannerRun(run, run.build.status);
+  } catch (error) {
+    run.running = false;
+    run.build = previousBuild || { status: "生成失败" };
+    run.loadError = error.message;
+    plannerMessage(run, "assistant", `本次检索未完成：${error.message}。已有结果保留，可继续下载或重试。`, "检索未完成", "error");
+    persistPlannerRun(run, "生成失败");
+  } finally {
+    if (isActivePlannerSession(sessionId)) {
+      renderPlannerRun(run);
+      if (document.body.classList.contains("is-advanced-workbench")) await openPlannerTechnical();
+    }
+  }
+}
 async function startPlannerResearch(topicText) {
   const topic = String(topicText || "").trim();
-  if (topic.length < 2 || plannerState.busy) return;
-  if (!(await ensureQwenConfigured())) return;
-  upsertPlannerHistory(topic, { status: "执行中", updatedAt: new Date().toISOString() });
-  plannerState.busy = true;
-  plannerState.topic = null;
-  plannerState.scan = null;
-  plannerState.candidates = [];
-  plannerState.selectedCandidateId = null;
-  plannerState.contract = null;
-  plannerState.sourcePlanning = null;
-  plannerElement("#planner-flow-summary").innerHTML = "";
-  clearPlannerContractSurfaces();
-  plannerElement("#planner-submit").disabled = true;
-  plannerElement("#planner-welcome").hidden = true;
-  plannerElement("#planner-results").hidden = true;
-  plannerElement("#planner-result-title").textContent = "正在为你整理研究方案";
-  plannerElement("#planner-result-summary").textContent = "";
-  plannerElement("#planner-progress").hidden = false;
-  plannerElement("#planner-header-title").textContent = topic;
-  plannerElement("#planner-header-subtitle").textContent = "正在自动查找依据、明确问题并制定研究方案";
-  plannerElement("#planner-panel-evidence").innerHTML = plannerEmpty("…", "正在查找研究依据", "这里只展示带真实来源链接的论文记录。 ");
-  plannerElement("#planner-panel-contract").innerHTML = plannerEmpty("◈", "正在等待研究问题明确", "系统会自动确定研究对象、影响因素、结果指标和所需字段。 ");
-  plannerElement("#planner-panel-sources").innerHTML = plannerEmpty("◇", "正在等待研究方案", "方案明确后，系统会检查哪些公开数据可以支持这项研究。 ");
-  switchPlannerTab("evidence");
-  setPlannerStage("topic");
+  const intent = classifyPlannerInput(topic);
+  if (intent.domain === "astronomy") return startAstronomyResearch(topic);
+  if (intent.kind !== "research") {
+    renderPlannerInputReply(intent, topic);
+    plannerElement("#planner-topic").value = "";
+    return;
+  }
+  const composer = plannerElement("#planner-topic");
+  const submittedDraft = composer.value;
+  if (!(await ensureResearchProvidersConfigured())) return;
+  if (composer.value === submittedDraft) composer.value = "";
+  const sessionId = `planner_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const run = {
+    sessionId,
+    inputTopic: topic,
+    domain: intent.domain || "oncology",
+    topic: null,
+    scan: null,
+    candidates: [],
+    selectedCandidateId: null,
+    contract: null,
+    sourcePlanning: null,
+    build: null,
+    status: "执行中",
+    running: true,
+    error: null,
+    messages: [],
+  };
+  plannerMessage(run, "user", topic, "刚刚");
+  plannerMessage(run, "assistant", intent.domain === "general_science"
+    ? "收到。我会先查找真实论文和公开数据集目录，再解析数据集的元信息与文件清单，给你可核验的候选结果。"
+    : "收到。我先查找与这个方向最相关的真实论文；如果能形成有证据支持的研究问题，我会自动继续完成方案和数据准备。", "开始检索", "progress");
+  plannerRuns.set(sessionId, run);
+  plannerState.sessionId = sessionId;
+  persistPlannerRun(run, "执行中");
+  renderPlannerRun(run);
   try {
     const created = await readJson(await fetchApi("/api/research/topics", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ topic }),
     }));
-    plannerState.topic = created;
-    setPlannerStage("literature", { completedThrough: "topic" });
+    run.topic = created;
+    persistPlannerRun(run, "查找依据中");
+    if (isActivePlannerSession(sessionId)) renderPlannerRun(run);
     const scanned = await readJson(await fetchApi(`/api/research/topics/${encodeURIComponent(created.topic_id)}/literature-scan`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ max_records: 10 }),
     }));
-    plannerState.scan = scanned.scan;
-    renderPlannerEvidence(scanned.scan);
-    setPlannerStage("questions", { completedThrough: "literature" });
+    run.scan = scanned.scan;
+    const paperCount = run.scan?.papers?.length || 0;
+    plannerMessage(run, "assistant", paperCount
+      ? `我找到 ${paperCount} 篇真实论文，接下来会根据论文证据自动整理可执行的研究问题。`
+      : intent.domain === "general_science"
+        ? "暂时没有拿到足够的论文记录，我会保留这个事实，继续从公开数据集目录检索并解析真实资源。"
+        : "我没有找到可核验的论文证据，所以暂时停在“查找依据”这一步，不会用虚假论文替代。请检查文献 Provider 或换一个更具体的方向。", "查找依据", paperCount || intent.domain === "general_science" ? "success" : "error");
+    persistPlannerRun(run, "整理研究问题中");
+    if (isActivePlannerSession(sessionId)) renderPlannerRun(run);
+    if (!paperCount && intent.domain !== "general_science") throw new Error("查找依据未返回真实论文，研究流程停在查找依据阶段。");
     const candidatePayload = await readJson(await fetchApi(`/api/research/topics/${encodeURIComponent(created.topic_id)}/question-candidates`));
-    plannerState.candidates = candidatePayload.candidates || [];
-    renderPlannerQuestions(candidatePayload);
-    upsertPlannerHistory(topic, { topicId: created.topic_id, status: "规划完成", snapshot: plannerSnapshot() });
-    const recommended = plannerState.candidates[0];
-    plannerElement("#planner-progress").hidden = true;
-    plannerElement("#planner-results").hidden = false;
-    plannerElement("#planner-result-title").textContent = "正在确认推荐的研究问题";
-    plannerElement("#planner-header-subtitle").textContent = "已自动选好最匹配的一项，接着去准备数据";
-    setPlannerStage("questions", { completedThrough: "literature" });
+    run.candidates = candidatePayload.candidates || [];
+    plannerMessage(run, "assistant", run.candidates.length
+      ? `论文线索已经整理成 ${run.candidates.length} 个候选问题，我会自动采用证据最充分的一项继续。`
+      : intent.domain === "general_science"
+        ? "论文证据不足以单独形成问题，我会把原始主题作为通用数据发现任务继续执行。"
+        : "我卡在“明确研究问题”这一步了：当前论文证据不足以形成可执行问题。请补充疾病、人群、影响因素或结局。", "明确问题", run.candidates.length || intent.domain === "general_science" ? "success" : "error");
+    persistPlannerRun(run, "正在确认方案");
+    if (isActivePlannerSession(sessionId)) renderPlannerRun(run);
+    const recommended = run.candidates[0];
+    if (!recommended && intent.domain === "general_science") {
+      throw new Error("通用主题未生成可执行的研究问题；请稍后重试，系统会继续保留公开数据发现结果。");
+    }
     if (!recommended) throw new Error("没有形成可继续研究的问题。请换一个更具体的研究方向后重试。");
-    plannerState.busy = false;
-    const recommendButton = document.querySelector(`[data-planner-select="${recommended.candidate_id}"]`);
-    await selectPlannerQuestion(recommended.candidate_id, recommendButton, { automatic: true });
-    if (plannerState.contract) await freezePlannerContract();
+    const contract = await readJson(await fetchApi(`/api/research/questions/${encodeURIComponent(recommended.candidate_id)}/select`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    }));
+    run.contract = contract;
+    run.selectedCandidateId = recommended.candidate_id;
+    persistPlannerRun(run, "正在准备数据");
+    if (isActivePlannerSession(sessionId)) renderPlannerRun(run);
+    const frozen = contract.lifecycle_status === "FROZEN"
+      ? contract
+      : await readJson(await fetchApi(`/api/research/contracts/${encodeURIComponent(contract.contract_id)}/freeze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmed: true }),
+      }));
+    run.contract = frozen;
+    plannerMessage(run, "assistant", "研究问题和必要字段已经确认。我继续检查哪些公开数据能够支持这项研究，以及不同来源之间是否可以安全对齐。", "制定方案", "progress");
+    persistPlannerRun(run, "正在准备数据");
+    if (isActivePlannerSession(sessionId)) renderPlannerRun(run);
+    run.sourcePlanning = await readJson(await fetchApi(`/api/research/contracts/${encodeURIComponent(frozen.contract_id)}/source-plan`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ max_selected_datasets: 3, public_data_only: true }),
+    }));
+    const planStatus = run.sourcePlanning?.source_plan?.status;
+    plannerMessage(run, "assistant", planStatus === "READY"
+      ? "数据准备条件较完整，研究链路已经走通。下一步可以直接生成可分析的科研数据集。"
+      : `我卡在“准备数据”这一步了：${plannerPlanStatus(planStatus)}。系统会保留真实来源和覆盖缺口，不会伪造可用数据。`, "准备数据", planStatus === "READY" ? "success" : "error");
+    run.running = false;
+    persistPlannerRun(run, "数据已就绪");
+    if (isActivePlannerSession(sessionId)) {
+      renderPlannerRun(run);
+      showToast("研究方案已准备好");
+    }
   } catch (error) {
-    upsertPlannerHistory(topic, { status: "执行失败" });
-    plannerElement("#planner-progress").hidden = true;
-    plannerElement("#planner-results").hidden = false;
-    plannerElement("#planner-question-list").innerHTML = `<div class="planner-error"><strong>本次规划未完成</strong><br>${escapeHtml(error.message)}<br>没有生成或伪造替代结果。</div>`;
-    plannerElement("#planner-result-summary").textContent = "请检查后端与 Provider 配置";
-    plannerElement("#planner-header-subtitle").textContent = "规划失败，可修改研究方向后重试";
+    run.error = error.message;
+    if (run.messages?.at(-1)?.tone !== "error") plannerMessage(run, "assistant", `我卡在“${plannerStatusCopy(run.status)}”这一步了：${error.message}。已有真实结果会保留，修复配置后可以重试。`, "执行中断", "error");
+    run.running = false;
+    persistPlannerRun(run, "执行失败");
+    if (isActivePlannerSession(sessionId)) renderPlannerRun(run);
   } finally {
-    plannerState.busy = false;
-    plannerElement("#planner-submit").disabled = false;
+    run.running = false;
+    if (run.status !== "数据已就绪" && run.status !== "执行失败") persistPlannerRun(run);
+    if (isActivePlannerSession(sessionId)) renderPlannerRun(run);
   }
 }
 
 async function selectPlannerQuestion(candidateId, button, { automatic = false } = {}) {
   if (plannerState.busy && !automatic) return;
+  const sessionId = plannerState.sessionId;
+  const run = plannerRuns.get(sessionId);
   plannerState.busy = true;
   document.querySelectorAll("[data-planner-select]").forEach((item) => { item.disabled = true; });
   if (button) button.textContent = "正在调整研究方案…";
@@ -3420,6 +4247,13 @@ async function selectPlannerQuestion(candidateId, button, { automatic = false } 
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
     }));
+    if (!isActivePlannerSession(sessionId)) return;
+    if (run) {
+      run.contract = contract;
+      run.selectedCandidateId = candidateId;
+      run.sourcePlanning = automatic ? run.sourcePlanning : null;
+      persistPlannerRun(run, automatic ? "正在准备数据" : "方案已确认");
+    }
     plannerState.contract = contract;
     plannerState.selectedCandidateId = candidateId;
     if (!automatic) {
@@ -3443,6 +4277,7 @@ async function selectPlannerQuestion(candidateId, button, { automatic = false } 
     switchPlannerTab("contract");
     if (!automatic) showToast("已选好题目，正在确认研究方案");
   } catch (error) {
+    if (!isActivePlannerSession(sessionId)) return;
     const target = plannerState.contract ? plannerElement("#planner-panel-sources") : plannerElement("#planner-panel-contract");
     target.innerHTML = `<div class="planner-error"><strong>阶段未完成</strong><br>${escapeHtml(error.message)}<br>系统未生成替代性虚假结果。</div>`;
     plannerElement("#planner-header-subtitle").textContent = "当前阶段需要处理后重试";
@@ -3451,15 +4286,20 @@ async function selectPlannerQuestion(candidateId, button, { automatic = false } 
     plannerElement("#planner-result-title").textContent = "研究规划暂未完成";
     plannerElement("#planner-question-list").insertAdjacentHTML("afterbegin", `<div class="planner-error">${escapeHtml(error.message)}</div>`);
   } finally {
-    plannerState.busy = false;
+    if (isActivePlannerSession(sessionId)) plannerState.busy = false;
     document.querySelectorAll("[data-planner-select]").forEach((item) => {
       if (item.dataset.plannerSelect !== candidateId || !plannerState.contract) item.disabled = false;
     });
   }
-  if (!automatic && plannerState.contract) await freezePlannerContract();
+  if (!automatic && isActivePlannerSession(sessionId) && plannerState.contract) await freezePlannerContract();
 }
 
 function resetPlannerWorkspace() {
+  plannerState.sessionId = null;
+  state.result = null;
+  state.technicalRequest = null;
+  resultsPanel.hidden = true;
+  renderClosedLoop(null);
   plannerState.topic = null;
   plannerState.scan = null;
   plannerState.candidates = [];
@@ -3467,6 +4307,8 @@ function resetPlannerWorkspace() {
   plannerState.contract = null;
   plannerState.sourcePlanning = null;
   plannerElement("#planner-topic").value = "";
+  plannerElement("#planner-chat").hidden = true;
+  plannerElement("#planner-chat").innerHTML = "";
   plannerElement("#planner-welcome").hidden = false;
   plannerElement("#planner-progress").hidden = true;
   plannerElement("#planner-results").hidden = true;
@@ -3501,10 +4343,19 @@ async function checkPlannerHealth() {
 function initPlanningWorkspace() {
   const form = plannerElement("#planner-form");
   if (!form) return;
+  document.querySelector("#astronomy-results")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-astronomy-download]");
+    if (button) downloadPlannerArtifact(button.dataset.taskId, button.dataset.astronomyDownload, button);
+    const cleanButton = event.target.closest("[data-astronomy-clean]");
+    if (cleanButton) {
+      const run = plannerRuns.get(plannerState.sessionId);
+      if (run?.domain === "astronomy") cleanAstronomyExisting(run, cleanButton.dataset.taskId);
+    }
+  });
   plannerState.recent = loadPlannerHistory();
   form.addEventListener("submit", (event) => {
     event.preventDefault();
-    startPlannerResearch(plannerElement("#planner-topic").value);
+    submitPlannerTopic(plannerElement("#planner-topic").value);
   });
   plannerElement("#planner-topic")?.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
@@ -3514,7 +4365,7 @@ function initPlanningWorkspace() {
   });
   plannerElement("#planner-recent-list")?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-planner-recent]");
-    if (!button || plannerState.busy) return;
+    if (!button) return;
     const item = plannerState.recent[Number(button.dataset.plannerRecent)];
     if (!item?.topic) return;
     restorePlannerHistory(item);
@@ -3527,11 +4378,16 @@ function initPlanningWorkspace() {
     document.querySelectorAll("[data-demo-question]").forEach((item) => item.classList.toggle("is-active", item === button));
   }));
   document.querySelectorAll("[data-planner-example]").forEach((button) => button.addEventListener("click", () => {
-    plannerElement("#planner-topic").value = button.dataset.plannerExample;
-    startPlannerResearch(button.dataset.plannerExample);
+    submitPlannerTopic(button.dataset.plannerExample);
   }));
   document.querySelectorAll("[data-planner-tab]").forEach((button) => button.addEventListener("click", () => switchPlannerTab(button.dataset.plannerTab)));
   plannerElement("#planner-question-list")?.addEventListener("click", (event) => {
+    const quickButton = event.target.closest("[data-quick-promote]");
+    if (quickButton) {
+      const topic = quickButton.dataset.quickTopic || "";
+      if (topic) startPlannerResearch(`请帮我围绕“${topic}”进入完整研究规划`);
+      return;
+    }
     const button = event.target.closest("[data-planner-select]");
     if (button) selectPlannerQuestion(button.dataset.plannerSelect, button);
   });
@@ -3539,6 +4395,18 @@ function initPlanningWorkspace() {
     if (event.target.closest("#planner-freeze-contract")) freezePlannerContract();
   });
   plannerElement("#planner-flow-summary")?.addEventListener("click", (event) => {
+    const astronomyButton = event.target.closest("[data-astronomy-retry]");
+    if (astronomyButton) {
+      const run = plannerRuns.get(plannerState.sessionId);
+      const sources = (astronomyButton.dataset.sources || "cfa4").split(",").filter(Boolean);
+      if (run?.domain === "astronomy") executeAstronomyRun(run, sources);
+      return;
+    }
+    const expandButton = event.target.closest("[data-planner-expand]");
+    if (expandButton) {
+      runPlannerDatasetBuild(expandButton, { expand: true });
+      return;
+    }
     const buildButton = event.target.closest("#planner-build-dataset");
     if (buildButton) {
       runPlannerDatasetBuild(buildButton);
@@ -3550,15 +4418,12 @@ function initPlanningWorkspace() {
       return;
     }
     if (event.target.closest("[data-planner-technical-result]")) {
-      document.body.classList.add("is-advanced-workbench");
-      resultsPanel.hidden = false;
-      resultsPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+      openPlannerTechnical(event.target.closest("[data-planner-technical-result]").dataset.taskId);
     }
   });
   plannerElement("#planner-new")?.addEventListener("click", resetPlannerWorkspace);
   plannerElement("#planner-open-advanced")?.addEventListener("click", () => {
-    document.body.classList.add("is-advanced-workbench");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    openPlannerTechnical();
   });
   plannerElement("#advanced-back-planner")?.addEventListener("click", () => {
     document.body.classList.remove("is-advanced-workbench");
@@ -3569,7 +4434,408 @@ function initPlanningWorkspace() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
   renderPlannerRecent();
-  checkPlannerHealth();
 }
 
+function wishRabbitStage(text) {
+  const normalized = String(text || "").toLowerCase();
+  if (/修改方向|换个方向|研究方向|想研究什么/.test(normalized)) return "topic";
+  if (/来源|论文|文献|依据|证据|检索|查找/.test(normalized)) return "literature";
+  if (/具体问题|研究目标|假设|问题是什么|明确问题/.test(normalized)) return "questions";
+  if (/字段|指标|变量|样本|队列|纳入|排除|研究方案/.test(normalized)) return "contract";
+  if (/数据|数据集|csv|表格|下载|缺失|覆盖|可用|准备/.test(normalized)) return "sources";
+  return "topic";
+}
+
+function wishRabbitStageCopy(stage) {
+  return {
+    topic: "这条愿望适合从“提出方向”开始。先把研究对象和你真正想知道的事情说清楚，再交给研究向导继续推进。",
+    literature: "这条愿望对应“查找依据”。研究向导会优先寻找真实论文和公开数据入口，并把来源、证据和限制留在结果里。",
+    questions: "这条愿望对应“明确问题”。可以先把宽泛想法拆成一个可执行的研究目标，不替你补造没有证据的结论。",
+    contract: "这条愿望对应“制定方案”。下一步是检查研究对象、指标和字段，再决定哪些内容值得进入数据工作。",
+    sources: "这条愿望对应“准备数据”。研究向导会检查公开数据的覆盖、缺失、格式和来源血缘，最后再交付可分析资产。",
+  }[stage] || "我先陪你把这个想法聊清楚。想正式开始时，再把它带回研究向导。";
+}
+
+function wishRabbitVisibleText(selector, fallback = "") {
+  if (typeof document === "undefined") return fallback;
+  return document.querySelector(selector)?.textContent?.trim() || fallback;
+}
+
+function wishRabbitInputValue(selector, fallback = "") {
+  if (typeof document === "undefined") return fallback;
+  return document.querySelector(selector)?.value?.trim() || fallback;
+}
+
+function wishRabbitExplain(kind = "topic") {
+  const result = typeof state !== "undefined" ? state?.result : null;
+  const parsed = result?.parsed_question || {};
+  const question = wishRabbitInputValue("#planner-topic", result?.research_spec?.question || parsed.question || "当前研究课题");
+  if (kind === "dataset") {
+    const title = wishRabbitVisibleText("#dataset-title", "当前科研数据集");
+    const note = wishRabbitVisibleText("#dataset-note", "页面尚未生成数据集说明");
+    const size = wishRabbitVisibleText("#dataset-size", "尚未返回行列统计");
+    const dictionary = wishRabbitVisibleText("#dictionary-count", "尚未返回字段统计");
+    const sources = wishRabbitVisibleText("#source-count", "尚未返回来源统计");
+    return `数据集解析\n• 当前对象：${title}\n• 它回答什么：围绕“${question}”整理可分析字段，不直接替你下结论。\n• 页面状态：${size}；${dictionary}；${sources}。\n• 当前说明：${note}\n• 使用时要检查：分析单位、字段定义、缺失情况、真实来源、原始字段与原始值，以及 Evidence Lineage。\n• 可信边界：页面没有返回或尚未核验的内容，会保持“待核验”，不会被科研兔补成事实。`;
+  }
+  const summary = wishRabbitVisibleText("#agent-summary", "尚未生成正式运行摘要");
+  const status = wishRabbitVisibleText("#result-status", "尚未返回正式运行结果");
+  return `课题解析\n• 原始问题：${question}\n• 当前理解：先拆分研究对象、研究目标和限制条件，保留你的原句，不替你补造结论。\n• 建议路径：提出方向 → 查找依据 → 明确问题 → 制定方案 → 准备数据。\n• 最终应看到：真实来源、字段映射、质量检查、证据链和数据血缘。\n• 页面状态：${status}。\n• 运行摘要：${summary}`;
+}
+
+function wishRabbitIsResearchIntent(text) {
+  return /研究|数据|数据集|论文|文献|来源|证据|检索|光变|超新星|乳腺癌|指标|字段|样本|csv|表格|下载/.test(String(text || "").toLowerCase());
+}
+
+function wishRabbitTrim(value, limit = 2400) {
+  if (value === null || value === undefined) return "";
+  const text = typeof value === "string" ? value : JSON.stringify(value);
+  if (!text) return "";
+  return text.length > limit ? `${text.slice(0, limit)}…` : text;
+}
+
+function wishRabbitResultSnapshot(result) {
+  if (!result || typeof result !== "object") return {};
+  const fields = [
+    "research_spec", "parsed_question", "research_brief", "readiness",
+    "summary_zh", "critic_report", "quality_gate_report", "data_alignment",
+    "study_design", "cohort_construction", "source_datasets", "source_items",
+    "modeling_dataset", "dataset_dictionary", "evidence_lineage",
+  ];
+  return Object.fromEntries(fields.filter((key) => result[key] !== undefined).map((key) => [key, wishRabbitTrim(result[key], key === "modeling_dataset" ? 5200 : 2800)]));
+}
+
+function wishRabbitChatContext() {
+  const result = typeof state !== "undefined" ? state?.result : null;
+  const pageText = (selector, fallback = "", limit = 1800) => wishRabbitTrim(wishRabbitVisibleText(selector, fallback), limit);
+  const page = {
+    question: wishRabbitTrim(wishRabbitInputValue("#planner-topic", result?.research_spec?.question || result?.research_spec?.research_goal || result?.parsed_question?.question || ""), 1800),
+    status: pageText("#result-status"),
+    stage: pageText("#progress-label"),
+    dataset_title: pageText("#dataset-title"),
+    dataset_size: pageText("#dataset-size"),
+    dictionary_count: pageText("#dictionary-count"),
+    source_count: pageText("#source-count"),
+    summary: pageText("#agent-summary"),
+    dataset_note: pageText("#dataset-note"),
+    planner_title: pageText("#planner-header-title"),
+    planner_subtitle: pageText("#planner-header-subtitle"),
+    flow_summary: pageText("#planner-flow-summary"),
+    planner_chat: pageText("#planner-chat"),
+    planner_results: pageText("#planner-results"),
+    evidence_panel: pageText("#planner-panel-evidence"),
+    contract_panel: pageText("#planner-panel-contract"),
+    sources_panel: pageText("#planner-panel-sources"),
+    coverage_panel: pageText("#planner-panel-coverage"),
+    quality_gate: pageText("#quality-gate"),
+    quality_report: pageText("#quality-report"),
+    lineage_panel: pageText("#lineage-graph"),
+  };
+  return { ...page, result: wishRabbitResultSnapshot(result) };
+}
+
+async function requestWishRabbitModel(text, history, allowRestore = true) {
+  if (!(await ensureQwenConfigured())) {
+    const error = new Error("当前未连接科研模型。");
+    error.status = 503;
+    throw error;
+  }
+  const body = { message: text, history: history.slice(-16), context: wishRabbitChatContext() };
+  if (typeof state !== "undefined" && state.qwenSessionId && !isQwenSessionExpired()) body.qwen_session_id = state.qwenSessionId;
+  const response = await fetchApi("/api/agent/companion/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  try {
+    const payload = await readJson(response);
+    return payload.reply;
+  } catch (error) {
+    error.status = response.status;
+    if (allowRestore && response.status === 401) {
+      clearStaleQwenSession();
+      if (await restoreSavedQwenSession()) return requestWishRabbitModel(text, history, false);
+    }
+    throw error;
+  }
+}
+
+async function formatWishRabbitResearchQuestion(history = [], allowRestore = true) {
+  if (!(await ensureQwenConfigured())) {
+    const error = new Error("当前未连接科研模型。");
+    error.status = 503;
+    throw error;
+  }
+  const body = { message: history.at(-1)?.content || "请把当前对话整理成可执行的研究问题。", history: history.slice(-16), context: wishRabbitChatContext() };
+  if (typeof state !== "undefined" && state.qwenSessionId && !isQwenSessionExpired()) body.qwen_session_id = state.qwenSessionId;
+  const response = await fetchApi("/api/agent/companion/research-question", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  try {
+    const payload = await readJson(response);
+    return payload.research_question || payload.question || payload.reply || "";
+  } catch (error) {
+    error.status = response.status;
+    if (allowRestore && response.status === 401) {
+      clearStaleQwenSession();
+      if (await restoreSavedQwenSession()) return formatWishRabbitResearchQuestion(history, false);
+    }
+    throw error;
+  }
+}
+
+function wishRabbitLocalResearchQuestion(history = []) {
+  const context = wishRabbitChatContext();
+  const latest = history.filter((item) => item?.role === "user").at(-1)?.content || context.question || "当前研究想法";
+  const question = context.question && context.question !== latest ? context.question : latest;
+  return `研究对象：${question}\n研究问题：围绕“${question}”，明确需要通过真实来源和可复用数据验证的核心关系、现象或方法。\n数据需求：检索公开可获取的数据集、论文或原始记录，记录来源、字段定义、原始值与质量限制。\n分析边界：先核验数据覆盖、分析单位和证据强度，再形成可复现的研究结论。`;
+}
+
+function wishRabbitTypingMarkup() {
+  return `<article class="wish-rabbit-message is-assistant" data-wish-typing="true"><span class="wish-rabbit-message-avatar" aria-hidden="true">${wishRabbitAvatarMarkup()}</span><div class="wish-rabbit-message-body"><header><strong>科研兔</strong><small>正在思考</small></header><p class="wish-rabbit-typing"><i></i><i></i><i></i></p></div></article>`;
+}
+
+function wishRabbitReply(text, stage) {
+  const normalized = String(text || "").trim().toLowerCase();
+  if (/^(你好|嗨|hi|hello|哈喽|早上好|晚上好)/.test(normalized)) {
+    return { text: "你好呀！我是科研兔。这里可以聊研究，也可以聊一点日常和灵感；如果你愿意，我还能解析当前课题、解释数据集，或把一个模糊想法整理成研究向导里的下一步。" };
+  }
+  if (/你是谁|你能做什么|有什么用|怎么用/.test(normalized)) {
+    return { text: "我是科研兔，你的科研解析助手：可以陪你闲聊、发散想法、解释课题和科研数据概念，也能在你明确想开始时，把愿望带回研究向导。这里的聊天不会自动提交任务或修改研究数据。" };
+  }
+  if (/谢谢|感谢|太好了|哈哈|开心|晚安|再见/.test(normalized)) {
+    return { text: "不客气！想到新的问题就继续告诉我。科研不必一开始就说得很完整，先把念头放在这里也可以。" };
+  }
+  if (/没思路|没有思路|迷茫|不知道研究什么|想不到/.test(normalized)) {
+    return { text: "那我们先不急着定题。你可以从三个方向试试：一个你长期好奇的对象、一个你想解释的现象，或者一份你想真正用起来的公开数据。你随便说一个词，我陪你把它展开。" };
+  }
+  if (/累|焦虑|压力|烦|难过|不想做/.test(normalized)) {
+    return { text: "听起来你今天有点辛苦。先不用把研究做完，告诉我现在最卡的一个小地方就好；如果只是想聊聊天，也完全可以。" };
+  }
+  if (/研究|数据|数据集|论文|文献|来源|证据|检索|光变|超新星|乳腺癌|指标|字段|样本|csv|表格|下载/.test(normalized)) {
+    return { text: `${wishRabbitStageCopy(stage)} 你可以继续补充限制条件，我会先按你的最新一句话理解；需要进入正式流程时，再点击下面的入口。`, stage };
+  }
+  return { text: "我听到了。你可以继续随便说，不用马上把它变成一个严谨的问题。如果这句话和某个研究想法有关，也可以告诉我“我想研究……”或“我想找一份……”，我会帮你接住。" };
+}
+
+function wishRabbitContextReply(text, stage) {
+  const context = wishRabbitChatContext();
+  const normalized = String(text || "").toLowerCase();
+  const hasPage = Object.values(context).some((value) => value && value !== "{}" && value !== "—");
+  if (!hasPage) return null;
+  if (/结果|当前|主入口|课题|进展|状态|说明什么|能回答|能不能/.test(normalized)) {
+    return {
+      text: `我先按主入口当前内容回答：\n\n• 当前课题：${context.question || "尚未填写"}\n• 页面状态：${context.status || "尚未返回正式运行结果"}${context.stage ? `；${context.stage}` : ""}\n• 数据资产：${context.dataset_title || "尚未生成数据集"}${context.dataset_size ? `（${context.dataset_size}）` : ""}\n• 已知依据：${context.summary || "尚未生成运行摘要"}\n\n这些信息只能说明页面已经展示到的范围；来源、字段定义、缺失和质量门仍应以结果里的登记信息为准。`,
+      stage: stage || "sources",
+    };
+  }
+  if (/数据集|字段|来源|血缘|质量|缺失|覆盖/.test(normalized)) {
+    return {
+      text: `我可以基于主入口继续解析：当前数据集是“${context.dataset_title || "尚未生成"}”，${context.dataset_size || "行列统计待核验"}；字段${context.dictionary_count || "待核验"}，来源${context.source_count || "待核验"}。下一步先检查分析单位、原始字段/原始值、缺失覆盖与来源血缘，再决定能否进入分析。`,
+      stage: stage || "sources",
+    };
+  }
+  return null;
+}
+
+function jumpFromWishRabbit(stage, handoffText = "") {
+  const plannerInput = document.querySelector("#planner-topic");
+  const tabByStage = { topic: "evidence", literature: "evidence", questions: "contract", contract: "contract", sources: "sources" };
+  setPlannerStage(stage);
+  switchPlannerTab(tabByStage[stage] || "evidence");
+  if (handoffText && plannerInput) plannerInput.value = handoffText;
+  const chat = plannerElement("#planner-chat");
+  const targets = {
+    topic: plannerInput,
+    literature: chat && !chat.hidden ? chat : plannerElement("#planner-panel-evidence"),
+    questions: plannerElement("#planner-results"),
+    contract: plannerElement("#planner-panel-contract"),
+    sources: plannerElement("#planner-panel-sources"),
+  };
+  const target = targets[stage] || plannerInput;
+  target?.scrollIntoView({ behavior: "smooth", block: "center" });
+  window.setTimeout(() => {
+    if (stage === "topic" && plannerInput) plannerInput.focus({ preventScroll: true });
+    else if (chat && !chat.hidden) chat.lastElementChild?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, 180);
+  if (plannerInput) {
+    plannerInput.classList.add("is-rabbit-focus");
+    window.setTimeout(() => plannerInput.classList.remove("is-rabbit-focus"), 1000);
+  }
+  if (handoffText) showToast("愿望已带入研究向导，点击“发送并开始研究”继续");
+}
+
+function wishRabbitAvatarMarkup() {
+  return '<svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="M21 27c-5-8-5-19-1-22 6-4 10 8 10 17 2-2 4-3 7-3s5 1 7 3c0-9 4-21 10-17 4 3 4 14-1 22 3 3 5 7 5 12 0 12-8 19-21 19S16 51 16 39c0-5 2-9 5-12Z" fill="#FFFDF8" stroke="#1D3557" stroke-width="2.5"/><path d="M20 8c0 5 2 10 5 14M44 22c3-4 5-9 5-14" stroke="#F19DB5" stroke-width="3" stroke-linecap="round"/><circle cx="27" cy="36" r="2.3" fill="#1D3557"/><circle cx="43" cy="36" r="2.3" fill="#1D3557"/><path d="M32 43c2 2 4 2 6 0M34 41c0 2 0 3-1 4M38 41c0 2 0 3 1 4" stroke="#D56B8B" stroke-width="1.8" stroke-linecap="round"/><circle cx="21" cy="42" r="3" fill="#F8C9D6" opacity=".8"/><circle cx="49" cy="42" r="3" fill="#F8C9D6" opacity=".8"/></svg>';
+}
+
+const wishRabbitStageLabels = { topic: "提出方向", literature: "查找依据", questions: "明确问题", contract: "制定方案", sources: "准备数据" };
+
+function wishRabbitExplanationActionsMarkup() {
+  return '<div class="wish-rabbit-message-actions"><button type="button" data-wish-explain="topic">一键解析这个课题</button><button type="button" data-wish-explain="dataset">一键解释数据集</button></div>';
+}
+
+function wishRabbitMessageMarkup(kind, text, stage = "", canExplain = false) {
+  const avatar = kind === "assistant" ? wishRabbitAvatarMarkup() : "你";
+  const name = kind === "assistant" ? "科研兔" : "你";
+  const handoff = stage ? `<div class="wish-rabbit-message-actions"><button type="button" data-wish-jump="${escapeHtml(stage)}" data-wish-handoff="${escapeHtml(text)}">带入研究向导 · ${escapeHtml(wishRabbitStageLabels[stage] || "研究")}</button><button type="button" data-wish-format="true">整理成研究问题</button></div>` : "";
+  const explain = kind === "assistant" && canExplain ? wishRabbitExplanationActionsMarkup() : "";
+  const action = `${handoff}${explain}`;
+  const content = kind === "assistant"
+    ? (typeof renderMarkdown === "function" ? renderMarkdown(text) : `<p>${escapeHtml(text).replace(/\n/g, "<br>")}</p>`)
+    : `<p>${escapeHtml(text).replace(/\n/g, "<br>")}</p>`;
+  return `<article class="wish-rabbit-message is-${kind}"><span class="wish-rabbit-message-avatar" aria-hidden="true">${avatar}</span><div class="wish-rabbit-message-body"><header><strong>${name}</strong><small>刚刚</small></header><div class="wish-rabbit-message-content">${content}</div>${action}</div></article>`;
+}
+
+function sendWishRabbitMessage(input, messages) {
+  const text = input?.value.trim();
+  if (!text || !messages) {
+    input?.focus();
+    return;
+  }
+  const stage = wishRabbitStage(text);
+  const reply = wishRabbitReply(text, stage);
+  messages.insertAdjacentHTML("beforeend", wishRabbitMessageMarkup("user", text));
+  messages.insertAdjacentHTML("beforeend", wishRabbitMessageMarkup("assistant", reply.text, reply.stage || "", Boolean(reply.stage)));
+  input.value = "";
+  messages.scrollTop = messages.scrollHeight;
+  input.focus({ preventScroll: true });
+}
+
+async function sendWishRabbitModelMessage(input, messages, history) {
+  const text = input?.value.trim();
+  if (!text || !messages || !history) {
+    input?.focus();
+    return;
+  }
+  const stage = wishRabbitIsResearchIntent(text) ? wishRabbitStage(text) : "";
+  messages.insertAdjacentHTML("beforeend", wishRabbitMessageMarkup("user", text));
+  history.push({ role: "user", content: text });
+  input.value = "";
+  messages.insertAdjacentHTML("beforeend", wishRabbitTypingMarkup());
+  messages.scrollTop = messages.scrollHeight;
+  let replyText;
+  try {
+    replyText = await requestWishRabbitModel(text, history.slice(0, -1));
+  } catch (error) {
+    if (error.status === 503) {
+      const fallback = wishRabbitContextReply(text, stage) || wishRabbitReply(text, stage);
+      replyText = `${fallback.text}\n\n（当前未连接科研模型，这是本地规则回答；请先连接千问 API。）`;
+    } else {
+      replyText = `模型请求失败：${error.message || "后端没有返回具体原因"}\n\n这次没有用本地话术替代模型回答，请刷新页面后重试。`;
+    }
+  }
+  messages.querySelector("[data-wish-typing]")?.remove();
+  history.push({ role: "assistant", content: replyText });
+  messages.insertAdjacentHTML("beforeend", wishRabbitMessageMarkup("assistant", replyText, stage, Boolean(stage)));
+  messages.scrollTop = messages.scrollHeight;
+  input.focus({ preventScroll: true });
+}
+
+async function analyzeWishRabbitMainEntry(kind, conversation, messages) {
+  const prompt = kind === "dataset"
+    ? "请读取主入口当前的数据集、字段、来源和质量信息，解释它现在能回答什么、不能回答什么，以及下一步该检查什么。只使用上下文已有信息。"
+    : "请读取主入口当前的课题、研究计划、证据和运行状态，给出清晰的研究解读和下一步建议。只使用上下文已有信息。";
+  const typing = wishRabbitTypingMarkup();
+  messages.insertAdjacentHTML("beforeend", typing);
+  try {
+    const reply = await requestWishRabbitModel(prompt, conversation);
+    conversation.push({ role: "assistant", content: reply });
+    return reply;
+  } catch (error) {
+    return `模型解析失败：${error.message || "后端没有返回具体原因"}。请刷新页面后重试。`;
+  } finally {
+    messages.querySelector("[data-wish-typing]")?.remove();
+  }
+}
+
+function initWishRabbit() {
+  const toggle = document.querySelector("#wish-rabbit-toggle");
+  const panel = document.querySelector("#wish-rabbit-panel");
+  const close = document.querySelector("#wish-rabbit-close");
+  const clear = document.querySelector("#wish-rabbit-clear");
+  const input = document.querySelector("#wish-rabbit-input");
+  const send = document.querySelector("#wish-rabbit-send");
+  const form = document.querySelector("#wish-rabbit-form");
+  const messages = document.querySelector("#wish-rabbit-messages");
+  const plannerInput = document.querySelector("#planner-topic");
+  if (!toggle || !panel || !input || !send || !form || !messages) return;
+  const conversation = [];
+  const sendMessage = async () => {
+    if (send.disabled) return;
+    send.disabled = true;
+    input.disabled = true;
+    try { await sendWishRabbitModelMessage(input, messages, conversation); }
+    finally { send.disabled = false; input.disabled = false; input.focus({ preventScroll: true }); }
+  };
+  const setOpen = (open) => {
+    panel.hidden = !open;
+    toggle.setAttribute("aria-expanded", String(open));
+    toggle.classList.toggle("is-open", open);
+    if (open) window.setTimeout(() => input.focus({ preventScroll: true }), 80);
+  };
+  toggle.addEventListener("click", () => setOpen(panel.hidden));
+  close?.addEventListener("click", () => setOpen(false));
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    void sendMessage();
+  });
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      void sendMessage();
+    }
+  });
+  messages.addEventListener("click", (event) => {
+    const formatButton = event.target.closest("[data-wish-format]");
+    if (formatButton) {
+      formatButton.disabled = true;
+      void formatWishRabbitResearchQuestion(conversation).then((question) => {
+        const formatted = question || wishRabbitLocalResearchQuestion(conversation);
+        conversation.push({ role: "assistant", content: formatted });
+        messages.insertAdjacentHTML("beforeend", wishRabbitMessageMarkup("assistant", formatted, "topic"));
+        messages.scrollTop = messages.scrollHeight;
+      }).catch(() => {
+        const formatted = wishRabbitLocalResearchQuestion(conversation);
+        conversation.push({ role: "assistant", content: formatted });
+        messages.insertAdjacentHTML("beforeend", wishRabbitMessageMarkup("assistant", formatted, "topic"));
+        messages.scrollTop = messages.scrollHeight;
+      }).finally(() => { formatButton.disabled = false; });
+      return;
+    }
+    const button = event.target.closest("[data-wish-jump]");
+    if (!button) return;
+    jumpFromWishRabbit(button.dataset.wishJump, button.dataset.wishHandoff || "");
+    setOpen(false);
+  });
+  panel.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-wish-explain]");
+    if (!button) return;
+    button.disabled = true;
+    void analyzeWishRabbitMainEntry(button.dataset.wishExplain || "topic", conversation, messages).then((explanation) => {
+      messages.insertAdjacentHTML("beforeend", wishRabbitMessageMarkup("assistant", explanation));
+      messages.scrollTop = messages.scrollHeight;
+    }).finally(() => { button.disabled = false; });
+  });
+  clear?.addEventListener("click", () => {
+    conversation.length = 0;
+    messages.innerHTML = wishRabbitMessageMarkup("assistant", "你好呀。这里可以先随便聊天，也可以把一个模糊的科研愿望说给我听。我会帮你理清思路，也可以一键解析当前课题或解释数据集；想进入正式研究时，再把它带回研究向导。" );
+    messages.scrollTop = 0;
+    input.focus({ preventScroll: true });
+  });
+  panel.querySelectorAll("[data-wish-prompt]").forEach((button) => button.addEventListener("click", () => {
+    input.value = button.dataset.wishPrompt || "";
+    input.focus({ preventScroll: true });
+  }));
+  if (plannerInput) toggle.title = "打开研究向导";
+}
+
+renderAgentRuntime(null);
+initWishRabbit();
 initPlanningWorkspace();
+void (async () => {
+  await checkConfiguration();
+  await restoreSavedQwenSession();
+})();

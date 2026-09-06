@@ -140,22 +140,18 @@ def test_internal_evaluation_is_removed_from_product_frontend() -> None:
     assert 'id="official-eval-run"' not in html
     assert "模型评测报告集合" not in html
     assert "运行候选卷验证" not in html
-    assert "闭环修正结果" in html
+    assert 'id="closed-loop-panel"' in html
+    assert 'id="closed-loop-panel" class="panel closed-loop-primary" hidden' in html
     assert "Closed-Loop Iteration" not in html
     render_fn = script.split("function renderResult(result)", 1)[1].split("function renderClosedLoop", 1)[0]
     closed_loop_fn = script.split("function renderClosedLoop(loop)", 1)[1].split("function renderResearchBrief", 1)[0]
     readiness_fn = script.split("function renderReadiness(", 1)[1].split("function renderUnifiedEvaluation", 1)[0]
     quality_fn = script.split("function renderQualityGates(", 1)[1].split("function renderSpec(", 1)[0]
     assert "persistAndRenderSystemEvaluation(result)" not in render_fn
-    assert "if (!loop?.improved)" in closed_loop_fn
     assert "panel.hidden = true" in closed_loop_fn
     assert "66.94" not in script
-    assert "slice(0, 2)" in closed_loop_fn
-    assert "第 1 轮 · 基线" in closed_loop_fn
-    assert "第 2 轮 · 修正后" in closed_loop_fn
-    assert "主要必需字段覆盖" in closed_loop_fn
-    assert "无变化" in closed_loop_fn
-    assert "必要字段覆盖 ${(Number(metrics.required_field_coverage || 0) * 100).toFixed(1)}%" not in closed_loop_fn
+    assert "主要必需字段覆盖" not in closed_loop_fn
+    assert "本次采用" not in closed_loop_fn
     assert "research-metric-note" in readiness_fn
     assert 'label: "清洗与隔离"' not in readiness_fn
     assert "未识别到可统计的研究结局字段" not in readiness_fn
@@ -164,7 +160,8 @@ def test_internal_evaluation_is_removed_from_product_frontend() -> None:
     assert "入口命中 F1" not in quality_fn
     assert "非正式 SDTI" not in script
     assert "读法：" not in script
-    assert "v=20260830-research-workbench-5" in html
+    assert 'href="/styles.css?v=' in html
+    assert 'src="/app.js?v=' in html
 
 
 def test_result_presentation_does_not_posterize_empty_or_pending_states() -> None:

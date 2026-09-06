@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+from zipfile import ZIP_DEFLATED, ZipFile
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
@@ -23,6 +24,7 @@ class AgentExportFormat(str, Enum):
     JSON = "json"
     METADATA = "metadata"
     QUALITY_REPORT = "quality_report"
+    SOURCES = "sources"
 
 
 @dataclass(frozen=True)
@@ -41,7 +43,11 @@ class AgentDatasetExportService:
         dataset = result.modeling_dataset
         if file_format in {AgentExportFormat.CSV, AgentExportFormat.PARQUET, AgentExportFormat.XLSX, AgentExportFormat.JSON} and not dataset.rows:
             raise ValueError("当前任务没有可导出的科研数据行。")
-        if file_format == AgentExportFormat.CSV:
+        if file_format == AgentExportFormat.SOURCES:
+            content = self._sources(result)
+            media_type = "application/zip"
+            filename = f"{result.task_id}-独立来源数据.zip"
+        elif file_format == AgentExportFormat.CSV:
             content = self._csv(result)
             media_type = "text/csv; charset=utf-8"
             filename = f"{result.task_id}-科研数据集.csv"
@@ -70,6 +76,34 @@ class AgentDatasetExportService:
             media_type=media_type,
             filename=filename,
         )
+
+    def _sources(self, result: AgentTaskResult) -> bytes:
+        if not any(dataset.rows for dataset in result.source_datasets):
+            raise ValueError("当前任务没有可下载的来源数据表。")
+        buffer = io.BytesIO()
+        manifest = []
+        with ZipFile(buffer, "w", compression=ZIP_DEFLATED) as archive:
+            for index, dataset in enumerate(result.source_datasets):
+                if not dataset.rows:
+                    continue
+                name = f"source-{index + 1}"
+                source_result = result.model_copy(update={"modeling_dataset": dataset})
+                archive.writestr(f"{name}.csv", self._csv(source_result))
+                # JSON preserves original values and nested provenance that CSV scalarizes.
+                archive.writestr(f"{name}.json", dataset.model_dump_json(indent=2))
+                manifest.append({
+                    "file": name, "name": dataset.name,
+                    "dataset_role": dataset.dataset_role, "study_key": dataset.study_key,
+                    "row_count": len(dataset.rows),
+                })
+            archive.writestr("manifest.json", json.dumps({
+                "task_id": result.task_id,
+                "notice": "各来源独立保留；可能包括前临床或字段不完整数据，不等于已满足当前研究的患者主表。",
+                "datasets": manifest,
+            }, ensure_ascii=False, indent=2))
+            archive.writestr("metadata.json", self._metadata(result))
+            archive.writestr("quality-report.json", self._quality_report(result))
+        return buffer.getvalue()
 
     @staticmethod
     def _csv(result: AgentTaskResult) -> bytes:

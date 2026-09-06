@@ -623,7 +623,8 @@ class ClosedLoopService:
                 if len(iterations) < 2 and stop_reason == NO_FOLLOWUP_NOTICE:
                     notice = NO_CHANGE_PRESENTATION
             summary = attempted or (
-                [NO_FOLLOWUP_NOTICE] if (len(iterations) >= 2 or stop_reason == NO_FOLLOWUP_NOTICE) else ["仅完成第一轮诊断，暂无前后轮改进对比。"]
+                [NO_FOLLOWUP_NOTICE] if (len(iterations) >= 2 or stop_reason == NO_FOLLOWUP_NOTICE)
+                else ["无"]
             )
             return {
                 "improved": False,

@@ -3,17 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="千问驱动的多癌种科研数据智能体：以乳腺癌为专项，支持常见实体瘤的可追溯公开数据规划。" />
-    <title>千问肿瘤科研数据智能体</title>
-    <link rel="stylesheet" href="/styles.css?v=20260830-research-workbench-5" />
+    <meta name="description" content="科研数据智能体：从研究问题到真实数据、证据链和可追溯科研资产。" />
+    <title>科研数据智能体</title>
+    <link rel="stylesheet" href="/styles.css?v=20260906-companion-chat-4" />
   </head>
   <body>
     <a class="skip-link" href="#main-content">跳至正文</a>
     <section id="planning-workspace" class="planner-app" aria-label="科研规划工作台">
       <aside class="planner-sidebar">
         <a class="planner-brand" href="#planning-workspace">
-          <span class="planner-brand-mark">SDA</span>
-          <span><strong>科研数据助手</strong></span>
+          <span class="planner-brand-mark">ONCO</span>
+          <span><strong>科研数据智能体</strong><small>自主科研 · 真实数据 · 可追溯证据</small></span>
         </a>
         <button id="planner-new" class="planner-new-button" type="button"><span class="icon-slot" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></span>新建研究</button>
         <nav class="planner-stage-nav" aria-label="科研规划阶段">
@@ -31,23 +31,22 @@
         </section>
         <div class="planner-sidebar-foot">
           <span id="planner-health-dot"></span>
-          <div><strong id="planner-health-label">正在连接</strong></div>
+          <div><strong id="planner-health-label">等待研究问题</strong></div>
         </div>
       </aside>
 
       <section class="planner-center">
         <header class="planner-header">
           <div><strong id="planner-header-title">新研究</strong><small id="planner-header-subtitle">从一个想法开始，系统会自动完成研究规划</small></div>
-          <button id="planner-open-advanced" type="button">查看技术详情 <span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 17 17 7M8 7h9v9"/></svg></span></button>
+          <button id="planner-open-advanced" type="button">查看技术详情</button>
         </header>
 
         <div id="planner-scroll" class="planner-scroll">
           <section id="planner-welcome" class="planner-welcome">
             <span class="planner-orbit" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 3 1.8 6.2L20 11l-6.2 1.8L12 19l-1.8-6.2L4 11l6.2-1.8L12 3Z"/><path d="m19 4 .5 1.5L21 6l-1.5.5L19 8l-.5-1.5L17 6l1.5-.5L19 4Z"/></svg></span>
             <p class="planner-kicker">从研究想法，到可以开始的数据工作</p>
-            <h1>告诉我你想研究的方向</h1>
-            <p>输入研究方向后，系统查找真实来源、生成研究方案，并整理可追溯的数据结果。乳腺癌保留专项验证，同时已配置 17 个其他常见癌种；未配置癌种也可进入通用发现流程。</p>
             <div class="planner-prompt-grid" aria-label="研究方向示例">
+              <button type="button" data-planner-example="我希望研究 Ia 型超新星光变曲线"><strong>Ia 型超新星光变曲线</strong><span>我希望研究 Ia 型超新星光变曲线</span><small>真实观测表 → 来源追溯 → 多源 CSV</small></button>
               <button type="button" data-planner-example="哪些因素会影响乳腺癌新辅助治疗的疗效？"><strong>新辅助治疗疗效</strong><span>哪些因素会影响乳腺癌新辅助治疗的疗效？</span><small>输入后会自动推荐问题并开始找数据</small></button>
               <button type="button" data-planner-example="哪些生物标志物可以预测乳腺癌患者的治疗效果？"><strong>乳腺癌生物标志物</strong><span>哪些生物标志物可以预测乳腺癌患者的治疗效果？</span><small>保留乳腺癌专项规划入口</small></button>
               <button type="button" data-planner-example="KRAS/TP53 状态与胰腺癌患者生存结局有何关联？"><strong>胰腺癌 KRAS/TP53</strong><span>KRAS/TP53 状态与胰腺癌患者生存结局有何关联？</span><small>对应 TCGA-PAAD 与 cBioPortal 队列</small></button>
@@ -55,6 +54,8 @@
               <button type="button" data-planner-example="KRAS/BRAF 突变在结直肠癌中的分层与预后是否存在差异？"><strong>结直肠癌分层</strong><span>KRAS/BRAF 突变在结直肠癌中的分层与预后是否存在差异？</span><small>对应 COAD/READ 独立队列</small></button>
             </div>
           </section>
+
+          <section id="planner-chat" class="planner-chat" hidden aria-label="研究对话" aria-live="polite"></section>
 
           <section id="planner-progress" class="planner-progress" hidden aria-live="polite">
             <div class="planner-progress-head"><div><span>正在自动完成研究规划</span><strong id="planner-progress-title">理解研究意图…</strong></div><b id="planner-progress-percent">10%</b></div>
@@ -73,12 +74,12 @@
         </div>
 
         <form id="planner-form" class="planner-composer">
-          <textarea id="planner-topic" rows="2" required placeholder="输入一个肿瘤研究方向，例如：EGFR 突变与肺腺癌治疗响应有何关联？"></textarea>
+          <textarea id="planner-topic" rows="2" required placeholder="告诉我你想研究什么，例如：EGFR 突变与肺腺癌治疗响应有何关联？"></textarea>
           <div>
             <span class="planner-scope-chip">◎ 公开数据</span>
             <span class="planner-scope-chip">◇ 论文依据</span>
             <small>Ctrl + Enter 开始</small>
-            <button id="planner-submit" type="submit">开始完整规划 <span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 7-7 7 7M12 19V5"/></svg></span></button>
+            <button id="planner-submit" type="submit">发送并开始研究</button>
           </div>
         </form>
       </section>
@@ -107,12 +108,12 @@
     <header class="topbar">
       <a id="advanced-back-planner" class="brand" href="#planning-workspace">
         <span class="brand-mark">ONCO</span>
-        <span><strong>肿瘤科研数据智能体</strong><small>乳腺癌专项 · 多癌种扩展</small></span>
+        <span><strong>内核实验室</strong><small>自主科研 · 真实数据 · 可追溯证据</small></span>
       </a>
       <nav aria-label="页面导航">
-        <a id="advanced-return-planner" href="#planning-workspace">← 返回研究向导</a>
-        <a href="#main-content">工作台</a>
-        <a href="#task-entry">研究问题</a>
+        <a id="advanced-return-planner" href="#planning-workspace">研究向导</a>
+        <a href="#main-content">内核实验室</a>
+        <a href="#task-entry">一句话启动</a>
         <a href="#quality-gates">质量门</a>
         <a href="#research-data">分析矩阵</a>
         <a href="#provenance">来源</a>
@@ -121,6 +122,24 @@
     </header>
 
     <main id="main-content">
+      <section id="kernel-hero" class="kernel-hero" aria-labelledby="kernel-hero-title">
+        <div class="kernel-hero-copy">
+          <h1 id="kernel-hero-title">把一句科研问题，推进成可追溯的数据资产</h1>
+          <p class="kernel-hero-lead">输入你真正想研究的问题，内核实验室会自主理解目标、规划检索路径、发现公开数据、对齐字段、建立证据链，并在质量门通过后交付可分析结果。</p>
+          <div class="kernel-capabilities" aria-label="内核实验室能力">
+            <span><b>真实数据</b>公开数据库与文献入口</span>
+            <span><b>自主推进</b>按缺口多轮补查</span>
+            <span><b>可复核</b>字段、来源与处理过程</span>
+          </div>
+        </div>
+        <div class="kernel-hero-side">
+          <div class="kernel-signal"><span class="kernel-signal-dot"></span><span>当前主工作区</span><strong>内核实验室</strong></div>
+          <p>你可以随时查看中间过程，修改问题或追问“为什么选择这个来源”。</p>
+          <a href="#task-entry">开始一次自主研究 →</a>
+        </div>
+      </section>
+      <section id="technical-context" class="panel" hidden aria-live="polite"></section>
+      <div id="astronomy-results" class="results" hidden aria-label="当前任务的天文研究结果"></div>
       <section id="configuration-panel" class="configuration panel" aria-live="polite">
         <div>
           <span id="configuration-badge" class="status-badge is-waiting">检查中</span>
@@ -130,11 +149,11 @@
         <div class="configuration-side">
           <div class="configuration-facts">
             <span>模型 <strong id="configuration-model">—</strong></span>
-            <span>凭据落盘 <strong>否</strong></span>
+            <span>凭据保存 <strong>本机浏览器</strong></span>
           </div>
           <div class="button-group configuration-actions">
             <button id="qwen-open-config" class="button button-primary" type="button">连接千问 API</button>
-            <button id="qwen-disconnect" class="button button-secondary" type="button" hidden>断开临时连接</button>
+            <button id="qwen-disconnect" class="button button-secondary" type="button" hidden>清除本机连接</button>
           </div>
         </div>
       </section>
@@ -144,11 +163,9 @@
           <div><p class="section-kicker">系统工作方式</p><h2>有边界的混合式多智能体协作</h2></div>
           <span class="status-badge is-success">可审计</span>
         </div>
-        <p class="section-note">一个总负责人统筹任务，多个专业角色分别规划、查找、整理和检查；真实数据获取、字段统一和医学安全判断由固定规则完成。每个角色都有清楚的工作边界，结果可以追溯和复核。</p>
-        <div class="agent-definition"><strong>什么是智能体？</strong><span>它能理解目标、选择下一步、调用资料并根据反馈继续推进，但不能越权修改真实患者事实。</span></div>
         <figure class="agent-workflow-figure">
-          <img src="/agent-workflow-cn.svg" alt="从研究问题到结果交付的中文智能体协作工作流" loading="lazy" />
-          <figcaption>图例：纸张形状表示输入/输出，圆角框表示 Agent，直角框表示固定规则模块，菱形表示判断。复杂研究任务使用多 Agent 协作，简单查询和格式处理仍由单一确定性步骤完成。</figcaption>
+          <img src="/agent-architecture-evidence-driven.svg?v=20260904-3" alt="主 Agent 统筹的证据驱动多 Agent 混合编排架构：研究问题经过规划、采集与补查，接受规则和 RAG 证据支撑，再由核验与质量角色决定是否交付可追溯科研数据包。" loading="lazy" />
+          <figcaption>主 Agent 负责统筹，规划、采集/补查、核验和质量角色各自承担独立职责；真实数据、规则模块与 RAG 证据共同支撑可追溯交付。</figcaption>
         </figure>
         <div class="agent-role-summary" aria-label="智能体角色说明">
           <span><b>任务总负责人智能体</b>：拆分问题、分派角色、记录进度</span>
@@ -158,24 +175,31 @@
           <span><b>质量把关智能体</b>：综合判断可交付、人工确认或阻断</span>
           <span><b>固定规则模块</b>：取得真实数据、统一字段、核对身份和医学边界</span>
         </div>
+        <section id="agent-runtime" class="agent-runtime" aria-live="polite" aria-label="Agent 工作状态">
+          <div class="agent-runtime-heading">
+            <div><p class="section-kicker">Agent Runtime</p><h3>Agent 工作状态</h3></div>
+            <span id="agent-runtime-overall" class="status-badge is-pending">待命</span>
+          </div>
+          <p id="agent-runtime-note" class="agent-runtime-note">提交一句研究问题后，各角色会按职责自动推进；这里展示真实运行状态，不虚构完成度。</p>
+          <div id="agent-runtime-grid" class="agent-runtime-grid"></div>
+        </section>
         <div class="agent-architecture-grid">
           <article><h3>上下文隔离</h3><p>每项任务、每轮补查、每项研究和每个样本分别记录，互不混淆；不同研究的患者编号不会直接拼接。</p></article>
           <article><h3>关注点分离</h3><p>规划角色只负责提出方案，查找角色只负责找资料，检查角色只负责发现问题，质量把关只负责决定是否交付。</p></article>
           <article><h3>可并行</h3><p>互不依赖的患者资料、论文证据和试验信息可以同时查找；统一写入、身份对应和医学判断必须汇总后按顺序进行。</p></article>
           <article><h3>独立校验</h3><p>数据来源、字段覆盖、研究证据和医学安全分别检查，模型不能用自己的摘要替代独立检查。</p></article>
-          <article><h3>不该使用多角色的场景</h3><p>已知编号的简单查询、格式转换、确定性去重和严格复现的离线评测，使用单一步骤更快、更省资源，也更容易复现。</p></article>
-          <article><h3>为什么不只用一个角色</h3><p>一个角色同时规划、找资料、改数据并自我验收，容易造成信息污染、权限混杂、失败难定位，也无法真正质疑自己的结论。</p></article>
         </div>
       </section>
 
       <section id="task-entry" class="panel task-entry">
         <div class="section-heading">
-          <div><p class="section-kicker">01 · Study Protocol</p><h2>研究问题陈述</h2></div>
-          <span class="step-tag">任务入口</span>
+          <div><p class="section-kicker">01 · AUTONOMOUS RUN</p><h2>输入一句话，内核实验室自动推进</h2></div>
+          <span class="step-tag">无需逐步确认</span>
         </div>
+        <p class="task-entry-lead">不必先填写完整方案。先告诉我你想研究什么，系统会把不确定部分标为假设，把真实来源、字段缺口和需要复核的地方留在结果里。</p>
         <form id="research-form">
           <label for="question">研究问题</label>
-          <textarea id="question" rows="4" required>研究 HER2 阳性乳腺癌中 PIK3CA 突变是否影响治疗响应，并整理患者级科研数据集</textarea>
+          <textarea id="question" rows="4" required placeholder="例如：我想研究 Ia 型超新星光变曲线"></textarea>
           <div id="demo-question-chips" class="demo-question-chips" aria-label="换题演示">
             <button type="button" data-demo-question="哪些因素会影响乳腺癌新辅助治疗后的病理完全缓解（pCR）？需要患者级临床结局。">① 新辅助 pCR</button>
             <button type="button" data-demo-question="研究肺腺癌中 EGFR 突变与生存结局的关系，整理同一队列的患者级临床与突变数据。">② 肺腺癌 EGFR</button>
@@ -183,6 +207,11 @@
             <button type="button" data-demo-question="研究肝细胞癌中 TP53/CTNNB1 突变与生存结局的关系，整理同一队列的患者级临床与突变数据。">④ 肝细胞癌 TP53/CTNNB1</button>
           </div>
           <p class="section-note">可选示例。主路径是提交问题后系统自主解析、选工具、多轮按缺口补搜，达到目标或轮次门限才停。</p>
+          <div class="autonomous-defaults" aria-label="默认自主运行策略">
+            <span><i>01</i>理解问题</span><span><i>02</i>发现来源</span><span><i>03</i>构建字段</span><span><i>04</i>建立证据链</span><span><i>05</i>交付资产</span>
+          </div>
+          <details class="run-options">
+            <summary>运行边界与模型设置（可选）</summary>
           <div class="form-grid">
             <label>执行模式
               <select id="data-mode">
@@ -227,9 +256,10 @@
             <label class="switch-control"><input id="allow-fallback" type="checkbox" checked /><span><strong>允许确定性兜底</strong><small>模型不可用时生成可审查的确定性计划</small></span></label>
             <label class="switch-control"><input id="closed-loop" type="checkbox" checked /><span><strong>启用闭环自我修正</strong><small>任务内按缺口多轮换方法；完成后再跑两轮对照</small></span></label>
           </div>
+          </details>
           <div class="form-actions">
-            <p>系统会按研究问题自主检索公开数据库、文献中的 GSE/NCT，并换方法补全；达到目标或轮次门限后停止。新增入口不构成跨研究患者合并。</p>
-            <button id="submit-button" class="button button-primary" type="submit">运行研究协议</button>
+            <p>系统会按研究问题自主检索公开数据库与文献，并换方法补全；达到目标或轮次门限后停止。新增入口不构成跨研究患者合并。</p>
+            <button id="submit-button" class="button button-primary" type="submit">开始自主研究 →</button>
           </div>
         </form>
       </section>
@@ -237,7 +267,16 @@
       <section id="progress" class="panel progress-panel" hidden aria-live="polite">
         <div class="progress-heading"><div><p class="section-kicker">正在执行协议</p><h2 id="progress-label">正在解析研究问题…</h2></div><strong id="progress-percent">10%</strong></div>
         <div class="progress-track"><span id="progress-bar"></span></div>
-        <p class="progress-note">模型规划与公开数据库请求可能持续数十秒，请勿关闭本页。</p>
+        <p class="progress-note">模型规划与公开数据库请求可能持续数十秒，请勿关闭本页；过程结果会在下方逐步可审查。</p>
+        <div id="progress-phase-list" class="progress-phase-list" aria-label="自主运行阶段">
+          <span data-progress-phase="understand">理解问题</span>
+          <span data-progress-phase="plan">规划路径</span>
+          <span data-progress-phase="discover">发现来源</span>
+          <span data-progress-phase="schema">构建字段</span>
+          <span data-progress-phase="evidence">建立证据链</span>
+          <span data-progress-phase="quality">质量检查</span>
+          <span data-progress-phase="deliver">交付资产</span>
+        </div>
       </section>
       <section id="error-panel" class="panel error-panel" hidden role="alert"></section>
 
@@ -364,6 +403,7 @@
             <div class="button-group">
               <button class="button button-primary export-button" data-format="xlsx" type="button">下载 Excel</button>
               <button class="button button-secondary export-button" data-format="csv" type="button">下载 CSV</button>
+              <button class="button button-secondary export-button" data-format="sources" type="button">下载来源数据包</button>
               <button class="button button-secondary export-button" data-format="quality_report" type="button">下载质量报告</button>
             </div>
           </div>
@@ -427,12 +467,12 @@
         </details>
 
         <section id="provenance" class="panel">
-          <div class="section-heading"><div><p class="section-kicker">10 · 数据溯源</p><h2>来源登记与官方溯源</h2></div><span id="source-count" class="count-tag"></span></div>
+          <div class="section-heading"><div><p class="section-kicker">10 · EVIDENCE LINEAGE</p><h2>数据血缘与证据流</h2></div><span id="source-count" class="count-tag"></span></div>
           <details class="report-drawer lineage-report-drawer">
             <summary>查看完整来源关系图</summary>
           <div class="lineage-panel">
             <div class="lineage-heading">
-              <div><strong>科研问题 → 多源检索 → 主科研数据集</strong><span>连线表示检索与选择关系，不表示跨患者拼接。</span></div>
+              <div><strong>科研问题 → 多源检索 → 主科研数据集</strong><span>每条线都能回到来源登记；连线表示检索与选择关系，不表示跨患者拼接。</span></div>
               <div class="lineage-toolbar" role="group" aria-label="数据溯源图控制">
                 <button id="lineage-show-all" type="button" aria-pressed="false">全部来源</button>
                 <button id="lineage-show-primary" type="button" aria-pressed="true">仅主路径</button>
@@ -506,22 +546,22 @@
 
     <dialog id="qwen-first-run-dialog" class="qwen-dialog qwen-first-run-dialog" aria-labelledby="qwen-first-run-title">
       <div class="raw-dialog-heading">
-        <div><p class="section-kicker">首次运行提示</p><h2 id="qwen-first-run-title">请先连接千问 API</h2></div>
+        <div><p class="section-kicker">首次运行提示</p><h2 id="qwen-first-run-title">请先配置研究服务</h2></div>
         <button id="qwen-first-run-cancel" type="button" aria-label="关闭首次运行提示">×</button>
       </div>
-      <p class="section-note">开始研究前需要先配置并验证千问 API。系统默认使用千问 3.8 系列的 Max 高性能模型（Qwen3.8-Max）；凭据只会保存在当前后端进程的临时内存会话中，不会写入项目文件。</p>
+      <p class="section-note">首次连接并验证千问 API 后，连接信息会保存在当前浏览器本机，用来在页面或后端重启后自动重建会话。API Key 不写入项目文件、数据库、日志、任务结果或下载文件；清除本机连接即可删除。</p>
       <div class="api-actions">
-        <button id="qwen-first-run-configure" class="button button-primary" type="button">去配置 API</button>
+        <button id="qwen-first-run-configure" class="button button-primary" type="button">去配置服务</button>
         <button id="qwen-first-run-cancel-secondary" class="button button-secondary" type="button">稍后配置</button>
       </div>
     </dialog>
 
     <dialog id="qwen-connection-dialog" class="qwen-dialog" aria-labelledby="qwen-dialog-title">
       <div class="raw-dialog-heading">
-        <div><p class="section-kicker">千问 API 连接</p><h2 id="qwen-dialog-title">配置千问模型凭据</h2></div>
+        <div><p class="section-kicker">研究服务连接</p><h2 id="qwen-dialog-title">配置千问 API（Giiisp 可选）</h2></div>
         <button id="qwen-dialog-close" type="button" aria-label="关闭千问 API 配置">×</button>
       </div>
-      <p class="section-note">默认使用千问 3.8 系列的 Max 高性能模型（Qwen3.8-Max）。可手工录入，或从本机百炼凭据 CSV 导入；CSV 不上传，仅连接所需字段经 HTTPS 提交至当前后端。</p>
+      <p class="section-note">研究规划只要求千问 API；Giiisp 是可选文献入口，不配置时自动使用 Europe PMC。首次验证后会把千问连接信息保存在当前浏览器本机，服务重启时自动重新建立后端会话。</p>
       <form id="qwen-connection-form">
         <label class="qwen-file-import" for="qwen-credential-file"><strong>从百炼凭据 CSV 导入</strong><span>支持包含 apiKey、openAiCompatible、workspaceId 的 id/value 表</span><input id="qwen-credential-file" type="file" accept=".csv,text/csv" /></label>
         <div class="qwen-form-grid">
@@ -538,8 +578,18 @@
             <input id="qwen-workspace-id" type="text" autocomplete="off" spellcheck="false" />
           </label>
         </div>
-        <div class="qwen-security-note"><strong>安全方式</strong><span>后端先验证连接，再把凭据放入最长 2 小时的进程内存会话；不写入数据库、日志、缓存、任务结果或下载文件。服务重启后会话自动失效。</span></div>
+        <div class="qwen-security-note"><strong>保存方式</strong><span>后端先验证连接，再把凭据放入最长 2 小时的进程内存会话；浏览器本机保存连接信息，仅用于服务重启后的自动恢复，不写入数据库、日志、缓存、任务结果或下载文件。清除本机连接会同时删除浏览器保存内容。</span></div>
         <p id="qwen-connect-status" class="download-status" aria-live="polite">尚未提交凭据。</p>
+        <div class="qwen-form-grid giiisp-config-block">
+          <label class="qwen-field qwen-field-wide">Giiisp API Key（可选）
+            <input id="giiisp-api-key" type="password" autocomplete="new-password" placeholder="输入 Giiisp API Key" />
+          </label>
+          <label class="qwen-field qwen-field-wide">Giiisp Base URL（可选）
+            <input id="giiisp-base-url" type="url" autocomplete="url" placeholder="填写 Giiisp 官方 API 或 MCP 服务地址" spellcheck="false" />
+          </label>
+          <p id="giiisp-config-status" class="download-status giiisp-status" aria-live="polite">Giiisp 尚未配置；文献扫描会自动使用 Europe PMC。</p>
+          <button id="giiisp-save" class="button button-secondary" type="button">保存可选 Giiisp 配置</button>
+        </div>
         <div class="api-actions">
           <button id="qwen-cancel-config" class="button button-secondary" type="button">取消</button>
           <button id="qwen-connect" class="button button-primary" type="submit">测试连接并启用</button>
@@ -563,9 +613,48 @@
       <div class="table-wrap"><table><thead><tr><th>中文属性</th><th>标准化中文值</th><th>原始值</th></tr></thead><tbody id="raw-dialog-body"></tbody></table></div>
       <p class="raw-dialog-note">仅调整展示层；原始记录与导出文件未改写。</p>
     </dialog>
+    <aside id="wish-rabbit" class="wish-rabbit" aria-label="科研兔科研解析助手">
+      <section id="wish-rabbit-panel" class="wish-rabbit-panel" hidden aria-label="科研兔科研解析对话">
+        <div class="wish-rabbit-window">
+          <header class="wish-rabbit-panel-head">
+            <div class="wish-rabbit-profile">
+              <span class="wish-rabbit-panel-avatar" aria-hidden="true">
+                <svg viewBox="0 0 64 64" fill="none"><path d="M21 27c-5-8-5-19-1-22 6-4 10 8 10 17 2-2 4-3 7-3s5 1 7 3c0-9 4-21 10-17 4 3 4 14-1 22 3 3 5 7 5 12 0 12-8 19-21 19S16 51 16 39c0-5 2-9 5-12Z" fill="#FFFDF8" stroke="#1D3557" stroke-width="2.5"/><path d="M20 8c0 5 2 10 5 14M44 22c3-4 5-9 5-14" stroke="#F19DB5" stroke-width="3" stroke-linecap="round"/><circle cx="27" cy="36" r="2.3" fill="#1D3557"/><circle cx="43" cy="36" r="2.3" fill="#1D3557"/><path d="M32 43c2 2 4 2 6 0M34 41c0 2 0 3-1 4M38 41c0 2 0 3 1 4" stroke="#D56B8B" stroke-width="1.8" stroke-linecap="round"/><circle cx="21" cy="42" r="3" fill="#F8C9D6" opacity=".8"/><circle cx="49" cy="42" r="3" fill="#F8C9D6" opacity=".8"/></svg>
+              </span>
+              <div><p class="wish-rabbit-panel-kicker">RESEARCH COMPANION</p><strong>科研兔</strong><span><i aria-hidden="true"></i> 可直接回答问题 · 读取主入口上下文</span></div>
+            </div>
+            <button id="wish-rabbit-close" class="wish-rabbit-icon-button" type="button" aria-label="关闭科研兔">×</button>
+          </header>
+          <div class="wish-rabbit-context"><span><b>已接入主入口</b> 课题、方案、数据、质量和血缘 · 只读解析</span><button id="wish-rabbit-clear" type="button">清空对话</button></div>
+          <div id="wish-rabbit-messages" class="wish-rabbit-messages" aria-live="polite">
+            <article class="wish-rabbit-message is-assistant"><span class="wish-rabbit-message-avatar" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none"><path d="M21 27c-5-8-5-19-1-22 6-4 10 8 10 17 2-2 4-3 7-3s5 1 7 3c0-9 4-21 10-17 4 3 4 14-1 22 3 3 5 7 5 12 0 12-8 19-21 19S16 51 16 39c0-5 2-9 5-12Z" fill="#FFFDF8" stroke="#1D3557" stroke-width="2.5"/><path d="M20 8c0 5 2 10 5 14M44 22c3-4 5-9 5-14" stroke="#F19DB5" stroke-width="3" stroke-linecap="round"/><circle cx="27" cy="36" r="2.3" fill="#1D3557"/><circle cx="43" cy="36" r="2.3" fill="#1D3557"/><path d="M32 43c2 2 4 2 6 0M34 41c0 2 0 3-1 4M38 41c0 2 0 3 1 4" stroke="#D56B8B" stroke-width="1.8" stroke-linecap="round"/><circle cx="21" cy="42" r="3" fill="#F8C9D6" opacity=".8"/><circle cx="49" cy="42" r="3" fill="#F8C9D6" opacity=".8"/></svg></span><div class="wish-rabbit-message-body"><header><strong>科研兔</strong><small>刚刚</small></header><p>你好呀。这里可以先随便聊天，也可以把一个模糊的科研愿望说给我听。我会帮你理清思路；想进入正式研究时，再把它带回研究向导。</p></div></article>
+          </div>
+          <div class="wish-rabbit-suggestions" aria-label="聊天建议">
+            <span>你可以这样开始</span>
+            <button type="button" data-wish-explain="topic">解析当前课题</button>
+            <button type="button" data-wish-explain="dataset">解释当前数据集</button>
+            <button type="button" data-wish-prompt="我最近有点没有研究思路，陪我想几个方向">陪我想想研究方向</button>
+            <button type="button" data-wish-prompt="为什么要保留数据来源和原始字段？">聊聊科研数据</button>
+            <button type="button" data-wish-prompt="请把我们接下来的聊天整理成研究问题">整理问题</button>
+          </div>
+          <form id="wish-rabbit-form" class="wish-rabbit-composer">
+            <div class="wish-rabbit-input-wrap"><textarea id="wish-rabbit-input" rows="2" placeholder="和科研兔说点什么…" aria-label="和科研兔聊天"></textarea><small>Enter 发送 · Shift + Enter 换行</small></div>
+            <button id="wish-rabbit-send" class="wish-rabbit-send" type="submit" aria-label="发送消息" title="发送消息"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 4 16 8-16 8 3.3-7.1L14 12l-6.7-.9L4 4Z" fill="currentColor"/></svg></button>
+          </form>
+          <p class="wish-rabbit-disclaimer">科研兔会基于主入口已有内容回答和分析；正式检索、数据下载与证据判断仍由研究向导和真实来源完成。</p>
+        </div>
+      </section>
+      <button id="wish-rabbit-toggle" class="wish-rabbit-toggle" type="button" aria-expanded="false" aria-controls="wish-rabbit-panel" title="和科研兔聊聊研究想法">
+        <span class="wish-rabbit-avatar" aria-hidden="true">
+          <svg viewBox="0 0 64 64" fill="none"><path d="M21 27c-5-8-5-19-1-22 6-4 10 8 10 17 2-2 4-3 7-3s5 1 7 3c0-9 4-21 10-17 4 3 4 14-1 22 3 3 5 7 5 12 0 12-8 19-21 19S16 51 16 39c0-5 2-9 5-12Z" fill="#FFFDF8" stroke="#1D3557" stroke-width="2.5"/><path d="M20 8c0 5 2 10 5 14M44 22c3-4 5-9 5-14" stroke="#F19DB5" stroke-width="3" stroke-linecap="round"/><circle cx="27" cy="36" r="2.3" fill="#1D3557"/><circle cx="43" cy="36" r="2.3" fill="#1D3557"/><path d="M32 43c2 2 4 2 6 0M34 41c0 2 0 3-1 4M38 41c0 2 0 3 1 4" stroke="#D56B8B" stroke-width="1.8" stroke-linecap="round"/><circle cx="21" cy="42" r="3" fill="#F8C9D6" opacity=".8"/><circle cx="49" cy="42" r="3" fill="#F8C9D6" opacity=".8"/></svg>
+        </span>
+        <span><strong>科研兔</strong><small>科研解析助手 · 聊聊与解析研究</small></span>
+      </button>
+    </aside>
     <div id="toast" class="toast" hidden role="status" aria-live="polite"></div>
-    <footer><span>千问科研数据智能体</span><span>模型负责规划；规则负责安全边界；数据须真实可追溯</span></footer>
+    <footer><span>科研数据智能体</span><span>模型负责规划；规则负责安全边界；数据须真实可追溯</span></footer>
     <!-- 输入你真正想研究的问题 规划与真实检索入口 先明确研究需要什么数据 每一步筛选都能解释清楚 患者编号能不能安全对上 -->
-    <script src="/app.js?v=20260830-research-workbench-5" defer></script>
+  <script src="/astronomy.js?v=20260906-companion-chat-4" defer></script>
+  <script src="/app.js?v=20260906-companion-chat-4" defer></script>
   </body>
 </html>

@@ -1,0 +1,44 @@
+# 天文来源：本阶段只允许 catalog_only / planned，不能假装已支持取数。
+
+sources:
+  - source_key: nasa_mast
+    display_name: NASA MAST
+    domain: astronomy
+    resource_kind: catalog
+    modalities:
+      - spectrum
+      - light_curve
+    fetch_binding: null
+    discovery_binding: null
+    status: catalog_only
+
+  - source_key: ads
+    display_name: NASA ADS
+    domain: astronomy
+    resource_kind: literature
+    modalities:
+      - publication
+    fetch_binding: null
+    discovery_binding: null
+    status: planned
+
+  - source_key: open_supernova_catalog
+    display_name: Open Supernova Catalog
+    domain: astronomy
+    resource_kind: catalog
+    modalities:
+      - light_curve
+    fetch_binding: null
+    discovery_binding: null
+    status: planned
+
+  - source_key: zenodo_astronomy
+    display_name: Zenodo Astronomy Records
+    domain: astronomy
+    resource_kind: repository
+    modalities:
+      - spectrum
+      - catalog_table
+    fetch_binding: null
+    discovery_binding: null
+    status: catalog_only

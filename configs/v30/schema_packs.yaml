@@ -1,0 +1,11 @@
+# Schema pack 索引。不复制、不改写冻结 canonical_schema.yaml。
+
+packs:
+  - schema_pack_id: oncology_canonical_v0.1
+    aliases:
+      - oncology_canonical
+    domain: oncology
+    entity_type: patient
+    binding: frozen_canonical
+    canonical_schema_path: configs/canonical_schema.yaml
+    writable: false

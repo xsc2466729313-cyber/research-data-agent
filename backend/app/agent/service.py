@@ -78,7 +78,7 @@ from backend.app.sources.cbioportal.models import (
 from backend.app.sources.civic import CIViCAdapter
 from backend.app.sources.civic.models import CIViCAdapterOptions, CIViCAdapterRequest
 from backend.app.sources.depmap import DepMapAdapter, DepMapAdapterResult
-from backend.app.sources.discovery import DiscoveryAdapter
+from backend.app.sources.discovery import DiscoveryAdapter, DiscoveryAdapterResult
 from backend.app.sources.gdc import GDCAdapter
 from backend.app.sources.gdc.models import GDCAdapterOptions, GDCAdapterRequest
 from backend.app.sources.geo import GEOAdapter
@@ -111,6 +111,7 @@ TOOL_LABELS = {
     "search_depmap": "检索 DepMap 细胞系药敏",
     "search_biosample": "检索 NCBI BioSample 样本元数据",
     "search_europe_pmc": "检索 Europe PMC 文献证据",
+    "search_zenodo": "检索 Zenodo 通用科研数据集",
     "extract_paper_assets": "提取论文表格与图注",
 }
 
@@ -471,6 +472,20 @@ class ResearchAgentService:
                         built_datasets.append(geo_dataset)
                 elif name == "search_depmap" and isinstance(raw_result, DepMapAdapterResult):
                     built_datasets.append(self.dataset_builder.build_from_depmap(raw_result, spec))
+                elif (
+                    getattr(spec, "domain", "oncology") == "general_science"
+                    and name == "search_zenodo"
+                    and isinstance(raw_result, DiscoveryAdapterResult)
+                ):
+                    records = list(raw_result.records)
+                    built_datasets.append(self.dataset_builder.build_from_zenodo(records, spec))
+                elif (
+                    getattr(spec, "domain", "oncology") == "general_science"
+                    and name == "search_europe_pmc"
+                    and isinstance(raw_result, DiscoveryAdapterResult)
+                ):
+                    records = list(raw_result.records)
+                    built_datasets.append(self.dataset_builder.build_from_europe_pmc(records, spec))
             primary_candidates = built_datasets
             if needs_clinical_outcome(spec):
                 primary_candidates = [
@@ -693,7 +708,7 @@ class ResearchAgentService:
             message="正在执行四层质量门检查。",
         )
 
-        summary = self._fallback_summary(dataset.row_count, readiness.warnings)
+        summary = self._fallback_summary(dataset.row_count, readiness.warnings, getattr(spec, "domain", "oncology"))
         if model_used and tool_message is not None and executed:
             tool_summaries = [
                 {
@@ -971,6 +986,10 @@ class ResearchAgentService:
     ) -> list[dict[str, Any]]:
         """Keep direct follow-up retrieval inside the task's selected data domain."""
 
+        if getattr(spec, "domain", "oncology") == "general_science":
+            allowed = {"search_zenodo", "search_europe_pmc", "extract_paper_assets"}
+            return [call for call in calls if str(call.get("name") or "") in allowed]
+
         direct_tools = {
             "search_geo",
             "search_cbioportal",
@@ -1036,6 +1055,7 @@ class ResearchAgentService:
             "search_depmap",
             "search_biosample",
             "search_europe_pmc",
+            "search_zenodo",
             "extract_paper_assets",
         }:
             arguments = dict(action.arguments or {})
@@ -1075,6 +1095,7 @@ class ResearchAgentService:
             "search_depmap": "DepMap",
             "search_biosample": "BioSample",
             "search_europe_pmc": "Europe PMC",
+            "search_zenodo": "Zenodo",
             "extract_paper_assets": "Europe PMC",
         }
         if name not in source_names:
@@ -1167,6 +1188,8 @@ class ResearchAgentService:
             return self.discovery.search_biosample(task_id=spec.task_id, query=query, max_records=limit, search_plan=plan)
         if name == "search_europe_pmc":
             return self.discovery.search_europe_pmc(task_id=spec.task_id, query=query, max_records=limit, search_plan=plan)
+        if name == "search_zenodo":
+            return self.discovery.search_zenodo(task_id=spec.task_id, query=query, max_records=limit, search_plan=plan)
         raise ValueError(f"千问请求了未注册工具：{name}")
 
     @staticmethod
@@ -1268,38 +1291,56 @@ class ResearchAgentService:
             outcomes.append("treatment_response")
         if question_asks_survival(question):
             outcomes.append("survival")
-        required = ["clinical"]
-        if genes:
-            required.append("mutation")
-        if "表达" in question:
-            required.append("expression")
-        if "treatment_response" in outcomes:
-            required.append("treatment_response")
-        required.append("evidence")
-        disease = canonical_disease_name(question)
-        if disease == "Cancer" and any(
-            token in upper
-            for token in ("HER2", "ERBB2", "ESR1", "SCAN-B", "TNBC", "TRIPLE-NEGATIVE")
-        ):
-            disease = "Breast Cancer"
-        return ResearchSpec(
-            task_id=task_id,
-            research_goal=question,
-            disease=disease,
-            subtype=subtype,
-            genes=genes,
-            variants=[],
-            drugs=list(dict.fromkeys(drugs)),
-            outcomes=outcomes,
-            required_data_types=list(dict.fromkeys(required)),
-            target_fields=[
+        oncology_markers = (
+            "癌", "肿瘤", "患者", "乳腺", "临床试验", "疗效", "预后", "her2", "erbb2",
+            "cancer", "carcinoma", "sarcoma", "neoplasm", "metastatic", "tnbc",
+        )
+        is_oncology = bool(
+            genes
+            or drugs
+            or subtype
+            or any(marker in question.casefold() for marker in oncology_markers)
+        )
+        domain = "oncology" if is_oncology else "general_science"
+        if domain == "general_science":
+            required = ["publication", "evidence"]
+            disease = "General Science"
+            target_fields = ["dataset_id", "title", "source_id"]
+        else:
+            required = ["clinical"]
+            if genes:
+                required.append("mutation")
+            if "表达" in question:
+                required.append("expression")
+            if "treatment_response" in outcomes:
+                required.append("treatment_response")
+            required.append("evidence")
+            disease = canonical_disease_name(question)
+            if disease == "Cancer" and any(
+                token in upper
+                for token in ("HER2", "ERBB2", "ESR1", "SCAN-B", "TNBC", "TRIPLE-NEGATIVE")
+            ):
+                disease = "Breast Cancer"
+            target_fields = [
                 "patient_id",
                 "sample_id",
                 "subtype",
                 *(["gene", "mutation_status"] if genes else []),
                 *(["treatment", "response"] if "treatment_response" in outcomes else []),
                 *(["os_status", "os_months", "dfs_status", "dfs_months"] if "survival" in outcomes else []),
-            ],
+            ]
+        return ResearchSpec(
+            task_id=task_id,
+            research_goal=question,
+            disease=disease,
+            domain=domain,
+            subtype=subtype,
+            genes=genes,
+            variants=[],
+            drugs=list(dict.fromkeys(drugs)),
+            outcomes=outcomes,
+            required_data_types=list(dict.fromkeys(required)),
+            target_fields=target_fields,
         )
 
     def _deterministic_tool_calls(
@@ -1611,7 +1652,7 @@ class ResearchAgentService:
                 arguments["molecular_profile_name"] = spec.genes[0] if spec.genes else None
                 arguments["therapy_name"] = spec.drugs[0] if spec.drugs else self._optional_text(arguments.get("therapy_name"))
                 arguments["max_items"] = 5
-            elif name in {"search_biosample", "search_europe_pmc", "search_geo_catalog"}:
+            elif name in {"search_biosample", "search_europe_pmc", "search_geo_catalog", "search_zenodo"}:
                 terms = question_search_terms(spec.research_goal, spec)
                 default_query = (
                     catalog_query(spec, extra_terms=terms)
@@ -1620,6 +1661,8 @@ class ResearchAgentService:
                     if name == "search_europe_pmc"
                     else f"{spec.disease} {' '.join(spec.genes + spec.drugs + terms[:8])}"
                 )
+                if name == "search_zenodo":
+                    default_query = " ".join([spec.research_goal, *terms[:8]]).strip()
                 arguments["query"] = self._optional_text(arguments.get("query")) or default_query
                 arguments["max_records"] = min(int(arguments.get("max_records") or 20), 100)
             else:
@@ -1778,8 +1821,11 @@ class ResearchAgentService:
     def _enrich_research_spec(spec: ResearchSpec, question: str) -> ResearchSpec:
         upper = question.upper()
         baseline = ResearchAgentService._deterministic_spec(question, spec.task_id)
+        domain = baseline.domain if baseline.domain == "general_science" else spec.domain
         detected_disease = canonical_disease_name(question)
         disease = detected_disease if detected_disease != "Cancer" else spec.disease
+        if domain == "general_science":
+            disease = "General Science"
         if disease == "Cancer" and baseline.disease != "Cancer":
             disease = baseline.disease
         genes = list(dict.fromkeys([*spec.genes, *baseline.genes]))
@@ -1818,24 +1864,40 @@ class ResearchAgentService:
         if question_asks_survival(question) and "survival" not in outcomes:
             outcomes.append("survival")
         required = list(dict.fromkeys([*spec.required_data_types, *baseline.required_data_types]))
-        if "treatment_response" not in outcomes:
-            required = [item for item in required if item != "treatment_response"]
-        for item in ("clinical", "mutation", "evidence"):
-            if item not in required:
-                required.append(item)
-        if "treatment_response" in outcomes and "treatment_response" not in required:
+        if domain == "general_science":
+            genes = []
+            drugs = []
+            subtype = None
+            outcomes = []
+            required = [item for item in required if item not in {"clinical", "mutation", "expression", "treatment_response"}]
+            for item in ("publication", "evidence"):
+                if item not in required:
+                    required.append(item)
+        else:
+            if "treatment_response" not in outcomes:
+                required = [item for item in required if item != "treatment_response"]
+            for item in ("clinical", "mutation", "evidence"):
+                if item not in required:
+                    required.append(item)
+        if domain != "general_science" and "treatment_response" in outcomes and "treatment_response" not in required:
             required.append("treatment_response")
+        target_fields = (
+            list(dict.fromkeys([*baseline.target_fields, *spec.target_fields]))
+            if domain != "general_science"
+            else list(dict.fromkeys(baseline.target_fields))
+        )
         return spec.model_copy(
             update={
                 "research_goal": question,
                 "disease": disease,
+                "domain": domain,
                 "subtype": subtype,
                 "genes": list(dict.fromkeys(genes)),
                 "variants": list(dict.fromkeys([*spec.variants, *baseline.variants])),
                 "drugs": list(dict.fromkeys(drugs)),
                 "outcomes": outcomes,
                 "required_data_types": required,
-                "target_fields": list(dict.fromkeys([*spec.target_fields, *baseline.target_fields])),
+                "target_fields": target_fields,
             }
         )
 
@@ -1940,7 +2002,7 @@ class ResearchAgentService:
                     accession=result.accession,
                 )
             ]
-        if name == "search_geo_catalog":
+        if name in {"search_geo_catalog", "search_zenodo"}:
             return ResearchAgentService._discovery_candidates(name, result, spec)
         if name == "search_cbioportal":
             metadata = result.study.raw_metadata
@@ -2031,7 +2093,7 @@ class ResearchAgentService:
                     accession=pmcid,
                 )
             ]
-        if name in {"search_biosample", "search_europe_pmc", "search_geo_catalog"}:
+        if name in {"search_biosample", "search_europe_pmc", "search_geo_catalog", "search_zenodo"}:
             return ResearchAgentService._discovery_candidates(name, result, spec)
         if name == "search_civic":
             items = list(getattr(result, "evidence_items", None) or [])
@@ -2058,20 +2120,36 @@ class ResearchAgentService:
     def _discovery_candidates(name: str, result: Any, spec: ResearchSpec | None = None) -> list[CandidateSource]:
         is_biosample = name == "search_biosample"
         is_geo_catalog = name == "search_geo_catalog"
+        is_zenodo = name == "search_zenodo"
         source_database = (
-            "NCBI BioSample" if is_biosample else "NCBI GEO" if is_geo_catalog else "Europe PMC"
+            "NCBI BioSample"
+            if is_biosample
+            else "NCBI GEO"
+            if is_geo_catalog
+            else "Zenodo"
+            if is_zenodo
+            else "Europe PMC"
         )
-        data_type = "样本元数据" if is_biosample else "GEO 目录候选" if is_geo_catalog else "文献证据"
-        baseline = 0.78 if is_geo_catalog else 0.72 if is_biosample else 0.68
+        data_type = (
+            "样本元数据"
+            if is_biosample
+            else "GEO 目录候选"
+            if is_geo_catalog
+            else "通用科研数据集"
+            if is_zenodo
+            else "文献证据"
+        )
+        baseline = 0.82 if is_zenodo else 0.78 if is_geo_catalog else 0.72 if is_biosample else 0.68
         candidates: list[CandidateSource] = []
         for record in getattr(result, "records", []) or []:
-            dataset_id = str(
+            record_identifier = str(
                 getattr(record, "accession", None)
                 or getattr(record, "pmid", None)
                 or getattr(record, "record_id", None)
                 or getattr(record, "uid", None)
                 or ""
             ).strip()
+            dataset_id = f"zenodo:{record_identifier}" if is_zenodo and record_identifier else record_identifier
             dataset_name = str(getattr(record, "title", None) or dataset_id).strip()
             url = str(getattr(record, "url", None) or "").strip()
             if not dataset_id or not dataset_name or not url:
@@ -2083,8 +2161,12 @@ class ResearchAgentService:
                     str(getattr(record, "abstract", "") or ""),
                 ]
             )
-            sample_count = ResearchAgentService._optional_count(getattr(record, "n_samples", None))
-            match_score = (
+            sample_count = (
+                ResearchAgentService._optional_count(getattr(record, "n_samples", None))
+                if not is_zenodo
+                else None
+            )
+            match_score = 0 if is_zenodo else (
                 score_geo_text(
                     text,
                     spec,
@@ -2100,9 +2182,13 @@ class ResearchAgentService:
                 not preclinical
                 and any(token in text.casefold() for token in ("pcr", "response", "neoadjuvant", "缓解", "响应"))
             )
+            if is_zenodo:
+                has_response = False
             relevance = min(0.99, max(0.05, baseline + max(-20, min(match_score, 20)) * 0.01))
             candidate_data_type = data_type
-            if preclinical:
+            if is_zenodo:
+                candidate_data_type = "通用科研数据集"
+            elif preclinical:
                 candidate_data_type = "GEO 前临床实验候选"
             elif clinical_cohort:
                 candidate_data_type = "GEO 患者队列候选"
@@ -2118,7 +2204,7 @@ class ResearchAgentService:
                     public_access=True,
                     relevance_score=round(relevance, 3),
                     url=url,
-                    accession=dataset_id,
+                    accession=(str(getattr(record, "doi", None) or record_identifier) if is_zenodo else dataset_id),
                 )
             )
         candidates.sort(key=lambda item: (-item.relevance_score, item.dataset_id))
@@ -2136,6 +2222,7 @@ class ResearchAgentService:
             "search_depmap": {"query", "drug", "max_records"},
             "search_biosample": {"query", "max_records"},
             "search_europe_pmc": {"query", "max_records"},
+            "search_zenodo": {"query", "max_records"},
             "extract_paper_assets": {"query", "pmcid", "max_records"},
         }.get(name, set())
         return {key: value for key, value in args.items() if key in allowed and value is not None}
@@ -2146,10 +2233,14 @@ class ResearchAgentService:
         return text or None
 
     @staticmethod
-    def _fallback_summary(row_count: int, warnings: list[str]) -> str:
+    def _fallback_summary(row_count: int, warnings: list[str], domain: str = "oncology") -> str:
         if not row_count:
+            if domain == "general_science":
+                return "已执行公开数据集与文献目录检索，但暂未发现可解析的记录。系统没有用虚假数据填充结果，可补充更具体的主题或数据格式后重试。"
             return "已经执行数据源规划，但尚未形成患者/样本级科研宽表。需要成功获取 cBioPortal 临床与组学表，或继续解析 GEO/GDC 下载文件。"
         warning = warnings[0] if warnings else "未发现阻断性问题。"
+        if domain == "general_science":
+            return f"已解析 {row_count} 条公开资源元数据记录。当前首要限制：{warning}"
         return f"已生成 {row_count} 行患者/样本级科研数据。当前首要限制：{warning}"
 
     @staticmethod

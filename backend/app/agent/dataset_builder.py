@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import gzip
+import json
 import re
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -27,6 +28,7 @@ from backend.app.oncology import resolve_cancer_profile
 from backend.app.sources.cbioportal.models import CBioPortalAdapterResult
 from backend.app.sources.depmap.models import DepMapAdapterResult
 from backend.app.sources.geo.models import GEOAdapterResult, GEOResourceType
+from backend.app.sources.discovery.models import EuropePMCRecord, ZenodoDatasetRecord
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -828,6 +830,153 @@ class ResearchDatasetBuilder:
                 "如题目研究患者疗效或生存，应改用含患者编号和对应临床结局的队列；本表仅作为机制证据独立保留。",
             )
         return dataset, report
+
+    def build_from_zenodo(
+        self,
+        records: list[ZenodoDatasetRecord] | Any,
+        spec: ResearchSpec,
+    ) -> tuple[ModelingDataset, AnalysisReadinessReport]:
+        """Turn official Zenodo catalog records into a traceable discovery table."""
+        del spec
+        if hasattr(records, "records"):
+            records = list(records.records)
+        rows = [
+            {
+                "dataset_id": f"zenodo:{record.record_id}",
+                "title": record.title or "",
+                "description": record.description or "",
+                "doi": record.doi or "",
+                "publication_date": record.publication_date or "",
+                "keywords": "; ".join(record.keywords),
+                "file_count": record.file_count,
+                "file_formats": "; ".join(record.file_formats),
+                "file_names": "; ".join(str(item.get("key") or "") for item in record.files if item.get("key")),
+                "first_file_url": next((str(item.get("download_url") or "") for item in record.files if item.get("download_url")), ""),
+                "dataset_url": record.url,
+                "source_id": record.source_item.source_id,
+                "raw_field": "metadata",
+                "raw_value": json.dumps(record.raw_record, ensure_ascii=False, sort_keys=True),
+            }
+            for record in records
+        ]
+        columns = [
+            DatasetColumn(name="dataset_id", label_zh="数据集编号", data_type="string", role="id", description="Zenodo 记录编号"),
+            DatasetColumn(name="title", label_zh="数据集标题", data_type="string", role="feature", description="官方数据集标题"),
+            DatasetColumn(name="description", label_zh="数据集说明", data_type="string", role="feature", description="官方数据集描述"),
+            DatasetColumn(name="doi", label_zh="DOI", data_type="string", role="identifier", description="官方 DOI（如有）"),
+            DatasetColumn(name="publication_date", label_zh="发布日期", data_type="string", role="feature", description="Zenodo 发布日期"),
+            DatasetColumn(name="keywords", label_zh="关键词", data_type="string", role="feature", description="官方关键词"),
+            DatasetColumn(name="file_count", label_zh="文件数量", data_type="number", role="feature", description="资源文件清单中的文件数"),
+            DatasetColumn(name="file_formats", label_zh="文件格式", data_type="string", role="feature", description="资源文件扩展名"),
+            DatasetColumn(name="file_names", label_zh="资源文件", data_type="string", role="feature", description="已从官方记录解析出的文件名清单"),
+            DatasetColumn(name="first_file_url", label_zh="首个文件链接", data_type="string", role="identifier", description="首个可下载资源文件的官方链接"),
+            DatasetColumn(name="dataset_url", label_zh="官方链接", data_type="string", role="identifier", description="Zenodo 记录页面"),
+            DatasetColumn(name="source_id", label_zh="来源编号", data_type="string", role="audit", description="本次检索登记的来源编号"),
+            DatasetColumn(name="raw_field", label_zh="原始字段", data_type="string", role="audit", description="保留原始元数据所在字段"),
+            DatasetColumn(name="raw_value", label_zh="原始值", data_type="json", role="audit", description="保留官方原始 JSON 元数据"),
+        ]
+        dataset = ModelingDataset(
+            name="Zenodo 公开科研数据集候选",
+            unit_of_analysis="公开数据集记录",
+            columns=columns,
+            rows=rows,
+            row_count=len(rows),
+            patient_count=0,
+            sample_count=0,
+            target_column=None,
+            dataset_role="discovery",
+            study_key="zenodo",
+        )
+        completeness = (
+            sum(bool(row.get(field)) for row in rows for field in ("title", "dataset_url"))
+            / (len(rows) * 2)
+            if rows
+            else 0.0
+        )
+        readiness = AnalysisReadinessReport(
+            status="可继续解析" if rows else "未发现候选",
+            analysis_ready=False,
+            row_count=len(rows),
+            feature_count=10,
+            target_column=None,
+            field_completeness_rate=round(completeness, 3),
+            target_match=False,
+            split_strategy="按公开数据集记录审查；下载具体文件后再根据其主键和研究设计决定分析切分。",
+            warnings=[
+                "当前结果是公开数据集元数据和资源文件清单；尚未下载文件内容，不代表患者或样本事实。"
+            ],
+            recommendations=[
+                "选择一个官方数据集继续下载并解析 CSV/JSON 等文件字段，确认许可、主键和研究结局后再进入统计分析。"
+            ],
+        )
+        return dataset, readiness
+
+    def build_from_europe_pmc(
+        self,
+        records: list[EuropePMCRecord] | Any,
+        spec: ResearchSpec,
+    ) -> tuple[ModelingDataset, AnalysisReadinessReport]:
+        """Provide a real publication table when a topic has literature but no catalog hit."""
+        del spec
+        if hasattr(records, "records"):
+            records = list(records.records)
+        rows = [
+            {
+                "publication_id": record.record_id,
+                "pmid": record.pmid or "",
+                "doi": record.doi or "",
+                "title": record.title or "",
+                "journal": record.journal or "",
+                "publication_year": record.publication_year,
+                "abstract": record.abstract or "",
+                "source_id": record.source_item.source_id,
+                "publication_url": record.url,
+                "raw_field": "metadata",
+                "raw_value": json.dumps(record.raw_record, ensure_ascii=False, sort_keys=True),
+            }
+            for record in records
+        ]
+        columns = [
+            DatasetColumn(name="publication_id", label_zh="文献编号", data_type="string", role="id", description="Europe PMC 记录编号"),
+            DatasetColumn(name="pmid", label_zh="PMID", data_type="string", role="identifier", description="PubMed 编号"),
+            DatasetColumn(name="doi", label_zh="DOI", data_type="string", role="identifier", description="数字对象标识符"),
+            DatasetColumn(name="title", label_zh="标题", data_type="string", role="feature", description="论文标题"),
+            DatasetColumn(name="journal", label_zh="期刊", data_type="string", role="feature", description="期刊名称"),
+            DatasetColumn(name="publication_year", label_zh="发表年份", data_type="number", role="feature", description="发表年份"),
+            DatasetColumn(name="abstract", label_zh="摘要", data_type="text", role="feature", description="公开摘要文本"),
+            DatasetColumn(name="source_id", label_zh="来源编号", data_type="string", role="audit", description="本次检索登记的来源编号"),
+            DatasetColumn(name="publication_url", label_zh="官方链接", data_type="string", role="identifier", description="Europe PMC 页面"),
+            DatasetColumn(name="raw_field", label_zh="原始字段", data_type="string", role="audit", description="保留原始元数据所在字段"),
+            DatasetColumn(name="raw_value", label_zh="原始值", data_type="json", role="audit", description="保留官方原始 JSON 元数据"),
+        ]
+        dataset = ModelingDataset(
+            name="Europe PMC 公开文献记录",
+            unit_of_analysis="文献记录",
+            columns=columns,
+            rows=rows,
+            row_count=len(rows),
+            patient_count=0,
+            sample_count=0,
+            dataset_role="discovery",
+            study_key="europe_pmc",
+        )
+        readiness = AnalysisReadinessReport(
+            status="可继续解析" if rows else "未发现候选",
+            analysis_ready=False,
+            row_count=len(rows),
+            feature_count=7,
+            field_completeness_rate=round(
+                sum(bool(row.get(field)) for row in rows for field in ("title", "publication_url"))
+                / (len(rows) * 2)
+                if rows
+                else 0.0,
+                3,
+            ),
+            split_strategy="文献记录仅用于证据和数据集发现；需选定原始数据资源后再构造分析队列。",
+            warnings=["文献元数据不等同于患者级研究数据，不能直接用于疗效或预后统计。"],
+            recommendations=["从论文关联的公开数据集或附件继续下载并解析原始表格。"],
+        )
+        return dataset, readiness
 
     def _dataset_from_rows(
         self,

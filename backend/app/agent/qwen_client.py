@@ -265,6 +265,21 @@ class QwenClient:
         {
             "type": "function",
             "function": {
+                "name": "search_zenodo",
+                "description": "检索 Zenodo 官方公开数据集目录，解析标题、描述、DOI、关键词和资源文件清单；结果是元数据级候选，不代表患者级事实。",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "通用科研主题关键词"},
+                        "max_records": {"type": "integer", "minimum": 1, "maximum": 100},
+                    },
+                    "required": ["query"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
                 "name": "search_depmap",
                 "description": "检索 DepMap 肿瘤细胞系药敏（AUC/IC50）。结果的 response_domain 必须是 preclinical_cell_line，不能当作患者疗效。",
                 "parameters": {
@@ -312,6 +327,10 @@ class QwenClient:
     def available(self) -> bool:
         return self.settings.configured
 
+    def chat(self, *, messages: list[dict[str, Any]]) -> dict[str, Any]:
+        """Answer a bounded companion conversation without enabling research tools."""
+        return self._chat(messages=messages)
+
     def test_connection(self) -> None:
         message = self._chat(
             messages=[
@@ -327,17 +346,18 @@ class QwenClient:
 
     def extract_research_spec(self, question: str, task_id: str) -> ResearchSpec:
         prompt = {
-            "任务": "把肿瘤科研问题解析为严格 JSON",
+            "任务": "把科研问题解析为严格 JSON；支持肿瘤、天文和通用科学主题",
             "科研问题": question,
             "JSON字段": {
                 "research_goal": "原始目标",
+                "domain": "oncology、astronomy 或 general_science；未知领域必须使用 general_science",
                 "disease": "疾病英文标准名",
                 "subtype": "亚型或null",
                 "genes": ["HUGO基因符号"],
                 "variants": ["变异"],
                 "drugs": ["药物通用名"],
                 "outcomes": ["研究结局"],
-                "required_data_types": ["clinical/mutation/expression/treatment_response/evidence"],
+                "required_data_types": ["clinical/mutation/expression/treatment_response/publication/evidence"],
                 "target_fields": ["希望出现在科研数据集中的字段"],
             },
             "约束": [
@@ -351,7 +371,7 @@ class QwenClient:
             messages=[
                 {
                     "role": "system",
-                    "content": "你是肿瘤科研数据规划器。请严格按照 JSON 输出并保持癌种、队列和医学语义。",
+                    "content": "你是科研数据规划器。请严格按照 JSON 输出；未知领域使用 domain=general_science，不虚构患者字段或结果。",
                 },
                 {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)},
             ],
@@ -362,6 +382,7 @@ class QwenClient:
             payload["task_id"] = task_id
             payload.setdefault("research_goal", question)
             payload.setdefault("disease", "Cancer")
+            payload.setdefault("domain", "oncology")
             payload.setdefault("required_data_types", ["clinical"])
             payload.setdefault("genes", [])
             payload.setdefault("variants", [])
@@ -757,6 +778,7 @@ class QwenClient:
                 "知识证据选择 CIViC，不能替代患者队列",
                 "样本属性不完整时可检索 NCBI BioSample，但只能作为样本元数据核验层",
                 "需要研究语境或结局定义时可检索 Europe PMC，但不能把摘要当患者数据",
+                "通用科学主题优先调用 search_zenodo 检索官方公开数据集目录，并解析元数据与文件清单；目录记录不能当患者数据",
                 "可以为同一工具选择多个真实研究入口，例如多个 GSE accession、cBioPortal study_id 或 GDC project_id",
                 "不同研究入口只能作为独立来源审计和候选证据，不能按相同字符串患者编号自动合并",
                 "优先覆盖问题所需的样本字段、患者临床字段、分子字段和研究结局；不要为凑数量调用不相关来源",
@@ -817,6 +839,7 @@ class QwenClient:
                 "细胞系/AUC/IC50/药敏题调用 search_depmap，response_domain 只能是 preclinical_cell_line，不得当患者 pCR",
                 "试验或 NCT 题调用 search_trials，已知 NCT01042379 时应带 nct_id",
                 "证据/论文表格题调用 extract_paper_assets，只抽 HTML/JATS 表和图注，禁止从图像素读数",
+                "未知或跨学科主题优先调用 search_zenodo 和 search_europe_pmc，先形成真实元数据记录，再决定是否继续下载原始文件",
                 "如果没有尚未尝试且能缩小缺口的检索，返回空 tool_calls",
             ],
         }

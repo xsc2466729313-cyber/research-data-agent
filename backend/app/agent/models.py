@@ -68,6 +68,54 @@ class AgentConfigurationStatus(ApiModel):
     message: str
 
 
+class CompanionMessage(ApiModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=4000)
+
+
+class CompanionChatRequest(ApiModel):
+    message: str = Field(min_length=1, max_length=2000)
+    history: list[CompanionMessage] = Field(default_factory=list, max_length=20)
+    # The main entry sends a bounded result snapshot in addition to the
+    # rendered labels.  Values can therefore be nested lists/dicts; the
+    # companion sanitizes them before they reach the model.
+    context: dict[str, Any] = Field(default_factory=dict, max_length=32)
+    qwen_session_id: str | None = Field(default=None, min_length=20, max_length=100)
+
+
+class CompanionChatResponse(ApiModel):
+    reply: str = Field(min_length=1, max_length=12000)
+    used_model: bool = True
+    model_mode: Literal["qwen"] = "qwen"
+    notice: str = "回答来自当前已连接的科研模型；研究事实仍以已登记来源和数据资产为准。"
+
+
+class CompanionResearchQuestionResponse(ApiModel):
+    """Planner handoff generated from the companion conversation."""
+
+    research_question: str = Field(min_length=1, max_length=12000)
+    # Keep a generic alias so older clients can consume the handoff without
+    # needing to know the newer field name.
+    question: str = ""
+    used_model: bool = True
+    model_mode: Literal["qwen", "deterministic"] = "qwen"
+    notice: str = "已将当前对话和主入口上下文整理为研究向导可继续处理的问题；具体事实仍需来源核验。"
+
+
+class GiiispConfigurationRequest(ApiModel):
+    api_key: SecretStr = Field(min_length=10, max_length=500)
+    base_url: str = Field(min_length=12, max_length=500)
+
+
+class GiiispConfigurationStatus(ApiModel):
+    provider: str = "Giiisp"
+    configured: bool
+    base_url_configured: bool
+    protocol_available: bool = False
+    secret_persisted_by_application: bool = False
+    message: str
+
+
 class AgentPlanStep(ApiModel):
     step_id: str
     label: str

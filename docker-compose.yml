@@ -17,6 +17,7 @@ services:
       QWEN_MODEL: ${QWEN_MODEL:-qwen3.8-max}
       QWEN_WORKSPACE_ID: ${QWEN_WORKSPACE_ID:-}
       QWEN_TIMEOUT_SECONDS: ${QWEN_TIMEOUT_SECONDS:-120}
+      RESEARCH_WORKSPACE_DIR: /workspace/data/research-workspace
       RAG_VECTOR_BACKEND: ${RAG_VECTOR_BACKEND:-memory}
       RAG_EMBEDDING_BACKEND: ${RAG_EMBEDDING_BACKEND:-hashing}
       RAG_CHROMA_PATH: ${RAG_CHROMA_PATH:-/workspace/data/cache/planning_rag}
@@ -42,6 +43,7 @@ services:
       - evaluation_output:/workspace/data/output/evaluation
       - agent_output:/workspace/data/output/agent
       - planning_rag_cache:/workspace/data/cache/planning_rag
+      - research_workspace:/workspace/data/research-workspace
 
   frontend:
     build:
@@ -62,3 +64,4 @@ volumes:
   evaluation_output:
   agent_output:
   planning_rag_cache:
+  research_workspace:

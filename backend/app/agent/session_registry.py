@@ -106,5 +106,5 @@ class QwenSessionRegistry:
                 settings.workspace_id or ".maas.aliyuncs.com" in settings.base_url
             ),
             expires_at=expires_at,
-            message=f"{settings.provider_label} API 已验证并启用；凭据只保存在当前后端进程内存中。",
+            message=f"{settings.provider_label} API 已验证并启用；后端会话凭据只保存在当前进程内存中。",
         )

@@ -19,6 +19,8 @@ class SourceDiscovery:
         source_ids: set[str] = set()
         if self._is_oncology_contract(contract):
             source_ids.update({"cbioportal", "ncbi_geo", "gdc"})
+        elif contract.data_granularity == "publication":
+            source_ids.update({"zenodo", "ncbi_geo"})
         if any(accession.upper().startswith("GSE") for paper in papers for accession in paper.dataset_accessions):
             source_ids.add("ncbi_geo")
         return [source for source in self.catalog.sources() if source.source_id in source_ids]

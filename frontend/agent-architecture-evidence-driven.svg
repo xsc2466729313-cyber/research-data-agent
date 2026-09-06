@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 780" role="img" aria-labelledby="title desc">
+  <title id="title">有边界的混合式多智能体协作</title>
+  <desc id="desc">科研问题经任务理解、研究规划和检索补查形成证据，再经过独立核验与质量裁决，输出可追溯科研数据包。缺口或冲突回到检索补查。</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#607b92"/></marker>
+    <marker id="feedback-arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#cf8a37"/></marker>
+    <style>
+      text { font-family: "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill: #183b5b; }
+      .section { font-size: 20px; font-weight: 700; letter-spacing: 0; }
+      .node-role { font-size: 15px; font-weight: 700; fill: #41637f; }
+      .node-title { font-size: 25px; font-weight: 700; }
+      .node-title-small { font-size: 20px; font-weight: 700; }
+      .edge-label { font-size: 14px; fill: #607b92; }
+      .feedback-label { fill: #b96f1b; }
+      .box { fill: #ffffff; stroke: #2b78b5; stroke-width: 2.5; }
+      .evidence { fill: #ffffff; stroke: #7a61c8; stroke-width: 2.5; }
+      .audit { fill: #ffffff; stroke: #149789; stroke-width: 2.5; }
+      .quality { fill: #ffffff; stroke: #5b9f52; stroke-width: 2.5; }
+      .edge { fill: none; stroke: #607b92; stroke-width: 2.8; marker-end: url(#arrow); stroke-linejoin: round; }
+      .feedback { fill: none; stroke: #cf8a37; stroke-width: 3; stroke-dasharray: 8 7; marker-end: url(#feedback-arrow); stroke-linejoin: round; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="780" fill="#ffffff"/>
+  <rect x="32" y="22" width="1536" height="220" rx="12" fill="#f4f9fd"/>
+  <rect x="32" y="268" width="1536" height="204" rx="12" fill="#f8f6ff"/>
+  <rect x="32" y="498" width="1536" height="242" rx="12" fill="#f2faf7"/>
+  <text x="62" y="62" class="section">01　任务规划</text>
+  <text x="62" y="308" class="section">02　证据与规则支撑</text>
+  <text x="62" y="538" class="section">03　独立核验与交付</text>
+
+  <!-- Task-planning lane -->
+  <rect x="80" y="104" width="220" height="100" rx="8" class="box"/>
+  <text x="190" y="138" text-anchor="middle" class="node-role">输入</text>
+  <text x="190" y="174" text-anchor="middle" class="node-title">科研问题</text>
+  <rect x="380" y="104" width="285" height="100" rx="8" class="box"/>
+  <text x="404" y="138" class="node-role">主 Agent</text>
+  <text x="522" y="174" text-anchor="middle" class="node-title">任务理解与调度</text>
+  <rect x="750" y="104" width="285" height="100" rx="8" class="box"/>
+  <text x="774" y="138" class="node-role">规划 Agent</text>
+  <text x="892" y="174" text-anchor="middle" class="node-title">研究方案设计</text>
+  <rect x="1120" y="104" width="400" height="100" rx="8" class="box"/>
+  <text x="1144" y="138" class="node-role">采集 / 补查 Agent</text>
+  <text x="1320" y="174" text-anchor="middle" class="node-title">检索与缺口闭环</text>
+  <path d="M300 154H380" class="edge"/>
+  <text x="340" y="142" text-anchor="middle" class="edge-label">任务输入</text>
+  <path d="M665 154H750" class="edge"/>
+  <text x="707" y="142" text-anchor="middle" class="edge-label">研究目标</text>
+  <path d="M1035 154H1120" class="edge"/>
+  <text x="1077" y="142" text-anchor="middle" class="edge-label">检索计划</text>
+
+  <!-- Evidence lane -->
+  <path d="M1320 204V360" class="edge"/>
+  <text x="1342" y="266" class="edge-label">按方案调用来源</text>
+  <path d="M278 405H430" class="edge"/>
+  <path d="M700 405H815" class="edge"/>
+  <path d="M1070 405H1160" class="edge"/>
+  <path d="M78 385V425C78 438 128 448 178 448S278 438 278 425V385" fill="#ffffff" stroke="#2b78b5" stroke-width="2.5"/>
+  <ellipse cx="178" cy="385" rx="100" ry="20" fill="#ffffff" stroke="#2b78b5" stroke-width="2.5"/>
+  <text x="178" y="432" text-anchor="middle" class="node-title-small">可靠数据来源</text>
+  <rect x="430" y="360" width="270" height="90" rx="8" class="evidence"/>
+  <text x="454" y="390" class="node-role">规则模块</text>
+  <text x="565" y="424" text-anchor="middle" class="node-title-small">真实取数与字段治理</text>
+  <path d="M815 380V427C815 440 872 450 942 450S1070 440 1070 427V380" fill="#ffffff" stroke="#7a61c8" stroke-width="2.5"/>
+  <ellipse cx="942" cy="380" rx="127" ry="20" fill="#ffffff" stroke="#7a61c8" stroke-width="2.5"/>
+  <text x="942" y="435" text-anchor="middle" class="node-title">RAG 证据包</text>
+  <rect x="1160" y="360" width="320" height="90" rx="8" class="evidence"/>
+  <text x="1320" y="390" text-anchor="middle" class="node-role">证据通道</text>
+  <text x="1320" y="424" text-anchor="middle" class="node-title-small">带证据进入当前任务</text>
+
+  <!-- Independent validation lane -->
+  <path d="M1320 450V565H220V610" class="edge"/>
+  <text x="770" y="554" text-anchor="middle" class="edge-label">带证据进入独立校验</text>
+  <rect x="70" y="610" width="300" height="92" rx="8" class="audit"/>
+  <text x="220" y="640" text-anchor="middle" class="node-role">主 Agent</text>
+  <text x="220" y="676" text-anchor="middle" class="node-title-small">证据约束解释</text>
+  <rect x="460" y="610" width="280" height="92" rx="8" class="audit"/>
+  <text x="600" y="640" text-anchor="middle" class="node-role">核验 Agent</text>
+  <text x="600" y="676" text-anchor="middle" class="node-title">独立检查</text>
+  <rect x="830" y="610" width="280" height="92" rx="8" class="quality"/>
+  <text x="970" y="640" text-anchor="middle" class="node-role">质量 Agent</text>
+  <text x="970" y="676" text-anchor="middle" class="node-title-small">质量与安全裁决</text>
+  <polygon points="1160,656 1230,612 1300,656 1230,700" fill="#ffffff" stroke="#5b9f52" stroke-width="2.5"/>
+  <text x="1230" y="662" text-anchor="middle" class="node-role">可交付？</text>
+  <rect x="1360" y="610" width="180" height="92" rx="8" class="quality"/>
+  <text x="1450" y="640" text-anchor="middle" class="node-role">输出</text>
+  <text x="1450" y="670" text-anchor="middle" class="node-title-small">可追溯科研</text>
+  <text x="1450" y="692" text-anchor="middle" class="node-title-small">数据包</text>
+  <path d="M370 656H460" class="edge"/>
+  <path d="M740 656H830" class="edge"/>
+  <path d="M1110 656H1160" class="edge"/>
+  <path d="M1300 656H1360" class="edge"/>
+  <text x="1330" y="644" text-anchor="middle" class="edge-label">通过</text>
+
+  <!-- Feedback stays outside every content lane. -->
+  <path d="M1230 612V585H1560V154H1520" class="feedback"/>
+  <text x="1450" y="575" text-anchor="middle" class="edge-label feedback-label">缺口或冲突：返回补查与人工复核</text>
+</svg>

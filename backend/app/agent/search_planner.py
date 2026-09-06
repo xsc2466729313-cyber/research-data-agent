@@ -427,11 +427,21 @@ class FieldDrivenSearchPlanner:
                 cohort_calls.insert(0, ("search_geo", {"accession": "GSE76360", "max_files": 5}))
         terms = question_search_terms(spec.research_goal, spec, brief)
         discovery: list[tuple[str, dict[str, Any]]] = []
-        if not intents & {"cell_line", "trial_registry", "knowledge_only"} and (spec.genes or asks_pcr(spec) or asks_survival(spec) or needs_clinical_outcome(spec) or terms):
-            discovery.append(("search_geo_catalog", {"query": catalog_query(spec, extra_terms=terms), "max_records": 20}))
-            discovery.append(
-                ("search_europe_pmc", {"query": literature_query(spec, extra_terms=terms), "max_records": 20})
-            )
+        is_general_science = getattr(spec, "domain", "oncology") == "general_science"
+        if not intents & {"cell_line", "trial_registry", "knowledge_only"} and (
+            is_general_science or spec.genes or asks_pcr(spec) or asks_survival(spec) or needs_clinical_outcome(spec) or terms
+        ):
+            if is_general_science:
+                generic_query = " ".join([spec.research_goal, *terms[:8]]).strip()
+                discovery.append(("search_zenodo", {"query": generic_query, "max_records": 20}))
+                discovery.append(
+                    ("search_europe_pmc", {"query": generic_query, "max_records": 20})
+                )
+            else:
+                discovery.append(("search_geo_catalog", {"query": catalog_query(spec, extra_terms=terms), "max_records": 20}))
+                discovery.append(
+                    ("search_europe_pmc", {"query": literature_query(spec, extra_terms=terms), "max_records": 20})
+                )
         aux_early: list[tuple[str, dict[str, Any]]] = []
         civic_relevant = (
             (bool(spec.drugs) and "same_patient" not in intents)
@@ -474,7 +484,7 @@ class FieldDrivenSearchPlanner:
                     },
                 )
             )
-        if not intents & {"cell_line", "trial_registry", "knowledge_only"}:
+        if not intents & {"cell_line", "trial_registry", "knowledge_only"} and getattr(spec, "domain", "oncology") != "general_science":
             aux_late.append(
                 (
                     "search_biosample",
@@ -569,6 +579,8 @@ class FieldDrivenSearchPlanner:
                 "cbioportal": "search_cbioportal",
                 "gdc / tcga": "search_gdc",
                 "gdc": "search_gdc",
+                "zenodo": "search_zenodo",
+                "search_zenodo": "search_zenodo",
             }
 
             def _preferred_rank(item: tuple[str, dict[str, Any]]) -> int:
@@ -620,6 +632,11 @@ class FieldDrivenSearchPlanner:
             return (
                 f"按题目关键词与主字段（{focus}）检索；{ '、'.join(affinity) } 因覆盖本题特有字段被优先，"
                 "其余来源按覆盖率排序，禁止跨研究贴患者。"
+            )
+        if getattr(spec, "domain", "oncology") == "general_science":
+            return (
+                f"按题目关键词（{focus}）自主检索公开数据集目录和文献；先解析官方元数据与文件清单，"
+                "再由研究者确认文件后继续下载，不把目录记录当作患者数据。"
             )
         return (
             f"按题目关键词与主字段（{focus}）自主检索字段最全、最匹配的独立队列；"

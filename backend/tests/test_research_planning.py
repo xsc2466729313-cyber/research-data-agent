@@ -230,6 +230,40 @@ def test_giiisp_skeleton_never_exposes_key_or_guesses_endpoint() -> None:
         raise AssertionError("Giiisp skeleton must not call an undocumented API")
 
 
+def test_unconfigured_giiisp_does_not_block_europe_pmc_fallback() -> None:
+    service = ResearchPlanningService(
+        literature_agent=LiteratureAgent(providers=[GiiispProvider(), _StubLiteratureProvider()])
+    )
+    topic = service.create_topic(TopicCreateRequest(topic="乳腺癌新辅助治疗"))
+
+    response = service.scan_literature(
+        topic.topic_id,
+        main_module.LiteratureScanRequest(max_records=5),
+    )
+
+    assert response.scan.papers[0].source_id == "europepmc:PMC-TEST"
+    assert response.scan.provider_traces[0].provider == "giiisp"
+    assert response.scan.provider_traces[0].status == "skipped"
+    assert response.scan.provider_traces[1].provider == "stub_literature"
+    assert response.scan.provider_traces[1].status == "success"
+
+
+def test_giiisp_configuration_api_is_ephemeral_and_does_not_echo_secret(monkeypatch) -> None:
+    service = ResearchPlanningService()
+    monkeypatch.setattr(main_module, "research_planning_service", service)
+    client = TestClient(main_module.app)
+    initial = client.get("/api/agent/giiisp-configuration")
+    assert initial.status_code == 200
+    assert initial.json()["configured"] is False
+    response = client.post(
+        "/api/agent/giiisp-configuration",
+        json={"api_key": "secret-value-123", "base_url": "https://example.org"},
+    )
+    assert response.status_code == 200
+    assert response.json()["configured"] is True
+    assert "secret-value-123" not in response.text
+
+
 def test_research_planning_api_runs_topic_to_contract_without_patient_data(monkeypatch) -> None:
     monkeypatch.setattr(main_module, "research_planning_service", _planning_service())
     client = TestClient(main_module.app)

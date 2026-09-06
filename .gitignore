@@ -19,6 +19,7 @@ node_modules/
 *.log
 runtime-logs/
 data/state/
+backend/data/astronomy/
 evidence_delivery/
 
 # Autonomous loop runs are local execution traces; curated summaries remain
@@ -34,4 +35,15 @@ evaluation/closed_loop/*.json
 # Keep one reviewer-facing submission archive; package staging and historical
 # archives are generated artifacts and must not return to version control.
 deliverables/*
+!deliverables/cancer-precision-data-agent-v2.2.0-reading-pack.zip
 !deliverables/cancer-precision-data-agent-v2.0.0-reading-pack.zip
+
+# Local third-party checkouts are not part of the project release.
+third_party/ui-ux-pro-max-skill/
+
+# Local Codex visualizations, presentation builds, and bridge outputs.
+.chart-data-*/
+.codex-finalizer/
+.codex-ppt-edit/
+outputs/
+tmp-oncology-bridge/

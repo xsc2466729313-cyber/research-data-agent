@@ -54,9 +54,9 @@ python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 
 ## 首次使用千问
 
-点击首页的“开始完整规划”或技术详情页的“运行研究协议”时，系统会先检查千问是否已配置。未配置时会弹出提示；点击“去配置 API”，填写百炼 API Key 后测试连接即可继续。默认模型为 `Qwen3.8-Max`（配置标识：`qwen3.8-max`）。
+点击首页的“发送并开始研究”或技术详情页的“运行研究协议”时，系统会先检查千问是否已配置。未配置时会弹出提示；点击“去配置 API”，填写百炼 API Key 后测试连接即可继续。默认模型为 `Qwen3.8-Max`（配置标识：`qwen3.8-max`）。
 
-通过网页填写的凭据仅保存在当前后端进程的临时内存会话中，最长保留两小时；重启服务或主动断开后即失效，不会写入项目文件。需要长期可用时，在部署平台或本机环境变量中配置 `DASHSCOPE_API_KEY`。
+通过网页填写的连接字段保存在当前浏览器本机，用于后端重启后的自动重建；后端实际会话最长保留两小时，只存在当前进程内存中。点击“清除本机连接”或清除站点数据即可删除浏览器保存内容，不会写入项目文件。需要跨浏览器长期可用时，在部署平台或本机环境变量中配置 `DASHSCOPE_API_KEY`。
 
 ## 云端部署（推荐 Render）
 
@@ -78,8 +78,9 @@ python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 | [数据来源、数据集与参数依据总表](docs/03_数据源与测试数据集.md) | 问题驱动的指标闭环讲解，以及业务数据集、公开评测集、Gold Set、清洗流程和参数/规则依据 |
 | [公开数据集统一对照报告](evaluation/PUBLIC_DATASET_COMPARISON_20260902.md) | 问题解析、科学检索、字段匹配、实体匹配、清洗的真实逐任务指标、消融和 API 条件实验 |
 | [公开检索统一多方法矩阵](evaluation/PUBLIC_RETRIEVAL_MATRIX_20260903.md) | 同一公开测试集上的多种方法、命中率、召回率、排序质量和耗时 |
-| [发布阅读包 ZIP](deliverables/cancer-precision-data-agent-v2.0.0-reading-pack.zip) | 只含正文、图示、公开对照与必要证据的发布包 |
-| [v2.0.0 发布说明](RELEASE_NOTES.md) | 分享链接、统一指标口径与验证命令 |
+| [发布阅读包 ZIP](deliverables/cancer-precision-data-agent-v2.2.0-reading-pack.zip) | 当前 v2.2.0 正文、图示、公开对照与必要证据发布包 |
+| [历史 v2.0.0 阅读包](deliverables/cancer-precision-data-agent-v2.0.0-reading-pack.zip) | v2.0.0 历史归档，不改写历史口径 |
+| [v2.2.0 发布说明](RELEASE_NOTES.md) | 当前整合内容、版本边界与验证命令 |
 
 ## 复现评测与图表
 

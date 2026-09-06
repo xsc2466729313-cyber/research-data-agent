@@ -1,0 +1,68 @@
+# 医学来源插件目录。Registry 只描述能力，不是 Adapter 本身。
+# fetch_binding 必须指向已有工具名，不得登记平行实现。
+
+sources:
+  - source_key: gdc
+    display_name: GDC / TCGA
+    domain: oncology
+    resource_kind: official_api
+    modalities:
+      - clinical_table
+      - mutation
+      - expression
+    fetch_binding: search_gdc
+    discovery_binding: null
+    status: active
+
+  - source_key: geo
+    display_name: NCBI GEO
+    domain: oncology
+    resource_kind: official_api
+    modalities:
+      - expression
+      - clinical_table
+    fetch_binding: search_geo
+    discovery_binding: search_geo_catalog
+    status: active
+
+  - source_key: cbioportal
+    display_name: cBioPortal
+    domain: oncology
+    resource_kind: official_api
+    modalities:
+      - clinical_table
+      - mutation
+      - cna
+    fetch_binding: search_cbioportal
+    discovery_binding: null
+    status: active
+
+  - source_key: aact
+    display_name: ClinicalTrials.gov / AACT
+    domain: oncology
+    resource_kind: official_api
+    modalities:
+      - clinical_trial
+    fetch_binding: search_trials
+    discovery_binding: null
+    status: active
+
+  - source_key: civic
+    display_name: CIViC
+    domain: oncology
+    resource_kind: official_api
+    modalities:
+      - knowledge_evidence
+    fetch_binding: search_civic
+    discovery_binding: null
+    status: active
+
+  - source_key: europe_pmc
+    display_name: Europe PMC
+    domain: oncology
+    resource_kind: literature
+    modalities:
+      - publication
+    fetch_binding: search_europe_pmc
+    discovery_binding: search_europe_pmc
+    status: active

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from urllib.parse import urlparse
 
 from pydantic import SecretStr
 
@@ -31,6 +32,17 @@ class GiiispProvider:
     @property
     def configured(self) -> bool:
         return bool(self._api_key and self._base_url)
+
+    @property
+    def base_url_configured(self) -> bool:
+        return bool(self._base_url)
+
+    def configure(self, *, api_key: SecretStr, base_url: str) -> None:
+        parsed = urlparse(base_url.strip())
+        if parsed.scheme != "https" or not parsed.netloc:
+            raise LiteratureProviderConfigurationError("Giiisp 接口地址必须使用 HTTPS。")
+        self._api_key = api_key
+        self._base_url = base_url.strip().rstrip("/")
 
     def search(self, request: LiteratureSearchRequest) -> LiteratureSearchResult:
         del request

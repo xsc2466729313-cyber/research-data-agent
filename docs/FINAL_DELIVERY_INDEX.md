@@ -1,6 +1,6 @@
-# 发布交付索引（v2.0.0，2026-09-04）
+# 发布交付索引（v2.2.0，2026-09-05）
 
-本页是仓库的统一入口，只保留最终正文、最新评委阅读包和当前最佳结果。
+本页是 v2.2.0 仓库的统一入口，整合当前主线功能、审计结论与升级架构；历史 v2.0.0 阅读包和评测口径仍按原发布日期保留。
 
 ## 推荐入口
 
@@ -14,7 +14,8 @@ Agent 架构评分说明：[Agent 系统架构说明](AGENT_ARCHITECTURE.md)
 |---|---|
 | 项目正文报告 | [PROJECT_REPORT.md](PROJECT_REPORT.md) |
 | 评委讲解稿 | [REVIEWER_STORY.md](REVIEWER_STORY.md) |
-| 发布阅读包 ZIP | [下载 v2.0.0](../deliverables/cancer-precision-data-agent-v2.0.0-reading-pack.zip) |
+| 发布阅读包 ZIP | [当前 v2.2.0 阅读包](../deliverables/cancer-precision-data-agent-v2.2.0-reading-pack.zip) |
+| 历史归档 | [v2.0.0 阅读包](../deliverables/cancer-precision-data-agent-v2.0.0-reading-pack.zip) |
 | 项目使用说明 | [README.md](../README.md) |
 
 ## 核心对照结果

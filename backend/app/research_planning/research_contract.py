@@ -38,6 +38,7 @@ class ResearchContractBuilder:
         if not candidate.literature_evidence:
             warnings.append("候选问题本身尚无可核验论文 Evidence。")
         status = "NEEDS_EVIDENCE" if warnings else "READY_FOR_SOURCE_PLANNING"
+        general = topic.domain == "general_science"
         return ResearchContract(
             contract_id=f"contract-{uuid4().hex[:12]}",
             topic_id=topic.topic_id,
@@ -51,17 +52,25 @@ class ResearchContractBuilder:
             required_fields=required,
             recommended_fields=recommended,
             optional_fields=optional,
-            analysis_plan=self._analysis_plan(candidate),
+            analysis_plan=self._analysis_plan(candidate, general=general),
             metric_requirements=metrics,
             literature_evidence=candidate.literature_evidence,
             validation_status=status,
             validation_warnings=warnings,
             created_at=datetime.now(timezone.utc),
             lifecycle_status="DRAFT",
+            data_granularity="publication" if general else "patient",
+            response_domain="none" if general else "clinical",
         )
 
     @staticmethod
-    def _analysis_plan(candidate: QuestionCandidate) -> list[str]:
+    def _analysis_plan(candidate: QuestionCandidate, *, general: bool = False) -> list[str]:
+        if general:
+            return [
+                "按主题检索公开数据集目录和文献，先解析官方元数据、DOI 与文件清单。",
+                "研究者确认数据许可和主文件后，再下载并解析具体 CSV/JSON 字段。",
+                "目录记录只用于数据资源发现，不自动生成患者或样本级统计结论。",
+            ]
         if candidate.research_type == "classification_prediction":
             return [
                 "按患者或独立队列划分训练/验证数据，防止同一患者样本跨集合泄漏。",

@@ -44,6 +44,20 @@ sources:
     supports_patient_level: true
     supports_sample_level: true
 
+  - source_id: zenodo
+    source_name: Zenodo
+    source_kind: public_research_data_repository
+    source_url: https://zenodo.org/
+    domains: [general_science, multi_cancer, biomedicine]
+    access_modes: [OPEN_API, MANUAL_DOWNLOAD]
+    structuredness: 0.88
+    authority: 0.82
+    traceability: 0.90
+    cost: 0.12
+    supports_api: true
+    supports_patient_level: false
+    supports_sample_level: false
+
 datasets:
   - dataset_id: cbioportal:brca_metabric
     source_id: cbioportal

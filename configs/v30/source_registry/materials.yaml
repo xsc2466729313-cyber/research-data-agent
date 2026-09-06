@@ -1,0 +1,24 @@
+# 材料来源：本阶段只允许 catalog_only / planned，不能假装已支持取数。
+
+sources:
+  - source_key: materials_project
+    display_name: Materials Project
+    domain: materials
+    resource_kind: catalog
+    modalities:
+      - structure
+      - computed_property
+    fetch_binding: null
+    discovery_binding: null
+    status: catalog_only
+
+  - source_key: pubchem
+    display_name: PubChem
+    domain: materials
+    resource_kind: catalog
+    modalities:
+      - structure
+      - compound
+    fetch_binding: null
+    discovery_binding: null
+    status: planned

@@ -148,6 +148,7 @@ def test_closed_loop_stops_when_no_legal_followup_remains():
     assert response.presentation == "best_only"
     assert response.display_iterations == [1]
     assert response.improved is False
+    assert response.improvement_summary == ["无"]
 
 
 def test_closed_loop_hides_comparison_when_second_round_does_not_improve():

@@ -15,6 +15,7 @@ from backend.app.sources.discovery.models import (
     DiscoveryAdapterResult,
     EuropePMCRecord,
     GeoCatalogRecord,
+    ZenodoDatasetRecord,
 )
 
 
@@ -32,6 +33,7 @@ class DiscoveryAdapter:
     EUROPE_PMC_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
     EUROPE_PMC_RECORD_URL = "https://europepmc.org/article/{kind}/{value}"
     EUROPE_PMC_FULLTEXT_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/{pmcid}/fullTextXML"
+    ZENODO_URL = "https://zenodo.org/api/records/"
 
     def __init__(self, *, client: httpx.Client | None = None, timeout_seconds: float = 30.0) -> None:
         self._owns_client = client is None
@@ -227,6 +229,103 @@ class DiscoveryAdapter:
             request_url=str(response.url),
             queried_at=datetime.now(timezone.utc),
             notice="Europe PMC 结果用于文献证据发现和研究语境核验，不作为患者级疗效事实。",
+        )
+
+    def search_zenodo(
+        self,
+        *,
+        task_id: str,
+        query: str,
+        max_records: int = 20,
+        search_plan: SearchPlan | None = None,
+    ) -> DiscoveryAdapterResult:
+        """Search Zenodo's official dataset catalog and parse resource metadata.
+
+        This deliberately stops at the catalog layer.  A Zenodo record is a
+        candidate dataset until a researcher selects its files for a follow-up
+        download and schema inspection.
+        """
+        del search_plan
+        limit = min(max(int(max_records), 1), 100)
+        params = {"q": query, "type": "dataset", "size": limit, "sort": "bestmatch"}
+        response = self.client.get(self.ZENODO_URL, params=params)
+        payload = self._json(response, "Zenodo 数据集检索")
+        hits = ((payload.get("hits") or {}).get("hits") or [])
+        records: list[ZenodoDatasetRecord] = []
+        for raw_value in hits[:limit]:
+            raw = dict(raw_value or {})
+            metadata = dict(raw.get("metadata") or {})
+            record_id = self._text(raw.get("id")) or self._text(metadata.get("record_id"))
+            if not record_id:
+                continue
+            files: list[dict[str, Any]] = []
+            for file_value in raw.get("files") or []:
+                file_raw = dict(file_value or {})
+                links = dict(file_raw.get("links") or {})
+                file_item = {
+                    key: value
+                    for key, value in {
+                        "key": self._text(file_raw.get("key")),
+                        "size": file_raw.get("size"),
+                        "checksum": self._text(file_raw.get("checksum")),
+                        "download_url": self._text(links.get("self") or file_raw.get("self")),
+                    }.items()
+                    if value not in (None, "")
+                }
+                if file_item.get("key"):
+                    files.append(file_item)
+            file_formats = sorted(
+                {
+                    suffix.lower()
+                    for item in files
+                    for suffix in [str(item.get("key") or "").rsplit(".", 1)[-1]]
+                    if "." in str(item.get("key") or "") and suffix
+                }
+            )
+            record_links = raw.get("links") if isinstance(raw.get("links"), dict) else {}
+            url = str(record_links.get("self_html") or f"https://zenodo.org/records/{record_id}")
+            item = self._source_item(
+                task_id=task_id,
+                source_id=f"zenodo:{record_id}",
+                source_name="Zenodo",
+                accession=self._text(metadata.get("doi")) or record_id,
+                url=url,
+                raw=raw,
+            )
+            keywords = [str(value).strip() for value in (metadata.get("keywords") or []) if str(value).strip()]
+            records.append(
+                ZenodoDatasetRecord(
+                    record_id=record_id,
+                    title=self._text(metadata.get("title") or raw.get("title")),
+                    description=self._text(metadata.get("description")),
+                    doi=self._text(metadata.get("doi")),
+                    publication_date=self._text(metadata.get("publication_date")),
+                    keywords=list(dict.fromkeys(keywords)),
+                    file_count=len(files),
+                    file_formats=file_formats,
+                    files=files,
+                    url=url,
+                    raw_record=raw,
+                    source_item=item,
+                )
+            )
+        total_value = ((payload.get("hits") or {}).get("total"))
+        if isinstance(total_value, dict):
+            total_value = total_value.get("value")
+        try:
+            total = int(total_value or len(records))
+        except (TypeError, ValueError):
+            total = len(records)
+        return DiscoveryAdapterResult(
+            task_id=task_id,
+            query=query,
+            source_kind="zenodo",
+            total_count=max(total, len(records)),
+            records=records,
+            source_items=[record.source_item for record in records],
+            request_url=str(response.url),
+            queried_at=datetime.now(timezone.utc),
+            notice="Zenodo 公开数据集目录已解析元数据和资源文件清单；下载文件仍需按官方链接继续核验。",
         )
 
     def extract_paper_assets(

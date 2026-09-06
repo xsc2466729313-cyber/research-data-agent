@@ -26,7 +26,7 @@ def test_health_reports_qwen_agent_capabilities() -> None:
     assert response.json() == {
         "status": "ok",
         "mode": "qwen-agent+function-calling+live-adapters+research-dataset+traceability+quality-gate+v3-mainline",
-        "version": "2.0.0-qwen-agent",
+        "version": "2.2.0-qwen-agent",
     }
 
 
@@ -81,7 +81,7 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     response = client.get("/")
 
     assert response.status_code == 200
-    assert "千问驱动" in response.text
+    assert "内核实验室" in response.text
     assert "输入你真正想研究的问题" in response.text
     assert "规划与真实检索入口" in response.text
     assert "科研数据集" in response.text
@@ -102,6 +102,9 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "连接千问 API" in response.text
     assert "从百炼凭据 CSV 导入" in response.text
     assert "测试连接并启用" in response.text
+    assert 'id="giiisp-base-url" type="url" autocomplete="url" placeholder="填写 Giiisp 官方 API 或 MCP 服务地址"' in response.text
+    assert 'id="giiisp-api-key" type="password"' in response.text
+    assert 'id="giiisp-api-key" type="password" value=' not in response.text
     assert "最长 2 小时" in response.text
     assert "技术审计与后续建议" in response.text
     assert "本次实际清洗动作" not in response.text
@@ -126,21 +129,16 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "有边界的混合式多智能体协作" in response.text
     assert "上下文隔离" in response.text
     assert "独立校验" in response.text
-    assert 'src="/agent-workflow-cn.svg"' in response.text
-    assert "什么是智能体" in response.text
+    assert 'src="/agent-architecture-evidence-driven.svg?v=20260904-3"' in response.text
+    assert "什么是智能体" not in response.text
     assert "任务总负责人智能体" in response.text
     assert "研究规划智能体" in response.text
     assert "资料查找智能体" in response.text
     assert "独立质疑智能体" in response.text
     assert "固定规则模块" in response.text
-    workflow = (ROOT / "frontend" / "agent-workflow-cn.svg").read_text(encoding="utf-8")
-    assert "主 Agent｜任务总控" in workflow
-    assert "规划 Agent" in workflow
-    assert "检索 Agent" in workflow
-    assert "Critic Agent" in workflow
-    assert "Quality Agent" in workflow
-    assert "关键字段、证据" in workflow
-    assert "输出：科研数据交付包" in workflow
+    workflow = ROOT / "frontend" / "agent-architecture-evidence-driven.svg"
+    assert workflow.exists()
+    assert workflow.stat().st_size > 0
     assert "先明确研究需要什么数据" in response.text
     assert "每一步筛选都能解释清楚" in response.text
     assert "模型评价中心" not in response.text
@@ -186,6 +184,11 @@ def test_frontend_smoke_contains_qwen_agent_chinese_research_dataset_views() -> 
     assert "connectQwenSession" in script
     assert "importQwenCredentialCsv" in script
     assert "qwen_session_id" in script
+    assert "Giiisp 可选；未配置时自动使用 Europe PMC。" in script
+    assert "请先配置 Giiisp，再开始研究。" not in script
+    assert 'src="/app.js?v=20260906-companion-chat-4"' in response.text
+    assert 'fetchApi("/api/agent/companion/chat"' in script
+    assert 'id="astronomy-results" class="results" hidden' in response.text
     assert "data-source-db" in script
     assert "TYPE_TRANSLATIONS" in script
     assert "competition_report" in script
@@ -242,14 +245,14 @@ def test_frontend_guided_planner_is_primary_and_wires_real_planning_apis() -> No
     assert response.status_code == 200
     assert 'id="planning-workspace"' in response.text
     assert 'id="planner-form"' in response.text
-    assert "告诉我你想研究的方向" in response.text
+    assert "告诉我你想研究的方向" not in response.text
     assert "哪些因素会影响乳腺癌新辅助治疗的疗效？" in response.text
     assert "哪些生物标志物可以预测乳腺癌患者的治疗效果？" in response.text
     assert "公开数据中有哪些乳腺癌队列适合开展疗效预测研究？" not in response.text
     assert "研究依据" in response.text
     assert "研究方案" in response.text
     assert "数据准备" in response.text
-    assert "开始完整规划" in response.text
+    assert "发送并开始研究" in response.text
 
     script = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
     assert 'fetchApi("/api/research/topics"' in script
@@ -262,8 +265,19 @@ def test_frontend_guided_planner_is_primary_and_wires_real_planning_apis() -> No
     assert "renderPlannerSources" in script
     assert "renderPlannerFlowSummary" in script
     assert "runPlannerDatasetBuild" in script
+    assert "function classifyPlannerInput" in script
+    assert "function renderPlannerInputReply" in script
+    assert "function submitPlannerTopic" in script
+    assert 'if (intent.kind !== "research")' in script
+    assert "不需要进入研究规划" in script
+    assert "没有创建研究会话" in script or "不会创建研究会话" in script
     assert "系统会自动采用证据最充分的一项" in script
     assert "系统未生成替代性虚假结果" in script
+    assert "const plannerRuns = new Map();" in script
+    assert "function isActivePlannerSession(sessionId)" in script
+    assert "function persistPlannerRun(run" in script
+    assert "if (!button || plannerState.busy) return;" not in script
+    assert "const sessionId = `planner_${Date.now()}_" in script
 
 
 def test_gdc_adapter_api_returns_registered_official_sources(tmp_path: Path) -> None:

@@ -115,7 +115,7 @@ def discovery_handler(request: httpx.Request) -> httpx.Response:
     raise AssertionError(f"Unexpected discovery request: {request.url}")
 
 
-def build_agent(tmp_path: Path) -> ResearchAgentService:
+def build_agent(tmp_path: Path, *, geo_adapter=None) -> ResearchAgentService:
     qwen_http = httpx.Client(transport=httpx.MockTransport(qwen_handler))
     qwen = QwenClient(
         settings=QwenSettings(
@@ -129,7 +129,12 @@ def build_agent(tmp_path: Path) -> ResearchAgentService:
     cbio_http = httpx.Client(transport=httpx.MockTransport(standard_handler))
     cbio = CBioPortalAdapter(cache_dir=tmp_path / "cbio", client=cbio_http)
     discovery = DiscoveryAdapter(client=httpx.Client(transport=httpx.MockTransport(discovery_handler)))
-    return ResearchAgentService(qwen_client=qwen, cbioportal_adapter=cbio, discovery_adapter=discovery)
+    return ResearchAgentService(
+        qwen_client=qwen,
+        cbioportal_adapter=cbio,
+        geo_adapter=geo_adapter,
+        discovery_adapter=discovery,
+    )
 
 
 def test_qwen_agent_executes_function_call_and_builds_research_table(tmp_path: Path) -> None:
@@ -315,7 +320,7 @@ def test_selection_prefers_same_patient_gene_and_response_pack() -> None:
 
 
 def test_iterative_collection_switches_to_geo_response_cohort(tmp_path: Path) -> None:
-    result = build_agent(tmp_path).run(
+    result = build_agent(tmp_path, geo_adapter=_iterative_geo_fixture(tmp_path)).run(
         AgentTaskRequest(
             question=QUESTION,
             use_qwen=True,
@@ -821,6 +826,32 @@ def _geo_matrix_result(tmp_path: Path, lines: list[str], *, accession: str = "GS
         queried_at=datetime.now(timezone.utc),
         notice="test",
     )
+
+
+def _iterative_geo_fixture(tmp_path: Path):
+    count = 40
+
+    def quoted(values) -> str:
+        return "\t".join(f'"{value}"' for value in values)
+
+    lines = [
+        f"!Sample_title\t{quoted([f'{index}_B' for index in range(count)])}",
+        f"!Sample_geo_accession\t{quoted([f'GSM{index:04d}' for index in range(count)])}",
+        f"!Sample_characteristics_ch1\t{quoted([f'subject id: {index}' for index in range(count)])}",
+        f"!Sample_characteristics_ch1\t{quoted(['patient status: HER2+ Breast Cancer'] * count)}",
+        f"!Sample_characteristics_ch1\t{quoted(['timepoint: baseline'] * count)}",
+        f"!Sample_characteristics_ch1\t{quoted(['response at surgery: pCR' if index % 2 else 'response at surgery: NOR' for index in range(count)])}",
+        f"!Sample_characteristics_ch1\t{quoted(['er status: Pos'] * count)}",
+        f"!Sample_characteristics_ch1\t{quoted(['pr status: Neg'] * count)}",
+        "!series_matrix_table_begin",
+    ]
+    result = _geo_matrix_result(tmp_path, lines)
+
+    class FixtureGEOAdapter:
+        def run(self, request):
+            return result.model_copy(update={"task_id": request.search_plan.task_id})
+
+    return FixtureGEOAdapter()
 
 
 def _response_spec() -> ResearchSpec:
